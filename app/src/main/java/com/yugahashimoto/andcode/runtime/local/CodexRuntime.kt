@@ -204,7 +204,9 @@ class CodexRuntime(
         val runtime = installedRuntimeProvider() ?: return
         runCatching {
             withContext(Dispatchers.IO) {
-                buildCodexProcess(runtime, listOf("logout")).redirectErrorStream(true).start().waitFor(15, TimeUnit.SECONDS)
+                val process = buildCodexProcess(runtime, listOf("logout")).redirectErrorStream(true).start()
+                // A logout that never finishes must not leave its process running behind us.
+                if (!process.waitFor(15, TimeUnit.SECONDS)) process.destroyForcibly()
             }
         }
         stopServer()
@@ -475,6 +477,9 @@ class CodexRuntime(
                     output = process.outputStream,
                     onNotification = ::handleNotification,
                     onServerRequest = { id, method, params -> handleServerRequest(client, id, method, params) },
+                    // A wedged guest is only cured by killing it: the reader loop then ends, the
+                    // server settles as gone, and the next call builds a fresh process.
+                    onWriteFailure = ::destroyWedgedServer,
                 )
             val readerJob =
                 launchCodexReaderLoop(
@@ -494,7 +499,11 @@ class CodexRuntime(
                             buildJsonObject {
                                 put("name", JsonPrimitive("and-code"))
                                 put("title", JsonPrimitive("AndCode"))
-                                put("version", JsonPrimitive(version() ?: "0"))
+                                // Never the full version() call: with a cold cache that spawns a
+                                // whole proot boot (up to 30 s) HERE, inside serverLock, stalling
+                                // the first call and everything queued behind the mutex. The
+                                placeholder is informational only; health checks warm the cache.
+                                put("version", JsonPrimitive(cachedVersion ?: "0"))
                             },
                         )
                     },
@@ -514,21 +523,42 @@ class CodexRuntime(
     ) {
         val error = messages.processExited(runCatching { process.exitValue() }.getOrNull(), failure?.message)
         client.failPending(failure ?: IllegalStateException(error))
-        // This only runs for a process that ended on its own (launchCodexReaderLoop skips onEnded
-        // for a deliberate stop), so any session still marked in-flight here had a turn genuinely
-        // cut short - the same "settle what a dead process left running" step ClaudeCodeRuntime
-        // takes, needed because turn/start itself already returned before the actual work streamed
-        // in via later notifications.
-        settleServerGone(error)
+        // Identity is decided under the lock, and the settle runs only for the process the
+        // runtime still considers current. Between this death and the reader reaching EOF, a
+        // caller can already have built a replacement server - the crash itself triggers calls
+        // (a UI refreshing thread/list, an abort hitting turn/interrupt) - and settling
+        // unconditionally failed the REPLACEMENT's in-flight turns with the old process's death
+        // message, cleared its live approvals (respondToPermission then no-ops, and the turn
+        // hangs server-side forever), and abandoned a sign-in in progress on it.
+        scope.launch {
+            val wasCurrent =
+                serverLock.withLock {
+                    if (server?.process === process) {
+                        server = null
+                        true
+                    } else {
+                        false
+                    }
+                }
+            if (wasCurrent) settleServerGone(error)
+        }
+    }
+
+    /**
+     * Kills the app-server after a write to it timed out: the process is alive but wedged, and
+     * every subsequent RPC would pay the write timeout against the same dead pipe. The kill ends
+     * the reader loop, which settles the server as gone through [onServerEnded].
+     */
+    private fun destroyWedgedServer() {
         scope.launch {
             serverLock.withLock {
-                if (server?.process === process) server = null
+                val current = server ?: return@withLock
+                runCatching { current.process.destroyForcibly() }
             }
         }
     }
 
-    /** Settles everything that was waiting on an app-server that is no longer running. */
-    private fun settleServerGone(error: String) {
+    /** Settles everything that was waiting on an app-server that is no longer running. */    private fun settleServerGone(error: String) {
         sessionsWithTurnInFlight.toMap().forEach { (sessionId, turnId) ->
             sessionsWithTurnInFlight -= sessionId
             itemParser.forgetTurn(turnId)

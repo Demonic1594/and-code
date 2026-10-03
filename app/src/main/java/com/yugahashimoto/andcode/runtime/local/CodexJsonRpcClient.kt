@@ -5,11 +5,13 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -18,6 +20,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.long
+import java.io.IOException
 import java.io.OutputStream
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -67,6 +70,13 @@ class CodexJsonRpcClient(
         }
     },
     private val onClientError: (Throwable) -> Unit = {},
+    /**
+     * Invoked when a write to [output] overruns [WRITE_TIMEOUT_MS] - the app-server is alive but
+     * no longer reading stdin, and the only cure is tearing the process down so the reader loop
+     * ends and a fresh server replaces it. The hook lets the owner of the process react; the
+     * write still throws so the caller fails like any other error.
+     */
+    private val onWriteFailure: () -> Unit = {},
     private val json: Json =
         Json {
             ignoreUnknownKeys = true
@@ -138,9 +148,24 @@ class CodexJsonRpcClient(
 
     private suspend fun writeLine(message: JsonObject) {
         val bytes = (json.encodeToString(JsonObject.serializer(), message) + "\n").toByteArray(Charsets.UTF_8)
-        writeLock.withLock {
-            output.write(bytes)
-            output.flush()
+        // The write is bounded, lock and stream alike. A wedged app-server that stopped reading
+        // stdin filled the pipe and blocked this write forever - while it held the write lock, so
+        // every later call, notification and permission response queued behind the mutex with NO
+        // timeout of their own (they never reached the write, so their call timeout never even
+        // started). The timeout converts the wedge into a failure callers can see; the process
+        // teardown [onWriteFailure] triggers is what actually recovers the connection.
+        try {
+            withTimeout(WRITE_TIMEOUT_MS) {
+                writeLock.withLock {
+                    withContext(Dispatchers.IO) {
+                        output.write(bytes)
+                        output.flush()
+                    }
+                }
+            }
+        } catch (timeout: TimeoutCancellationException) {
+            onWriteFailure()
+            throw IOException("Codex app-server stopped reading stdin (write timed out)", timeout)
         }
     }
 
@@ -159,6 +184,16 @@ class CodexJsonRpcClient(
                 onClientError(it)
                 return
             }
+        // One bad line must cost exactly that line. A dispatch that throws - a handler tripping
+        // over an unexpected notification shape - used to unwind into the reader loop's own
+        // catch and end the whole app-server: every chat's in-flight turn failed and the process
+        // was abandoned mid-stream. Contained here, the stream keeps reading.
+        runCatching {
+            dispatchLine(root)
+        }.onFailure { error -> onClientError(error) }
+    }
+
+    private fun dispatchLine(root: JsonObject) {
         val method = (root["method"] as? JsonPrimitive)?.content
         val id = root["id"]
         if (method != null) {
@@ -236,6 +271,13 @@ class CodexJsonRpcClient(
          * startup inside PRoot before it can answer - easily the slowest call the client makes.
          */
         const val INITIALIZE_TIMEOUT_MS: Long = 120_000L
+
+        /**
+         * stdin of a healthy app-server never blocks for long - requests are KB-sized against a
+         * 64 KB pipe - so half a minute of write stall means the guest has wedged. See
+         * [writeLine].
+         */
+        const val WRITE_TIMEOUT_MS: Long = 30_000L
     }
 }
 
@@ -251,7 +293,7 @@ fun launchCodexReaderLoop(
     scope: CoroutineScope,
     lines: Sequence<String>,
     client: CodexJsonRpcClient,
-    onEnded: (Throwable?) -> Unit,
+    onEnded: suspend (Throwable?) -> Unit,
 ): Job =
     scope.launch(Dispatchers.IO) {
         val failure = runCatching { lines.forEach(client::receiveLine) }.exceptionOrNull()
