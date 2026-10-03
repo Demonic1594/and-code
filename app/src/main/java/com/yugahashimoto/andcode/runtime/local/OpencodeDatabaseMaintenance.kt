@@ -122,7 +122,7 @@ class OpencodeDatabaseMaintenance(
             if [ "$(wc -c < "${'$'}DB" 2>/dev/null || echo 0)" -gt $vacuumThreshold ]; then
               sqlite3 "${'$'}DB" "PRAGMA busy_timeout=30000; VACUUM; PRAGMA wal_checkpoint(TRUNCATE);"
             fi
-        """.trimIndent()
+            """.trimIndent()
     }
 
     companion object {
