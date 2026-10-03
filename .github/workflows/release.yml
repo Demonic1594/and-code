@@ -128,4 +128,14 @@ jobs:
             cp app/build/outputs/apk/fdroid/release/app-fdroid-release.apk "and-code-$TAG-fdroid-release.apk"
             ASSETS+=("and-code-$TAG-fdroid-release.apk")
           fi
+          # Release crash stacks arrive obfuscated; the mappings retrace them. Published next to
+          # the APKs they belong to - fdroid's has no Crashlytics upload of its own.
+          if [ -f app/build/outputs/mapping/githubRelease/mapping.txt ]; then
+            cp app/build/outputs/mapping/githubRelease/mapping.txt "and-code-$TAG-release-mapping.txt"
+            ASSETS+=("and-code-$TAG-release-mapping.txt")
+          fi
+          if [ -f app/build/outputs/mapping/fdroidRelease/mapping.txt ]; then
+            cp app/build/outputs/mapping/fdroidRelease/mapping.txt "and-code-$TAG-fdroid-release-mapping.txt"
+            ASSETS+=("and-code-$TAG-fdroid-release-mapping.txt")
+          fi
           gh release upload "$TAG" --clobber "${ASSETS[@]}"
