@@ -20,7 +20,7 @@ class CodexJsonRpcClientTest {
      * landed, so a fed-back "response" can never race the registration it resolves. Bounded: a
      * write that never lands must fail the assertions, not hang the suite.
      */
-    private fun pumpUntilWritten(output: ByteArrayOutputStream) {
+    private suspend fun pumpUntilWritten(output: ByteArrayOutputStream) {
         var attempts = 0
         while (output.size() == 0 && attempts < 10_000) {
             kotlinx.coroutines.yield()
