@@ -104,12 +104,14 @@ class OpencodeDatabaseMaintenance(
      * has nothing to maintain. `busy_timeout` makes every statement wait for the server's locks
      * instead of failing against them.
      *
-     * The `message` update strips pathologically large `summary.diffs` payloads: opencode's
-     * session summarizer attaches the full working-tree diff to a message, and a big enough
-     * repository produced a 279 MB patch inside one row - loading that session then needed a
-     * single ~293 MB string in the app's heap and OOMed regardless of heap size. The patch is a
-     * preview of changes that git itself holds; only rows past [VACUUM_STRIP_THRESHOLD_BYTES]
-     * are touched, far beyond any healthy summary.
+     * The `message` update removes the entire `summary` object from pathologically large
+     * messages: opencode's session summarizer attaches the full working-tree diff to a message,
+     * and a big enough repository produced a 279 MB patch inside one row - loading that session
+     * then needed a single ~293 MB string in the app's heap and OOMed regardless of heap size.
+     * The whole `summary` key has to go, not just `diffs`: the server's schema requires `diffs`
+     * whenever `summary` is present, so a stripped `summary: {}` object makes every later
+     * write of that message fail validation. The diff is a preview of changes git itself holds;
+     * only rows past [SUMMARY_STRIP_THRESHOLD_BYTES] are touched, far beyond any healthy summary.
      */
     internal fun maintenanceScript(): String {
         val vacuumThreshold = vacuumThresholdBytes
@@ -118,7 +120,7 @@ class OpencodeDatabaseMaintenance(
             DB="${'$'}HOME/.local/share/opencode/opencode.db"
             command -v sqlite3 >/dev/null 2>&1 || exit 0
             [ -f "${'$'}DB" ] || exit 0
-            sqlite3 "${'$'}DB" "PRAGMA busy_timeout=30000; DELETE FROM event; DELETE FROM event_sequence; UPDATE message SET data = json_remove(data, '\$.summary.diffs') WHERE length(data) > $stripThreshold AND json_valid(data); PRAGMA wal_checkpoint(TRUNCATE);"
+            sqlite3 "${'$'}DB" "PRAGMA busy_timeout=30000; DELETE FROM event; DELETE FROM event_sequence; UPDATE message SET data = json_remove(data, '\$.summary') WHERE length(data) > $stripThreshold AND json_valid(data); PRAGMA wal_checkpoint(TRUNCATE);"
             if [ "$(wc -c < "${'$'}DB" 2>/dev/null || echo 0)" -gt $vacuumThreshold ]; then
               sqlite3 "${'$'}DB" "PRAGMA busy_timeout=30000; VACUUM; PRAGMA wal_checkpoint(TRUNCATE);"
             fi
