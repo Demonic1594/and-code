@@ -16,7 +16,6 @@ NATIVE_EXECUTABLES = {
 }
 # Optional libraries: copied when the pinned packages provide them.
 RUNTIME_LIBRARIES = {
-    "libandroid-shmem.so": "libandroid-shmem.so",
     "libc++_shared.so": "libc++_shared.so",
 }
 # Required libraries, matched by glob because Termux ships them under their full version
@@ -24,8 +23,10 @@ RUNTIME_LIBRARIES = {
 # hardcoded name used to make this step silently skip the file - the APK then contained a proot
 # binary whose DT_NEEDED (patched below to libtalloc.so) resolved to nothing, and the packaged
 # app died with "library libtalloc.so not found" on the very first proot exec on device.
+# libandroid-shmem is required for the same reason: proot's DT_NEEDED lists it directly.
 REQUIRED_RUNTIME_LIB_GLOBS = {
     "libtalloc.so*": "libtalloc.so",
+    "libandroid-shmem.so": "libandroid-shmem.so",
 }
 NATIVE_EXECUTABLE_SEARCH_DIRS = ("bin", "libexec")
 
