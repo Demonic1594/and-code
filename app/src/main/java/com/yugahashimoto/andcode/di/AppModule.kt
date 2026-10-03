@@ -116,15 +116,11 @@ val appModule =
             )
         }
 
-        // The Koin-side twin of the maintenance instance AndCodeApplication builds by hand; both
-        // point at the same marker file, mirroring how RuntimeActivityRepository is wired twice.
-        single {
-            val runtimeDirectory: File = get()
-            val commandRunner: LocalRuntimeCommandRunner = get()
-            OpencodeDatabaseMaintenance(
-                shellRunner = { command, timeoutSeconds -> commandRunner.runShell(command, timeoutSeconds) },
-                markerFile = File(runtimeDirectory, "opencode-db-maintenance"),
-            )
+        // The application builds the single instance by hand (its construction order predates
+        // Koin's start); this lazy reference shares that one instance, so the run mutex actually
+        // serializes every trigger - the same pattern as codexTarget below.
+        single<OpencodeDatabaseMaintenance> {
+            (androidContext().applicationContext as AndCodeApplication).opencodeDatabaseMaintenance
         }
 
         single {

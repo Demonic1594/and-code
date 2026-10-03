@@ -46,6 +46,12 @@ class ConnectionQualityMonitor(
      * stops spending battery on a health check nobody can see the result of.
      */
     private val awaitForeground: suspend () -> Unit = {},
+    /**
+     * Timebase for the token-rate window. The event stream coalesces consecutive deltas into
+     * single events carrying a chunk count; tests inject a controllable clock because the window
+     * spans a full second of real time.
+     */
+    private val clockNanos: () -> Long = System::nanoTime,
 ) {
     private val _quality = MutableStateFlow(ConnectionQuality())
     val quality: StateFlow<ConnectionQuality> = _quality.asStateFlow()
@@ -79,7 +85,7 @@ class ConnectionQualityMonitor(
      */
     fun recordStreamTokens(count: Int) {
         if (count <= 0) return
-        val nowNanos = System.nanoTime()
+        val nowNanos = clockNanos()
         synchronized(lock) {
             if (streamTokenCount == 0) {
                 streamWindowStartNanos = nowNanos
