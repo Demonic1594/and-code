@@ -59,6 +59,16 @@ class OpencodeDatabaseMaintenance(
          * escalate, and the marker is still advanced so the next attempt waits a full interval.
          */
         data class Ran(val output: String) : Result
+
+        /**
+         * The maintenance could not even be launched: the shell runner threw instead of returning
+         * an exit code. The realistic causes - `createTempFile` failing on a full disk, the proot
+         * binary failing to spawn - occur precisely on the degraded devices this class serves, and
+         * the callers launch [runIfDue] bare on application-level scopes, so an escaping exception
+         * would take the whole process down. The marker is deliberately NOT advanced: the failure
+         * is environmental and may resolve on its own, so the next trigger retries immediately.
+         */
+        data class Failed(val reason: String) : Result
     }
 
     /**
@@ -72,9 +82,13 @@ class OpencodeDatabaseMaintenance(
             val lastRun = readMarker()
             if (lastRun != null && now - lastRun < minIntervalMillis) return@withLock Result.SkippedRecentlyRun
             val result =
-                withContext(Dispatchers.IO) {
-                    shellRunner(maintenanceScript(), timeoutSeconds)
-                }
+                runCatching {
+                        withContext(Dispatchers.IO) {
+                            shellRunner(maintenanceScript(), timeoutSeconds)
+                        }
+                    }.getOrElse { failure ->
+                        return@withLock Result.Failed(failure.message ?: failure.javaClass.simpleName)
+                    }
             when {
                 result.exitCode == RUNTIME_UNAVAILABLE_EXIT_CODE -> Result.SkippedRuntimeUnavailable
                 else -> {

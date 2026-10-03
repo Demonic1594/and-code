@@ -132,6 +132,31 @@ class OpencodeDatabaseMaintenanceTest {
     }
 
     @Test
+    fun `a throwing runner fails softly and leaves the marker alone`() =
+        runTest {
+            val marker = temporaryFolder.newFile("marker")
+            marker.delete()
+            var attempts = 0
+            val throwingRunner: suspend (String, Long) -> LocalRuntimeCommandResult = { _, _ ->
+                attempts++
+                throw java.io.IOException("No space left on device")
+            }
+            val maintenance =
+                OpencodeDatabaseMaintenance(
+                    shellRunner = throwingRunner,
+                    markerFile = marker,
+                    clock = { 1_000L },
+                )
+
+            val result = maintenance.runIfDue()
+
+            assertEquals(OpencodeDatabaseMaintenance.Result.Failed("No space left on device"), result)
+            assertEquals(1, attempts)
+            // Not advanced: the failure is environmental, so the next trigger retries at once.
+            assertFalse(marker.exists())
+        }
+
+    @Test
     fun `an unreadable marker does not block the run`() =
         runTest {
             val marker = temporaryFolder.newFile("marker")
