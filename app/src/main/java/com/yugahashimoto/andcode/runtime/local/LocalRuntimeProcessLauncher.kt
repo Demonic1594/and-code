@@ -167,7 +167,10 @@ class LocalRuntimeProcessLauncher(
                 synchronized(this) {
                     lastExitCode = exitCode
                     lastExitAtMillis = nowMillis()
-                    restartCount++
+                    // Only a run the current generation still owns counts as a restart: a
+                    // deliberate stop() bumps the generation first, and counting those made the
+                    // "restarts" diagnostic read crash loops into every manual stop/start cycle.
+                    if (generation == expectedGeneration) restartCount++
                     if (generation == expectedGeneration) onExit else null
                 }
             callback?.invoke(exitCode, pid, uptime)
@@ -225,6 +228,9 @@ class LocalRuntimeProcessLauncher(
         process.destroyForcibly()
         process.waitFor(2, TimeUnit.SECONDS)
         runCatching { process.outputStream.close() }
+        // A start that never became ready leaves the same detached guests behind as a timeout;
+        // see [killManagedProcessTrees].
+        runCatching { killManagedProcessTrees(runtimeDirectory, process) }
         error("Local OpenCode did not become ready on port $port: ${tail(logFile)}")
     }
 

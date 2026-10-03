@@ -16,6 +16,26 @@ class LocalRuntimeCommandRunner(
     init {
         require(timeoutSeconds > 0)
         require(maxOutputCharacters > 0)
+        pruneStaleLogs()
+    }
+
+    /**
+     * Removes temp logs orphaned by an app death mid-command - their `finally` never ran, and
+     * nothing else ever cleaned the directory. Pattern-matched to this runner's own files so a
+     * runtime's real logs (startup, stderr) are never touched.
+     */
+    private fun pruneStaleLogs() {
+        val cutoff = System.currentTimeMillis() - STALE_LOG_MILLIS
+        File(runtimeDirectory, "logs")
+            .listFiles { file ->
+                val name = file.name
+                (name.startsWith("diagnostic-") || name.startsWith("clone-") || name.startsWith("codex-login-")) &&
+                    name.endsWith(".log")
+            }
+            .orEmpty()
+            .forEach { file ->
+                if (file.lastModified() < cutoff) runCatching { file.delete() }
+            }
     }
 
     fun run(definition: LocalRuntimeToolDefinition): LocalRuntimeCommandResult = runShell(definition.command)
@@ -78,6 +98,9 @@ class LocalRuntimeCommandRunner(
                 if (!completed) {
                     process.destroyForcibly()
                     process.waitFor(2, TimeUnit.SECONDS)
+                    // SIGKILL only reaches proot; its guest tracees detach and survive. See
+                    // [killManagedProcessTrees].
+                    runCatching { killManagedProcessTrees(runtimeDirectory, process) }
                     LocalRuntimeCommandResult(124, messages.commandTimedOut)
                 } else {
                     LocalRuntimeCommandResult(
@@ -110,5 +133,10 @@ class LocalRuntimeCommandRunner(
             file.readFully(bytes)
             return bytes.decodeToString().takeLast(maxOutputCharacters)
         }
+    }
+
+    private companion object {
+        /** Temp logs a killed app left behind are worthless after a day. */
+        private const val STALE_LOG_MILLIS = 24L * 60L * 60L * 1000L
     }
 }

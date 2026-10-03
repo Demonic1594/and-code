@@ -91,6 +91,9 @@ class GitCloneRepository(
                 if (!completed) {
                     process.destroyForcibly()
                     process.waitFor(2, TimeUnit.SECONDS)
+                    // A timed-out clone's guest git would otherwise keep writing into the shared
+                    // workspace with its tracer gone. See [killManagedProcessTrees].
+                    runCatching { killManagedProcessTrees(runtimeDirectory, process) }
                     GitCloneResult(124, target, "Clone timed out")
                 } else {
                     GitCloneResult(
