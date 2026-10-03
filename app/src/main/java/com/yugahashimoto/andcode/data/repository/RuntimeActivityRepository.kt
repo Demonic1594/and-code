@@ -3,6 +3,7 @@ package com.yugahashimoto.andcode.data.repository
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
 import com.yugahashimoto.andcode.core.api.PermissionRequest
 import com.yugahashimoto.andcode.core.api.QuestionRequest
+import com.yugahashimoto.andcode.core.api.coalesceStreamingUpdates
 import com.yugahashimoto.andcode.core.api.sessionIdOrNull
 import com.yugahashimoto.andcode.core.diagnostics.RunSignals
 import com.yugahashimoto.andcode.core.diagnostics.StallDiagnosis
@@ -202,7 +203,11 @@ class RuntimeActivityRepository(
     }
 
     private suspend fun streamEvents(target: RuntimeTarget) {
-        flow { emitAll(target.events()) }
+        // Streaming floods arrive as dozens of part updates a second, each of which every
+        // downstream consumer (chat state, drawer, unread markers) would process separately.
+        // Coalescing here folds them before the work multiplies; barriers - permissions, session
+        // status, errors - still pass through immediately and in order.
+        flow { emitAll(target.events().coalesceStreamingUpdates()) }
             .retryWhen { error, attempt ->
                 mutableState.update {
                     it.copy(

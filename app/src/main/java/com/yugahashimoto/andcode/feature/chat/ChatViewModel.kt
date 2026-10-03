@@ -2219,7 +2219,7 @@ class ChatViewModel(
                 // bridge uses field="reasoning" for thinking deltas. Anything else carries no
                 // displayable text.
                 if (event.sessionId != activeSession || (event.field != "text" && event.field != "reasoning")) return
-                connectionMonitor.recordStreamToken()
+                connectionMonitor.recordStreamTokens(event.mergeCount)
                 val messageParts = streamedParts.getOrPut(event.messageId) { linkedMapOf() }
                 val updatedPart =
                     when (val existing = messageParts[event.partId]) {

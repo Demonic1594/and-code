@@ -69,12 +69,22 @@ class ConnectionQualityMonitor(
     }
 
     fun recordStreamToken() {
+        recordStreamTokens(1)
+    }
+
+    /**
+     * Records [count] chunks of streamed output at once. The event stream coalesces consecutive
+     * deltas for a part into single events; counting them as one would understate the rate by
+     * the coalescing factor, so the merged event reports how many it folds together.
+     */
+    fun recordStreamTokens(count: Int) {
+        if (count <= 0) return
         val nowNanos = System.nanoTime()
         synchronized(lock) {
             if (streamTokenCount == 0) {
                 streamWindowStartNanos = nowNanos
             }
-            streamTokenCount++
+            streamTokenCount += count
             val elapsedSeconds = (nowNanos - streamWindowStartNanos) / NANOS_PER_SECOND
             if (elapsedSeconds < TOKEN_RATE_WINDOW_SECONDS) return
             val instantaneousRate = streamTokenCount / elapsedSeconds
