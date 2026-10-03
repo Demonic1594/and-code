@@ -933,21 +933,24 @@ class ChatViewModel(
         val currentBackend = backend ?: return
         viewModelScope.launch {
             runCatching {
-                // The session endpoint answers with two numbers; the message scan it replaces
-                // re-downloads and re-parses the whole transcript — base64 attachments included —
-                // once per completed turn just to read a token count off the last entry. Only
-                // runtimes that report no session tokens (or fail the call — the session list can
-                // lag a brand-new session) pay for the scan, and then exactly as they did before.
-                val sessionTokens =
-                    runCatching { currentBackend.session(sessionId).tokens?.contextUsed }.getOrNull()
-                sessionTokens
-                    ?: currentBackend
-                        .listMessages(sessionId)
-                        .asReversed()
-                        .firstNotNullOfOrNull { message ->
-                            message.info.tokens?.contextUsed
-                                ?.takeIf { !message.info.role.equals("user", ignoreCase = true) }
-                        }
+                // The indicator (and the >=90% summarize gate below) must read the context
+                // window's occupancy, which only the last assistant message's usage reports:
+                // `input + cache.read` of that single LLM call. The session endpoint aggregates
+                // the same fields over every turn of the session - with prompt caching each turn
+                // re-reads the whole prefix, so that sum grows by roughly a window per turn and
+                // reached "800k/1.0M" within minutes of real usage. Summed lifetime tokens made
+                // shouldSummarizeBeforePrompt fire before every prompt, and each summarize turn
+                // then added another window's worth to the sum: a self-amplifying loop. The
+                // session number is therefore only a fallback for sessions whose messages carry
+                // no tokens at all (there it is ~0 anyway), never the primary source.
+                currentBackend
+                    .listMessages(sessionId)
+                    .asReversed()
+                    .firstNotNullOfOrNull { message ->
+                        message.info.tokens?.contextUsed
+                            ?.takeIf { !message.info.role.equals("user", ignoreCase = true) }
+                    }
+                    ?: currentBackend.session(sessionId).tokens?.contextUsed
                     ?: 0L
             }.onSuccess { used ->
                 _uiState.update { it.copy(contextTokensUsed = used) }
