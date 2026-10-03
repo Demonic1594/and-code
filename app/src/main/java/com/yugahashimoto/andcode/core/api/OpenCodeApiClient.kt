@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -22,6 +23,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import okhttp3.CertificatePinner
@@ -32,9 +34,12 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.ByteArrayInputStream
 import java.io.IOException
+import java.io.InputStream
 import java.util.concurrent.TimeUnit
 
+@OptIn(ExperimentalSerializationApi::class)
 class OpenCodeApiClient(
     private val profile: ConnectionProfile,
     private val httpClient: OkHttpClient = defaultHttpClient(profile),
@@ -46,9 +51,6 @@ class OpenCodeApiClient(
     // connection is saved, so an endpoint the current rules reject has to surface as a failed
     // request rather than as an exception escaping into a UI callback.
     private val baseUrl: HttpUrl by lazy { OpenCodeUrl.normalize(profile.baseUrl).getOrThrow() }
-
-    @Volatile
-    private var eventPath: String = GLOBAL_EVENT_PATH
 
     private val providerAuthHttpClient: OkHttpClient =
         httpClient.newBuilder()
@@ -102,8 +104,8 @@ class OpenCodeApiClient(
 
     suspend fun providerAuthMethods(): Map<String, List<ProviderAuthMethod>> =
         withContext(Dispatchers.IO) {
-            execute(requestBuilder("provider/auth").get().build()) { body ->
-                json.decodeFromString<Map<String, List<ProviderAuthMethod>>>(body)
+            execute(requestBuilder("provider/auth").get().build()) { stream ->
+                json.decodeFromStream<Map<String, List<ProviderAuthMethod>>>(stream)
             }
         }
 
@@ -165,8 +167,8 @@ class OpenCodeApiClient(
                 requestBuilder("provider/${encodePath(providerId)}/oauth/callback")
                     .post(body.toString().toRequestBody(JSON_MEDIA_TYPE))
                     .build()
-            execute(request, providerAuthHttpClient) { responseBody ->
-                json.decodeFromString<Boolean>(responseBody)
+            execute(request, providerAuthHttpClient) { stream ->
+                json.decodeFromStream<Boolean>(stream)
             }
         }
 
@@ -353,8 +355,8 @@ class OpenCodeApiClient(
 
     suspend fun mcpServers(): List<McpServer> =
         withContext(Dispatchers.IO) {
-            execute(requestBuilder("mcp").get().build()) { body ->
-                val root = json.parseToJsonElement(body).jsonObject
+            execute(requestBuilder("mcp").get().build()) { stream ->
+                val root = json.decodeFromStream<JsonElement>(stream).jsonObject
                 root.entries.map { (name, value) ->
                     val serverObj = value.jsonObject
                     val tools =
@@ -401,8 +403,8 @@ class OpenCodeApiClient(
 
     suspend fun config(): JsonElement =
         withContext(Dispatchers.IO) {
-            execute(requestBuilder("config").get().build()) { body ->
-                json.parseToJsonElement(body)
+            execute(requestBuilder("config").get().build()) { stream ->
+                json.decodeFromStream<JsonElement>(stream)
             }
         }
 
@@ -412,8 +414,8 @@ class OpenCodeApiClient(
                 requestBuilder("config")
                     .patch(patch.toString().toRequestBody(JSON_MEDIA_TYPE))
                     .build()
-            execute(request) { body ->
-                json.parseToJsonElement(body)
+            execute(request) { stream ->
+                json.decodeFromStream<JsonElement>(stream)
             }
         }
 
@@ -519,9 +521,16 @@ class OpenCodeApiClient(
      * text, no tool output, and no permission request, so a run that needs approval waits
      * forever on a request that never reaches the client. Subscribe to the cross-instance
      * `/global/event` stream instead, and fall back only for servers that predate it.
+     *
+     * The fallback is deliberately per-collector: this field used to live on the client, so one
+     * transient 400/501 — exactly what a proxy mid-restart answers — switched every collector,
+     * for the client's whole lifetime, to the instance stream and reintroduced the wrong-workspace
+     * bug above. Each `events()` subscription now carries its own path and retries the global
+     * stream first on its next reconnect.
      */
-    fun events(): Flow<OpenCodeEvent> =
-        flow { emitAll(singleEventStream(eventPath)) }.retryWhen { cause, attempt ->
+    fun events(): Flow<OpenCodeEvent> {
+        var eventPath = GLOBAL_EVENT_PATH
+        return flow { emitAll(singleEventStream(eventPath)) }.retryWhen { cause, attempt ->
             if (
                 eventPath == GLOBAL_EVENT_PATH &&
                 cause is OpenCodeApiException &&
@@ -540,12 +549,20 @@ class OpenCodeApiClient(
             delay(backoffMillis)
             true
         }
+    }
 
     private fun singleEventStream(path: String): Flow<OpenCodeEvent> =
         channelFlow {
+            // Finite on purpose. An infinite read timeout makes a half-open connection — NAT
+            // mapping expiry, a Wi-Fi-to-cell switch, a server hard-killed behind a NAT — block
+            // in readUtf8Line() forever: no error, no EOF, so the retry loop never fires and the
+            // app silently stops receiving events until it is restarted. A deadline turns a dead
+            // peer into an IOException, which the backoff above converts into a reconnect. The
+            // value must sit comfortably above the server's SSE keep-alive cadence; a genuinely
+            // quiet-but-healthy stream just pays one reconnect per interval.
             val eventClient =
                 httpClient.newBuilder()
-                    .readTimeout(0, TimeUnit.MILLISECONDS)
+                    .readTimeout(SSE_READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .build()
             val request =
                 requestBuilder(path)
@@ -603,7 +620,7 @@ class OpenCodeApiClient(
         queryParameters: List<Pair<String, String>> = emptyList(),
     ): T =
         withContext(Dispatchers.IO) {
-            execute(requestBuilder(path, queryParameters).get().build()) { body -> json.decodeFromString<T>(body) }
+            execute(requestBuilder(path, queryParameters).get().build()) { stream -> json.decodeFromStream<T>(stream) }
         }
 
     private suspend inline fun <reified T> getList(
@@ -611,8 +628,8 @@ class OpenCodeApiClient(
         queryParameters: List<Pair<String, String>> = emptyList(),
     ): List<T> =
         withContext(Dispatchers.IO) {
-            execute(requestBuilder(path, queryParameters).get().build()) { body ->
-                json.decodeFromString<List<T>>(body)
+            execute(requestBuilder(path, queryParameters).get().build()) { stream ->
+                json.decodeFromStream<List<T>>(stream)
             }
         }
 
@@ -626,7 +643,7 @@ class OpenCodeApiClient(
                 requestBuilder(path, queryParameters)
                     .post(body.toString().toRequestBody(JSON_MEDIA_TYPE))
                     .build()
-            execute(request) { responseBody -> json.decodeFromString<T>(responseBody) }
+            execute(request) { stream -> json.decodeFromStream<T>(stream) }
         }
 
     private suspend inline fun <reified T> put(
@@ -639,7 +656,7 @@ class OpenCodeApiClient(
                 requestBuilder(path, queryParameters)
                     .put(body.toString().toRequestBody(JSON_MEDIA_TYPE))
                     .build()
-            execute(request) { responseBody -> json.decodeFromString<T>(responseBody) }
+            execute(request) { stream -> json.decodeFromStream<T>(stream) }
         }
 
     private suspend inline fun <reified T> patch(
@@ -652,7 +669,7 @@ class OpenCodeApiClient(
                 requestBuilder(path, queryParameters)
                     .patch(body.toString().toRequestBody(JSON_MEDIA_TYPE))
                     .build()
-            execute(request) { responseBody -> json.decodeFromString<T>(responseBody) }
+            execute(request) { stream -> json.decodeFromStream<T>(stream) }
         }
 
     private suspend inline fun <reified T> delete(
@@ -664,7 +681,7 @@ class OpenCodeApiClient(
                 requestBuilder(path, queryParameters)
                     .delete()
                     .build()
-            execute(request) { responseBody -> json.decodeFromString<T>(responseBody) }
+            execute(request) { stream -> json.decodeFromStream<T>(stream) }
         }
 
     private suspend fun postWithoutResponse(
@@ -682,11 +699,14 @@ class OpenCodeApiClient(
     private fun <T> execute(
         request: Request,
         client: OkHttpClient = httpClient,
-        parse: (String) -> T,
+        parse: (InputStream) -> T,
     ): T {
         client.newCall(request).execute().use { response ->
-            val bodyText = response.body?.string().orEmpty()
+            val body = response.body
             if (!response.isSuccessful) {
+                // Only failures pay for a String: the error snippet is a few hundred characters,
+                // while a success body can be a whole transcript.
+                val bodyText = body?.string().orEmpty()
                 throw OpenCodeApiException(
                     statusCode = response.code,
                     message =
@@ -697,7 +717,12 @@ class OpenCodeApiClient(
                         ),
                 )
             }
-            return parse(bodyText)
+            // Decoding straight off the response stream: reading the whole body into a String
+            // first held a second full-size copy of every payload — on a transcript carrying
+            // base64 attachments, tens of megabytes per fetch — while the parsed objects were
+            // still being built.
+            val stream = body?.byteStream() ?: ByteArrayInputStream(ByteArray(0))
+            return stream.use(parse)
         }
     }
 
@@ -766,7 +791,20 @@ class OpenCodeApiClient(
         private const val PROVIDER_AUTH_TIMEOUT_MINUTES = 6L
         private const val GLOBAL_EVENT_PATH = "global/event"
         private const val INSTANCE_EVENT_PATH = "event"
-        private val GLOBAL_EVENT_UNSUPPORTED_CODES = setOf(400, 404, 405, 501)
+
+        /**
+         * Only codes an old OpenCode server itself answers for an unknown global route. 400 and
+         * 501 were trimmed: those are what a proxy mid-restart or a misconfigured gateway blips
+         * out, and treating the blip as "server predates global events" abandoned the healthy
+         * global stream for good.
+         */
+        private val GLOBAL_EVENT_UNSUPPORTED_CODES = setOf(404, 405)
+
+        /**
+         * SSE read deadline; see `singleEventStream`. Generously above any keep-alive cadence a
+         * server uses, low enough that a dead stream is re-established in well under two minutes.
+         */
+        private const val SSE_READ_TIMEOUT_SECONDS = 90L
 
         val defaultJson: Json =
             Json {

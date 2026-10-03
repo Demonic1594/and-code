@@ -474,6 +474,10 @@ class LocalRuntimeInstaller(
                 .redirectErrorStream(true)
                 .redirectOutput(ProcessBuilder.Redirect.to(installLog))
                 .apply {
+                    // The Android environment (CLASSPATH, BOOTCLASSPATH, ANDROID_*...) is not for
+                    // the guest; every other launcher here clears it first. The guest login shell
+                    // re-exports what it needs.
+                    environment().clear()
                     environment().putAll(suite.environment())
                     environment()["PROOT_TMP_DIR"] = prootTmp.absolutePath
                 }
@@ -481,15 +485,34 @@ class LocalRuntimeInstaller(
         val completed = process.waitFor(15, java.util.concurrent.TimeUnit.MINUTES)
         if (!completed) {
             process.destroyForcibly()
+            // Reap, and take the guest package manager with us: a wedged apk holding rootfs
+            // locks would survive the tracer kill. See [killManagedProcessTrees].
+            process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)
+            runCatching { killManagedProcessTrees(runtimeDirectory, process) }
             error("Development tool installation timed out. $PACKAGE_INSTALL_RETRY_HINT")
         }
         require(process.exitValue() == 0) {
             // The hint sits between the headline and the raw log, or a 4000-character tail scrolls
             // it off the screen the error is read on.
             "Unable to install runtime packages. $PACKAGE_INSTALL_RETRY_HINT\n\n" +
-                "Last log lines:\n${installLog.readText().takeLast(4000)}"
+                "Last log lines:\n${readTail(installLog, 4000)}"
         }
     }
+
+    /** Reads the last [characters] of [file] without allocating the whole file for them. */
+    private fun readTail(
+        file: File,
+        characters: Int,
+    ): String =
+        runCatching {
+            java.io.RandomAccessFile(file, "r").use { random ->
+                val window = (characters.toLong() * 4).coerceAtMost(random.length())
+                random.seek(random.length() - window)
+                val bytes = ByteArray(window.toInt())
+                random.readFully(bytes)
+                bytes.decodeToString().takeLast(characters)
+            }
+        }.getOrDefault("")
 
     private fun configureRootfs(
         rootfs: File,

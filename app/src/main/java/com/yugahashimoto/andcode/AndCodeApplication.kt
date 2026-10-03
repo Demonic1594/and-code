@@ -74,6 +74,7 @@ import com.yugahashimoto.andcode.runtime.local.LocalRuntimeReleaseClient
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeServiceController
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeTarget
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeUpdater
+import com.yugahashimoto.andcode.runtime.local.OpencodeDatabaseMaintenance
 import com.yugahashimoto.andcode.runtime.local.SystemPromptStore
 import com.yugahashimoto.andcode.runtime.local.VerifiedRuntimeDownloader
 import com.yugahashimoto.andcode.runtime.local.applyOpenCodeSystemPrompt
@@ -180,6 +181,10 @@ class AndCodeApplication : Application() {
     lateinit var commandRunner: LocalRuntimeCommandRunner
         private set
 
+    /** Prunes the OpenCode server's event log; see [OpencodeDatabaseMaintenance]. */
+    lateinit var opencodeDatabaseMaintenance: OpencodeDatabaseMaintenance
+        private set
+
     lateinit var claudeCodeRuntime: ClaudeCodeRuntime
         private set
 
@@ -216,6 +221,13 @@ class AndCodeApplication : Application() {
 
     /** Which agents the shared sandbox holds, for callers that must not pay for a full runtime check. */
     lateinit var localRuntimeInstaller: LocalRuntimeInstaller
+
+    /** The one access coordinator every local-runtime component shares; see the Koin module. */
+    lateinit var accessCoordinator: LocalRuntimeAccessCoordinator
+        private set
+
+    /** The one process launcher; see the Koin module. */
+    lateinit var processLauncher: LocalRuntimeProcessLauncher
         private set
 
     lateinit var runtimeMessages: LocalRuntimeMessages
@@ -253,7 +265,11 @@ class AndCodeApplication : Application() {
         // Analytics is explicitly opt-in; source-code tooling should not silently collect usage data.
         AnalyticsReporter.install(this, settings.analyticsEnabled)
         preferences = AppPreferencesRepository(settings)
-        scheduleRepository = ScheduleRepository(this).also { it.reconcileStaleRuns() }
+        scheduleRepository = ScheduleRepository(this)
+        // Settling runs orphaned by a process death is file I/O and independent of everything
+        // constructed below; off the main thread, where the (double) keystore-backed prefs
+        // creation above already cost enough of this method.
+        applicationScope.launch { scheduleRepository.reconcileStaleRuns() }
         deviceStorageAccess = DeviceStorageAccess(this)
         // Asked on every sandbox launch rather than captured once: the user can grant all-files
         // access from system settings and come straight back without the process restarting.
@@ -278,7 +294,9 @@ class AndCodeApplication : Application() {
             )
         val runtimeDirectory = File(filesDir, "runtime")
         val abi = Build.SUPPORTED_ABIS.firstOrNull().orEmpty()
-        val accessCoordinator = LocalRuntimeAccessCoordinator()
+        // Exposed so the Koin module can share the one true instance: a second coordinator (or
+        // launcher) built there would let installs race shell commands it knows nothing about.
+        accessCoordinator = LocalRuntimeAccessCoordinator()
         val installer =
             LocalRuntimeInstaller(
                 context = this,
@@ -287,7 +305,7 @@ class AndCodeApplication : Application() {
                 accessCoordinator = accessCoordinator,
             )
         localRuntimeInstaller = installer
-        val launcher =
+        processLauncher =
             LocalRuntimeProcessLauncher(
                 runtimeDirectory = runtimeDirectory,
                 portProbe = LocalRuntimeManager::defaultPortProbe,
@@ -308,6 +326,11 @@ class AndCodeApplication : Application() {
                 installedRuntimeProvider = installer::installedRuntime,
                 accessCoordinator = accessCoordinator,
                 messages = AndroidLocalRuntimeMessages(this),
+            )
+        opencodeDatabaseMaintenance =
+            OpencodeDatabaseMaintenance(
+                shellRunner = { command, timeoutSeconds -> commandRunner.runShell(command, timeoutSeconds) },
+                markerFile = File(runtimeDirectory, "opencode-db-maintenance"),
             )
         val claudeMessages = AndroidClaudeMessages(this)
         claudeCodeRuntime =
@@ -401,11 +424,23 @@ class AndCodeApplication : Application() {
                 runtimeDirectory = runtimeDirectory,
                 abi = abi,
                 installer = installer,
-                processLauncher = launcher,
+                processLauncher = processLauncher,
                 updateEngine = updateEngine,
                 systemPrompt = { systemPromptStore.selectedPrompt() },
                 messages = runtimeMessages,
             )
+        // Prune the OpenCode server's event log once the runtime is up (throttled to once a day by
+        // the marker file inside runIfDue). collectLatest so a status flap cancels the pending
+        // delayed pass instead of stacking several.
+        applicationScope.launch {
+            localRuntimeManager.state.collectLatest { status ->
+                if (status is LocalRuntimeStatus.Ready) {
+                    delay(OPENCODE_DB_MAINTENANCE_STARTUP_DELAY_MS)
+                    opencodeDatabaseMaintenance.runIfDue()
+                }
+            }
+        }
+
         // Keeps OpenCode's instructions file in step with the selected preset while the runtime is
         // up. The start sequence writes it too (see LocalRuntimeManager's systemPrompt), which is
         // what covers a freshly installed guest filesystem; this collector is for switches made
@@ -432,7 +467,7 @@ class AndCodeApplication : Application() {
                 runtimeDirectory = runtimeDirectory,
                 abi = abi,
                 statusProvider = localRuntimeManager::status,
-                processMetricsProvider = launcher::metrics,
+                processMetricsProvider = processLauncher::metrics,
                 commandExecutor = commandRunner::run,
                 fullDevelopmentToolsInstalledProvider = localRuntimeManager::fullDevelopmentToolsInstalled,
                 messages = runtimeMessages,
@@ -522,6 +557,14 @@ class AndCodeApplication : Application() {
                     AnalyticsReporter.recordRuntimeSessionCompleted()
                     notifications.notifySessionComplete(sessionId, title, runtimeId)
                     githubStarCoordinator.onSessionCompleted()
+                    // Idle is the natural moment to prune the event log the run just grew; a
+                    // no-op unless the daily interval has elapsed. Gated on the local OpenCode
+                    // runtime: that sqlite store is the only one this prunes, and firing on any
+                    // other runtime's idle booted a standalone proot (up to a 300 s VACUUM) for
+                    // a remote or Codex session that never touched it.
+                    if (runtimeId == LocalAgent.OPEN_CODE.targetId) {
+                        applicationScope.launch { opencodeDatabaseMaintenance.runIfDue() }
+                    }
                 },
                 onSessionError = { sessionId, message, runtimeId ->
                     AnalyticsReporter.recordRuntimeSessionError()
@@ -675,6 +718,9 @@ class AndCodeApplication : Application() {
 
     private companion object {
         private const val CODEX_KEEPALIVE_STOP_GRACE_MS = 2_000L
+
+        /** Let the runtime finish booting before the first database-maintenance pass competes for its I/O. */
+        private const val OPENCODE_DB_MAINTENANCE_STARTUP_DELAY_MS = 15_000L
 
         /**
          * How long [debounceFalseEdge] rides out a drop to "no active sessions" before releasing

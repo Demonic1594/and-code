@@ -3,11 +3,11 @@ package com.yugahashimoto.andcode.feature.chat
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Base64
+import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.rememberTransformableState
@@ -37,13 +37,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.util.decodeSampledBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -52,6 +55,7 @@ import java.net.HttpURLConnection
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.URL
+import java.security.MessageDigest
 
 data class ChatImageSource(
     val url: String,
@@ -75,17 +79,33 @@ fun ChatImageViewerDialog(
     val bitmap = loadResult.second
     var scale by remember(source.url) { mutableFloatStateOf(1f) }
     var offset by remember(source.url) { mutableStateOf(Offset.Zero) }
+    var viewSize by remember(source.url) { mutableStateOf(IntSize.Zero) }
     val transformState =
         rememberTransformableState { zoomChange, panChange, _ ->
             scale = (scale * zoomChange).coerceIn(1f, 5f)
-            offset = if (scale == 1f) Offset.Zero else offset + panChange
+            // Panning is clamped to what the zoom actually reveals, so a zoomed image can be
+            // moved around its frame but never pushed entirely off-screen (from where only an
+            // exact return to 1x used to recover it).
+            val maxX = viewSize.width * (scale - 1f) / 2f
+            val maxY = viewSize.height * (scale - 1f) / 2f
+            offset =
+                Offset(
+                    (offset.x + panChange.x).coerceIn(-maxX, maxX),
+                    (offset.y + panChange.y).coerceIn(-maxY, maxY),
+                )
         }
 
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
-        Box(Modifier.fillMaxSize().background(Color.Black).testTag("chat-image-viewer")) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .onSizeChanged { size -> viewSize = size }
+                .testTag("chat-image-viewer"),
+        ) {
             when (val image = bitmap) {
                 null ->
                     if (loaded) {
@@ -147,24 +167,72 @@ suspend fun loadChatImageBitmap(
     }
 
 /**
- * Decodes [bytes] downsampled so neither dimension exceeds [maxDimension].
+ * Recent chat-bubble thumbnails, keyed by a digest of the image url.
  *
- * A camera or gallery photo can be 30-50+ MP; decoding it at full resolution just to show a chat
- * bubble thumbnail can allocate 100-200MB for a single bitmap - enough to OOM outright, or to blow
- * past the GPU's max texture size once Compose tries to draw it (#320).
+ * A LazyColumn disposes a bubble's bitmap producer as soon as it scrolls away, and produceState
+ * keyed on the url re-runs the whole load when the item scrolls back in - for a data-URL image
+ * that is a megabyte-scale base64 decode and a 1024px bitmap per scroll. A small LRU keeps the
+ * recent ones decoded. Entries are dropped, never recycled: a bitmap still referenced by a frame
+ * being drawn must not have its pixels reclaimed underneath the canvas (see
+ * ChatViewModel.removeAttachment for the crash that taught us this).
+ *
+ * The key is a digest, not the url: a data-URL key would pin its megabytes in the cache map for
+ * as long as the entry lives.
  */
-fun decodeSampledBitmap(
-    bytes: ByteArray,
-    maxDimension: Int,
-): Bitmap? {
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-    var sample = 1
-    while (bounds.outWidth / sample > maxDimension || bounds.outHeight / sample > maxDimension) {
-        sample *= 2
+private val chatThumbnailCache =
+    object : LruCache<String, Bitmap>(THUMBNAIL_CACHE_KILOBYTES) {
+        override fun sizeOf(
+            key: String,
+            value: Bitmap,
+        ): Int = value.byteCount / 1024
     }
-    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
+
+private fun thumbnailCacheKey(url: String): String {
+    // Transcript images persist as base64 data URLs, so this hashes multi-megabyte strings - and
+    // the hex rendering allocates one String per byte if done with the format() idiom. It runs on
+    // the caller's dispatcher; keep both costs off the UI thread by calling it from IO.
+    val digest =
+        MessageDigest
+            .getInstance("SHA-256")
+            .digest(url.toByteArray(Charsets.UTF_8))
+    val digits = "0123456789abcdef".toCharArray()
+    val hex = CharArray(digest.size * 2)
+    var index = 0
+    for (byte in digest) {
+        val value = byte.toInt() and 0xFF
+        hex[index++] = digits[value ushr 4]
+        hex[index++] = digits[value and 0x0F]
+    }
+    return String(hex)
+}
+
+/**
+ * Loads a bitmap sized for a chat-bubble thumbnail — [THUMBNAIL_MAX_DIMENSION] per side, not the
+ * fullscreen viewer's [VIEWER_MAX_DIMENSION] — through [chatThumbnailCache].
+ */
+internal suspend fun loadChatThumbnailBitmap(
+    context: Context,
+    source: ChatImageSource,
+): Bitmap? {
+    // Keying and lookup both on IO: the key computation copies and hashes the whole (often
+    // multi-megabyte) URL, and produceState restarts it every time a bubble scrolls back into
+    // view - including on cache hits.
+    val key =
+        withContext(Dispatchers.IO) {
+            thumbnailCacheKey(source.url)
+        }
+    chatThumbnailCache.get(key)?.let { return it }
+    val bitmap =
+        withContext(Dispatchers.IO) {
+            // Deliberately not the same loader as the viewer: a bubble never shows more than
+            // ~1000px of the image, so decoding at 4096 allocated up to 67MB of pixels that the
+            // 320dp target could not display.
+            val bytes = loadChatImageBytes(context, source) ?: return@withContext null
+            decodeSampledBitmap(bytes, THUMBNAIL_MAX_DIMENSION)
+        } ?: source.preview
+            ?: return null
+    chatThumbnailCache.put(key, bitmap)
+    return bitmap
 }
 
 suspend fun loadChatImageBytes(
@@ -320,6 +388,15 @@ private fun readLimited(input: java.io.InputStream): ByteArray {
 private const val MAX_IMAGE_BYTES = 25 * 1024 * 1024
 private const val MAX_IMAGE_BASE64_CHARS = 34_952_536
 private const val VIEWER_MAX_DIMENSION = 4096
+
+/**
+ * Max dimension for a chat-bubble thumbnail - see [loadChatThumbnailBitmap]. Kept at the
+ * composer's preview resolution: a bubble renders at most a few hundred dp either way.
+ */
+internal const val THUMBNAIL_MAX_DIMENSION = 1024
+
+/** Budget for [chatThumbnailCache], sized in kilobytes of decoded pixels (~8 images at 1024px). */
+private const val THUMBNAIL_CACHE_KILOBYTES = 32 * 1024
 
 /** Max dimension for an attachment's optimistic composer/bubble thumbnail - see [decodeSampledBitmap]. */
 const val COMPOSER_PREVIEW_MAX_DIMENSION = 1024

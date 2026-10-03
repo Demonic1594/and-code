@@ -144,3 +144,14 @@ jobs:
           name: and-code-release-unsigned
           path: app/build/outputs/apk/github/release/app-github-release-unsigned.apk
           if-no-files-found: error
+
+      # Release stacks arrive obfuscated (C0.k0.doFrame...); without this file they cannot be
+      # retraced. Crashlytics receives its own copy automatically for the github flavor, but an
+      # artifact keeps the mapping reachable for fdroid builds and for anyone with only the APK.
+      - name: Upload release R8 mapping
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: and-code-release-mapping
+          path: app/build/outputs/mapping/githubRelease/mapping.txt
+          if-no-files-found: error

@@ -341,6 +341,13 @@ sealed interface OpenCodeEvent {
         val partId: String,
         val field: String,
         val delta: String,
+        /**
+         * How many upstream deltas this one folds together. The stream delivers one event per
+         * chunk; `coalesceStreamingUpdates` concatenates consecutive chunks for a part into a
+         * single event and reports the count, so per-chunk consumers (the connection quality's
+         * token rate) keep measuring the real rate.
+         */
+        val mergeCount: Int = 1,
     ) : OpenCodeEvent
 
     data class PermissionAsked(val request: PermissionRequest) : OpenCodeEvent

@@ -226,6 +226,26 @@ data class PendingQuestionUi(
 
 private const val MAX_TOOL_OUTPUT_CHARS = 4000
 internal const val RESPONSE_POLL_INTERVAL_MS = 3000L
+
+/**
+ * Post-send poll cadence while the runtime's event stream is healthy and reports idle on its own
+ * ([RuntimeCapabilities.reliableIdleEvents]). The poll is then only a heartbeat against a lost
+ * `session.idle`, not the turn's completion path, so a slow read beats re-fetching the whole
+ * transcript — base64 attachments included — every 3 seconds of a stream that already carries
+ * every update. Any stream failure ([streamError]) or a runtime without the capability drops back
+ * to [RESPONSE_POLL_INTERVAL_MS] immediately, including mid-turn.
+ */
+internal const val STREAM_HEALTHY_POLL_INTERVAL_MS = 30_000L
+
+/**
+ * How long after a settle a second idle for the same session is treated as the HTTP runtime's
+ * duplicated run-end emission (status:idle + deprecated idle, one burst) rather than a new run
+ * ending. Far below anything a real dispatched turn can complete in; the poll loop and stall
+ * watchdog cover the pathological case. Read from the injectable [ChatViewModel] clock so tests
+ * on virtual time see a genuinely later idle as later.
+ */
+private const val DUPLICATE_IDLE_WINDOW_MILLIS = 750L
+
 private const val RESPONSE_POLL_TIMEOUT_MS = 120_000L
 internal const val TRANSIENT_RECOVERY_DELAY_MS = 5000L
 internal const val TRANSIENT_RECOVERY_RETRY_DELAY_MS = 3000L
@@ -655,6 +675,28 @@ class ChatViewModel(
     /** Last failure reported by the event stream, or null while it is healthy. */
     private var streamError: String? = null
 
+    /**
+     * Bumped every time this chat dispatches a turn (send, slash command, drained queue entry).
+     * A poll loop from an earlier turn compares its captured value to decide whether it still
+     * owns the composer: without it, turn 1's poller could wake after a queued prompt replaced
+     * the run and settle the NEW turn mid-flight (its `turnFinished` check passes against turn
+     * 1's own reply), clearing the stream cache and flipping isRunning off while tokens are
+     * still arriving.
+     */
+    private var runGeneration: Long = 0L
+
+    /**
+     * The HTTP runtime ends every run with BOTH `session.status: idle` and the deprecated
+     * `session.idle`, back to back in one event burst; the CLI bridges emit only the latter.
+     * Two full settles for one run end double-drained the queue (firing two prompts per turn
+     * end and killing the first), so an idle for the same session inside this window of the
+     * last settle is treated as the echo it is. The window is far below anything a genuinely
+     * distinct second run can achieve - dispatch plus model round-trip - and the poll loop
+     * recovers the pathological case anyway.
+     */
+    private var lastIdleSettledSessionId: String? = null
+    private var lastIdleSettledAtMillis = 0L
+
     init {
         pullRequestStatuses?.let(::trackPullRequests)
         streamErrorFlow?.let { flow ->
@@ -743,6 +785,9 @@ class ChatViewModel(
                         if (!running) {
                             // Whatever the run was doing, it is not doing it any more.
                             if (_uiState.value.stall != null) _uiState.update { it.copy(stall = null) }
+                            // Most replies stream for under the rate window; without this flush
+                            // their chunks sat unpublished until some LATER turn's first delta.
+                            connectionMonitor.flushStreamRate()
                             return@collectLatest
                         }
                         recordProgress()
@@ -920,17 +965,32 @@ class ChatViewModel(
 
     private fun refreshContextUsage(sessionId: String) {
         val currentBackend = backend ?: return
+        // Captured for staleness: a fetch for chat A landing after the switch to chat B wrote
+        // A's usage into B, and B's >=90% reading then fired summarizeSession against B.
+        val generation = _uiState.value.chatGeneration
         viewModelScope.launch {
             runCatching {
-                val messages = currentBackend.listMessages(sessionId)
-                val latestMessageTokens =
-                    messages.asReversed()
-                        .firstNotNullOfOrNull { message ->
-                            message.info.tokens?.contextUsed
-                                ?.takeIf { !message.info.role.equals("user", ignoreCase = true) }
-                        }
-                latestMessageTokens ?: currentBackend.session(sessionId).tokens?.contextUsed ?: 0L
+                // The indicator (and the >=90% summarize gate below) must read the context
+                // window's occupancy, which only the last assistant message's usage reports:
+                // `input + cache.read` of that single LLM call. The session endpoint aggregates
+                // the same fields over every turn of the session - with prompt caching each turn
+                // re-reads the whole prefix, so that sum grows by roughly a window per turn and
+                // reached "800k/1.0M" within minutes of real usage. Summed lifetime tokens made
+                // shouldSummarizeBeforePrompt fire before every prompt, and each summarize turn
+                // then added another window's worth to the sum: a self-amplifying loop. The
+                // session number is therefore only a fallback for sessions whose messages carry
+                // no tokens at all (there it is ~0 anyway), never the primary source.
+                currentBackend
+                    .listMessages(sessionId)
+                    .asReversed()
+                    .firstNotNullOfOrNull { message ->
+                        message.info.tokens?.contextUsed
+                            ?.takeIf { !message.info.role.equals("user", ignoreCase = true) }
+                    }
+                    ?: currentBackend.session(sessionId).tokens?.contextUsed
+                    ?: 0L
             }.onSuccess { used ->
+                if (_uiState.value.chatGeneration != generation) return@onSuccess
                 _uiState.update { it.copy(contextTokensUsed = used) }
             }
         }
@@ -963,6 +1023,7 @@ class ChatViewModel(
         _uiState.update { it.copy(chatGeneration = it.chatGeneration + 1, draftSystemPrompt = null) }
         streamedParts.clear()
         messageRoles.clear()
+        lastIdleSettledSessionId = null
         // Opening the chat is an explicit act of attention, so questions the user hid earlier are
         // offered again rather than staying suppressed by a stale dismissal.
         dismissedQuestionIds.clear()
@@ -978,29 +1039,42 @@ class ChatViewModel(
                 sessionDirectory = null,
                 isRunning = if (switchingSession) false else it.isRunning,
                 isThinking = if (switchingSession) false else it.isThinking,
+                // The opened chat's usage is unknown until its first refresh lands; keeping the
+                // previous chat's number here let a >=90% reading fire summarizeSession on a
+                // chat that never earned it.
+                contextTokensUsed = 0L,
                 dismissedTodoBarId = null,
                 error = null,
             )
         }
         if (parent == null) resolveParentSession(sessionId)
         refreshPendingQuestions(sessionId)
+        // Captured after the generation bump above: the history fetch below is async, and a
+        // quick switch to another chat must not land THIS chat's transcript under THAT one's
+        // title (the merge drops the other chat's unmatched bubbles).
+        val generation = _uiState.value.chatGeneration
         viewModelScope.launch {
             runCatching { currentBackend.listMessages(sessionId) }
                 .onSuccess { messages ->
                     val selectedModel =
                         messages.asReversed()
                             .firstNotNullOfOrNull { it.info.model }
-                    _uiState.update {
-                        it.copy(
-                            isLoadingHistory = false,
-                            messages = mergeReloadedMessages(messages.mapNotNull(::toUiMessage), it.messages),
-                            selectedProviderId = selectedModel?.providerId ?: it.selectedProviderId,
-                            selectedModelId = selectedModel?.modelId ?: it.selectedModelId,
-                        )
+                    _uiState.update { state ->
+                        if (state.chatGeneration != generation) {
+                            state
+                        } else {
+                            state.copy(
+                                isLoadingHistory = false,
+                                messages = mergeReloadedMessages(messages.mapNotNull(::toUiMessage), state.messages),
+                                selectedProviderId = selectedModel?.providerId ?: state.selectedProviderId,
+                                selectedModelId = selectedModel?.modelId ?: state.selectedModelId,
+                            )
+                        }
                     }
-                    refreshContextUsage(sessionId)
+                    if (_uiState.value.chatGeneration == generation) refreshContextUsage(sessionId)
                 }
                 .onFailure { error ->
+                    if (_uiState.value.chatGeneration != generation) return@onFailure
                     _uiState.update {
                         it.copy(isLoadingHistory = false, error = error.safeMessage("OpenCode operation failed"))
                     }
@@ -1094,6 +1168,7 @@ class ChatViewModel(
         messageRoles.clear()
         dismissedQuestionIds.clear()
         pendingInterrupts.clear()
+        lastIdleSettledSessionId = null
         _uiState.update {
             it.copy(
                 chatGeneration = it.chatGeneration + 1,
@@ -1101,6 +1176,9 @@ class ChatViewModel(
                 sessionId = null,
                 sessionTitle = "",
                 parentSession = null,
+                // A history load still in flight for the chat being left must not park the new
+                // chat on its spinner: the stale guard drops that load's apply entirely.
+                isLoadingHistory = false,
                 messages = emptyList(),
                 permissions = emptyList(),
                 pendingQuestions = emptyList(),
@@ -1111,6 +1189,7 @@ class ChatViewModel(
                 isSpeechProcessing = false,
                 partialText = "",
                 imagePreviews = emptyList(),
+                contextTokensUsed = 0L,
                 dismissedTodoBarId = null,
                 error = null,
             )
@@ -1266,6 +1345,14 @@ class ChatViewModel(
         val pendingAttachments = _uiState.value.attachments
         val messageIdsBeforeSend = _uiState.value.messages.map { it.id }.toSet()
         val pendingPreviews = _uiState.value.imagePreviews
+        // The model identity is part of the prompt, exactly like its text: reading it from live
+        // state after the createSession/summarize suspensions below sent turn 1 with whatever
+        // model the user switched to mid-dispatch. Text and attachments were already captured
+        // this way; the selection now is too.
+        val providerAtSend = _uiState.value.selectedProviderId
+        val modelAtSend = _uiState.value.selectedModelId
+        val agentAtSend = _uiState.value.selectedAgentId
+        val variantAtSend = _uiState.value.selectedVariant
         val pendingPreviewsByFilename =
             pendingAttachments
                 .filter { it.mime.startsWith("image/") }
@@ -1354,6 +1441,9 @@ class ChatViewModel(
         // A turn that replaces or queues behind a running one leaves isRunning true, so the stall
         // clock has to be restarted here rather than only on the idle-to-running transition.
         recordProgress()
+        // This turn now owns the composer's poll; see [runGeneration].
+        runGeneration += 1L
+        val runGenerationAtSend = runGeneration
 
         // Which chat asked, captured here because the coroutine below does not begin until the
         // dispatcher runs it - long enough for another chat to have been started. See
@@ -1388,8 +1478,8 @@ class ChatViewModel(
                     runCatching {
                         currentBackend.summarizeSession(
                             sessionId = targetSessionId,
-                            providerId = requireNotNull(_uiState.value.selectedProviderId),
-                            modelId = requireNotNull(_uiState.value.selectedModelId),
+                            providerId = requireNotNull(providerAtSend),
+                            modelId = requireNotNull(modelAtSend),
                         )
                     }
                     refreshContextUsage(targetSessionId)
@@ -1399,10 +1489,10 @@ class ChatViewModel(
                     targetSessionId,
                     PromptRequest(
                         text = normalized,
-                        providerId = _uiState.value.selectedProviderId,
-                        modelId = _uiState.value.selectedModelId,
-                        agent = _uiState.value.selectedAgentId,
-                        variant = _uiState.value.selectedVariant,
+                        providerId = providerAtSend,
+                        modelId = modelAtSend,
+                        agent = agentAtSend,
+                        variant = variantAtSend,
                         attachments = pendingAttachments,
                     ),
                 )
@@ -1418,14 +1508,24 @@ class ChatViewModel(
                 // switches to another session, this poll must not keep overwriting its transcript
                 // or clearing its running state with data that belongs to the old one.
                 fun isStillActive() = _uiState.value.sessionId == targetSessionId
+
+                // ...and on this turn still owning the composer: a queued prompt drained by the
+                // idle handler starts the next turn on the same session synchronously, and
+                // without the generation check this poller would wake into THAT turn, see turn
+                // 1's completed reply pass `turnFinished`, and settle the new run mid-flight.
+                fun stillOwnsRun() = runGeneration == runGenerationAtSend
+                val trustsIdleEvents =
+                    (currentBackend as? RuntimeTarget)?.capabilities?.reliableIdleEvents == true
                 val pollFinished =
                     withTimeoutOrNull(RESPONSE_POLL_TIMEOUT_MS) {
-                        while (isStillActive() && _uiState.value.isRunning) {
-                            delay(RESPONSE_POLL_INTERVAL_MS)
+                        while (isStillActive() && stillOwnsRun() && _uiState.value.isRunning) {
+                            delay(
+                                if (streamError == null && trustsIdleEvents) STREAM_HEALTHY_POLL_INTERVAL_MS else RESPONSE_POLL_INTERVAL_MS,
+                            )
                             // The turn can end while this slept; the idle handler owns the
                             // transcript then. Another fetch here would merge against a stream
                             // cache it has already cleared and drop what only this client has.
-                            if (!isStillActive() || !_uiState.value.isRunning) return@withTimeoutOrNull
+                            if (!isStillActive() || !stillOwnsRun() || !_uiState.value.isRunning) return@withTimeoutOrNull
                             // Snapshotted before the fetch: the idle can clear the stream cache
                             // while it is in flight, and merging against an empty live view would
                             // drop what only this client has.
@@ -1457,15 +1557,17 @@ class ChatViewModel(
                 closeInterruptWindow(targetSessionId)
                 // Some runtimes deliver the final message but drop session.idle. Do not
                 // leave the UI in the running state when the bounded fallback poll ends.
-                if (isStillActive() && (sessionCompleted || pollFinished == null)) {
+                if (isStillActive() && stillOwnsRun() && (sessionCompleted || pollFinished == null)) {
                     runCatching { currentBackend.listMessages(targetSessionId) }
                         .onSuccess { serverMessages ->
-                            if (!isStillActive()) return@onSuccess
-                            val hasResponse =
-                                serverMessages.any { message ->
-                                    message.info.role == "assistant" && message.info.id !in messageIdsBeforeSend
-                                }
-                            if (!sessionCompleted && !hasResponse) return@onSuccess
+                            if (!isStillActive() || !stillOwnsRun()) return@onSuccess
+                            // Settling requires a COMPLETED reply, not merely the presence of
+                            // one: a still-streaming assistant message made `hasResponse`
+                            // trivially true, so every turn longer than the poll timeout was
+                            // force-settled mid-run - isRunning flipped off, the stream cache
+                            // wiped, and the live bubble truncated to its next delta fragment.
+                            val turnDone = turnFinished(serverMessages, messageIdsBeforeSend)
+                            if (!sessionCompleted && !turnDone) return@onSuccess
                             // Captured before the stream cache is cleared: the final reload must
                             // keep what this client streamed that the transcript still does not
                             // carry, not drop it the way it otherwise would.
@@ -1492,6 +1594,10 @@ class ChatViewModel(
                             // Refresh after the final assistant message is persisted. The
                             // pre-send refresh only contains the previous turn's tokens.
                             refreshContextUsage(targetSessionId)
+                            // The idle handler is the usual drainer, but this settle bypassed
+                            // it; without draining here, a queued prompt stranded until some
+                            // LATER turn happened to end with an idle event.
+                            drainQueue()
                         }
                 }
             }.onFailure { error ->
@@ -1569,6 +1675,9 @@ class ChatViewModel(
         // A turn that replaces or queues behind a running one leaves isRunning true, so the stall
         // clock has to be restarted here rather than only on the idle-to-running transition.
         recordProgress()
+        // This turn now owns the composer's poll; see [runGeneration].
+        runGeneration += 1L
+        val runGenerationAtSend = runGeneration
 
         // As in sendMessage - which chat asked, so a preset is not applied to a different one.
         val draftGeneration = _uiState.value.chatGeneration
@@ -1618,14 +1727,22 @@ class ChatViewModel(
                 var sessionCompleted = false
 
                 fun isStillActive() = _uiState.value.sessionId == targetSessionId
+
+                // As in sendMessage: a queued prompt that supersedes this turn must not be
+                // settled by this poller waking into it.
+                fun stillOwnsRun() = runGeneration == runGenerationAtSend
+                val trustsIdleEvents =
+                    (currentBackend as? RuntimeTarget)?.capabilities?.reliableIdleEvents == true
                 val pollFinished =
                     withTimeoutOrNull(RESPONSE_POLL_TIMEOUT_MS) {
-                        while (isStillActive() && _uiState.value.isRunning) {
-                            delay(RESPONSE_POLL_INTERVAL_MS)
+                        while (isStillActive() && stillOwnsRun() && _uiState.value.isRunning) {
+                            delay(
+                                if (streamError == null && trustsIdleEvents) STREAM_HEALTHY_POLL_INTERVAL_MS else RESPONSE_POLL_INTERVAL_MS,
+                            )
                             // The turn can end while this slept; the idle handler owns the
                             // transcript then. Another fetch here would merge against a stream
                             // cache it has already cleared and drop what only this client has.
-                            if (!isStillActive() || !_uiState.value.isRunning) return@withTimeoutOrNull
+                            if (!isStillActive() || !stillOwnsRun() || !_uiState.value.isRunning) return@withTimeoutOrNull
                             // Snapshotted before the fetch: the idle can clear the stream cache
                             // while it is in flight, and merging against an empty live view would
                             // drop what only this client has.
@@ -1650,15 +1767,13 @@ class ChatViewModel(
                         }
                     }
                 closeInterruptWindow(targetSessionId)
-                if (isStillActive() && (sessionCompleted || pollFinished == null)) {
+                if (isStillActive() && stillOwnsRun() && (sessionCompleted || pollFinished == null)) {
                     runCatching { currentBackend.listMessages(targetSessionId) }
                         .onSuccess { serverMessages ->
-                            if (!isStillActive()) return@onSuccess
-                            val hasResponse =
-                                serverMessages.any { message ->
-                                    message.info.role == "assistant" && message.info.id !in messageIdsBeforeSend
-                                }
-                            if (!sessionCompleted && !hasResponse) return@onSuccess
+                            if (!isStillActive() || !stillOwnsRun()) return@onSuccess
+                            // A completed reply, not a merely present one - see sendMessage.
+                            val turnDone = turnFinished(serverMessages, messageIdsBeforeSend)
+                            if (!sessionCompleted && !turnDone) return@onSuccess
                             val retainedIds = streamedParts.keys.toSet()
                             streamedParts.clear()
                             _uiState.update {
@@ -1674,6 +1789,7 @@ class ChatViewModel(
                                 )
                             }
                             refreshContextUsage(targetSessionId)
+                            drainQueue()
                         }
                 }
             }.onFailure { error ->
@@ -2152,11 +2268,18 @@ class ChatViewModel(
                 val session = _uiState.value.sessionId
                 val currentBackend = backend
                 if (session != null && currentBackend != null) {
+                    val generation = _uiState.value.chatGeneration
                     viewModelScope.launch {
                         runCatching { currentBackend.listMessages(session) }
                             .onSuccess { messages ->
+                                if (_uiState.value.chatGeneration != generation) return@onSuccess
                                 val retainedIds = streamedParts.keys.toSet()
-                                streamedParts.clear()
+                                // The repository reconnects silently mid-run, and every
+                                // subscription opens with server.connected. Clearing the cache
+                                // here while a turn is streaming orphaned its completed parts:
+                                // the next delta rebuilds the bubble from ONE fragment and the
+                                // reasoning/tool cards vanish until idle.
+                                if (!_uiState.value.isRunning) streamedParts.clear()
                                 _uiState.update {
                                     it.copy(
                                         messages =
@@ -2219,7 +2342,7 @@ class ChatViewModel(
                 // bridge uses field="reasoning" for thinking deltas. Anything else carries no
                 // displayable text.
                 if (event.sessionId != activeSession || (event.field != "text" && event.field != "reasoning")) return
-                connectionMonitor.recordStreamToken()
+                connectionMonitor.recordStreamTokens(event.mergeCount)
                 val messageParts = streamedParts.getOrPut(event.messageId) { linkedMapOf() }
                 val updatedPart =
                     when (val existing = messageParts[event.partId]) {
@@ -2318,6 +2441,9 @@ class ChatViewModel(
                         error = message,
                     )
                 }
+                // The failed turn owned the queue's turn-end; without this drain the prompts
+                // behind it sat stranded until some later turn happened to end with an idle.
+                drainQueue()
                 // A provider-fetch failure that arrives as session.error (e.g. issue #306:
                 // "Cannot connect to API: Unable to connect...") left a static red card with
                 // no recovery: only reinstall cleared it. Route transient ones through the
@@ -2337,6 +2463,21 @@ class ChatViewModel(
         // prompt sent in its place; acting on it would park the composer on the send button and
         // drain another queued prompt over a turn that is only starting.
         if (sessionId in pendingInterrupts) return
+        // The HTTP runtime reports one run end as BOTH session.status:idle and the deprecated
+        // session.idle, milliseconds apart. The second pass through here settled the turn the
+        // first pass's queue-drain had just started (isRunning flipped off mid-run, the stream
+        // cache wiped) and drained a SECOND prompt over it - so an idle echoing a settle that
+        // just happened for this session is ignored. See [lastIdleSettledAtMillis]. The injected
+        // [now] clock keeps the window testable: a genuinely distinct second run end advances it
+        // by the whole turn, far past the window.
+        val nowMillis = now()
+        if (sessionId == lastIdleSettledSessionId &&
+            nowMillis - lastIdleSettledAtMillis < DUPLICATE_IDLE_WINDOW_MILLIS
+        ) {
+            return
+        }
+        lastIdleSettledSessionId = sessionId
+        lastIdleSettledAtMillis = nowMillis
         // Captured before the stream cache is cleared: a bubble this client streamed that the
         // transcript still does not carry (an interrupted turn some runtimes never persist) must
         // survive the reload below, not vanish with the cache.
@@ -2363,9 +2504,13 @@ class ChatViewModel(
         retainIds: Set<String> = emptySet(),
     ) {
         val currentBackend = backend ?: return
+        // A settle for chat A can still be fetching when the user opens chat B; the merge below
+        // would otherwise overwrite B's transcript with A's bubbles.
+        val generation = _uiState.value.chatGeneration
         viewModelScope.launch {
             runCatching { currentBackend.listMessages(sessionId) }
                 .onSuccess { messages ->
+                    if (_uiState.value.chatGeneration != generation) return@onSuccess
                     val uiMessages =
                         mergeReloadedMessages(
                             messages.mapNotNull(::toUiMessage),
@@ -2544,6 +2689,28 @@ class ChatViewModel(
         sendMessage(queuedPrompt.text)
     }
 
+    /**
+     * Drops this ViewModel's heavy state when the store will never call [onCleared] for it.
+     *
+     * [AndCodeApp] keys one ChatViewModel per runtime id, and the Activity's ViewModelStore keeps
+     * every keyed instance - and its transcript, attachment previews (~4 MB a bitmap) and stream
+     * caches - alive until the Activity itself dies. Switching runtimes therefore leaks the
+     * instance being left. The scope is deliberately NOT cancelled here: the store can hand the
+     * same instance back when the user switches back, and a cancelled viewModelScope would
+     * permanently break it.
+     */
+    fun release() {
+        streamedParts.clear()
+        messageRoles.clear()
+        _uiState.update {
+            it.copy(
+                messages = emptyList(),
+                attachments = emptyList(),
+                imagePreviews = emptyList(),
+            )
+        }
+    }
+
     override fun onCleared() {
         // Preview bitmaps are deliberately not recycled here either: the composition that draws
         // them can outlive the ViewModel during teardown, and the GC reclaims them anyway.
@@ -2617,12 +2784,18 @@ class ChatViewModel(
      */
     private suspend fun restoreConnection(currentBackend: OpenCodeBackend): Boolean {
         val session = _uiState.value.sessionId
+        val generation = _uiState.value.chatGeneration
         val refreshed =
             if (session != null) {
                 runCatching { currentBackend.listMessages(session) }
                     .onSuccess { messages ->
+                        if (_uiState.value.chatGeneration != generation) return@onSuccess
                         val retainedIds = streamedParts.keys.toSet()
-                        streamedParts.clear()
+                        // Recovery runs while a turn may still be streaming on the server;
+                        // clearing the live cache here truncates the bubble exactly as the
+                        // reconnect path above does. The retained ids keep the streamed-only
+                        // content through the merge either way.
+                        if (!_uiState.value.isRunning) streamedParts.clear()
                         _uiState.update {
                             it.copy(
                                 messages =

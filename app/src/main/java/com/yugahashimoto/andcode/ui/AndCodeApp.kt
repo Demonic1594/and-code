@@ -340,6 +340,18 @@ fun AndCodeApp(
                     )
                 },
         )
+    // The store keeps every per-runtime instance until the Activity dies, so the one being left
+    // behind on a runtime switch must drop its transcript and bitmaps by hand - see
+    // [ChatViewModel.release]. A remembered previous instance releases only when a DIFFERENT
+    // view model has actually taken over: a plain onDispose here would also fire on activity
+    // recreation (rotation, dark mode, locale), wiping the chat that is still on screen while
+    // its ViewModel survives in the retained store.
+    val previousChatViewModel = remember { mutableStateOf<ChatViewModel?>(null) }
+    LaunchedEffect(chatViewModel) {
+        val previous = previousChatViewModel.value
+        if (previous != null && previous !== chatViewModel) previous.release()
+        previousChatViewModel.value = chatViewModel
+    }
     val chatState by chatViewModel.uiState.collectAsState()
 
     val speechManager = remember { SpeechRecognizerManager(context.applicationContext) }
@@ -514,7 +526,7 @@ fun AndCodeApp(
                                             attachment.url.substringAfter("base64,", missingDelimiterValue = "")
                                         if (base64.isEmpty()) return@runCatching null
                                         val bytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
-                                        com.yugahashimoto.andcode.feature.chat.decodeSampledBitmap(
+                                        com.yugahashimoto.andcode.core.util.decodeSampledBitmap(
                                             bytes,
                                             com.yugahashimoto.andcode.feature.chat.COMPOSER_PREVIEW_MAX_DIMENSION,
                                         )
