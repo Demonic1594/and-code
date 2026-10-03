@@ -100,7 +100,7 @@ private fun mergeIntoPending(
         is OpenCodeEvent.MessageUpdated -> {
             val key = "u:${event.info.sessionId}:${event.info.id}"
             pending.getOrPut(key) { PendingSlot(event.info.sessionId, event.info.id, partId = null) }
-                .let { it.roleUpdate = event }
+                .offerRoleUpdate(event)
             return true
         }
         is OpenCodeEvent.MessagePartUpdated -> {
@@ -150,6 +150,10 @@ private class PendingSlot(
             val text: StringBuilder,
             var count: Int,
         ) : Piece
+    }
+
+    fun offerRoleUpdate(event: OpenCodeEvent.MessageUpdated) {
+        roleUpdate = event
     }
 
     fun offerSnapshot(event: OpenCodeEvent.MessagePartUpdated) {
