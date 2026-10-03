@@ -24,6 +24,7 @@ import com.yugahashimoto.andcode.runtime.RuntimeState
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import com.yugahashimoto.andcode.runtime.RuntimeType
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -1659,6 +1660,61 @@ class ChatViewModelTest {
         }
 
     @Test
+    fun `a history load landing after the switch does not paint the wrong chat`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val gate = CompletableDeferred<Unit>()
+            backend.nextListMessagesGate = gate
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+
+            backend.historyMessagesBySession =
+                mapOf("s1" to listOf(sessionAssistantMessage("s1", "m-s1", "Old chat's transcript")))
+            viewModel.openSession("s1", "Old chat")
+            // Parked on the gate: the history fetch is in flight.
+            runCurrent()
+
+            // The user starts a fresh chat before it answers.
+            viewModel.newSession()
+            runCurrent()
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            // The stale load's apply is dropped wholesale - not its transcript under the new
+            // chat's blank screen, not its model selection, and not a stuck history spinner.
+            assertNull(viewModel.uiState.value.sessionId)
+            assertTrue(viewModel.uiState.value.messages.isEmpty())
+            assertFalse(viewModel.uiState.value.isLoadingHistory)
+        }
+
+    @Test
+    fun `a duplicated run-end idle settles once and does not double-drain the queue`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(forcesQueue = true))
+            val viewModel = ChatViewModel(backend, backend.events)
+            advanceUntilIdle()
+
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+            viewModel.sendMessage("second")
+            viewModel.sendMessage("third")
+            advanceUntilIdle()
+            assertEquals(listOf("first"), backend.sentPrompts.map { it.second.text })
+
+            // The HTTP runtime ends one run as BOTH session.status:idle and the deprecated
+            // session.idle, back to back in one event burst.
+            backend.events.tryEmit(OpenCodeEvent.SessionStatusChanged("s1", "idle"))
+            backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+
+            // The first idle settles the run and drains "second". The echo of the same run end
+            // must not settle "second"'s turn the instant it starts and push "third" out over it.
+            assertEquals(listOf("first", "second"), backend.sentPrompts.map { it.second.text })
+            assertTrue(viewModel.uiState.value.isRunning)
+        }
+
+    @Test
     fun `opening a different session while the previous one is running clears the stop button`() =
         runTest(dispatcher) {
             val backend = FakeBackend()
@@ -1868,6 +1924,13 @@ class ChatViewModelTest {
         var lastCreateDirectory: String? = null
         var historyMessages: List<OpenCodeMessage> = emptyList()
         var historyMessagesBySession: Map<String, List<OpenCodeMessage>> = emptyMap()
+
+        /**
+         * When set, the NEXT [listMessages] call suspends until the gate completes. Lets a test
+         * land a fetch's result after the chat has already moved on, which the immediate fake
+         * cannot do on its own.
+         */
+        var nextListMessagesGate: CompletableDeferred<Unit>? = null
         var sessionsById: Map<String, OpenCodeSession> = emptyMap()
         val sentPrompts = mutableListOf<Pair<String, PromptRequest>>()
         val permissionResponses = mutableListOf<PermissionRecord>()
@@ -1906,7 +1969,13 @@ class ChatViewModelTest {
             )
         }
 
-        override suspend fun listMessages(sessionId: String): List<OpenCodeMessage> = historyMessagesBySession[sessionId] ?: historyMessages
+        override suspend fun listMessages(sessionId: String): List<OpenCodeMessage> {
+            nextListMessagesGate?.let { gate ->
+                nextListMessagesGate = null
+                gate.await()
+            }
+            return historyMessagesBySession[sessionId] ?: historyMessages
+        }
 
         override suspend fun listProviders(): ProviderCatalog = ProviderCatalog()
 

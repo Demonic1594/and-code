@@ -1175,6 +1175,9 @@ class ChatViewModel(
                 sessionId = null,
                 sessionTitle = "",
                 parentSession = null,
+                // A history load still in flight for the chat being left must not park the new
+                // chat on its spinner: the stale guard drops that load's apply entirely.
+                isLoadingHistory = false,
                 messages = emptyList(),
                 permissions = emptyList(),
                 pendingQuestions = emptyList(),
