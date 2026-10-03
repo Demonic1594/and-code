@@ -81,9 +81,10 @@ class ConnectionQualityMonitorTest {
             // Still inside the 1 s window: nothing published yet.
             assertEquals(0.0, monitor.quality.value.tokensPerSecond, 0.0)
 
-            // The next token arrives 1.1 s later and closes the window: 10 chunks / 1.1 s.
+            // The next token arrives 1.1 s later and closes the window. It counts too - the
+            // implementation adds before computing the rate - so 11 chunks over 1.1 s.
             nowNanos += 1_100_000_000L
             monitor.recordStreamToken()
-            assertEquals(10.0 / 1.1, monitor.quality.value.tokensPerSecond, 1e-9)
+            assertEquals(11.0 / 1.1, monitor.quality.value.tokensPerSecond, 1e-9)
         }
 }

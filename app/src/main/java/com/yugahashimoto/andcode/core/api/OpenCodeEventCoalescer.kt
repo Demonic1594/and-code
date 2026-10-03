@@ -45,13 +45,15 @@ fun Flow<OpenCodeEvent>.coalesceStreamingUpdates(
         }
 
         val pending = LinkedHashMap<String, PendingSlot>()
-        var windowStartedAtNanos = 0L
+        // Null while no window is open, so a clock that genuinely reports zero cannot be mistaken
+        // for "no window" the way a 0L sentinel would be.
+        var windowStartedAtNanos: Long? = null
 
         suspend fun flush() {
             if (pending.isEmpty()) return
             val slots = ArrayList<PendingSlot>(pending.values)
             pending.clear()
-            windowStartedAtNanos = 0L
+            windowStartedAtNanos = null
             for (slot in slots) slot.emitInto { send(it) }
         }
 
@@ -68,9 +70,9 @@ fun Flow<OpenCodeEvent>.coalesceStreamingUpdates(
                 }
                 else -> {
                     val event = received.getOrThrow()
-                    if (windowStartedAtNanos == 0L) windowStartedAtNanos = clockNanos()
+                    val windowStart = windowStartedAtNanos ?: clockNanos().also { windowStartedAtNanos = it }
                     if (mergeIntoPending(event, pending)) {
-                        if (clockNanos() - windowStartedAtNanos >= windowMillis * NANOS_PER_MILLI) flush()
+                        if (clockNanos() - windowStart >= windowMillis * NANOS_PER_MILLI) flush()
                     } else {
                         // Barrier: preserve ordering by releasing everything that arrived first.
                         flush()
