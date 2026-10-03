@@ -116,6 +116,8 @@ val appModule =
             )
         }
 
+        // The Koin-side twin of the maintenance instance AndCodeApplication builds by hand; both
+        // point at the same marker file, mirroring how RuntimeActivityRepository is wired twice.
         single {
             val runtimeDirectory: File = get()
             val commandRunner: LocalRuntimeCommandRunner = get()

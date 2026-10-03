@@ -107,13 +107,13 @@ private fun mergeIntoPending(
             val messageId = part.messageId ?: part.id ?: return false
             val partId = part.id ?: messageId
             val key = "p:$sessionId:$messageId:$partId"
-            pending.getOrPut(key) { PendingSlot(sessionId, messageId, partId) }.let { it.snapshot = event }
+            pending.getOrPut(key) { PendingSlot(sessionId, messageId, partId) }.offerSnapshot(event)
             return true
         }
         is OpenCodeEvent.MessagePartDelta -> {
             val key = "p:${event.sessionId}:${event.messageId}:${event.partId}"
             val slot = pending.getOrPut(key) { PendingSlot(event.sessionId, event.messageId, event.partId) }
-            slot.appendDelta(event.field, event.delta)
+            slot.offerDelta(event.field, event.delta)
             return true
         }
         else -> return false
@@ -124,6 +124,13 @@ private fun mergeIntoPending(
  * Per-part accumulation state. At most one exists per (session, message, part) while a window is
  * open; its position in [pending] is the arrival order of its first event, which is what keeps
  * ordering stable across different parts and messages.
+ *
+ * Inside the slot, arrival order is preserved too: [pieces] holds snapshots and delta runs in
+ * the order they arrived. Consecutive same-field deltas concatenate into one run, and a snapshot
+ * that directly follows another replaces it - but a snapshot that arrives *after* deltas keeps
+ * its place behind them. Antigravity and Codex both end a part with a full-text snapshot after
+ * its deltas (same part id); emitting that snapshot before the deltas would make the chat append
+ * the delta text to the already-complete snapshot and show the tail twice.
  */
 private class PendingSlot(
     private val sessionId: String,
@@ -131,33 +138,59 @@ private class PendingSlot(
     private val partId: String?,
 ) {
     private var roleUpdate: OpenCodeEvent.MessageUpdated? = null
-    private var snapshot: OpenCodeEvent.MessagePartUpdated? = null
-    private val deltas = LinkedHashMap<String, StringBuilder>()
-    private val deltaCounts = mutableMapOf<String, Int>()
+    private val pieces = mutableListOf<Piece>()
 
-    fun appendDelta(
+    private sealed interface Piece {
+        data class Snapshot(val event: OpenCodeEvent.MessagePartUpdated) : Piece
+
+        class DeltaRun(
+            val field: String,
+            val text: StringBuilder,
+            var count: Int,
+        ) : Piece
+    }
+
+    fun offerSnapshot(event: OpenCodeEvent.MessagePartUpdated) {
+        val last = pieces.lastOrNull()
+        if (last is Piece.Snapshot) {
+            pieces[pieces.lastIndex] = Piece.Snapshot(event)
+        } else {
+            pieces.add(Piece.Snapshot(event))
+        }
+    }
+
+    fun offerDelta(
         field: String,
         delta: String,
     ) {
-        deltas.getOrPut(field) { StringBuilder() }.append(delta)
-        deltaCounts[field] = (deltaCounts[field] ?: 0) + 1
+        val last = pieces.lastOrNull()
+        if (last is Piece.DeltaRun && last.field == field) {
+            last.text.append(delta)
+            last.count++
+        } else {
+            pieces.add(Piece.DeltaRun(field, StringBuilder(delta), 1))
+        }
     }
 
     suspend fun emitInto(send: suspend (OpenCodeEvent) -> Unit) {
         roleUpdate?.let { send(it) }
-        snapshot?.let { send(it) }
-        for ((field, text) in deltas) {
-            if (text.isEmpty()) continue
-            send(
-                OpenCodeEvent.MessagePartDelta(
-                    sessionId = sessionId,
-                    messageId = messageId,
-                    partId = partId ?: continue,
-                    field = field,
-                    delta = text.toString(),
-                    mergeCount = deltaCounts[field] ?: 1,
-                ),
-            )
+        for (piece in pieces) {
+            when (piece) {
+                is Piece.Snapshot -> send(piece.event)
+                is Piece.DeltaRun ->
+                    if (piece.text.isNotEmpty()) {
+                        send(
+                            OpenCodeEvent.MessagePartDelta(
+                                sessionId = sessionId,
+                                messageId = messageId,
+                                partId = partId ?: continue,
+                                field = piece.field,
+                                delta = piece.text.toString(),
+                                mergeCount = piece.count,
+                            ),
+                        )
+                    }
+            }
         }
     }
 }

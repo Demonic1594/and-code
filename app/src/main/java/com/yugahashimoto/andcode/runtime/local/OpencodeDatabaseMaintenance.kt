@@ -37,6 +37,13 @@ class OpencodeDatabaseMaintenance(
         require(timeoutSeconds > 0L)
     }
 
+    /**
+     * Serializes runs: the startup trigger and every session-idle transition can call
+     * [runIfDue] concurrently, and without this two of them can both read a stale marker and
+     * both execute the script.
+     */
+    private val runMutex = Mutex()
+
     sealed interface Result {
         /** The previous run is more recent than [minIntervalMillis]; nothing was executed. */
         data object SkippedRecentlyRun : Result
@@ -57,22 +64,23 @@ class OpencodeDatabaseMaintenance(
      * [minIntervalMillis]. Cheap enough to call from every session-idle transition: the not-due
      * path is one file read.
      */
-    suspend fun runIfDue(): Result {
-        val now = clock()
-        val lastRun = readMarker()
-        if (lastRun != null && now - lastRun < minIntervalMillis) return Result.SkippedRecentlyRun
-        val result =
-            withContext(Dispatchers.IO) {
-                shellRunner(maintenanceScript(), timeoutSeconds)
-            }
-        return when {
-            result.exitCode == RUNTIME_UNAVAILABLE_EXIT_CODE -> Result.SkippedRuntimeUnavailable
-            else -> {
-                writeMarker(now)
-                Result.Ran(result.output)
+    suspend fun runIfDue(): Result =
+        runMutex.withLock {
+            val now = clock()
+            val lastRun = readMarker()
+            if (lastRun != null && now - lastRun < minIntervalMillis) return@withLock Result.SkippedRecentlyRun
+            val result =
+                withContext(Dispatchers.IO) {
+                    shellRunner(maintenanceScript(), timeoutSeconds)
+                }
+            when {
+                result.exitCode == RUNTIME_UNAVAILABLE_EXIT_CODE -> Result.SkippedRuntimeUnavailable
+                else -> {
+                    writeMarker(now)
+                    Result.Ran(result.output)
+                }
             }
         }
-    }
 
     private fun readMarker(): Long? = runCatching { markerFile.readText().trim().toLongOrNull() }.getOrNull()
 

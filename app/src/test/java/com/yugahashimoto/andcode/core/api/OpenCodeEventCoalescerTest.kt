@@ -24,7 +24,7 @@ class OpenCodeEventCoalescerTest {
         }
 
     @Test
-    fun `different parts stay separate and keep arrival order`() =
+    fun `different parts stay separate and keep first-arrival order`() =
         runTest {
             val out =
                 flowOf(
@@ -33,9 +33,11 @@ class OpenCodeEventCoalescerTest {
                     partUpdated("s1", "m1", "p1", "one-later"),
                 ).coalesceStreamingUpdates(windowMillis = 60_000L).toList()
 
+            // Slots keep the position of their first arrival; each carries its latest snapshot.
             assertEquals(2, out.size)
-            assertEquals("p2", (out[0] as OpenCodeEvent.MessagePartUpdated).part.id)
-            assertEquals("one-later", (out[1] as OpenCodeEvent.MessagePartUpdated).part.text)
+            assertEquals("p1", (out[0] as OpenCodeEvent.MessagePartUpdated).part.id)
+            assertEquals("one-later", (out[0] as OpenCodeEvent.MessagePartUpdated).part.text)
+            assertEquals("two", (out[1] as OpenCodeEvent.MessagePartUpdated).part.text)
         }
 
     @Test
@@ -100,14 +102,16 @@ class OpenCodeEventCoalescerTest {
     @Test
     fun `a flood that never pauses is flushed window by window`() =
         runTest {
-            // A clock advanced by hand: 30 back-to-back events take no measurable real time, so
-            // the elapsed-time bound - not an idle gap - must be what releases each window.
+            // The clock advances only while the producer is between emissions (the delay yields
+            // to the collector), so time passes as the consumer sees events - not all at once
+            // before the first one is processed.
             var nowNanos = 0L
             val source =
                 flow {
-                    repeat(30) { index ->
+                    repeat(30) {
                         emit(delta("s1", "m1", "p1", "x"))
                         nowNanos += 20_000_000L
+                        delay(1)
                     }
                 }
             val out = source.coalesceStreamingUpdates(windowMillis = 50L, clockNanos = { nowNanos }).toList()
@@ -116,6 +120,22 @@ class OpenCodeEventCoalescerTest {
             val deltas = out.filterIsInstance<OpenCodeEvent.MessagePartDelta>()
             assertEquals(30, deltas.sumOf { it.delta.length })
             assertEquals(30, deltas.sumOf { it.mergeCount })
+        }
+
+    @Test
+    fun `deltas followed by a full snapshot keep their order within one window`() =
+        runTest {
+            // Antigravity and Codex end a part with its full-text snapshot after the deltas; the
+            // snapshot must stay behind them or the chat appends the delta tail to the completed
+            // text and shows it twice.
+            val out =
+                flowOf(
+                    delta("s1", "m1", "p1", "tail-"),
+                    delta("s1", "m1", "p1", "end"),
+                    partUpdated("s1", "m1", "p1", "the complete text"),
+                ).coalesceStreamingUpdates(windowMillis = 60_000L).toList()
+
+            assertEquals(listOf("delta:tail-end", "part:the complete text"), out.map(::label))
         }
 
     @Test
