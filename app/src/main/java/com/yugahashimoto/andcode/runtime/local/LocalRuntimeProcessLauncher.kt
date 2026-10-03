@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.core.storage.DeviceStorage
 import java.io.File
+import java.io.RandomAccessFile
 import java.util.concurrent.TimeUnit
 
 class LocalRuntimeProcessLauncher(
@@ -229,8 +230,22 @@ class LocalRuntimeProcessLauncher(
 
     private fun tail(file: File): String =
         runCatching {
-            file.readLines().takeLast(20).joinToString("\n")
+            // Only the last few lines are shown; a startup that fails against a runaway log must
+            // not allocate the whole file to find them.
+            RandomAccessFile(file, "r").use { random ->
+                val length = random.length()
+                val window = TAIL_WINDOW_BYTES.coerceAtMost(length)
+                random.seek(length - window)
+                val bytes = ByteArray(window.toInt())
+                random.readFully(bytes)
+                bytes.decodeToString()
+            }.lines().takeLast(20).joinToString("\n")
         }.getOrDefault("No runtime log was produced")
+
+    private companion object {
+        /** Bytes read for [tail]: far more than 20 log lines, far less than an unbounded log. */
+        private const val TAIL_WINDOW_BYTES: Long = 64L * 1024L
+    }
 }
 
 internal fun truncateLogFile(
@@ -242,11 +257,18 @@ internal fun truncateLogFile(
     if (currentSize <= maxBytes) return
     runCatching {
         val keepSize = maxBytes / 2
-        val bytes = logFile.readBytes()
-        val cutPoint = (bytes.size - keepSize.toInt()).coerceAtLeast(0)
-        val lineBreak = (cutPoint until bytes.size).firstOrNull { bytes[it] == '\n'.code.toByte() } ?: -1
-        val start = if (lineBreak >= 0 && lineBreak < bytes.size - 1) lineBreak + 1 else cutPoint
-        logFile.writeBytes(bytes.copyOfRange(start, bytes.size))
+        // Reads only the bytes it keeps: the whole-file read it replaced allocated the log's
+        // entire size on the Java heap at the exact moment a runtime was being restarted, which
+        // for a crash-looping verbose runtime could be anything at all.
+        RandomAccessFile(logFile, "rw").use { file ->
+            file.seek((currentSize - keepSize).coerceAtLeast(0L))
+            val bytes = ByteArray(keepSize.toInt())
+            file.readFully(bytes)
+            val lineBreak = bytes.indexOf('\n'.code.toByte())
+            val start = if (lineBreak >= 0 && lineBreak < bytes.size - 1) lineBreak + 1 else 0
+            file.setLength(0)
+            file.write(bytes, start, bytes.size - start)
+        }
     }
 }
 

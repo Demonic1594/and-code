@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.core.storage.DeviceStorage
 import java.io.File
+import java.io.RandomAccessFile
 import java.util.concurrent.TimeUnit
 
 class LocalRuntimeCommandRunner(
@@ -73,11 +74,32 @@ class LocalRuntimeCommandRunner(
                 } else {
                     LocalRuntimeCommandResult(
                         exitCode = process.exitValue(),
-                        output = outputFile.readText().takeLast(maxOutputCharacters),
+                        output = readOutputTail(outputFile),
                     )
                 }
             } finally {
                 outputFile.delete()
             }
         }
+
+    /**
+     * Reads only the last [maxOutputCharacters] of the output file. Reading the whole file first -
+     * as this used to - allocated the command's entire output (a verbose diagnostic can be tens of
+     * megabytes) to keep a four-thousand-character tail.
+     *
+     * The byte window reads up to four bytes per kept character, so a multibyte character cut at
+     * the window's edge cannot shrink the tail below what was asked for; a split codepoint at the
+     * very start decodes to one replacement character, which a tail this size absorbs.
+     */
+    private fun readOutputTail(outputFile: File): String {
+        val maxBytes = (maxOutputCharacters.toLong() * 4).coerceAtLeast(16L)
+        RandomAccessFile(outputFile, "r").use { file ->
+            val length = file.length()
+            val window = maxBytes.coerceAtMost(length)
+            file.seek(length - window)
+            val bytes = ByteArray(window.toInt())
+            file.readFully(bytes)
+            return bytes.decodeToString().takeLast(maxOutputCharacters)
+        }
+    }
 }
