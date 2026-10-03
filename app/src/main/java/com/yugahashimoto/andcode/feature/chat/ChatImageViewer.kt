@@ -37,9 +37,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -77,17 +79,33 @@ fun ChatImageViewerDialog(
     val bitmap = loadResult.second
     var scale by remember(source.url) { mutableFloatStateOf(1f) }
     var offset by remember(source.url) { mutableStateOf(Offset.Zero) }
+    var viewSize by remember(source.url) { mutableStateOf(IntSize.Zero) }
     val transformState =
         rememberTransformableState { zoomChange, panChange, _ ->
             scale = (scale * zoomChange).coerceIn(1f, 5f)
-            offset = if (scale == 1f) Offset.Zero else offset + panChange
+            // Panning is clamped to what the zoom actually reveals, so a zoomed image can be
+            // moved around its frame but never pushed entirely off-screen (from where only an
+            // exact return to 1x used to recover it).
+            val maxX = viewSize.width * (scale - 1f) / 2f
+            val maxY = viewSize.height * (scale - 1f) / 2f
+            offset =
+                Offset(
+                    (offset.x + panChange.x).coerceIn(-maxX, maxX),
+                    (offset.y + panChange.y).coerceIn(-maxY, maxY),
+                )
         }
 
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
-        Box(Modifier.fillMaxSize().background(Color.Black).testTag("chat-image-viewer")) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .onSizeChanged { size -> viewSize = size }
+                .testTag("chat-image-viewer"),
+        ) {
             when (val image = bitmap) {
                 null ->
                     if (loaded) {
@@ -169,11 +187,24 @@ private val chatThumbnailCache =
         ): Int = value.byteCount / 1024
     }
 
-private fun thumbnailCacheKey(url: String): String =
-    MessageDigest
-        .getInstance("SHA-256")
-        .digest(url.toByteArray(Charsets.UTF_8))
-        .joinToString("") { byte -> "%02x".format(byte) }
+private fun thumbnailCacheKey(url: String): String {
+    // Transcript images persist as base64 data URLs, so this hashes multi-megabyte strings - and
+    // the hex rendering allocates one String per byte if done with the format() idiom. It runs on
+    // the caller's dispatcher; keep both costs off the UI thread by calling it from IO.
+    val digest =
+        MessageDigest
+            .getInstance("SHA-256")
+            .digest(url.toByteArray(Charsets.UTF_8))
+    val digits = "0123456789abcdef".toCharArray()
+    val hex = CharArray(digest.size * 2)
+    var index = 0
+    for (byte in digest) {
+        val value = byte.toInt() and 0xFF
+        hex[index++] = digits[value ushr 4]
+        hex[index++] = digits[value and 0x0F]
+    }
+    return String(hex)
+}
 
 /**
  * Loads a bitmap sized for a chat-bubble thumbnail — [THUMBNAIL_MAX_DIMENSION] per side, not the
@@ -183,7 +214,13 @@ internal suspend fun loadChatThumbnailBitmap(
     context: Context,
     source: ChatImageSource,
 ): Bitmap? {
-    val key = thumbnailCacheKey(source.url)
+    // Keying and lookup both on IO: the key computation copies and hashes the whole (often
+    // multi-megabyte) URL, and produceState restarts it every time a bubble scrolls back into
+    // view - including on cache hits.
+    val key =
+        withContext(Dispatchers.IO) {
+            thumbnailCacheKey(source.url)
+        }
     chatThumbnailCache.get(key)?.let { return it }
     val bitmap =
         withContext(Dispatchers.IO) {

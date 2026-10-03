@@ -2683,6 +2683,28 @@ class ChatViewModel(
         sendMessage(queuedPrompt.text)
     }
 
+    /**
+     * Drops this ViewModel's heavy state when the store will never call [onCleared] for it.
+     *
+     * [AndCodeApp] keys one ChatViewModel per runtime id, and the Activity's ViewModelStore keeps
+     * every keyed instance - and its transcript, attachment previews (~4 MB a bitmap) and stream
+     * caches - alive until the Activity itself dies. Switching runtimes therefore leaks the
+     * instance being left. The scope is deliberately NOT cancelled here: the store can hand the
+     * same instance back when the user switches back, and a cancelled viewModelScope would
+     * permanently break it.
+     */
+    fun release() {
+        streamedParts.clear()
+        messageRoles.clear()
+        _uiState.update {
+            it.copy(
+                messages = emptyList(),
+                attachments = emptyList(),
+                imagePreviews = emptyList(),
+            )
+        }
+    }
+
     override fun onCleared() {
         // Preview bitmaps are deliberately not recycled here either: the composition that draws
         // them can outlive the ViewModel during teardown, and the GC reclaims them anyway.

@@ -96,6 +96,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -240,7 +241,10 @@ fun ChatHomeScreen(
     onOpenPatchDiff: (ChatPart.Patch) -> Unit = {},
     onDismissPatchDiff: () -> Unit = {},
 ) {
-    var input by remember { mutableStateOf("") }
+    // Saveable and keyed to the session: a rotation or a navigation to settings no longer wipes a
+    // half-typed prompt, while switching chats still starts each one fresh instead of carrying
+    // the previous chat's draft over.
+    var input by rememberSaveable(state.sessionId) { mutableStateOf("") }
     val listState = rememberLazyListState()
     var showModelPicker by remember { mutableStateOf(false) }
     val errorKind = classifyChatError(state.error)
@@ -249,7 +253,12 @@ fun ChatHomeScreen(
     var showActionSheet by remember { mutableStateOf<MessageActionTarget?>(null) }
     var activityGroupId by remember { mutableStateOf<String?>(null) }
     var selectedImage by remember { mutableStateOf<ChatImageSource?>(null) }
-    var legacyDownload by remember { mutableStateOf<ChatImageSource?>(null) }
+    // The pre-Q save flow goes through the system file picker; holding the pending image as plain
+    // strings (the bitmap-bearing source is not saveable) survives the activity recreation the
+    // picker can cause, instead of silently no-oping the save afterwards.
+    var pendingSaveUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingSaveMime by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingSaveFilename by rememberSaveable { mutableStateOf<String?>(null) }
     val timelineEntries = remember(state.messages) { groupConversationTimeline(state.messages) }
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
@@ -258,8 +267,13 @@ fun ChatHomeScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val imageSaveLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/*")) { uri ->
-            val source = legacyDownload
-            legacyDownload = null
+            val source =
+                pendingSaveUrl?.let { url ->
+                    ChatImageSource(url = url, mime = pendingSaveMime ?: "image/*", filename = pendingSaveFilename)
+                }
+            pendingSaveUrl = null
+            pendingSaveMime = null
+            pendingSaveFilename = null
             if (uri != null && source != null) {
                 coroutineScope.launch {
                     val saved = saveChatImageToUri(context, source, uri)
@@ -786,7 +800,9 @@ fun ChatHomeScreen(
                         ).show()
                     }
                 } else {
-                    legacyDownload = it
+                    pendingSaveUrl = it.url
+                    pendingSaveMime = it.mime
+                    pendingSaveFilename = it.filename
                     imageSaveLauncher.launch(safeImageFilename(it))
                 }
             },

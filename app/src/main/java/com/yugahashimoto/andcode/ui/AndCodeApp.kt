@@ -340,6 +340,13 @@ fun AndCodeApp(
                     )
                 },
         )
+    // The store keeps every per-runtime instance until the Activity dies, so the one being left
+    // behind on a runtime switch must drop its transcript and bitmaps by hand - see
+    // [ChatViewModel.release]. Releasing in onDispose keeps the instance usable if the user
+    // switches back: only the heavy state goes, never the scope.
+    DisposableEffect(chatViewModel) {
+        onDispose { chatViewModel.release() }
+    }
     val chatState by chatViewModel.uiState.collectAsState()
 
     val speechManager = remember { SpeechRecognizerManager(context.applicationContext) }
