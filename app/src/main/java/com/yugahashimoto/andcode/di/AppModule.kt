@@ -5,12 +5,7 @@ import com.yugahashimoto.andcode.core.api.GitHubApiClient
 import com.yugahashimoto.andcode.data.connection.SecureSettingsRepository
 import com.yugahashimoto.andcode.data.repository.AndroidRuntimeActivityMessages
 import com.yugahashimoto.andcode.data.repository.AndroidRuntimeCatalogMessages
-import com.yugahashimoto.andcode.data.repository.PullRequestStatusRepository
-import com.yugahashimoto.andcode.data.settings.AppPreferencesRepository
 import com.yugahashimoto.andcode.data.settings.DraftRepository
-import com.yugahashimoto.andcode.runtime.RuntimeRegistry
-import com.yugahashimoto.andcode.runtime.local.AndroidLocalRuntimeMessages
-import com.yugahashimoto.andcode.runtime.local.LocalRuntimeAccessCoordinator
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeMessages
 import com.yugahashimoto.andcode.runtime.local.OpencodeDatabaseMaintenance
 import kotlinx.coroutines.CoroutineScope
@@ -85,9 +80,5 @@ val appModule =
         single {
             val settings: SecureSettingsRepository = get()
             GitHubApiClient(token = { settings.githubToken }, client = get())
-        }
-
-        single {
-            PullRequestStatusRepository(api = get(), scope = get())
         }
     }

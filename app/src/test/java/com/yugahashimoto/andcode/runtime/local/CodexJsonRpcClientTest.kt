@@ -15,6 +15,19 @@ import java.io.ByteArrayOutputStream
  * driving the actual binary over stdio with no fixture or mock server involved - see docs/CODEX.md.
  */
 class CodexJsonRpcClientTest {
+    /**
+     * Pumps the runBlocking loop until the request write (dispatched to IO inside writeLine) has
+     * landed, so a fed-back "response" can never race the registration it resolves. Bounded: a
+     * write that never lands must fail the assertions, not hang the suite.
+     */
+    private fun pumpUntilWritten(output: ByteArrayOutputStream) {
+        var attempts = 0
+        while (output.size() == 0 && attempts < 10_000) {
+            kotlinx.coroutines.yield()
+            attempts++
+        }
+    }
+
     @Test
     fun `resolves a pending call from its response line`() =
         runBlocking {
@@ -24,7 +37,7 @@ class CodexJsonRpcClientTest {
             val pending = async { client.call("initialize") }
             // writeLine dispatches the write to IO; pump the loop until the request has landed,
             // so the "response" below can never race the registration it resolves.
-            while (output.size() == 0) kotlinx.coroutines.yield()
+            pumpUntilWritten(output)
             client.receiveLine(
                 """{"id":1,"result":{"userAgent":"probe/0.155.1","codexHome":"/tmp/.codex","platformFamily":"unix","platformOs":"linux"}}""",
             )
@@ -47,7 +60,7 @@ class CodexJsonRpcClientTest {
             val client = CodexJsonRpcClient(output, onNotification = { _, _ -> })
 
             val pending = async { client.call("account/read") }
-            while (output.size() == 0) kotlinx.coroutines.yield()
+            pumpUntilWritten(output)
             client.receiveLine("""{"id":1,"result":{"account":null,"requiresOpenaiAuth":true}}""")
             pending.await()
 
@@ -64,7 +77,7 @@ class CodexJsonRpcClientTest {
             // try/catch around await() - an unhandled child failure cancels the parent job
             // regardless. runCatching inside the coroutine keeps the failure a plain value instead.
             val pending = async { runCatching { client.call("turn/start") } }
-            while (output.size() == 0) kotlinx.coroutines.yield()
+            pumpUntilWritten(output)
             client.receiveLine(
                 """{"error":{"code":-32600,"message":"invalid thread id: invalid character: expected an optional prefix of `urn:uuid:` followed by [0-9a-fA-F-], found `P` at 1"},"id":1}""",
             )

@@ -241,9 +241,10 @@ internal const val STREAM_HEALTHY_POLL_INTERVAL_MS = 30_000L
  * How long after a settle a second idle for the same session is treated as the HTTP runtime's
  * duplicated run-end emission (status:idle + deprecated idle, one burst) rather than a new run
  * ending. Far below anything a real dispatched turn can complete in; the poll loop and stall
- * watchdog cover the pathological case.
+ * watchdog cover the pathological case. Read from the injectable [ChatViewModel] clock so tests
+ * on virtual time see a genuinely later idle as later.
  */
-private const val DUPLICATE_IDLE_WINDOW_NANOS = 750_000_000L
+private const val DUPLICATE_IDLE_WINDOW_MILLIS = 750L
 
 private const val RESPONSE_POLL_TIMEOUT_MS = 120_000L
 internal const val TRANSIENT_RECOVERY_DELAY_MS = 5000L
@@ -694,7 +695,7 @@ class ChatViewModel(
      * recovers the pathological case anyway.
      */
     private var lastIdleSettledSessionId: String? = null
-    private var lastIdleSettledAtNanos = 0L
+    private var lastIdleSettledAtMillis = 0L
 
     init {
         pullRequestStatuses?.let(::trackPullRequests)
@@ -2466,15 +2467,17 @@ class ChatViewModel(
         // session.idle, milliseconds apart. The second pass through here settled the turn the
         // first pass's queue-drain had just started (isRunning flipped off mid-run, the stream
         // cache wiped) and drained a SECOND prompt over it - so an idle echoing a settle that
-        // just happened for this session is ignored. See [lastIdleSettledAtNanos].
-        val nowNanos = System.nanoTime()
+        // just happened for this session is ignored. See [lastIdleSettledAtMillis]. The injected
+        // [now] clock keeps the window testable: a genuinely distinct second run end advances it
+        // by the whole turn, far past the window.
+        val nowMillis = now()
         if (sessionId == lastIdleSettledSessionId &&
-            nowNanos - lastIdleSettledAtNanos < DUPLICATE_IDLE_WINDOW_NANOS
+            nowMillis - lastIdleSettledAtMillis < DUPLICATE_IDLE_WINDOW_MILLIS
         ) {
             return
         }
         lastIdleSettledSessionId = sessionId
-        lastIdleSettledAtNanos = nowNanos
+        lastIdleSettledAtMillis = nowMillis
         // Captured before the stream cache is cleared: a bubble this client streamed that the
         // transcript still does not carry (an interrupted turn some runtimes never persist) must
         // survive the reload below, not vanish with the cache.

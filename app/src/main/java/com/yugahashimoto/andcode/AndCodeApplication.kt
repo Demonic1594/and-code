@@ -224,6 +224,7 @@ class AndCodeApplication : Application() {
 
     /** The one access coordinator every local-runtime component shares; see the Koin module. */
     lateinit var accessCoordinator: LocalRuntimeAccessCoordinator
+        private set
 
     /** The one process launcher; see the Koin module. */
     lateinit var processLauncher: LocalRuntimeProcessLauncher

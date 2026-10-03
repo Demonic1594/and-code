@@ -558,7 +558,8 @@ class CodexRuntime(
         }
     }
 
-    /** Settles everything that was waiting on an app-server that is no longer running. */    private fun settleServerGone(error: String) {
+    /** Settles everything that was waiting on an app-server that is no longer running. */
+    private fun settleServerGone(error: String) {
         sessionsWithTurnInFlight.toMap().forEach { (sessionId, turnId) ->
             sessionsWithTurnInFlight -= sessionId
             itemParser.forgetTurn(turnId)

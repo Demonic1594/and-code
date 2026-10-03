@@ -119,6 +119,9 @@ class LocalRuntimeProcessLauncher(
         process?.let(::terminate) ?: terminateResidualManagedProcesses()
         process = null
         startedAtMillis = null
+        // Retires the generation the exit monitor compares against: a deliberate stop must not
+        // count as a restart (or report onExit) the way an unexpected death does.
+        generation++
     }
 
     fun isRunning(): Boolean = process?.isAlive == true

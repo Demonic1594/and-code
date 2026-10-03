@@ -1310,7 +1310,10 @@ class ChatViewModelTest {
     fun `messages queued offline are sent one turn at a time`() =
         runTest(dispatcher) {
             val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(abortsBeforeInterrupt = true))
-            val viewModel = ChatViewModel(backend, backend.events)
+            // Virtual clock: the second idle below ends a genuinely later turn (the poll timeout
+            // advances 120 s of scheduler time between the two), which a real-time clock cannot
+            // express inside a runTest that finishes in milliseconds.
+            val viewModel = ChatViewModel(backend, backend.events, now = { testScheduler.currentTime })
 
             // Sent before the first health check lands, so the chat is still offline and holds them.
             viewModel.sendMessage("first")
@@ -1692,7 +1695,9 @@ class ChatViewModelTest {
     fun `a duplicated run-end idle settles once and does not double-drain the queue`() =
         runTest(dispatcher) {
             val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(forcesQueue = true))
-            val viewModel = ChatViewModel(backend, backend.events)
+            // Virtual clock: the duplicated idles below land on the same scheduler instant, which
+            // is exactly the "one event burst" the dedup window exists to recognize.
+            val viewModel = ChatViewModel(backend, backend.events, now = { testScheduler.currentTime })
             advanceUntilIdle()
 
             viewModel.sendMessage("first")

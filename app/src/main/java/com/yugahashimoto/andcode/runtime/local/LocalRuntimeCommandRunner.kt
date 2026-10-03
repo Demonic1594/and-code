@@ -16,15 +16,19 @@ class LocalRuntimeCommandRunner(
     init {
         require(timeoutSeconds > 0)
         require(maxOutputCharacters > 0)
-        pruneStaleLogs()
+        pruneStaleLogsOnce()
     }
 
     /**
      * Removes temp logs orphaned by an app death mid-command - their `finally` never ran, and
      * nothing else ever cleaned the directory. Pattern-matched to this runner's own files so a
      * runtime's real logs (startup, stderr) are never touched.
+     *
+     * Once per process: short-lived runners (Codex resolves one per RPC) would otherwise rescan
+     * the directory on every call.
      */
-    private fun pruneStaleLogs() {
+    private fun pruneStaleLogsOnce() {
+        if (!pruneGuard.compareAndSet(false, true)) return
         val cutoff = System.currentTimeMillis() - STALE_LOG_MILLIS
         File(runtimeDirectory, "logs")
             .listFiles { file ->
@@ -138,5 +142,8 @@ class LocalRuntimeCommandRunner(
     private companion object {
         /** Temp logs a killed app left behind are worthless after a day. */
         private const val STALE_LOG_MILLIS = 24L * 60L * 60L * 1000L
+
+        /** See [pruneStaleLogsOnce]; shared across every runner in this process. */
+        private val pruneGuard = java.util.concurrent.atomic.AtomicBoolean(false)
     }
 }

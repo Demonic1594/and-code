@@ -83,12 +83,12 @@ class OpencodeDatabaseMaintenance(
             if (lastRun != null && now - lastRun < minIntervalMillis) return@withLock Result.SkippedRecentlyRun
             val result =
                 runCatching {
-                        withContext(Dispatchers.IO) {
-                            shellRunner(maintenanceScript(), timeoutSeconds)
-                        }
-                    }.getOrElse { failure ->
-                        return@withLock Result.Failed(failure.message ?: failure.javaClass.simpleName)
+                    withContext(Dispatchers.IO) {
+                        shellRunner(maintenanceScript(), timeoutSeconds)
                     }
+                }.getOrElse { failure ->
+                    return@withLock Result.Failed(failure.message ?: failure.javaClass.simpleName)
+                }
             when {
                 result.exitCode == RUNTIME_UNAVAILABLE_EXIT_CODE -> Result.SkippedRuntimeUnavailable
                 else -> {
