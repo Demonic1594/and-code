@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Base64
+import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.rememberTransformableState
@@ -52,6 +53,7 @@ import java.net.HttpURLConnection
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.URL
+import java.security.MessageDigest
 
 data class ChatImageSource(
     val url: String,
@@ -145,6 +147,56 @@ suspend fun loadChatImageBitmap(
         val bytes = loadChatImageBytes(context, source) ?: return@withContext source.preview
         decodeSampledBitmap(bytes, VIEWER_MAX_DIMENSION) ?: source.preview
     }
+
+/**
+ * Recent chat-bubble thumbnails, keyed by a digest of the image url.
+ *
+ * A LazyColumn disposes a bubble's bitmap producer as soon as it scrolls away, and produceState
+ * keyed on the url re-runs the whole load when the item scrolls back in - for a data-URL image
+ * that is a megabyte-scale base64 decode and a 1024px bitmap per scroll. A small LRU keeps the
+ * recent ones decoded. Entries are dropped, never recycled: a bitmap still referenced by a frame
+ * being drawn must not have its pixels reclaimed underneath the canvas (see
+ * ChatViewModel.removeAttachment for the crash that taught us this).
+ *
+ * The key is a digest, not the url: a data-URL key would pin its megabytes in the cache map for
+ * as long as the entry lives.
+ */
+private val chatThumbnailCache =
+    object : LruCache<String, Bitmap>(THUMBNAIL_CACHE_KILOBYTES) {
+        override fun sizeOf(
+            key: String,
+            value: Bitmap,
+        ): Int = value.byteCount / 1024
+    }
+
+private fun thumbnailCacheKey(url: String): String =
+    MessageDigest
+        .getInstance("SHA-256")
+        .digest(url.toByteArray(Charsets.UTF_8))
+        .joinToString("") { byte -> "%02x".format(byte) }
+
+/**
+ * Loads a bitmap sized for a chat-bubble thumbnail — [THUMBNAIL_MAX_DIMENSION] per side, not the
+ * fullscreen viewer's [VIEWER_MAX_DIMENSION] — through [chatThumbnailCache].
+ */
+internal suspend fun loadChatThumbnailBitmap(
+    context: Context,
+    source: ChatImageSource,
+): Bitmap? {
+    val key = thumbnailCacheKey(source.url)
+    chatThumbnailCache.get(key)?.let { return it }
+    val bitmap =
+        withContext(Dispatchers.IO) {
+            // Deliberately not the same loader as the viewer: a bubble never shows more than
+            // ~1000px of the image, so decoding at 4096 allocated up to 67MB of pixels that the
+            // 320dp target could not display.
+            val bytes = loadChatImageBytes(context, source) ?: return@withContext null
+            decodeSampledBitmap(bytes, THUMBNAIL_MAX_DIMENSION)
+        } ?: source.preview
+            ?: return null
+    chatThumbnailCache.put(key, bitmap)
+    return bitmap
+}
 
 suspend fun loadChatImageBytes(
     context: Context,
@@ -299,6 +351,15 @@ private fun readLimited(input: java.io.InputStream): ByteArray {
 private const val MAX_IMAGE_BYTES = 25 * 1024 * 1024
 private const val MAX_IMAGE_BASE64_CHARS = 34_952_536
 private const val VIEWER_MAX_DIMENSION = 4096
+
+/**
+ * Max dimension for a chat-bubble thumbnail - see [loadChatThumbnailBitmap]. Kept at the
+ * composer's preview resolution: a bubble renders at most a few hundred dp either way.
+ */
+internal const val THUMBNAIL_MAX_DIMENSION = 1024
+
+/** Budget for [chatThumbnailCache], sized in kilobytes of decoded pixels (~8 images at 1024px). */
+private const val THUMBNAIL_CACHE_KILOBYTES = 32 * 1024
 
 /** Max dimension for an attachment's optimistic composer/bubble thumbnail - see [decodeSampledBitmap]. */
 const val COMPOSER_PREVIEW_MAX_DIMENSION = 1024

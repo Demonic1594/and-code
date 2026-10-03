@@ -649,7 +649,9 @@ private fun ChatImageThumbnail(
     val context = LocalContext.current
     val bitmapState =
         produceState(initialValue = source.preview, source.url) {
-            value = loadChatImageBitmap(context, source)
+            // Thumbnail resolution, through the LRU: the viewer's 4096px decode was up to 67MB of
+            // pixels for a 320dp target, re-paid on every scroll back into view.
+            value = loadChatThumbnailBitmap(context, source)
         }
     val bitmap = bitmapState.value
     if (bitmap != null) {
