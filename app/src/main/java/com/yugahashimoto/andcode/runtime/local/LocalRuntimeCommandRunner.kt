@@ -24,12 +24,20 @@ class LocalRuntimeCommandRunner(
     fun runShell(
         commandText: String,
         timeoutSeconds: Long = this.timeoutSeconds,
-    ): LocalRuntimeCommandResult =
-        accessCoordinator.read {
-            require(timeoutSeconds > 0L)
-            val runtime =
-                installedRuntimeProvider()
-                    ?: return@read LocalRuntimeCommandResult(127, messages.notInstalled)
+    ): LocalRuntimeCommandResult {
+        require(timeoutSeconds > 0L)
+        // The runtime is resolved BEFORE the read lock is taken. In production the provider is
+        // the installer's installedRuntime(), which acquires the WRITE lock on the very
+        // coordinator shared with this runner - and ReentrantReadWriteLock cannot upgrade a
+        // held read lock to the write lock. Calling it inside `read` deadlocked the calling
+        // thread on itself while it still pinned the read lock, wedging every shell command
+        // and, behind it, every install/update/adb operation app-wide. The returned snapshot
+        // is sufficient: the read lock below still keeps an environment swap from racing the
+        // process once it has started.
+        val runtime =
+            installedRuntimeProvider()
+                ?: return LocalRuntimeCommandResult(127, messages.notInstalled)
+        return accessCoordinator.read {
             val prootTmp = File(runtimeDirectory, "proot-tmp").apply { mkdirs() }
             val outputFile = File.createTempFile("diagnostic-", ".log", File(runtimeDirectory, "logs").apply { mkdirs() })
             try {
@@ -81,6 +89,7 @@ class LocalRuntimeCommandRunner(
                 outputFile.delete()
             }
         }
+    }
 
     /**
      * Reads only the last [maxOutputCharacters] of the output file. Reading the whole file first -
