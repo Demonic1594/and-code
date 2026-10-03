@@ -1,6 +1,5 @@
 package com.yugahashimoto.andcode.runtime.local
 
-import android.os.Process
 import java.io.File
 
 /**
@@ -17,12 +16,14 @@ import java.io.File
  * The same walk [LocalRuntimeProcessLauncher.terminate] performs for the long-lived server, minus
  * its graceful-destroy attempt: by the time a caller reaches for this, the direct child is
  * already gone.
+ *
+ * NB: no `android.os.Process` import here on purpose - `Process` must stay the java.lang one.
  */
 internal fun killManagedProcessTrees(
     runtimeDirectory: File,
     child: Process? = null,
     procRoot: File = File("/proc"),
-    signal: (Long) -> Unit = { pid -> Process.killProcess(pid.toInt()) },
+    signal: (Long) -> Unit = { pid -> android.os.Process.killProcess(pid.toInt()) },
 ) {
     val roots =
         linkedSetOf<Long>().apply {

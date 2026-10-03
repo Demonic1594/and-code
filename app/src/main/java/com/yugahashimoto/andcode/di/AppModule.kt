@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.di
 
+import android.content.Context
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.core.api.GitHubApiClient
 import com.yugahashimoto.andcode.data.connection.SecureSettingsRepository
@@ -8,13 +9,12 @@ import com.yugahashimoto.andcode.data.repository.AndroidRuntimeCatalogMessages
 import com.yugahashimoto.andcode.data.settings.DraftRepository
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeMessages
 import com.yugahashimoto.andcode.runtime.local.OpencodeDatabaseMaintenance
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
-import java.io.File
+
+/** Resolves the application whose `lateinit` properties carry the one true instance of each graph node. */
+private fun appFrom(context: Context): AndCodeApplication = context.applicationContext as AndCodeApplication
 
 /**
  * Shares the application's own singletons; it deliberately constructs almost nothing.
@@ -28,15 +28,11 @@ import java.io.File
  */
 val appModule =
     module {
-        fun app(): AndCodeApplication = androidContext().applicationContext as AndCodeApplication
+        // androidContext() resolves inside a definition's lambda, not in the module body - hence
+        // this per-single shape instead of a helper closing over it.
+        single { appFrom(androidContext()).settings }
 
-        single<File> { File(androidContext().filesDir, "runtime") }
-
-        single { CoroutineScope(SupervisorJob() + Dispatchers.IO) }
-
-        single { app().settings }
-
-        single { app().preferences }
+        single { appFrom(androidContext()).preferences }
 
         single { DraftRepository(androidContext()) }
 
@@ -44,37 +40,37 @@ val appModule =
 
         single { AndroidRuntimeCatalogMessages(androidContext()) }
 
-        single { app().providerCredentials }
+        single { appFrom(androidContext()).providerCredentials }
 
-        single { app().customProviders }
+        single { appFrom(androidContext()).customProviders }
 
-        single { app().voskModels }
+        single { appFrom(androidContext()).voskModels }
 
         single { OkHttpClient() }
 
-        single { app().accessCoordinator }
+        single { appFrom(androidContext()).accessCoordinator }
 
-        single<LocalRuntimeMessages> { app().runtimeMessages }
+        single<LocalRuntimeMessages> { appFrom(androidContext()).runtimeMessages }
 
-        single { app().localRuntimeInstaller }
+        single { appFrom(androidContext()).localRuntimeInstaller }
 
-        single { app().processLauncher }
+        single { appFrom(androidContext()).processLauncher }
 
-        single { app().commandRunner }
+        single { appFrom(androidContext()).commandRunner }
 
-        single<OpencodeDatabaseMaintenance> { app().opencodeDatabaseMaintenance }
+        single<OpencodeDatabaseMaintenance> { appFrom(androidContext()).opencodeDatabaseMaintenance }
 
-        single { app().localRuntimeManager }
+        single { appFrom(androidContext()).localRuntimeManager }
 
-        single { app().localRuntimeController }
+        single { appFrom(androidContext()).localRuntimeController }
 
-        single { app().runtimeRegistry }
+        single { appFrom(androidContext()).runtimeRegistry }
 
-        single { app().catalogRepository }
+        single { appFrom(androidContext()).catalogRepository }
 
-        single { app().activityRepository }
+        single { appFrom(androidContext()).activityRepository }
 
-        single { app().pullRequestStatusRepository }
+        single { appFrom(androidContext()).pullRequestStatusRepository }
 
         single {
             val settings: SecureSettingsRepository = get()

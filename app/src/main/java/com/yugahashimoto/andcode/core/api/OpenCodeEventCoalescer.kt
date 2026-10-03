@@ -45,7 +45,9 @@ fun Flow<OpenCodeEvent>.coalesceStreamingUpdates(
         val input =
             Channel<OpenCodeEvent>(
                 capacity = Channel.UNLIMITED,
-                onUndeliveredElement = { event, _ ->
+                // This coroutines version's callback takes the element alone (the two-argument
+                // (E, Throwable?) form arrived in a later release).
+                onUndeliveredElement = { event ->
                     Log.w("OpenCodeEventCoalescer", "event dropped without delivery: $event")
                 },
             )
