@@ -23,10 +23,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       # No android-actions/setup-android: it installs the legacy 'tools' package, which Google
       # removed from the SDK repository, so the action hard-fails before Gradle runs. The hosted
-      # runner image already ships the SDK and cmdline-tools; the explicit installs below pin what
-      # the build needs.
-      - run: yes | sdkmanager --licenses >/dev/null || true
-      - run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      # runner image already ships the SDK (and sdkmanager is not on PATH without that action);
+      # Android CI builds debug and release APKs on this same image with no SDK setup at all.
       # See release.yml for why this is AND_CODE_-prefixed rather than GITHUB_CLIENT_ID directly.
       - run: ./gradlew :app:testGithubDebugUnitTest :app:assembleGithubDebug
         env:
