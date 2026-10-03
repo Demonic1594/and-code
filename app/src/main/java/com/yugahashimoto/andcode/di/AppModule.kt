@@ -1,195 +1,86 @@
 package com.yugahashimoto.andcode.di
 
-import android.os.Build
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.core.api.GitHubApiClient
-import com.yugahashimoto.andcode.core.notification.RuntimeNotificationHelper
 import com.yugahashimoto.andcode.data.connection.SecureSettingsRepository
 import com.yugahashimoto.andcode.data.repository.AndroidRuntimeActivityMessages
 import com.yugahashimoto.andcode.data.repository.AndroidRuntimeCatalogMessages
 import com.yugahashimoto.andcode.data.repository.PullRequestStatusRepository
-import com.yugahashimoto.andcode.data.repository.RuntimeActivityRepository
-import com.yugahashimoto.andcode.data.repository.RuntimeCatalogRepository
 import com.yugahashimoto.andcode.data.settings.AppPreferencesRepository
 import com.yugahashimoto.andcode.data.settings.DraftRepository
-import com.yugahashimoto.andcode.feature.wakeword.VoskModelStore
 import com.yugahashimoto.andcode.runtime.RuntimeRegistry
 import com.yugahashimoto.andcode.runtime.local.AndroidLocalRuntimeMessages
-import com.yugahashimoto.andcode.runtime.local.AntigravityRuntime
-import com.yugahashimoto.andcode.runtime.local.AntigravityTarget
-import com.yugahashimoto.andcode.runtime.local.CustomProviderStore
-import com.yugahashimoto.andcode.runtime.local.DefaultLocalRuntimeUpdateEngine
-import com.yugahashimoto.andcode.runtime.local.GitCredentialHelper
-import com.yugahashimoto.andcode.runtime.local.LocalProviderCredentialStore
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeAccessCoordinator
-import com.yugahashimoto.andcode.runtime.local.LocalRuntimeCommandRunner
-import com.yugahashimoto.andcode.runtime.local.LocalRuntimeInstaller
-import com.yugahashimoto.andcode.runtime.local.LocalRuntimeManager
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeMessages
-import com.yugahashimoto.andcode.runtime.local.LocalRuntimeProcessLauncher
-import com.yugahashimoto.andcode.runtime.local.LocalRuntimeReleaseClient
-import com.yugahashimoto.andcode.runtime.local.LocalRuntimeServiceController
-import com.yugahashimoto.andcode.runtime.local.LocalRuntimeTarget
-import com.yugahashimoto.andcode.runtime.local.LocalRuntimeUpdater
 import com.yugahashimoto.andcode.runtime.local.OpencodeDatabaseMaintenance
-import com.yugahashimoto.andcode.runtime.local.VerifiedRuntimeDownloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 import java.io.File
 
+/**
+ * Shares the application's own singletons; it deliberately constructs almost nothing.
+ *
+ * Every instance this module used to build in parallel - a second installer, launcher, command
+ * runner, manager, registry, activity repository - diverged from the hand-built graph in ways
+ * that stayed invisible until they broke: two runtime managers could double-start the same
+ * proot, the registry dropped Claude Code, the activity repository never armed its stall
+ * watchdog or reported errors. The application's properties are `lateinit`, so each `single`
+ * resolves lazily, after [AndCodeApplication.onCreate] has assigned them - the same pattern the
+ * database-maintenance and Codex entries established first.
+ */
 val appModule =
     module {
+        fun app(): AndCodeApplication = androidContext().applicationContext as AndCodeApplication
 
         single<File> { File(androidContext().filesDir, "runtime") }
 
         single { CoroutineScope(SupervisorJob() + Dispatchers.IO) }
 
-        single { SecureSettingsRepository(androidContext()) }
+        single { app().settings }
 
-        single { AppPreferencesRepository(get()) }
+        single { app().preferences }
 
         single { DraftRepository(androidContext()) }
-
-        single { RuntimeNotificationHelper(androidContext()) }
 
         single { AndroidRuntimeActivityMessages(androidContext()) }
 
         single { AndroidRuntimeCatalogMessages(androidContext()) }
 
-        single { LocalProviderCredentialStore(get()) }
+        single { app().providerCredentials }
 
-        single { CustomProviderStore(get()) }
+        single { app().customProviders }
 
-        single { VoskModelStore(androidContext(), get(), get()) }
+        single { app().voskModels }
 
         single { OkHttpClient() }
 
-        single { LocalRuntimeAccessCoordinator() }
+        single { app().accessCoordinator }
 
-        single<LocalRuntimeMessages> { AndroidLocalRuntimeMessages(androidContext()) }
+        single<LocalRuntimeMessages> { app().runtimeMessages }
 
-        single {
-            val runtimeDirectory: File = get()
-            val abi = Build.SUPPORTED_ABIS.firstOrNull().orEmpty()
-            LocalRuntimeInstaller(
-                context = androidContext(),
-                runtimeDirectory = runtimeDirectory,
-                abi = abi,
-                accessCoordinator = get(),
-            )
-        }
+        single { app().localRuntimeInstaller }
 
-        single {
-            val settings: SecureSettingsRepository = get()
-            val providerCredentials: LocalProviderCredentialStore = get()
-            val customProviders: CustomProviderStore = get()
-            val runtimeDirectory: File = get()
-            LocalRuntimeProcessLauncher(
-                runtimeDirectory = runtimeDirectory,
-                portProbe = LocalRuntimeManager::defaultPortProbe,
-                githubToken = { settings.githubToken },
-                beforeStart = { installed ->
-                    runCatching { providerCredentials.syncToRuntime(installed.rootfs) }
-                    runCatching { customProviders.syncToRuntime(installed.rootfs) }
-                    runCatching {
-                        GitCredentialHelper(installed.rootfs) { settings.githubToken }.let { helper ->
-                            if (settings.githubToken.isNullOrBlank()) helper.remove() else helper.install()
-                        }
-                    }
-                },
-            )
-        }
+        single { app().processLauncher }
 
-        single {
-            val runtimeDirectory: File = get()
-            val installer: LocalRuntimeInstaller = get()
-            LocalRuntimeCommandRunner(
-                runtimeDirectory = runtimeDirectory,
-                installedRuntimeProvider = installer::installedRuntime,
-                accessCoordinator = get(),
-                messages = get(),
-            )
-        }
+        single { app().commandRunner }
 
-        // The application builds the single instance by hand (its construction order predates
-        // Koin's start); this lazy reference shares that one instance, so the run mutex actually
-        // serializes every trigger - the same pattern as codexTarget below.
-        single<OpencodeDatabaseMaintenance> {
-            (androidContext().applicationContext as AndCodeApplication).opencodeDatabaseMaintenance
-        }
+        single<OpencodeDatabaseMaintenance> { app().opencodeDatabaseMaintenance }
 
-        single {
-            val runtimeDirectory: File = get()
-            val abi = Build.SUPPORTED_ABIS.firstOrNull().orEmpty()
-            val httpClient: OkHttpClient = get()
-            val commandRunner: LocalRuntimeCommandRunner = get()
-            val verifiedDownloader = VerifiedRuntimeDownloader(httpClient)
-            val updater =
-                LocalRuntimeUpdater(
-                    runtimeDirectory = runtimeDirectory,
-                    abi = abi,
-                    downloadAsset = { asset, destination, progress ->
-                        verifiedDownloader.download(
-                            url = asset.url,
-                            destination = destination,
-                            expectedSha256 = asset.sha256,
-                            expectedSizeBytes = asset.sizeBytes,
-                            onProgress = progress,
-                        )
-                    },
-                    candidateVersionProvider = { candidate ->
-                        val result =
-                            commandRunner.runShell(
-                                commandText = "/usr/local/bin/${candidate.name} --version",
-                                timeoutSeconds = 30L,
-                            )
-                        require(result.exitCode == 0) {
-                            "OpenCode update candidate validation failed: ${result.output}"
-                        }
-                        result.output.lineSequence().firstOrNull(String::isNotBlank)
-                            ?: error("OpenCode update candidate returned no version")
-                    },
-                    accessCoordinator = get(),
-                    messages = get(),
-                )
-            val updateEngine =
-                DefaultLocalRuntimeUpdateEngine(
-                    releaseClient = LocalRuntimeReleaseClient(httpClient),
-                    updater = updater,
-                )
-            LocalRuntimeManager(
-                runtimeDirectory = runtimeDirectory,
-                abi = abi,
-                installer = get(),
-                processLauncher = get(),
-                updateEngine = updateEngine,
-                messages = get(),
-            )
-        }
+        single { app().localRuntimeManager }
 
-        single { LocalRuntimeServiceController(androidContext()) }
+        single { app().localRuntimeController }
 
-        single {
-            RuntimeRegistry(
-                store = get(),
-                localTarget = LocalRuntimeTarget(get(), messages = get()),
-                additionalTargets =
-                    listOf(
-                        AntigravityTarget(
-                            AntigravityRuntime(get(), (get<LocalRuntimeInstaller>())::installedRuntime),
-                        ),
-                        // The application's own instance, not a second CodexTarget: Codex runs one
-                        // long-lived app-server whose approvals and threads a second runtime would
-                        // not see. Resolved lazily, after AndCodeApplication.onCreate has built it.
-                        (androidContext().applicationContext as AndCodeApplication).codexTarget,
-                    ),
-            )
-        }
+        single { app().runtimeRegistry }
+
+        single { app().catalogRepository }
+
+        single { app().activityRepository }
+
+        single { app().pullRequestStatusRepository }
 
         single {
             val settings: SecureSettingsRepository = get()
@@ -198,35 +89,5 @@ val appModule =
 
         single {
             PullRequestStatusRepository(api = get(), scope = get())
-        }
-
-        single {
-            RuntimeCatalogRepository(get(), get(), messages = get<AndroidRuntimeCatalogMessages>())
-        }
-
-        single {
-            val notifications: RuntimeNotificationHelper = get()
-            val scope: CoroutineScope = get()
-            val maintenance: OpencodeDatabaseMaintenance = get()
-            RuntimeActivityRepository(
-                registry = get(),
-                scope = scope,
-                onPermissionAsked = { request, title, runtimeId ->
-                    notifications.notifyPermission(request, title, runtimeId)
-                },
-                onSessionIdle = { sessionId, title, runtimeId ->
-                    notifications.notifySessionComplete(sessionId, title, runtimeId)
-                    // Idle is the natural moment to prune the event log the run just grew; a
-                    // no-op unless the daily interval has elapsed.
-                    scope.launch { maintenance.runIfDue() }
-                },
-                onSessionError = { sessionId, message, runtimeId ->
-                    notifications.notifySessionError(sessionId, message, runtimeId)
-                },
-                onQuestionAsked = { request, title, runtimeId ->
-                    notifications.notifyQuestion(request, title, runtimeId)
-                },
-                messages = get<AndroidRuntimeActivityMessages>(),
-            )
         }
     }

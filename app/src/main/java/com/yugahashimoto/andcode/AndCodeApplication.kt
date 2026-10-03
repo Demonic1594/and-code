@@ -221,6 +221,12 @@ class AndCodeApplication : Application() {
 
     /** Which agents the shared sandbox holds, for callers that must not pay for a full runtime check. */
     lateinit var localRuntimeInstaller: LocalRuntimeInstaller
+
+    /** The one access coordinator every local-runtime component shares; see the Koin module. */
+    lateinit var accessCoordinator: LocalRuntimeAccessCoordinator
+
+    /** The one process launcher; see the Koin module. */
+    lateinit var processLauncher: LocalRuntimeProcessLauncher
         private set
 
     lateinit var runtimeMessages: LocalRuntimeMessages
@@ -258,7 +264,11 @@ class AndCodeApplication : Application() {
         // Analytics is explicitly opt-in; source-code tooling should not silently collect usage data.
         AnalyticsReporter.install(this, settings.analyticsEnabled)
         preferences = AppPreferencesRepository(settings)
-        scheduleRepository = ScheduleRepository(this).also { it.reconcileStaleRuns() }
+        scheduleRepository = ScheduleRepository(this)
+        // Settling runs orphaned by a process death is file I/O and independent of everything
+        // constructed below; off the main thread, where the (double) keystore-backed prefs
+        // creation above already cost enough of this method.
+        applicationScope.launch { scheduleRepository.reconcileStaleRuns() }
         deviceStorageAccess = DeviceStorageAccess(this)
         // Asked on every sandbox launch rather than captured once: the user can grant all-files
         // access from system settings and come straight back without the process restarting.
@@ -283,7 +293,9 @@ class AndCodeApplication : Application() {
             )
         val runtimeDirectory = File(filesDir, "runtime")
         val abi = Build.SUPPORTED_ABIS.firstOrNull().orEmpty()
-        val accessCoordinator = LocalRuntimeAccessCoordinator()
+        // Exposed so the Koin module can share the one true instance: a second coordinator (or
+        // launcher) built there would let installs race shell commands it knows nothing about.
+        accessCoordinator = LocalRuntimeAccessCoordinator()
         val installer =
             LocalRuntimeInstaller(
                 context = this,
@@ -292,7 +304,7 @@ class AndCodeApplication : Application() {
                 accessCoordinator = accessCoordinator,
             )
         localRuntimeInstaller = installer
-        val launcher =
+        processLauncher =
             LocalRuntimeProcessLauncher(
                 runtimeDirectory = runtimeDirectory,
                 portProbe = LocalRuntimeManager::defaultPortProbe,
@@ -411,7 +423,7 @@ class AndCodeApplication : Application() {
                 runtimeDirectory = runtimeDirectory,
                 abi = abi,
                 installer = installer,
-                processLauncher = launcher,
+                processLauncher = processLauncher,
                 updateEngine = updateEngine,
                 systemPrompt = { systemPromptStore.selectedPrompt() },
                 messages = runtimeMessages,
@@ -454,7 +466,7 @@ class AndCodeApplication : Application() {
                 runtimeDirectory = runtimeDirectory,
                 abi = abi,
                 statusProvider = localRuntimeManager::status,
-                processMetricsProvider = launcher::metrics,
+                processMetricsProvider = processLauncher::metrics,
                 commandExecutor = commandRunner::run,
                 fullDevelopmentToolsInstalledProvider = localRuntimeManager::fullDevelopmentToolsInstalled,
                 messages = runtimeMessages,
@@ -545,8 +557,13 @@ class AndCodeApplication : Application() {
                     notifications.notifySessionComplete(sessionId, title, runtimeId)
                     githubStarCoordinator.onSessionCompleted()
                     // Idle is the natural moment to prune the event log the run just grew; a
-                    // no-op unless the daily interval has elapsed.
-                    applicationScope.launch { opencodeDatabaseMaintenance.runIfDue() }
+                    // no-op unless the daily interval has elapsed. Gated on the local OpenCode
+                    // runtime: that sqlite store is the only one this prunes, and firing on any
+                    // other runtime's idle booted a standalone proot (up to a 300 s VACUUM) for
+                    // a remote or Codex session that never touched it.
+                    if (runtimeId == LocalAgent.OPEN_CODE.targetId) {
+                        applicationScope.launch { opencodeDatabaseMaintenance.runIfDue() }
+                    }
                 },
                 onSessionError = { sessionId, message, runtimeId ->
                     AnalyticsReporter.recordRuntimeSessionError()
