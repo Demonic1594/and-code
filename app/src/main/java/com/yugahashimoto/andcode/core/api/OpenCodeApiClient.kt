@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -22,6 +23,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import okhttp3.CertificatePinner
@@ -32,9 +34,12 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.ByteArrayInputStream
 import java.io.IOException
+import java.io.InputStream
 import java.util.concurrent.TimeUnit
 
+@OptIn(ExperimentalSerializationApi::class)
 class OpenCodeApiClient(
     private val profile: ConnectionProfile,
     private val httpClient: OkHttpClient = defaultHttpClient(profile),
@@ -102,8 +107,8 @@ class OpenCodeApiClient(
 
     suspend fun providerAuthMethods(): Map<String, List<ProviderAuthMethod>> =
         withContext(Dispatchers.IO) {
-            execute(requestBuilder("provider/auth").get().build()) { body ->
-                json.decodeFromString<Map<String, List<ProviderAuthMethod>>>(body)
+            execute(requestBuilder("provider/auth").get().build()) { stream ->
+                json.decodeFromStream<Map<String, List<ProviderAuthMethod>>>(stream)
             }
         }
 
@@ -165,8 +170,8 @@ class OpenCodeApiClient(
                 requestBuilder("provider/${encodePath(providerId)}/oauth/callback")
                     .post(body.toString().toRequestBody(JSON_MEDIA_TYPE))
                     .build()
-            execute(request, providerAuthHttpClient) { responseBody ->
-                json.decodeFromString<Boolean>(responseBody)
+            execute(request, providerAuthHttpClient) { stream ->
+                json.decodeFromStream<Boolean>(stream)
             }
         }
 
@@ -353,8 +358,8 @@ class OpenCodeApiClient(
 
     suspend fun mcpServers(): List<McpServer> =
         withContext(Dispatchers.IO) {
-            execute(requestBuilder("mcp").get().build()) { body ->
-                val root = json.parseToJsonElement(body).jsonObject
+            execute(requestBuilder("mcp").get().build()) { stream ->
+                val root = json.decodeFromStream<JsonElement>(stream).jsonObject
                 root.entries.map { (name, value) ->
                     val serverObj = value.jsonObject
                     val tools =
@@ -401,8 +406,8 @@ class OpenCodeApiClient(
 
     suspend fun config(): JsonElement =
         withContext(Dispatchers.IO) {
-            execute(requestBuilder("config").get().build()) { body ->
-                json.parseToJsonElement(body)
+            execute(requestBuilder("config").get().build()) { stream ->
+                json.decodeFromStream<JsonElement>(stream)
             }
         }
 
@@ -412,8 +417,8 @@ class OpenCodeApiClient(
                 requestBuilder("config")
                     .patch(patch.toString().toRequestBody(JSON_MEDIA_TYPE))
                     .build()
-            execute(request) { body ->
-                json.parseToJsonElement(body)
+            execute(request) { stream ->
+                json.decodeFromStream<JsonElement>(stream)
             }
         }
 
@@ -603,7 +608,7 @@ class OpenCodeApiClient(
         queryParameters: List<Pair<String, String>> = emptyList(),
     ): T =
         withContext(Dispatchers.IO) {
-            execute(requestBuilder(path, queryParameters).get().build()) { body -> json.decodeFromString<T>(body) }
+            execute(requestBuilder(path, queryParameters).get().build()) { stream -> json.decodeFromStream<T>(stream) }
         }
 
     private suspend inline fun <reified T> getList(
@@ -611,8 +616,8 @@ class OpenCodeApiClient(
         queryParameters: List<Pair<String, String>> = emptyList(),
     ): List<T> =
         withContext(Dispatchers.IO) {
-            execute(requestBuilder(path, queryParameters).get().build()) { body ->
-                json.decodeFromString<List<T>>(body)
+            execute(requestBuilder(path, queryParameters).get().build()) { stream ->
+                json.decodeFromStream<List<T>>(stream)
             }
         }
 
@@ -626,7 +631,7 @@ class OpenCodeApiClient(
                 requestBuilder(path, queryParameters)
                     .post(body.toString().toRequestBody(JSON_MEDIA_TYPE))
                     .build()
-            execute(request) { responseBody -> json.decodeFromString<T>(responseBody) }
+            execute(request) { stream -> json.decodeFromStream<T>(stream) }
         }
 
     private suspend inline fun <reified T> put(
@@ -639,7 +644,7 @@ class OpenCodeApiClient(
                 requestBuilder(path, queryParameters)
                     .put(body.toString().toRequestBody(JSON_MEDIA_TYPE))
                     .build()
-            execute(request) { responseBody -> json.decodeFromString<T>(responseBody) }
+            execute(request) { stream -> json.decodeFromStream<T>(stream) }
         }
 
     private suspend inline fun <reified T> patch(
@@ -652,7 +657,7 @@ class OpenCodeApiClient(
                 requestBuilder(path, queryParameters)
                     .patch(body.toString().toRequestBody(JSON_MEDIA_TYPE))
                     .build()
-            execute(request) { responseBody -> json.decodeFromString<T>(responseBody) }
+            execute(request) { stream -> json.decodeFromStream<T>(stream) }
         }
 
     private suspend inline fun <reified T> delete(
@@ -664,7 +669,7 @@ class OpenCodeApiClient(
                 requestBuilder(path, queryParameters)
                     .delete()
                     .build()
-            execute(request) { responseBody -> json.decodeFromString<T>(responseBody) }
+            execute(request) { stream -> json.decodeFromStream<T>(stream) }
         }
 
     private suspend fun postWithoutResponse(
@@ -682,11 +687,14 @@ class OpenCodeApiClient(
     private fun <T> execute(
         request: Request,
         client: OkHttpClient = httpClient,
-        parse: (String) -> T,
+        parse: (InputStream) -> T,
     ): T {
         client.newCall(request).execute().use { response ->
-            val bodyText = response.body?.string().orEmpty()
+            val body = response.body
             if (!response.isSuccessful) {
+                // Only failures pay for a String: the error snippet is a few hundred characters,
+                // while a success body can be a whole transcript.
+                val bodyText = body?.string().orEmpty()
                 throw OpenCodeApiException(
                     statusCode = response.code,
                     message =
@@ -697,7 +705,12 @@ class OpenCodeApiClient(
                         ),
                 )
             }
-            return parse(bodyText)
+            // Decoding straight off the response stream: reading the whole body into a String
+            // first held a second full-size copy of every payload — on a transcript carrying
+            // base64 attachments, tens of megabytes per fetch — while the parsed objects were
+            // still being built.
+            val stream = body?.byteStream() ?: ByteArrayInputStream(ByteArray(0))
+            return stream.use(parse)
         }
     }
 
