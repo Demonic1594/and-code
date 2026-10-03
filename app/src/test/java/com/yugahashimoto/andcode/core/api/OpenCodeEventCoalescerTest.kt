@@ -156,7 +156,15 @@ class OpenCodeEventCoalescerTest {
                 }
                     .exceptionOrNull()
 
-            assertEquals(failure, out)
+            // Identity is not asserted: coroutines' stack-trace recovery (on by default on the
+            // JVM) recreates an exception as it crosses coroutine boundaries, delivering an
+            // equal-but-not-same instance. Type and message surviving is the actual contract.
+            val propagated =
+                out.also {
+                    assertTrue("expected the failure to propagate, got null", it != null)
+                }
+            assertEquals(IllegalStateException::class, propagated!!::class)
+            assertEquals(failure.message, propagated.message)
         }
 
     @Test

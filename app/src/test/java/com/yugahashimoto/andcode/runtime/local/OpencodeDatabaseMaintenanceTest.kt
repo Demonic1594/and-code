@@ -49,7 +49,7 @@ class OpencodeDatabaseMaintenanceTest {
     fun `skips while the last run is inside the interval`() =
         runTest {
             val marker = temporaryFolder.newFile("marker")
-            marker.writeText("5_000")
+            marker.writeText("5000")
             val recorder = Recorder()
             val maintenance =
                 OpencodeDatabaseMaintenance(
