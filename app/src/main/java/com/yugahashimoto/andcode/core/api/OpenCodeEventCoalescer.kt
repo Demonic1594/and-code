@@ -58,11 +58,24 @@ fun Flow<OpenCodeEvent>.coalesceStreamingUpdates(
         }
 
         while (true) {
-            val received: ChannelResult<OpenCodeEvent>? =
-                withTimeoutOrNull(windowMillis) { input.receiveCatching() }
+            // The timeout is armed ONLY while work is pending: a perpetually scheduled timer
+            // would keep virtual-time schedulers (every `advanceUntilIdle` in this repo's tests)
+            // from ever reaching quiescence, and would cost a wakeup per window in production
+            // even on an idle stream. An idle stream suspends on the bare receive instead,
+            // scheduling nothing.
+            val received: ChannelResult<OpenCodeEvent>
+            if (pending.isEmpty()) {
+                received = input.receiveCatching()
+            } else {
+                val withinWindow = withTimeoutOrNull(windowMillis) { input.receiveCatching() }
+                if (withinWindow == null) {
+                    // No further event within the window: release what accumulated.
+                    flush()
+                    continue
+                }
+                received = withinWindow
+            }
             when {
-                // Idle window elapsed: hand whatever accumulated to the collector.
-                received == null -> flush()
                 received.isClosed -> {
                     flush()
                     received.exceptionOrNull()?.let { throw it }

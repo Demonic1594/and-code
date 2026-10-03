@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -207,7 +208,19 @@ class RuntimeActivityRepository(
         // downstream consumer (chat state, drawer, unread markers) would process separately.
         // Coalescing here folds them before the work multiplies; barriers - permissions, session
         // status, errors - still pass through immediately and in order.
-        flow { emitAll(target.events().coalesceStreamingUpdates()) }
+        //
+        // Activity is recorded upstream of the coalescer, on the raw stream: the stall watchdog's
+        // timestamps must measure when the runtime actually produced an event, not when UI
+        // batching got around to releasing it.
+        flow {
+            emitAll(
+                target.events()
+                    .onEach { event ->
+                        if (event.provesRunProgress()) event.sessionIdOrNull()?.let(::recordActivity)
+                    }
+                    .coalesceStreamingUpdates(),
+            )
+        }
             .retryWhen { error, attempt ->
                 mutableState.update {
                     it.copy(
@@ -224,7 +237,6 @@ class RuntimeActivityRepository(
             }
             .collect { event ->
                 mutableState.update { it.copy(streamError = null) }
-                if (event.provesRunProgress()) event.sessionIdOrNull()?.let(::recordActivity)
                 mutableEvents.emit(event)
                 handle(target, event)
             }
