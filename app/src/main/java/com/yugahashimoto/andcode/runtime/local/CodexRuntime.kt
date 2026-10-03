@@ -498,6 +498,7 @@ class CodexRuntime(
                             },
                         )
                     },
+                    timeoutMillis = CodexJsonRpcClient.INITIALIZE_TIMEOUT_MS,
                 )
             }.onFailure {
                 stopServerLocked()

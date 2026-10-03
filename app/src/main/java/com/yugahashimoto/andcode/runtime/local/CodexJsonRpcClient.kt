@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -83,10 +84,20 @@ class CodexJsonRpcClient(
 
     class RpcError(val code: Long, message: String) : Exception(message)
 
-    /** Sends [method] with [params] and suspends for the matching response's `result`. */
+    /**
+     * Sends [method] with [params] and suspends for the matching response's `result`.
+     *
+     * The wait is bounded by [timeoutMillis]: an app-server that is alive but never answering (a
+     * wedged PRoot guest, a hung boot) otherwise left the call suspended forever - and every
+     * coroutine queued behind CodexRuntime's server mutex with it, each still holding its request
+     * params - until the process happened to die. A timeout fails the call like any other error;
+     * a reply that lands after the timeout finds the id already gone from [pending] and is
+     * dropped by [receiveLine].
+     */
     suspend fun call(
         method: String,
         params: JsonElement? = null,
+        timeoutMillis: Long = DEFAULT_CALL_TIMEOUT_MS,
     ): JsonObject {
         val id = nextId.getAndIncrement()
         val deferred = CompletableDeferred<JsonObject>()
@@ -105,7 +116,7 @@ class CodexJsonRpcClient(
             // (a broken pipe from an already-dead process) must still remove this id from `pending`,
             // or it leaks there until something else happens to call failPending() on this client.
             writeLine(message)
-            return deferred.await()
+            return withTimeout(timeoutMillis) { deferred.await() }
         } finally {
             pending.remove(id)
         }
@@ -212,6 +223,20 @@ class CodexJsonRpcClient(
     }
 
     private fun JsonPrimitive.longOrNullCompat(): Long? = runCatching { long }.getOrNull()
+
+    companion object {
+        /**
+         * Generous for the metadata-sized calls that make up almost every request (thread and
+         * config reads, MCP reloads): slow is fine, forever is not.
+         */
+        const val DEFAULT_CALL_TIMEOUT_MS: Long = 60_000L
+
+        /**
+         * `initialize` starts the conversation, so on a cold boot it pays for the app-server's own
+         * startup inside PRoot before it can answer - easily the slowest call the client makes.
+         */
+        const val INITIALIZE_TIMEOUT_MS: Long = 120_000L
+    }
 }
 
 /**
