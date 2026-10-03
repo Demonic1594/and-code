@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import glob
 import shutil
 import re
 from pathlib import Path
@@ -13,10 +14,18 @@ NATIVE_EXECUTABLES = {
     "libexec/proot/loader": "libopencode_android_proot_loader.so",
     "libexec/proot/loader32": "libopencode_android_proot_loader32.so",
 }
+# Optional libraries: copied when the pinned packages provide them.
 RUNTIME_LIBRARIES = {
     "libandroid-shmem.so": "libandroid-shmem.so",
     "libc++_shared.so": "libc++_shared.so",
-    "libtalloc.so.2.4.3": "libtalloc.so",
+}
+# Required libraries, matched by glob because Termux ships them under their full version
+# (libtalloc.so.2.4.3, libtalloc.so.2.5.0, ...) which changes with every lock refresh. A stale
+# hardcoded name used to make this step silently skip the file - the APK then contained a proot
+# binary whose DT_NEEDED (patched below to libtalloc.so) resolved to nothing, and the packaged
+# app died with "library libtalloc.so not found" on the very first proot exec on device.
+REQUIRED_RUNTIME_LIB_GLOBS = {
+    "libtalloc.so*": "libtalloc.so",
 }
 NATIVE_EXECUTABLE_SEARCH_DIRS = ("bin", "libexec")
 
@@ -56,6 +65,15 @@ def copy_abi(linux_assets_dir: Path, output_dir: Path, abi: str) -> None:
         shutil.copy2(source, destination)
         destination.chmod(0o755)
     lib_dir = prefix_dir / "lib"
+    for source_name, destination_name in sorted(REQUIRED_RUNTIME_LIB_GLOBS.items()):
+        matches = sorted(glob.glob(str(lib_dir / source_name)))
+        if not matches:
+            raise FileNotFoundError(
+                f"Required Android runtime library missing: expected {lib_dir / source_name}"
+            )
+        destination = abi_output / destination_name
+        shutil.copy2(matches[0], destination)
+        destination.chmod(0o755)
     for source_name, destination_name in sorted(RUNTIME_LIBRARIES.items()):
         source = lib_dir / source_name
         if source.is_file():
