@@ -116,6 +116,11 @@ class OpencodeDatabaseMaintenanceTest {
 
         assertTrue(script.contains("DELETE FROM event;"))
         assertTrue(script.contains("DELETE FROM event_sequence;"))
+        // The path survives shell quoting with a backslash before the $; assert on the
+        // escaping-independent fragments.
+        assertTrue(script.contains("json_remove"))
+        assertTrue(script.contains("summary.diffs"))
+        assertTrue(script.contains("length(data) > 52428800"))
         assertTrue(script.contains("PRAGMA wal_checkpoint(TRUNCATE);"))
         assertTrue(script.contains("PRAGMA busy_timeout=30000;"))
         assertTrue(script.contains("-gt 1234"))

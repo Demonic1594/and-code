@@ -103,18 +103,26 @@ class OpencodeDatabaseMaintenance(
      * created both exit 0: a runtime without the tool, or one that has never opened a session,
      * has nothing to maintain. `busy_timeout` makes every statement wait for the server's locks
      * instead of failing against them.
+     *
+     * The `message` update strips pathologically large `summary.diffs` payloads: opencode's
+     * session summarizer attaches the full working-tree diff to a message, and a big enough
+     * repository produced a 279 MB patch inside one row - loading that session then needed a
+     * single ~293 MB string in the app's heap and OOMed regardless of heap size. The patch is a
+     * preview of changes that git itself holds; only rows past [VACUUM_STRIP_THRESHOLD_BYTES]
+     * are touched, far beyond any healthy summary.
      */
     internal fun maintenanceScript(): String {
         val vacuumThreshold = vacuumThresholdBytes
+        val stripThreshold = SUMMARY_STRIP_THRESHOLD_BYTES
         return """
             DB="${'$'}HOME/.local/share/opencode/opencode.db"
             command -v sqlite3 >/dev/null 2>&1 || exit 0
             [ -f "${'$'}DB" ] || exit 0
-            sqlite3 "${'$'}DB" "PRAGMA busy_timeout=30000; DELETE FROM event; DELETE FROM event_sequence; PRAGMA wal_checkpoint(TRUNCATE);"
+            sqlite3 "${'$'}DB" "PRAGMA busy_timeout=30000; DELETE FROM event; DELETE FROM event_sequence; UPDATE message SET data = json_remove(data, '\$.summary.diffs') WHERE length(data) > $stripThreshold AND json_valid(data); PRAGMA wal_checkpoint(TRUNCATE);"
             if [ "$(wc -c < "${'$'}DB" 2>/dev/null || echo 0)" -gt $vacuumThreshold ]; then
               sqlite3 "${'$'}DB" "PRAGMA busy_timeout=30000; VACUUM; PRAGMA wal_checkpoint(TRUNCATE);"
             fi
-            """.trimIndent()
+        """.trimIndent()
     }
 
     companion object {
@@ -130,6 +138,13 @@ class OpencodeDatabaseMaintenance(
 
         /** Generous on purpose: VACUUM of a badly grown file can legitimately take minutes. */
         const val DEFAULT_TIMEOUT_SECONDS: Long = 300L
+
+        /**
+         * Only summary diffs past this size are stripped. A healthy session summary's diff is
+         * kilobytes; the threshold sits far above anything legitimate and far below the size at
+         * which a single row breaks the app's heap (~250 MB).
+         */
+        const val SUMMARY_STRIP_THRESHOLD_BYTES: Long = 50L * 1024L * 1024L
 
         /** [LocalRuntimeCommandRunner] reports this exit code when nothing is installed. */
         private const val RUNTIME_UNAVAILABLE_EXIT_CODE = 127
