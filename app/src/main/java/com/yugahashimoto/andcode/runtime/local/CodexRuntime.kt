@@ -502,7 +502,7 @@ class CodexRuntime(
                                 // Never the full version() call: with a cold cache that spawns a
                                 // whole proot boot (up to 30 s) HERE, inside serverLock, stalling
                                 // the first call and everything queued behind the mutex. The
-                                placeholder is informational only; health checks warm the cache.
+                                // placeholder is informational only; health checks warm the cache.
                                 put("version", JsonPrimitive(cachedVersion ?: "0"))
                             },
                         )
