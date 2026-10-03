@@ -24,8 +24,7 @@ import java.io.File
  * that stayed invisible until they broke: two runtime managers could double-start the same
  * proot, the registry dropped Claude Code, the activity repository never armed its stall
  * watchdog or reported errors. The application's properties are `lateinit`, so each `single`
- * resolves lazily, after [AndCodeApplication.onCreate] has assigned them - the same pattern the
- * database-maintenance and Codex entries established first.
+ * resolves lazily, after [AndCodeApplication.onCreate] has assigned them.
  */
 val appModule =
     module {
