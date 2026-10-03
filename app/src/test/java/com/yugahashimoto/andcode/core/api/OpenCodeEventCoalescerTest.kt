@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.core.api
 
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
@@ -90,7 +91,7 @@ class OpenCodeEventCoalescerTest {
             val source =
                 flow {
                     emit(partUpdated("s1", "m1", "p1", "one"))
-                    kotlinx.coroutines.delay(120)
+                    delay(120)
                     emit(delta("s1", "m1", "p1", "tail"))
                 }
             val out = source.coalesceStreamingUpdates(windowMillis = 50L).toList()
