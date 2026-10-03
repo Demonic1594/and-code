@@ -1,11 +1,14 @@
 package com.yugahashimoto.andcode.core.api
 
+import android.util.Log
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ChannelResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.selects.onTimeout
+import kotlinx.coroutines.selects.select
 
 /**
  * Coalesces the high-frequency streaming events out of an OpenCode event stream.
@@ -29,12 +32,23 @@ import kotlinx.coroutines.withTimeoutOrNull
  * flooding; a quiet stream flushes each lone update after one idle window. A flood that never
  * pauses still flushes every window: the window closes on elapsed time, not on stream silence.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 fun Flow<OpenCodeEvent>.coalesceStreamingUpdates(
     windowMillis: Long = DEFAULT_WINDOW_MILLIS,
     clockNanos: () -> Long = System::nanoTime,
 ): Flow<OpenCodeEvent> =
     channelFlow {
-        val input = Channel<OpenCodeEvent>(Channel.UNLIMITED)
+        // onUndeliveredElement is the last-resort observability net: an element landing here was
+        // lost between the channel and its consumer (consumer cancellation is the benign case;
+        // the window race this class guards against would show up here too). Events are small,
+        // so the log line carries the whole thing.
+        val input =
+            Channel<OpenCodeEvent>(
+                capacity = Channel.UNLIMITED,
+                onUndeliveredElement = { event, _ ->
+                    Log.w("OpenCodeEventCoalescer", "event dropped without delivery: $event")
+                },
+            )
         launch {
             try {
                 this@coalesceStreamingUpdates.collect { input.send(it) }
@@ -67,7 +81,20 @@ fun Flow<OpenCodeEvent>.coalesceStreamingUpdates(
             if (pending.isEmpty()) {
                 received = input.receiveCatching()
             } else {
-                val withinWindow = withTimeoutOrNull(windowMillis) { input.receiveCatching() }
+                // `select`, deliberately, and not `withTimeoutOrNull { receiveCatching() }`:
+                // when the window expires at the same instant an event is delivered, the
+                // timeout's cancellation can land on the receive after the element was already
+                // assigned to it - "resumed but not yet dispatched" - and the channel then
+                // discards that element silently (kotlinx notifies onUndeliveredElement, which
+                // nobody observed here). A lost delta only truncates visible text until the
+                // part's next snapshot; a lost barrier (permission asked, session idle, session
+                // error) hangs the turn. A select clause that wins is never cancelled, so the
+                // race cannot drop the event.
+                val withinWindow: ChannelResult<OpenCodeEvent>? =
+                    select {
+                        input.onReceiveCatching { it }
+                        onTimeout(windowMillis) { null }
+                    }
                 if (withinWindow == null) {
                     // No further event within the window: release what accumulated.
                     flush()

@@ -52,9 +52,6 @@ class OpenCodeApiClient(
     // request rather than as an exception escaping into a UI callback.
     private val baseUrl: HttpUrl by lazy { OpenCodeUrl.normalize(profile.baseUrl).getOrThrow() }
 
-    @Volatile
-    private var eventPath: String = GLOBAL_EVENT_PATH
-
     private val providerAuthHttpClient: OkHttpClient =
         httpClient.newBuilder()
             .readTimeout(PROVIDER_AUTH_TIMEOUT_MINUTES, TimeUnit.MINUTES)
@@ -524,9 +521,16 @@ class OpenCodeApiClient(
      * text, no tool output, and no permission request, so a run that needs approval waits
      * forever on a request that never reaches the client. Subscribe to the cross-instance
      * `/global/event` stream instead, and fall back only for servers that predate it.
+     *
+     * The fallback is deliberately per-collector: this field used to live on the client, so one
+     * transient 400/501 — exactly what a proxy mid-restart answers — switched every collector,
+     * for the client's whole lifetime, to the instance stream and reintroduced the wrong-workspace
+     * bug above. Each `events()` subscription now carries its own path and retries the global
+     * stream first on its next reconnect.
      */
-    fun events(): Flow<OpenCodeEvent> =
-        flow { emitAll(singleEventStream(eventPath)) }.retryWhen { cause, attempt ->
+    fun events(): Flow<OpenCodeEvent> {
+        var eventPath = GLOBAL_EVENT_PATH
+        return flow { emitAll(singleEventStream(eventPath)) }.retryWhen { cause, attempt ->
             if (
                 eventPath == GLOBAL_EVENT_PATH &&
                 cause is OpenCodeApiException &&
@@ -545,12 +549,20 @@ class OpenCodeApiClient(
             delay(backoffMillis)
             true
         }
+    }
 
     private fun singleEventStream(path: String): Flow<OpenCodeEvent> =
         channelFlow {
+            // Finite on purpose. An infinite read timeout makes a half-open connection — NAT
+            // mapping expiry, a Wi-Fi-to-cell switch, a server hard-killed behind a NAT — block
+            // in readUtf8Line() forever: no error, no EOF, so the retry loop never fires and the
+            // app silently stops receiving events until it is restarted. A deadline turns a dead
+            // peer into an IOException, which the backoff above converts into a reconnect. The
+            // value must sit comfortably above the server's SSE keep-alive cadence; a genuinely
+            // quiet-but-healthy stream just pays one reconnect per interval.
             val eventClient =
                 httpClient.newBuilder()
-                    .readTimeout(0, TimeUnit.MILLISECONDS)
+                    .readTimeout(SSE_READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .build()
             val request =
                 requestBuilder(path)
@@ -779,7 +791,20 @@ class OpenCodeApiClient(
         private const val PROVIDER_AUTH_TIMEOUT_MINUTES = 6L
         private const val GLOBAL_EVENT_PATH = "global/event"
         private const val INSTANCE_EVENT_PATH = "event"
-        private val GLOBAL_EVENT_UNSUPPORTED_CODES = setOf(400, 404, 405, 501)
+
+        /**
+         * Only codes an old OpenCode server itself answers for an unknown global route. 400 and
+         * 501 were trimmed: those are what a proxy mid-restart or a misconfigured gateway blips
+         * out, and treating the blip as "server predates global events" abandoned the healthy
+         * global stream for good.
+         */
+        private val GLOBAL_EVENT_UNSUPPORTED_CODES = setOf(404, 405)
+
+        /**
+         * SSE read deadline; see `singleEventStream`. Generously above any keep-alive cadence a
+         * server uses, low enough that a dead stream is re-established in well under two minutes.
+         */
+        private const val SSE_READ_TIMEOUT_SECONDS = 90L
 
         val defaultJson: Json =
             Json {

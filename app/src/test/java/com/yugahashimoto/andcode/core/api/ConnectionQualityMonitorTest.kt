@@ -87,4 +87,71 @@ class ConnectionQualityMonitorTest {
             monitor.recordStreamToken()
             assertEquals(11.0 / 1.1, monitor.quality.value.tokensPerSecond, 1e-9)
         }
+
+    @Test
+    fun `a silence longer than the window closes it on the active span, not the gap`() =
+        runTest {
+            var nowNanos = 0L
+            val monitor =
+                ConnectionQualityMonitor(
+                    scope = TestScope(StandardTestDispatcher(testScheduler)),
+                    clockNanos = { nowNanos },
+                )
+
+            // A burst that streams for 0.2 s and then goes quiet for a tool call.
+            monitor.recordStreamTokens(5)
+            nowNanos += 100_000_000L
+            monitor.recordStreamTokens(5)
+            nowNanos += 100_000_000L
+            monitor.recordStreamTokens(5)
+            assertEquals(0.0, monitor.quality.value.tokensPerSecond, 0.0)
+
+            // The next chunk only arrives a minute later. The stale window must be closed on
+            // the 0.2 s it was actually active (15 / 0.2 = 75 tok/s), never on the 59.8 s gap -
+            // dividing by the gap read rates 10-100x low and poisoned the EMA for turns after.
+            nowNanos += 59_800_000_000L
+            monitor.recordStreamTokens(1)
+            assertEquals(75.0, monitor.quality.value.tokensPerSecond, 1e-9)
+        }
+
+    @Test
+    fun `flushStreamRate publishes a short turn without waiting for a closing chunk`() =
+        runTest {
+            var nowNanos = 0L
+            val monitor =
+                ConnectionQualityMonitor(
+                    scope = TestScope(StandardTestDispatcher(testScheduler)),
+                    clockNanos = { nowNanos },
+                )
+
+            // Most replies stream for well under the 1 s window.
+            monitor.recordStreamTokens(8)
+            nowNanos += 300_000_000L
+            monitor.recordStreamTokens(8)
+
+            monitor.flushStreamRate()
+
+            assertEquals(16.0 / 0.3, monitor.quality.value.tokensPerSecond, 1e-9)
+
+            // Flushing again with no window open is a no-op, so a run-end hook can call it
+            // freely on every isRunning transition.
+            monitor.flushStreamRate()
+            assertEquals(16.0 / 0.3, monitor.quality.value.tokensPerSecond, 1e-9)
+        }
+
+    @Test
+    fun `a burst shorter than the minimum span is not published`() =
+        runTest {
+            var nowNanos = 0L
+            val monitor =
+                ConnectionQualityMonitor(
+                    scope = TestScope(StandardTestDispatcher(testScheduler)),
+                    clockNanos = { nowNanos },
+                )
+
+            monitor.recordStreamTokens(3)
+            monitor.flushStreamRate()
+
+            assertEquals(0.0, monitor.quality.value.tokensPerSecond, 0.0)
+        }
 }
