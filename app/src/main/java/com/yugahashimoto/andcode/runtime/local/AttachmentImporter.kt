@@ -8,6 +8,7 @@ import android.provider.OpenableColumns
 import android.util.Base64
 import android.util.Log
 import com.yugahashimoto.andcode.core.api.PromptAttachment
+import com.yugahashimoto.andcode.core.util.decodeSampledBitmap
 import java.io.ByteArrayOutputStream
 
 class AttachmentImporter(
@@ -37,14 +38,46 @@ class AttachmentImporter(
                 requireNotNull(input) { "Cannot open attachment input stream" }
                 input.readBytes()
             }
-        val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
-        return listOf(
-            PromptAttachment(
-                filename = filename,
-                mime = mime,
-                url = "data:$mime;base64,$encoded",
-            ),
-        )
+        // An image straight off the camera can be tens of megabytes, and it goes to the model as
+        // base64 - an even bigger string that every later transcript read carries around forever.
+        // Vision providers downscale server-side anyway, so a photo larger than the threshold is
+        // re-encoded within the dimension the models keep. Small images (icons, screenshots,
+        // diagrams - where every pixel and the original format can matter) and non-images pass
+        // through untouched.
+        val attachment =
+            if (mime.startsWith("image/") && mime != "image/gif" && bytes.size > IMAGE_REENCODE_THRESHOLD_BYTES) {
+                reencodeSampled(bytes, filename)
+            } else {
+                null
+            }
+                ?: PromptAttachment(
+                    filename = filename,
+                    mime = mime,
+                    url = "data:$mime;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP),
+                )
+        return listOf(attachment)
+    }
+
+    /**
+     * Decodes [bytes] at most [ATTACHMENT_IMAGE_MAX_DIMENSION] per side and re-encodes as JPEG, or
+     * null when the bytes are not a decodable image - the caller keeps the original then.
+     */
+    private fun reencodeSampled(
+        bytes: ByteArray,
+        filename: String,
+    ): PromptAttachment? {
+        val bitmap = decodeSampledBitmap(bytes, ATTACHMENT_IMAGE_MAX_DIMENSION) ?: return null
+        try {
+            val output = ByteArrayOutputStream()
+            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 90, output)) return null
+            return PromptAttachment(
+                filename = "${filename.substringBeforeLast('.')}.jpg",
+                mime = "image/jpeg",
+                url = "data:image/jpeg;base64," + Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP),
+            )
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     fun import(
@@ -129,4 +162,17 @@ class AttachmentImporter(
         }.getOrNull()
 
     private fun sanitize(name: String): String = name.replace(Regex("[^a-zA-Z0-9._-]"), "_").ifBlank { "attachment" }
+
+    private companion object {
+        /**
+         * Images larger than this are re-encoded down to [ATTACHMENT_IMAGE_MAX_DIMENSION] before
+         * they are base64-encoded into a prompt: 2048px is above what the vision models keep, so
+         * nothing the model can see is lost, while the payload — and every transcript that carries
+         * it afterwards — shrinks by an order of magnitude for a camera photo.
+         */
+        private const val ATTACHMENT_IMAGE_MAX_DIMENSION = 2048
+
+        /** Small images pass through untouched; only oversized ones pay the re-encode. */
+        private const val IMAGE_REENCODE_THRESHOLD_BYTES = 1_500_000
+    }
 }

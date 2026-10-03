@@ -3,7 +3,6 @@ package com.yugahashimoto.andcode.feature.chat
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -44,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.util.decodeSampledBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -145,27 +145,6 @@ suspend fun loadChatImageBitmap(
         val bytes = loadChatImageBytes(context, source) ?: return@withContext source.preview
         decodeSampledBitmap(bytes, VIEWER_MAX_DIMENSION) ?: source.preview
     }
-
-/**
- * Decodes [bytes] downsampled so neither dimension exceeds [maxDimension].
- *
- * A camera or gallery photo can be 30-50+ MP; decoding it at full resolution just to show a chat
- * bubble thumbnail can allocate 100-200MB for a single bitmap - enough to OOM outright, or to blow
- * past the GPU's max texture size once Compose tries to draw it (#320).
- */
-fun decodeSampledBitmap(
-    bytes: ByteArray,
-    maxDimension: Int,
-): Bitmap? {
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-    var sample = 1
-    while (bounds.outWidth / sample > maxDimension || bounds.outHeight / sample > maxDimension) {
-        sample *= 2
-    }
-    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
-}
 
 suspend fun loadChatImageBytes(
     context: Context,
