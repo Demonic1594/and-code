@@ -226,6 +226,17 @@ data class PendingQuestionUi(
 
 private const val MAX_TOOL_OUTPUT_CHARS = 4000
 internal const val RESPONSE_POLL_INTERVAL_MS = 3000L
+
+/**
+ * Post-send poll cadence while the runtime's event stream is healthy and reports idle on its own
+ * ([RuntimeCapabilities.reliableIdleEvents]). The poll is then only a heartbeat against a lost
+ * `session.idle`, not the turn's completion path, so a slow read beats re-fetching the whole
+ * transcript — base64 attachments included — every 3 seconds of a stream that already carries
+ * every update. Any stream failure ([streamError]) or a runtime without the capability drops back
+ * to [RESPONSE_POLL_INTERVAL_MS] immediately, including mid-turn.
+ */
+internal const val STREAM_HEALTHY_POLL_INTERVAL_MS = 30_000L
+
 private const val RESPONSE_POLL_TIMEOUT_MS = 120_000L
 internal const val TRANSIENT_RECOVERY_DELAY_MS = 5000L
 internal const val TRANSIENT_RECOVERY_RETRY_DELAY_MS = 3000L
@@ -922,14 +933,22 @@ class ChatViewModel(
         val currentBackend = backend ?: return
         viewModelScope.launch {
             runCatching {
-                val messages = currentBackend.listMessages(sessionId)
-                val latestMessageTokens =
-                    messages.asReversed()
+                // The session endpoint answers with two numbers; the message scan it replaces
+                // re-downloads and re-parses the whole transcript — base64 attachments included —
+                // once per completed turn just to read a token count off the last entry. Only
+                // runtimes that report no session tokens (or fail the call — the session list can
+                // lag a brand-new session) pay for the scan, and then exactly as they did before.
+                val sessionTokens =
+                    runCatching { currentBackend.session(sessionId).tokens?.contextUsed }.getOrNull()
+                sessionTokens
+                    ?: currentBackend
+                        .listMessages(sessionId)
+                        .asReversed()
                         .firstNotNullOfOrNull { message ->
                             message.info.tokens?.contextUsed
                                 ?.takeIf { !message.info.role.equals("user", ignoreCase = true) }
                         }
-                latestMessageTokens ?: currentBackend.session(sessionId).tokens?.contextUsed ?: 0L
+                    ?: 0L
             }.onSuccess { used ->
                 _uiState.update { it.copy(contextTokensUsed = used) }
             }
@@ -1418,10 +1437,14 @@ class ChatViewModel(
                 // switches to another session, this poll must not keep overwriting its transcript
                 // or clearing its running state with data that belongs to the old one.
                 fun isStillActive() = _uiState.value.sessionId == targetSessionId
+                val trustsIdleEvents =
+                    (currentBackend as? RuntimeTarget)?.capabilities?.reliableIdleEvents == true
                 val pollFinished =
                     withTimeoutOrNull(RESPONSE_POLL_TIMEOUT_MS) {
                         while (isStillActive() && _uiState.value.isRunning) {
-                            delay(RESPONSE_POLL_INTERVAL_MS)
+                            delay(
+                                if (streamError == null && trustsIdleEvents) STREAM_HEALTHY_POLL_INTERVAL_MS else RESPONSE_POLL_INTERVAL_MS,
+                            )
                             // The turn can end while this slept; the idle handler owns the
                             // transcript then. Another fetch here would merge against a stream
                             // cache it has already cleared and drop what only this client has.
@@ -1618,10 +1641,14 @@ class ChatViewModel(
                 var sessionCompleted = false
 
                 fun isStillActive() = _uiState.value.sessionId == targetSessionId
+                val trustsIdleEvents =
+                    (currentBackend as? RuntimeTarget)?.capabilities?.reliableIdleEvents == true
                 val pollFinished =
                     withTimeoutOrNull(RESPONSE_POLL_TIMEOUT_MS) {
                         while (isStillActive() && _uiState.value.isRunning) {
-                            delay(RESPONSE_POLL_INTERVAL_MS)
+                            delay(
+                                if (streamError == null && trustsIdleEvents) STREAM_HEALTHY_POLL_INTERVAL_MS else RESPONSE_POLL_INTERVAL_MS,
+                            )
                             // The turn can end while this slept; the idle handler owns the
                             // transcript then. Another fetch here would merge against a stream
                             // cache it has already cleared and drop what only this client has.
