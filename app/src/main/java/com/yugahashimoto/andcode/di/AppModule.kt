@@ -31,10 +31,12 @@ import com.yugahashimoto.andcode.runtime.local.LocalRuntimeReleaseClient
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeServiceController
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeTarget
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeUpdater
+import com.yugahashimoto.andcode.runtime.local.OpencodeDatabaseMaintenance
 import com.yugahashimoto.andcode.runtime.local.VerifiedRuntimeDownloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -111,6 +113,15 @@ val appModule =
                 installedRuntimeProvider = installer::installedRuntime,
                 accessCoordinator = get(),
                 messages = get(),
+            )
+        }
+
+        single {
+            val runtimeDirectory: File = get()
+            val commandRunner: LocalRuntimeCommandRunner = get()
+            OpencodeDatabaseMaintenance(
+                shellRunner = { command, timeoutSeconds -> commandRunner.runShell(command, timeoutSeconds) },
+                markerFile = File(runtimeDirectory, "opencode-db-maintenance"),
             )
         }
 
@@ -197,14 +208,19 @@ val appModule =
 
         single {
             val notifications: RuntimeNotificationHelper = get()
+            val scope: CoroutineScope = get()
+            val maintenance: OpencodeDatabaseMaintenance = get()
             RuntimeActivityRepository(
                 registry = get(),
-                scope = get(),
+                scope = scope,
                 onPermissionAsked = { request, title, runtimeId ->
                     notifications.notifyPermission(request, title, runtimeId)
                 },
                 onSessionIdle = { sessionId, title, runtimeId ->
                     notifications.notifySessionComplete(sessionId, title, runtimeId)
+                    // Idle is the natural moment to prune the event log the run just grew; a
+                    // no-op unless the daily interval has elapsed.
+                    scope.launch { maintenance.runIfDue() }
                 },
                 onSessionError = { sessionId, message, runtimeId ->
                     notifications.notifySessionError(sessionId, message, runtimeId)

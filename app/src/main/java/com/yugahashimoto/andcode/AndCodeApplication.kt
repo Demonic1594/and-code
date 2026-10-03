@@ -74,6 +74,7 @@ import com.yugahashimoto.andcode.runtime.local.LocalRuntimeReleaseClient
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeServiceController
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeTarget
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeUpdater
+import com.yugahashimoto.andcode.runtime.local.OpencodeDatabaseMaintenance
 import com.yugahashimoto.andcode.runtime.local.SystemPromptStore
 import com.yugahashimoto.andcode.runtime.local.VerifiedRuntimeDownloader
 import com.yugahashimoto.andcode.runtime.local.applyOpenCodeSystemPrompt
@@ -178,6 +179,10 @@ class AndCodeApplication : Application() {
         private set
 
     lateinit var commandRunner: LocalRuntimeCommandRunner
+        private set
+
+    /** Prunes the OpenCode server's event log; see [OpencodeDatabaseMaintenance]. */
+    lateinit var opencodeDatabaseMaintenance: OpencodeDatabaseMaintenance
         private set
 
     lateinit var claudeCodeRuntime: ClaudeCodeRuntime
@@ -309,6 +314,11 @@ class AndCodeApplication : Application() {
                 accessCoordinator = accessCoordinator,
                 messages = AndroidLocalRuntimeMessages(this),
             )
+        opencodeDatabaseMaintenance =
+            OpencodeDatabaseMaintenance(
+                shellRunner = { command, timeoutSeconds -> commandRunner.runShell(command, timeoutSeconds) },
+                markerFile = File(runtimeDirectory, "opencode-db-maintenance"),
+            )
         val claudeMessages = AndroidClaudeMessages(this)
         claudeCodeRuntime =
             ClaudeCodeRuntime(
@@ -406,6 +416,18 @@ class AndCodeApplication : Application() {
                 systemPrompt = { systemPromptStore.selectedPrompt() },
                 messages = runtimeMessages,
             )
+        // Prune the OpenCode server's event log once the runtime is up (throttled to once a day by
+        // the marker file inside runIfDue). collectLatest so a status flap cancels the pending
+        // delayed pass instead of stacking several.
+        applicationScope.launch {
+            localRuntimeManager.state.collectLatest { status ->
+                if (status is LocalRuntimeStatus.Ready) {
+                    delay(OPENCODE_DB_MAINTENANCE_STARTUP_DELAY_MS)
+                    opencodeDatabaseMaintenance.runIfDue()
+                }
+            }
+        }
+
         // Keeps OpenCode's instructions file in step with the selected preset while the runtime is
         // up. The start sequence writes it too (see LocalRuntimeManager's systemPrompt), which is
         // what covers a freshly installed guest filesystem; this collector is for switches made
@@ -522,6 +544,9 @@ class AndCodeApplication : Application() {
                     AnalyticsReporter.recordRuntimeSessionCompleted()
                     notifications.notifySessionComplete(sessionId, title, runtimeId)
                     githubStarCoordinator.onSessionCompleted()
+                    // Idle is the natural moment to prune the event log the run just grew; a
+                    // no-op unless the daily interval has elapsed.
+                    applicationScope.launch { opencodeDatabaseMaintenance.runIfDue() }
                 },
                 onSessionError = { sessionId, message, runtimeId ->
                     AnalyticsReporter.recordRuntimeSessionError()
@@ -675,6 +700,9 @@ class AndCodeApplication : Application() {
 
     private companion object {
         private const val CODEX_KEEPALIVE_STOP_GRACE_MS = 2_000L
+
+        /** Let the runtime finish booting before the first database-maintenance pass competes for its I/O. */
+        private const val OPENCODE_DB_MAINTENANCE_STARTUP_DELAY_MS = 15_000L
 
         /**
          * How long [debounceFalseEdge] rides out a drop to "no active sessions" before releasing
