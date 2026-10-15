@@ -162,6 +162,17 @@ class StartupCommandsRunnerTest {
     }
 
     @Test
+    fun `blank check command is treated as no check and runs the command`() {
+        val runner = setUpRunner()
+        writeConfig("""{"commands":[{"command":"npx desktop-commander remote","checkCommand":"   "}]}""")
+
+        runner.runAll(installedRuntime())
+
+        // An empty-shell probe would always exit 0 and silently skip the guarded command.
+        assertEquals(listOf("npx desktop-commander remote"), launches.map { it.command.last() })
+    }
+
+    @Test
     fun `malformed config runs nothing and never throws`() {
         val runner = setUpRunner()
         writeConfig("""{"commands": [ {"command": """")

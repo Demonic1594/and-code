@@ -82,7 +82,10 @@ class StartupCommandsRunner(
         config.commands.forEachIndexed { index, entry ->
             val commandText = entry.command.trim()
             if (commandText.isEmpty()) return@forEachIndexed
-            if (entry.checkCommand != null && alreadyRunning(installed, entry.checkCommand)) {
+            // A blank checkCommand is "no check": probing `/bin/sh -lc ""` would always exit 0
+            // and silently skip the command it guards.
+            val checkCommand = entry.checkCommand?.takeIf(String::isNotBlank)
+            if (checkCommand != null && alreadyRunning(installed, checkCommand)) {
                 return@forEachIndexed
             }
             launchDetached(installed, commandText, File(logs, "$LOG_FILE_PREFIX-$index.log"))
