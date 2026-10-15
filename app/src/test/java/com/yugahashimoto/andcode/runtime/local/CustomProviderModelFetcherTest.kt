@@ -79,4 +79,11 @@ class CustomProviderModelFetcherTest {
     fun `parseModelIds rejects non json`() {
         assertThrows(IllegalStateException::class.java) { CustomProviderModelFetcher.parseModelIds("<html>") }
     }
+
+    @Test
+    fun `parseModelIds rejects scalar responses rather than treating them as empty lists`() {
+        listOf("null", "true", "42", "\"error\"").forEach { body ->
+            assertThrows(IllegalStateException::class.java) { CustomProviderModelFetcher.parseModelIds(body) }
+        }
+    }
 }

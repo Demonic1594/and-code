@@ -61,7 +61,7 @@ class CustomProviderModelFetcher(
                 when (root) {
                     is JsonArray -> root
                     is JsonObject -> (root["data"] as? JsonArray) ?: (root["models"] as? JsonArray) ?: JsonArray(emptyList())
-                    else -> JsonArray(emptyList())
+                    else -> throw IllegalStateException("Expected a model list object or array")
                 }
             return entries
                 .mapNotNull(::modelId)
