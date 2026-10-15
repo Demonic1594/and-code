@@ -654,7 +654,7 @@ class SettingsViewModel(
 
     /**
      * Fills the model field from the endpoint's own `GET <baseURL>/models` listing, using the key
-     * typed into the dialog or, failing that, the one already stored for this provider id.
+     * typed into the dialog or, while editing a registered provider, the one already stored for it.
      */
     fun fetchCustomProviderModels() {
         val dialog = customProviderDialogState.value ?: return
@@ -751,6 +751,7 @@ class SettingsViewModel(
                     refreshProviderAuth()
                     finishCustomProviderSubmit(definition.id, dialog.editing, typedApiKey, target)
                 }.onFailure { error ->
+                    if (error is CancellationException) throw error
                     customProviderJob = null
                     customProviderDialogState.update {
                         it?.copy(isSubmitting = false, error = error.message?.takeIf(String::isNotBlank) ?: customProviderInvalidMessage)
