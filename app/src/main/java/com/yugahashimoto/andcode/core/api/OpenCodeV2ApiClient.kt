@@ -190,7 +190,6 @@ class OpenCodeV2ApiClient(
                 name = agent.id,
                 description = agent.description,
                 mode = agent.mode,
-                hidden = agent.hidden,
             )
         }
 

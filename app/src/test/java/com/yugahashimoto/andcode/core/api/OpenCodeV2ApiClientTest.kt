@@ -761,7 +761,7 @@ class OpenCodeV2ApiClientTest {
         }
 
     @Test
-    fun `agents map id to name and keep mode and hidden`() =
+    fun `agents map id to name and keep mode`() =
         runBlocking {
             server.enqueue(json(AGENT_LIST))
 
@@ -769,7 +769,6 @@ class OpenCodeV2ApiClientTest {
 
             assertEquals(listOf("build", "compaction"), agents.map { it.name })
             assertEquals("primary", agents[0].mode)
-            assertTrue(agents[1].hidden)
         }
 
     @Test
