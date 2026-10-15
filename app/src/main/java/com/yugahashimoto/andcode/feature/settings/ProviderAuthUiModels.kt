@@ -58,5 +58,4 @@ data class CustomProviderDialogState(
 }
 
 /** Splits the comma- or newline-separated model field into distinct, trimmed ids. */
-internal fun parseModelIdList(raw: String): List<String> =
-    raw.split(',', '\n').map(String::trim).filter(String::isNotEmpty).distinct()
+internal fun parseModelIdList(raw: String): List<String> = raw.split(',', '\n').map(String::trim).filter(String::isNotEmpty).distinct()

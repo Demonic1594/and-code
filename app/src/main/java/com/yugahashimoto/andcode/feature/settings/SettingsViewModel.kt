@@ -29,6 +29,7 @@ import com.yugahashimoto.andcode.runtime.local.CustomProviderModelFetcher
 import com.yugahashimoto.andcode.runtime.local.CustomProviderStore
 import com.yugahashimoto.andcode.runtime.local.LocalProviderCredentialStore
 import com.yugahashimoto.andcode.runtime.local.toProviderConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -632,13 +633,7 @@ class SettingsViewModel(
     }
 
     fun updateCustomProviderId(value: String) {
-        customProviderDialogState.update {
-            if (it == null || it.editing) {
-                it
-            } else {
-                it.copy(id = value, hasStoredApiKey = credentials.hasCredential(value), error = null)
-            }
-        }
+        customProviderDialogState.update { if (it == null || it.editing) it else it.copy(id = value, error = null) }
     }
 
     fun updateCustomProviderName(value: String) {
@@ -669,7 +664,13 @@ class SettingsViewModel(
             customProviderDialogState.update { it?.copy(fetchError = customProviderFetchNeedsBaseUrlMessage) }
             return
         }
-        val apiKey = dialog.apiKey.trim().ifEmpty { credentials.credentials()[dialog.id.trim()].orEmpty() }
+        // The stored key only falls back while editing that very provider: in add mode the id is
+        // free text, and typing an existing id (say `openai`) would otherwise send that provider's
+        // saved key to whatever base URL was typed into the dialog.
+        val apiKey =
+            dialog.apiKey.trim().ifEmpty {
+                if (dialog.editing) credentials.credentials()[dialog.id.trim()].orEmpty() else ""
+            }
         customProviderJob =
             viewModelScope.launch {
                 customProviderDialogState.update {
@@ -690,12 +691,15 @@ class SettingsViewModel(
                             }
                         }
                     }.onFailure { error ->
+                        // A dismissed dialog cancels this job; its late failure must not land in a
+                        // dialog opened afterwards, nor clear that dialog's own job reference.
+                        if (error is CancellationException) throw error
                         customProviderJob = null
+                        val detail = error.message?.takeIf(String::isNotBlank)?.let(SecretRedaction::redact)
                         customProviderDialogState.update {
                             it?.copy(
                                 isFetchingModels = false,
-                                fetchError =
-                                    SecretRedaction.redact(error.message?.takeIf(String::isNotBlank) ?: customProviderFetchFailedMessage),
+                                fetchError = listOfNotNull(customProviderFetchFailedMessage, detail).joinToString("\n"),
                             )
                         }
                     }
