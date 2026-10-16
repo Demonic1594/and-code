@@ -478,6 +478,7 @@
     <string name="chat_mode_plan">計画</string>
     <string name="chat_mode_auto_accept">自動承認</string>
     <string name="chat_auto_accept_short">自動</string>
+    <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">GitHub Git 操作</string>
     <string name="github_not_connected">未接続</string>
     <string name="github_connect">GitHubに接続</string>

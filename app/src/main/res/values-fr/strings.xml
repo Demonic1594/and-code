@@ -480,6 +480,7 @@
     <string name="chat_mode_plan">Planifier</string>
     <string name="chat_mode_auto_accept">Acceptation automatique</string>
     <string name="chat_auto_accept_short">Auto</string>
+    <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">Opérations Git GitHub</string>
     <string name="github_not_connected">Non connecté</string>
     <string name="github_connect">Connecter GitHub</string>

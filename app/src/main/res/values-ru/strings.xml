@@ -482,6 +482,7 @@
     <string name="chat_mode_plan">План</string>
     <string name="chat_mode_auto_accept">Автоприём</string>
     <string name="chat_auto_accept_short">Авто</string>
+    <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">Операции GitHub Git</string>
     <string name="github_not_connected">Не подключено</string>
     <string name="github_connect">Подключить GitHub</string>
