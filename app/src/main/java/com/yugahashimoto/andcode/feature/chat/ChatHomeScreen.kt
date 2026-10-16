@@ -1632,7 +1632,7 @@ private fun ChatComposer(
                     contextLimit = contextLimit,
                 )
             }
-            if (isRunning && tokensPerSecond > 0.0) {
+            if (isRunning && tokensPerSecond >= 0.05) {
                 CompactTokenSpeed(tokensPerSecond)
             }
         }
