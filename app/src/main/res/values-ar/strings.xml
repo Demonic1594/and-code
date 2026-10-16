@@ -486,6 +486,7 @@
     <string name="chat_mode_plan">تخطيط</string>
     <string name="chat_mode_auto_accept">قبول تلقائي</string>
     <string name="chat_auto_accept_short">تلقائي</string>
+    <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">عمليات GitHub Git</string>
     <string name="github_not_connected">غير متصل</string>
     <string name="github_connect">الاتصال بـ GitHub</string>

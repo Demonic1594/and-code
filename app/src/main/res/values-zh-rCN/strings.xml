@@ -476,6 +476,7 @@
     <string name="chat_mode_plan">计划</string>
     <string name="chat_mode_auto_accept">自动接受</string>
     <string name="chat_auto_accept_short">自动</string>
+    <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">GitHub Git 操作</string>
     <string name="github_not_connected">未连接</string>
     <string name="github_connect">连接 GitHub</string>

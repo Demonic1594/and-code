@@ -466,6 +466,7 @@
     <string name="chat_mode_plan">Plan</string>
     <string name="chat_mode_auto_accept">Auto accept</string>
     <string name="chat_auto_accept_short">Auto</string>
+    <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">GitHub Git operations</string>
     <string name="github_not_connected">Not connected</string>
     <string name="github_connect">Connect GitHub</string>
