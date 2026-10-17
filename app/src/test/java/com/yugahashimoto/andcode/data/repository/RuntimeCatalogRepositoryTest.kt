@@ -369,6 +369,9 @@ class RuntimeCatalogRepositoryTest {
             advanceUntilIdle()
 
             assertEquals(listOf("build"), repository.state.value.agents.map { it.name })
+            // The kept list is not this read's: no agents failure on the chip or in the catalogue error.
+            assertNull(repository.state.value.agentsError)
+            assertNull(repository.state.value.error)
         }
 
     @Test

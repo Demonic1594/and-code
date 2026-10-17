@@ -256,7 +256,6 @@ class RuntimeCatalogRepository(
                     }
                 }
             }
-            val errors = catalog.failures(messages)
             // Like the providers above: a read that failed or offered no agent to pick must not blank
             // a list this runtime already showed, or a flaky `GET /agent` empties a working picker.
             val loadedAgents = catalog.agents.getOrNull()
@@ -270,6 +269,12 @@ class RuntimeCatalogRepository(
                         current.agentsFor(target).ifEmpty { loadedAgents.orEmpty() }
                     }
                 val agentsFound = agentsToUse.hasSelectableAgent()
+                // A list kept on screen - from an earlier load or a retry that already succeeded -
+                // carries no failure of its own, so neither the chip nor the "Agents: ..." line in
+                // the catalogue error reports this read's failure.
+                val readFailure = catalog.agentsFailure(messages)
+                val agentsFailure = readFailure.takeUnless { agentsFound && !loadedAgents.hasSelectableAgent() }
+                val errors = catalog.failures(messages).filterNot { agentsFailure == null && it == readFailure }
                 RuntimeCatalogState(
                     runtime = target,
                     health = connection.getOrNull(),
@@ -279,8 +284,7 @@ class RuntimeCatalogRepository(
                     workspaces = catalog.workspaces.getOrDefault(emptyList()),
                     isRefreshing = false,
                     error = errors.takeIf { it.isNotEmpty() }?.joinToString("\n"),
-                    // A list kept from a retry that already succeeded carries no failure of its own.
-                    agentsError = catalog.agentsFailure(messages).takeUnless { agentsFound && !loadedAgents.hasSelectableAgent() },
+                    agentsError = agentsFailure,
                     // Still loading when nothing selectable came back: the retry below takes over.
                     agentsLoading = !agentsFound,
                 )
@@ -351,7 +355,9 @@ class RuntimeCatalogRepository(
                         when {
                             it.runtime?.id != target.id -> it
                             list != null -> it.withAgents(list)
-                            else -> it.copy(agentsLoading = false)
+                            // A load still in flight for this runtime keeps the chip loading: it reads the
+                            // agents again itself, and a "tap to retry" now would only race it.
+                            else -> it.copy(agentsLoading = it.isRefreshing)
                         }
                     }
                 }

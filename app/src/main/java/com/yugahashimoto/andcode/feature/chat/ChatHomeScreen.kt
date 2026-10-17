@@ -1905,7 +1905,7 @@ private fun ModeChip(
                     .clickable(
                         onClick = {
                             expanded = true
-                            if (selectableAgents.isEmpty()) onRefresh()
+                            if (selectableAgents.isEmpty() && !loading) onRefresh()
                         },
                     )
                     .testTag("chat-mode-chip"),
