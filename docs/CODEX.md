@@ -211,8 +211,8 @@ non-functional, second sandboxing layer.
 
 ## Reasoning effort and Fast mode
 
-Both come from `model/list` (verified live against `codex-cli 0.163.0`, the first version with these
-fields; older Codex versions omit them and the models simply show no effort or fast control):
+Both come from `model/list` (verified live against `codex-cli 0.163.0`; a Codex version whose models
+omit these fields simply shows no effort or fast control for them):
 
 - **Reasoning effort**: each entry of `supportedReasoningEfforts` becomes a model variant, in the
   server's order, so the chat's thinking chip lists them. Efforts seen so far: `low`, `medium`, `high`,

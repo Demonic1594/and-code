@@ -1136,7 +1136,7 @@ fun AndCodeApp(
                             onSelectAgent = settingsViewModel::selectAgent,
                             selectedVariant = chatState.selectedVariant,
                             onSelectVariant = chatViewModel::selectVariant,
-                            onToggleFastMode = { enabled -> chatViewModel.setFastMode(enabled) },
+                            onToggleFastMode = chatViewModel::setFastMode,
                             onAttach = { attachmentLauncher.launch("*/*") },
                             onRemoveAttachment = chatViewModel::removeAttachment,
                             onImageAttachment = { bitmap ->

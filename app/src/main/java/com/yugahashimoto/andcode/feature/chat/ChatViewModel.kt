@@ -515,7 +515,7 @@ data class ChatUiState(
     val fastModeAvailable: Boolean = false,
     /** Effective fast-mode state: the user's choice, or the model's own default when there is none. */
     val fastModeEnabled: Boolean = false,
-    /** The server's own description of the fast tier, for the toggle's subtitle. */
+    /** The server's own description of the fast tier, read out by screen readers on the Fast chip. */
     val fastModeDescription: String? = null,
     val attachments: List<PromptAttachment> = emptyList(),
     val imagePreviews: List<Bitmap> = emptyList(),
