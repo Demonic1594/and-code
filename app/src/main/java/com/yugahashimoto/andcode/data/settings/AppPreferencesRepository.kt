@@ -335,6 +335,7 @@ class AppPreferencesRepository(
     fun setAnalyticsEnabled(enabled: Boolean) {
         settings.analyticsEnabled = enabled
         com.yugahashimoto.andcode.core.diagnostics.AnalyticsReporter.setEnabled(enabled)
+        com.yugahashimoto.andcode.core.diagnostics.CrashReporter.setEnabled(enabled)
         mutableState.update { it.copy(analyticsEnabled = enabled) }
     }
 

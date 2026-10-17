@@ -43,6 +43,38 @@ class SecretRedactionTest {
     }
 
     @Test
+    fun `redacts the credential behind a Basic authorization header`() {
+        val redacted = SecretRedaction.redact("Authorization: Basic dXNlcjpzZWNyZXQ=")
+        assertFalse(redacted.contains("dXNlcjpzZWNyZXQ="))
+    }
+
+    @Test
+    fun `redacts every pair of a cookie header`() {
+        val redacted = SecretRedaction.redact("Cookie: a=1; session=abc123def456")
+        assertFalse(redacted.contains("abc123def456"))
+    }
+
+    @Test
+    fun `redacts a quoted json credential field`() {
+        val redacted = SecretRedaction.redact("""{"api_key":"sk-live-0123456789"}""")
+        assertFalse(redacted.contains("sk-live-0123456789"))
+    }
+
+    @Test
+    fun `redacts env-style api key and refresh token names`() {
+        val api = SecretRedaction.redact("ANTHROPIC_API_KEY=sk-ant-secret-value-123456")
+        assertFalse(api.contains("sk-ant-secret-value-123456"))
+        val token = SecretRedaction.redact("refresh_token=rt_0123456789abcdef")
+        assertFalse(token.contains("rt_0123456789abcdef"))
+    }
+
+    @Test
+    fun `redacts credentials embedded in a url userinfo`() {
+        val redacted = SecretRedaction.redact("fetching https://alice:hunter2@example.com/callback")
+        assertFalse(redacted.contains("hunter2"))
+    }
+
+    @Test
     fun `leaves ordinary text untouched`() {
         assertEquals("Runtime session failed", SecretRedaction.redact("Runtime session failed"))
     }

@@ -15,18 +15,29 @@ object SecretRedaction {
     private val PATTERNS =
         listOf(
             Regex("(?i)bearer\\s+[A-Za-z0-9._~+/-]{8,}=*") to "Bearer <redacted>",
-            Regex("(?i)authorization\\s*[:=]\\s*\\S+") to "authorization=<redacted>",
-            Regex("(?i)cookie\\s*[:=]\\s*\\S+") to "cookie=<redacted>",
+            // Matches the scheme *and* the credential after it, so `Authorization: Basic <base64>`
+            // cannot leave the Base64 blob behind after only the scheme word is consumed.
+            Regex("(?i)\\bauthorization\\s*[:=]\\s*[^\\s,;}]+(?:\\s+[^\\s,;}]+)?") to "authorization=<redacted>",
+            // The whole Cookie line, not just the first pair: `a=1; session=...` would otherwise
+            // keep the session cookie in the clear.
+            Regex("(?i)\\bcookie\\s*[:=][^\\r\\n]*") to "cookie=<redacted>",
             Regex("sk-ant-[A-Za-z0-9_-]{10,}") to "sk-ant-<redacted>",
             // Covers plain OpenAI-style keys (sk-<random>) as well as the newer, hyphenated
             // sk-proj-/sk-svcacct-/sk-admin- project-scoped key formats, which a body limited to
             // [A-Za-z0-9] would otherwise leave almost entirely unredacted.
             Regex("sk-[A-Za-z0-9_-]{10,}") to "sk-<redacted>",
             Regex("gh[pousr]_[A-Za-z0-9]{20,}") to "gh_<redacted>",
-            Regex("(?i)\\bpassword\\s*[:=]\\s*\\S+") to "password=<redacted>",
-            Regex("(?i)\\bapi[_-]?key\\s*[:=]\\s*\\S+") to "api_key=<redacted>",
-            Regex("(?i)\\baccess[_-]?token\\s*[:=]\\s*\\S+") to "access_token=<redacted>",
-            Regex("(?i)\\btoken\\s*[:=]\\s*\\S+") to "token=<redacted>",
+            // Any `key=value` / `"key": "value"` shape whose key names a credential. The key prefix
+            // allows `_`/`-` so env-style names (`ANTHROPIC_API_KEY`, `refresh_token`) match despite
+            // the `\b` boundary an underscore would otherwise break, and the optional quotes cover
+            // quoted JSON keys (`{"api_key":"..."}`) that the old unquoted patterns missed.
+            Regex(
+                "(?i)[A-Za-z0-9_-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|auth[_-]?token|" +
+                    "client[_-]?secret|secret|token|password)[\"']?\\s*[:=]\\s*[\"']?[^\\s,;}\"']+",
+            ) to "<redacted>",
+            // URL userinfo (`https://user:pass@host/...`) has to be stripped before the query rule,
+            // which otherwise leaves the credentials sitting in front of the host.
+            Regex("(https?://)[^/@\\s:]+:[^/@\\s]+@") to "$1<redacted>@",
             // Any http(s) URL with a query string, even one not routed through redactUrlQuery()
             // explicitly - the query is where an OAuth code/state/token parameter would live.
             Regex("(https?://[^\\s?#]+)\\?[^\\s]*") to "$1?<redacted>",

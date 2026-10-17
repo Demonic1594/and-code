@@ -65,7 +65,12 @@ class RuntimeActivityRepository(
     private val onPermissionAsked: ((PermissionRequest, String?, String) -> Unit)? = null,
     private val onPermissionResolved: ((String) -> Unit)? = null,
     private val onSessionIdle: ((String, String?, String) -> Unit)? = null,
-    private val onSessionError: ((String?, String?, String) -> Unit)? = null,
+    /**
+     * Reports a session failure: `(sessionId, message, errorType, runtimeId)`. [errorType] is the
+     * runtime's own error name where it has one (OpenCode's `ProviderAuthError`, …), and is what
+     * crash reporting classifies on - the free-form [message] never leaves the device.
+     */
+    private val onSessionError: ((String?, String?, String?, String) -> Unit)? = null,
     private val onQuestionAsked: ((QuestionRequest, String?, String) -> Unit)? = null,
     /**
      * Reports a run that has stopped producing events, with the runtime's answer for why. Also
@@ -590,7 +595,7 @@ class RuntimeActivityRepository(
                 // settle their own state; there is nothing to log or notify here.
                 if (event.isAbort) return
                 appendLog(messages.eventError, event.message, event.sessionId)
-                onSessionError?.invoke(event.sessionId, event.message, target.id)
+                onSessionError?.invoke(event.sessionId, event.message, event.name, target.id)
             }
             is OpenCodeEvent.QuestionAsked -> {
                 activateSession(target, event.request.sessionId, force = true)
