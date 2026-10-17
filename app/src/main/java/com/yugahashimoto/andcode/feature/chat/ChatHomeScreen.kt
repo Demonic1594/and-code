@@ -176,6 +176,8 @@ fun ChatHomeScreen(
     onSelectRuntime: (String) -> Unit,
     onSelectModel: (String, String) -> Unit,
     onSelectAgent: (String) -> Unit,
+    /** Asks the runtime for its agents again; the mode chip calls it when its list is empty. */
+    onRefreshAgents: () -> Unit = {},
     selectedVariant: String? = null,
     onSelectVariant: (String?) -> Unit = {},
     attachments: List<PromptAttachment> = emptyList(),
@@ -644,6 +646,7 @@ fun ChatHomeScreen(
                     agents = agents,
                     selectedAgentId = selectedAgentId,
                     onSelectAgent = onSelectAgent,
+                    onRefreshAgents = onRefreshAgents,
                     thinkingOptions =
                         providers
                             .firstOrNull { it.id == selectedProviderId }
@@ -1238,6 +1241,7 @@ private fun ChatComposer(
     agents: List<OpenCodeAgent>,
     selectedAgentId: String?,
     onSelectAgent: (String) -> Unit,
+    onRefreshAgents: () -> Unit,
     thinkingOptions: List<String>,
     selectedVariant: String?,
     onSelectVariant: (String?) -> Unit,
@@ -1601,6 +1605,7 @@ private fun ChatComposer(
                     agents = agents,
                     selectedAgentId = selectedAgentId,
                     onSelect = onSelectAgent,
+                    onRefresh = onRefreshAgents,
                 )
                 // Auto-accept answers permission prompts, so it only means something on a runtime
                 // that asks for permission. Antigravity decides permissions per invocation from its
@@ -1869,6 +1874,7 @@ private fun ModeChip(
     agents: List<OpenCodeAgent>,
     selectedAgentId: String?,
     onSelect: (String) -> Unit,
+    onRefresh: () -> Unit = {},
 ) {
     var expanded by remember { mutableStateOf(false) }
     // Every primary agent the server reports is offered, not just build/plan: plugins such as
@@ -1889,7 +1895,16 @@ private fun ModeChip(
             modifier =
                 Modifier
                     .widthIn(max = 92.dp)
-                    .clickable(onClick = { expanded = true }),
+                    .clickable(
+                        onClick = {
+                            // An empty list is a runtime that has not answered `GET /agent` yet (a
+                            // local server still installing its plugins) or whose answer failed.
+                            // Opening the menu then showed nothing, so the tap read as a dead
+                            // button; ask again instead, and the menu has items next time.
+                            if (selectableAgents.isEmpty()) onRefresh() else expanded = true
+                        },
+                    )
+                    .testTag("chat-mode-chip"),
             shape = RoundedCornerShape(100.dp),
             color = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -1129,6 +1129,7 @@ fun AndCodeApp(
                             },
                             onSelectModel = settingsViewModel::selectModel,
                             onSelectAgent = settingsViewModel::selectAgent,
+                            onRefreshAgents = app.catalogRepository::refreshAgents,
                             selectedVariant = chatState.selectedVariant,
                             onSelectVariant = chatViewModel::selectVariant,
                             onAttach = { attachmentLauncher.launch("*/*") },
