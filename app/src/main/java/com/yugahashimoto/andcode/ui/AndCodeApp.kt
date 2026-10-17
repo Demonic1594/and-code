@@ -343,6 +343,7 @@ fun AndCodeApp(
                         // foreground again.
                         awaitForeground = { app.appForeground.foreground.first { visible -> visible } },
                         videoNotSupportedMessage = context.getString(R.string.error_video_not_supported),
+                        workspaceAttachmentNoteTemplate = context.getString(R.string.chat_workspace_attachment_note),
                     )
                 },
         )
@@ -509,26 +510,61 @@ fun AndCodeApp(
                 runCatching {
                     withContext(Dispatchers.IO) {
                         val importer = com.yugahashimoto.andcode.runtime.local.AttachmentImporter(context)
+                        val runtimeWorkspaceRoot = java.io.File(context.filesDir, "runtime/workspace")
+                        // Only the on-device runtime mounts /workspace onto a local directory. A
+                        // remote runtime may also spell its workspace /workspace, but there is no
+                        // local mount to copy into, so its attachments are always sent as-is.
+                        val workspaceDir =
+                            if (selectedRuntime?.kind == com.yugahashimoto.andcode.runtime.BackendKind.LOCAL) {
+                                com.yugahashimoto.andcode.runtime.local.AttachmentSupport.hostWorkspace(
+                                    chatState.sessionDirectory ?: chatState.selectedWorkspacePath,
+                                    runtimeWorkspaceRoot,
+                                )
+                            } else {
+                                null
+                            }
                         importer.importAll(uri).map { attachment ->
-                            val preview =
-                                if (com.yugahashimoto.andcode.runtime.local.VideoAttachmentHelper.isImageMime(
-                                        attachment.mime,
-                                    )
-                                ) {
-                                    runCatching {
-                                        val base64 =
-                                            attachment.url.substringAfter("base64,", missingDelimiterValue = "")
-                                        if (base64.isEmpty()) return@runCatching null
-                                        val bytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
-                                        com.yugahashimoto.andcode.feature.chat.decodeSampledBitmap(
-                                            bytes,
-                                            com.yugahashimoto.andcode.feature.chat.COMPOSER_PREVIEW_MAX_DIMENSION,
+                            // A MIME the provider rejects as a file part (zip, binaries, ...): drop a
+                            // copy into the workspace and let the agent read it from disk. If the
+                            // copy fails, fall back to sending the attachment as before.
+                            val workspacePath =
+                                workspaceDir
+                                    ?.takeIf {
+                                        !com.yugahashimoto.andcode.runtime.local.AttachmentSupport.isModelSendable(
+                                            attachment.mime,
                                         )
-                                    }.getOrNull()
-                                } else {
-                                    null
-                                }
-                            attachment to preview
+                                    }?.let { directory ->
+                                        runCatching { importer.writeToWorkspace(attachment, directory) }
+                                            .getOrNull()
+                                            ?.let {
+                                                com.yugahashimoto.andcode.runtime.local.AttachmentSupport
+                                                    .guestWorkspacePath(it, runtimeWorkspaceRoot)
+                                            }
+                                    }
+                            if (workspacePath != null) {
+                                attachment.copy(url = "", workspacePath = workspacePath) to null
+                            } else {
+                                val preview =
+                                    if (com.yugahashimoto.andcode.runtime.local.VideoAttachmentHelper.isImageMime(
+                                            attachment.mime,
+                                        )
+                                    ) {
+                                        runCatching {
+                                            val base64 =
+                                                attachment.url.substringAfter("base64,", missingDelimiterValue = "")
+                                            if (base64.isEmpty()) return@runCatching null
+                                            val bytes =
+                                                android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
+                                            com.yugahashimoto.andcode.feature.chat.decodeSampledBitmap(
+                                                bytes,
+                                                com.yugahashimoto.andcode.feature.chat.COMPOSER_PREVIEW_MAX_DIMENSION,
+                                            )
+                                        }.getOrNull()
+                                    } else {
+                                        null
+                                    }
+                                attachment to preview
+                            }
                         }
                     }
                 }.onSuccess { attachments ->

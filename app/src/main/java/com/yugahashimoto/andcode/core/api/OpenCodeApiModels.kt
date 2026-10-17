@@ -302,6 +302,11 @@ data class PromptAttachment(
     val filename: String,
     val mime: String,
     val url: String,
+    /**
+     * Guest path of a copy of this file inside the workspace, set when the file's MIME type cannot
+     * be sent as a model file part. The agent reads it from disk instead; [url] is blank then.
+     */
+    val workspacePath: String? = null,
 )
 
 @Serializable
