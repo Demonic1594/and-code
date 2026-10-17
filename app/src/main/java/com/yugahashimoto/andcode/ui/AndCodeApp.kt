@@ -1062,6 +1062,7 @@ fun AndCodeApp(
                             state = chatState,
                             providers = settingsState.providers,
                             agents = settingsState.agents,
+                            agentsLoading = settingsState.agentsLoading,
                             selectedProviderId = chatState.selectedProviderId ?: fallbackProviderId,
                             selectedModelId = chatState.selectedModelId ?: fallbackModelId,
                             selectedAgentId = chatState.selectedAgentId ?: settingsState.agentId,
