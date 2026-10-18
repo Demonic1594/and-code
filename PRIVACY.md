@@ -116,29 +116,37 @@ settings to remove these mounts.
 AndCode uses **Firebase Crashlytics** (a Google service) for crash and non-fatal error reporting in
 release builds (`CrashReporter` in `core/diagnostics`). It:
 
+- Is **disabled by default** and shares the "Anonymous usage analytics & crash reports" opt-in in
+  Settings. Nothing is collected until the user turns that setting on (in debug builds collection is
+  always off regardless of the setting).
 - Sends the app version, build type, and OS version as custom keys that `CrashReporter.install()`
   sets explicitly.
 - Sends crash stack traces and short diagnostic log lines. Custom log lines and custom-key values
   that AndCode's own code passes through `CrashReporter.log()`/`recordException()` are run through
   redaction (`SecretRedaction`, `CrashReportSanitizer`) that strips *patterns resembling* API keys,
-  tokens, `Authorization`/`Cookie` headers, and passwords before they are attached to a report, and
-  truncates length. **This is a best-effort pattern match, not a guarantee that every possible
-  credential shape is caught** — for example, some provider key formats not covered by the current
-  patterns, or a key with no recognizable label, could slip through if it ever ended up in a log
-  line. Fatal crashes and their exception messages/stack traces that Crashlytics' own SDK collects
-  automatically (rather than through `CrashReporter`) are **not** run through this redaction, since
-  they are captured by Crashlytics itself before AndCode's code runs.
+  tokens, `Authorization`/`Cookie` headers, quoted credential fields, URL credentials, and
+  passwords before they are attached to a report, and truncates length. **This is a best-effort
+  pattern match, not a guarantee that every possible credential shape is caught** — for example,
+  some provider key formats not covered by the current patterns, or a key with no recognizable
+  label, could slip through if it ever ended up in a log line. Fatal crashes and their exception
+  messages/stack traces that Crashlytics' own SDK collects automatically (rather than through
+  `CrashReporter`) are **not** run through this redaction, since they are captured by Crashlytics
+  itself before AndCode's code runs.
+- Does **not** receive a runtime/provider's raw error text. A session failure is reported as a fixed
+  category made only of the runtime id and an identifier-shaped error type (for example
+  `MessageAbortedError`); the free-form message a provider returns — which can quote prompts, model
+  output, file paths and hosts — is shown on-device only.
 - The Crashlytics SDK also automatically collects standard device/app/installation diagnostics
   independent of anything AndCode's code sends explicitly — for example, device model, OS version,
   app version, a Firebase installation identifier, and free/total storage and RAM at crash time. See
   Firebase's own documentation for the current complete list, since AndCode's code does not control
   this baseline collection.
-- Is disabled in debug builds (`setCrashlyticsCollectionEnabled(!BuildConfig.DEBUG)`).
 
-Firebase Analytics is available for anonymous app-open/session and runtime outcome metrics, but is
-**disabled by default** and is only enabled after the user opts in. It does not receive prompts,
-source files, model responses, tokens, or workspace paths. The opt-in choice is stored locally and
-can be withdrawn in Settings.
+Firebase Analytics is available for anonymous app-open/session and runtime outcome metrics, and is
+governed by the same **disabled-by-default** opt-in as crash reporting. It does not receive prompts,
+source files, model responses, tokens, or workspace paths, and the advertising ID is not collected
+(`google_analytics_adid_collection_enabled=false`). The opt-in choice is stored locally and can be
+withdrawn in Settings.
 
 Crashlytics data is governed by Google's and Firebase's own privacy terms; see
 [THIRD_PARTY_SERVICES.md](THIRD_PARTY_SERVICES.md).

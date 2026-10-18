@@ -1903,6 +1903,56 @@ class ChatViewModelTest {
             ),
     )
 
+    /**
+     * A file the provider rejects as a file part is carried as a workspace copy: it stays a visible
+     * chip but must not reach the runtime as an attachment, and the prompt points at its path.
+     */
+    @Test
+    fun `a workspace-backed attachment is referenced by path instead of sent as a file part`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel =
+                ChatViewModel(backend, workspaceAttachmentNoteTemplate = "[file: %s]")
+            advanceUntilIdle()
+            viewModel.addAttachment(
+                PromptAttachment(
+                    filename = "archive.zip",
+                    mime = "application/zip",
+                    url = "",
+                    workspacePath = "/workspace/proj/.andcode-attachments/archive.zip",
+                ),
+            )
+
+            viewModel.sendMessage("please read this")
+            advanceUntilIdle()
+
+            val request = backend.sentPrompts.single().second
+            assertTrue(request.attachments.isEmpty())
+            assertEquals(
+                "please read this\n\n[file: /workspace/proj/.andcode-attachments/archive.zip]",
+                request.text,
+            )
+        }
+
+    @Test
+    fun `a sendable attachment is still sent as a file part without a workspace note`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel =
+                ChatViewModel(backend, workspaceAttachmentNoteTemplate = "[file: %s]")
+            advanceUntilIdle()
+            viewModel.addAttachment(
+                PromptAttachment(filename = "photo.png", mime = "image/png", url = "data:image/png;base64,AAAA"),
+            )
+
+            viewModel.sendMessage("look")
+            advanceUntilIdle()
+
+            val request = backend.sentPrompts.single().second
+            assertEquals(listOf("photo.png"), request.attachments.map { it.filename })
+            assertEquals("look", request.text)
+        }
+
     private class InMemoryDraftStore : DraftStore {
         private val drafts = mutableMapOf<String, Draft>()
 

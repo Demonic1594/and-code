@@ -10,11 +10,18 @@ package com.yugahashimoto.andcode.core.diagnostics
 object CrashReporter {
     fun install() = Unit
 
+    fun setEnabled(enabled: Boolean) = Unit
+
     fun log(message: String) = Unit
 
     fun recordException(
         error: Throwable,
         message: String? = null,
         customKeys: Map<String, String> = emptyMap(),
+    ) = Unit
+
+    fun recordRuntimeSessionError(
+        runtimeId: String,
+        errorType: String?,
     ) = Unit
 }

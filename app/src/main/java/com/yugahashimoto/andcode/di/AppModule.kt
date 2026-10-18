@@ -216,7 +216,7 @@ val appModule =
                 onSessionIdle = { sessionId, title, runtimeId ->
                     notifications.notifySessionComplete(sessionId, title, runtimeId)
                 },
-                onSessionError = { sessionId, message, runtimeId ->
+                onSessionError = { sessionId, message, _, runtimeId ->
                     notifications.notifySessionError(sessionId, message, runtimeId)
                 },
                 onQuestionAsked = { request, title, runtimeId ->

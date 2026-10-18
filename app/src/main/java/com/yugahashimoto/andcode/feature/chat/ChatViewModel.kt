@@ -602,6 +602,13 @@ class ChatViewModel(
      */
     private val videoNotSupportedMessage: String =
         "Video files cannot be sent directly. Remove the video and attach images instead.",
+    /**
+     * Template (one `%s`) telling the agent where a non-sendable attachment was copied inside the
+     * workspace. Injected the same way as [videoNotSupportedMessage]; the app passes the string
+     * resource (kept English-only, since it is a prompt fragment for the model) while tests keep
+     * the same default.
+     */
+    private val workspaceAttachmentNoteTemplate: String = "[Attached file available in the workspace: %s]",
 ) : ViewModel() {
     private val _uiState =
         MutableStateFlow(
@@ -1299,6 +1306,22 @@ class ChatViewModel(
         _uiState.update { it.copy(editDraft = null) }
     }
 
+    /**
+     * Appends a reference for every [PromptAttachment] that only exists as a workspace file, so the
+     * agent knows to read it from disk. Returns [text] unchanged when there is nothing to reference.
+     */
+    private fun appendWorkspaceAttachmentRefs(
+        text: String,
+        attachments: List<PromptAttachment>,
+    ): String {
+        if (attachments.isEmpty()) return text
+        val refs =
+            attachments.joinToString("\n") { attachment ->
+                workspaceAttachmentNoteTemplate.format(attachment.workspacePath.orEmpty())
+            }
+        return if (text.isBlank()) refs else "$text\n\n$refs"
+    }
+
     fun sendMessage(text: String) {
         val normalized = text.trim()
         val pendingAttachments = _uiState.value.attachments
@@ -1320,6 +1343,12 @@ class ChatViewModel(
             _uiState.update { it.copy(error = videoNotSupportedMessage) }
             return
         }
+        // Attachments whose MIME a provider would reject as a file part were copied into the
+        // workspace at attach time. They stay visible as chips but must not reach the runtime: the
+        // outgoing text points the agent at the on-disk copy instead.
+        val (modelAttachments, workspaceAttachments) =
+            pendingAttachments.partition { it.workspacePath.isNullOrBlank() }
+        val outgoingText = appendWorkspaceAttachmentRefs(normalized, workspaceAttachments)
         val currentBackend = backend
         if (currentBackend == null) {
             _uiState.update { it.copy(error = "OpenCode connection is not configured") }
@@ -1336,19 +1365,19 @@ class ChatViewModel(
 
         if (!_uiState.value.isConnected) {
             offlineMessageQueue.update {
-                it + QueuedPrompt(normalized, pendingAttachments, _uiState.value.imagePreviews)
+                it + QueuedPrompt(outgoingText, modelAttachments, _uiState.value.imagePreviews)
             }
             val userMessage =
                 ChatMessage(
                     isUser = true,
-                    parts = listOf(ChatPart.Text(id = UUID.randomUUID().toString(), text = normalized)),
+                    parts = listOf(ChatPart.Text(id = UUID.randomUUID().toString(), text = outgoingText)),
                     attachments = pendingAttachments,
                     imagePreviews = _uiState.value.imagePreviews,
                 )
             _uiState.update {
                 it.copy(
                     messages = it.messages + userMessage,
-                    offlineQueue = it.offlineQueue + normalized,
+                    offlineQueue = it.offlineQueue + outgoingText,
                     isOfflineQueued = true,
                     attachments = emptyList(),
                     imagePreviews = emptyList(),
@@ -1363,7 +1392,7 @@ class ChatViewModel(
         val mustQueue = (currentBackend as? RuntimeTarget)?.capabilities?.forcesQueue == true
         if ((_sendBehavior.value == "queue" || mustQueue) && _uiState.value.isRunning) {
             messageQueue.update {
-                it + QueuedPrompt(normalized, pendingAttachments, _uiState.value.imagePreviews)
+                it + QueuedPrompt(outgoingText, modelAttachments, _uiState.value.imagePreviews)
             }
             _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
             return
@@ -1374,7 +1403,7 @@ class ChatViewModel(
             ChatMessage(
                 isUser = true,
                 parts =
-                    normalized.takeIf { it.isNotEmpty() }?.let {
+                    outgoingText.takeIf { it.isNotEmpty() }?.let {
                         listOf(ChatPart.Text(id = UUID.randomUUID().toString(), text = it))
                     }.orEmpty(),
                 attachments = pendingAttachments,
@@ -1436,12 +1465,12 @@ class ChatViewModel(
                 currentBackend.sendMessage(
                     targetSessionId,
                     PromptRequest(
-                        text = normalized,
+                        text = outgoingText,
                         providerId = _uiState.value.selectedProviderId,
                         modelId = _uiState.value.selectedModelId,
                         agent = _uiState.value.selectedAgentId,
                         variant = _uiState.value.selectedVariant,
-                        attachments = pendingAttachments,
+                        attachments = modelAttachments,
                     ),
                 )
                 runCatching { currentBackend.session(targetSessionId).title }

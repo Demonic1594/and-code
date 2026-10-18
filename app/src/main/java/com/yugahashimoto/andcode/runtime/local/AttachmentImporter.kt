@@ -9,6 +9,7 @@ import android.util.Base64
 import android.util.Log
 import com.yugahashimoto.andcode.core.api.PromptAttachment
 import java.io.ByteArrayOutputStream
+import java.io.File
 
 class AttachmentImporter(
     private val context: Context,
@@ -45,6 +46,30 @@ class AttachmentImporter(
                 url = "data:$mime;base64,$encoded",
             ),
         )
+    }
+
+    /**
+     * Writes [attachment]'s decoded bytes into `[workspaceDir]/.andcode-attachments` and returns
+     * the destination file.
+     *
+     * Used for MIME types a provider would reject as a file part (see [AttachmentSupport]): the file
+     * lands in the workspace so the agent can read it with its own file tools instead.
+     */
+    fun writeToWorkspace(
+        attachment: PromptAttachment,
+        workspaceDir: File,
+    ): File {
+        val encoded = attachment.url.substringAfter(";base64,", missingDelimiterValue = "")
+        check(attachment.url.startsWith("data:") && encoded.isNotEmpty()) {
+            "Attachment has no inline content to copy"
+        }
+        val directory =
+            File(workspaceDir, ATTACHMENT_DIRECTORY).apply {
+                check(mkdirs() || isDirectory) { "Cannot create attachment directory" }
+            }
+        val destination = uniqueDestination(directory, attachment.filename)
+        destination.writeBytes(Base64.decode(encoded, Base64.DEFAULT))
+        return destination
     }
 
     fun import(
@@ -129,4 +154,24 @@ class AttachmentImporter(
         }.getOrNull()
 
     private fun sanitize(name: String): String = name.replace(Regex("[^a-zA-Z0-9._-]"), "_").ifBlank { "attachment" }
+
+    private fun uniqueDestination(
+        directory: File,
+        rawName: String,
+    ): File {
+        val name = sanitize(rawName)
+        if (!File(directory, name).exists()) return File(directory, name)
+        val dot = name.lastIndexOf('.')
+        val stem = if (dot > 0) name.substring(0, dot) else name
+        val extension = if (dot > 0) name.substring(dot) else ""
+        var index = 1
+        while (true) {
+            val candidate = File(directory, "$stem-$index$extension")
+            if (!candidate.exists()) return candidate
+            index++
+        }
+    }
 }
+
+/** Workspace subdirectory unsendable attachments are copied into. */
+internal const val ATTACHMENT_DIRECTORY = ".andcode-attachments"
