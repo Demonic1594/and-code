@@ -6,6 +6,7 @@ import com.yugahashimoto.andcode.core.api.OpenCodeAgent
 import com.yugahashimoto.andcode.core.api.OpenCodeProvider
 import com.yugahashimoto.andcode.core.api.ProviderAuthMethod
 import com.yugahashimoto.andcode.core.api.ProviderCatalog
+import com.yugahashimoto.andcode.core.api.selectablePrimaryAgents
 import com.yugahashimoto.andcode.core.security.SecretRedaction
 import com.yugahashimoto.andcode.data.connection.SecureSettingsRepository
 import com.yugahashimoto.andcode.data.repository.RuntimeCatalogRepository
@@ -25,9 +26,11 @@ import com.yugahashimoto.andcode.runtime.LocalAgent
 import com.yugahashimoto.andcode.runtime.RuntimeRegistry
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import com.yugahashimoto.andcode.runtime.local.CustomProviderDefinition
+import com.yugahashimoto.andcode.runtime.local.CustomProviderModelFetcher
 import com.yugahashimoto.andcode.runtime.local.CustomProviderStore
 import com.yugahashimoto.andcode.runtime.local.LocalProviderCredentialStore
 import com.yugahashimoto.andcode.runtime.local.toProviderConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -48,6 +51,8 @@ data class SettingsUiState(
     val availableProviders: List<OpenCodeProvider> = emptyList(),
     val connectedProviderIds: Set<String> = emptySet(),
     val agents: List<OpenCodeAgent> = emptyList(),
+    /** The selected runtime is still reading its agents; see [RuntimeCatalogState.agentsLoading]. */
+    val agentsLoading: Boolean = false,
     val providerId: String? = null,
     val modelId: String? = null,
     val agentId: String? = null,
@@ -86,6 +91,11 @@ data class SettingsUiState(
     val providerAuthNotice: ProviderAuthNotice? = null,
     val customProviderIds: Set<String> = emptySet(),
     val customProviderDialog: CustomProviderDialogState? = null,
+    /**
+     * False when the OpenCode runtime cannot take custom provider definitions over the API (V2).
+     * The add button is hidden rather than offering a write that the server would reject.
+     */
+    val customProvidersEditable: Boolean = true,
     val favoriteModelKeys: Set<String> = emptySet(),
     val recentModelKeys: List<String> = emptyList(),
     val hiddenModelKeys: Set<String> = emptySet(),
@@ -107,6 +117,10 @@ class SettingsViewModel(
     private val voskModels: VoskModelStore,
     private val providerDisconnectRejectedMessage: String = "Provider disconnect was not accepted",
     private val customProviderInvalidMessage: String = "Enter a provider id, base URL, and at least one model id",
+    private val modelFetcher: CustomProviderModelFetcher = CustomProviderModelFetcher(),
+    private val customProviderFetchNeedsBaseUrlMessage: String = "Enter a base URL first",
+    private val customProviderFetchEmptyMessage: String = "The endpoint returned no models",
+    private val customProviderFetchFailedMessage: String = "Could not fetch the model list",
 ) : ViewModel() {
     private val settingsTick = MutableStateFlow(0)
     private val oauthState = MutableStateFlow(OAuthState())
@@ -204,7 +218,8 @@ class SettingsViewModel(
                 providers = core.runtime.providers.all.filter { it.id in chatConnected },
                 availableProviders = managed.all,
                 connectedProviderIds = (managed.connected.toSet() + oauth.locallyConnected) - oauth.locallyDisconnected,
-                agents = core.runtime.agents.filter { it.mode == null || it.mode == "primary" },
+                agents = core.runtime.agents.selectablePrimaryAgents(),
+                agentsLoading = core.runtime.agentsLoading,
                 providerId = core.preferences.providerId,
                 modelId = core.preferences.modelId,
                 agentId = core.preferences.agentId,
@@ -239,6 +254,7 @@ class SettingsViewModel(
                 providerAuthNotice = oauth.notice,
                 customProviderIds = customProviders.definitions().map { it.id }.toSet(),
                 customProviderDialog = customProviderDialog,
+                customProvidersEditable = providerTarget()?.capabilities?.configEditing ?: true,
                 favoriteModelKeys = core.preferences.favoriteModelKeys,
                 recentModelKeys = core.preferences.recentModelKeys,
                 hiddenModelKeys = core.preferences.hiddenModelKeys,
@@ -605,11 +621,31 @@ class SettingsViewModel(
 
     /** Opens the draft dialog for registering an OpenAI-compatible provider OpenCode's catalogue doesn't offer. */
     fun openAddCustomProvider() {
+        // Guarded here as well as in the UI, so no other entry point can open a dialog that cannot save.
+        if (providerTarget()?.capabilities?.configEditing == false) return
         customProviderDialogState.value = CustomProviderDialogState()
     }
 
+    /**
+     * Opens the same dialog prefilled with a registered provider, so its model list can be changed
+     * (or re-fetched) without removing and re-adding it. The id stays fixed: it keys the stored
+     * credential and every saved model selection.
+     */
+    fun openEditCustomProvider(providerId: String) {
+        val definition = customProviders.definitions().firstOrNull { it.id == providerId } ?: return
+        customProviderDialogState.value =
+            CustomProviderDialogState(
+                id = definition.id,
+                name = definition.name,
+                baseUrl = definition.baseUrl,
+                models = definition.models.joinToString(", "),
+                editing = true,
+                hasStoredApiKey = credentials.hasCredential(definition.id),
+            )
+    }
+
     fun updateCustomProviderId(value: String) {
-        customProviderDialogState.update { it?.copy(id = value, error = null) }
+        customProviderDialogState.update { if (it == null || it.editing) it else it.copy(id = value, error = null) }
     }
 
     fun updateCustomProviderName(value: String) {
@@ -617,11 +653,69 @@ class SettingsViewModel(
     }
 
     fun updateCustomProviderBaseUrl(value: String) {
-        customProviderDialogState.update { it?.copy(baseUrl = value, error = null) }
+        customProviderDialogState.update { it?.copy(baseUrl = value, error = null, fetchError = null) }
     }
 
     fun updateCustomProviderModels(value: String) {
-        customProviderDialogState.update { it?.copy(models = value, error = null) }
+        customProviderDialogState.update { it?.copy(models = value, error = null, fetchedModelCount = null) }
+    }
+
+    fun updateCustomProviderApiKey(value: String) {
+        customProviderDialogState.update { it?.copy(apiKey = value, error = null, fetchError = null) }
+    }
+
+    /**
+     * Fills the model field from the endpoint's own `GET <baseURL>/models` listing, using the key
+     * typed into the dialog or, while editing a registered provider, the one already stored for it.
+     */
+    fun fetchCustomProviderModels() {
+        val dialog = customProviderDialogState.value ?: return
+        if (dialog.isBusy || customProviderJob?.isActive == true) return
+        val baseUrl = dialog.baseUrl.trim()
+        if (baseUrl.isEmpty()) {
+            customProviderDialogState.update { it?.copy(fetchError = customProviderFetchNeedsBaseUrlMessage) }
+            return
+        }
+        // The stored key only falls back while editing that very provider: in add mode the id is
+        // free text, and typing an existing id (say `openai`) would otherwise send that provider's
+        // saved key to whatever base URL was typed into the dialog.
+        val apiKey =
+            dialog.apiKey.trim().ifEmpty {
+                if (dialog.editing) credentials.credentials()[dialog.id.trim()].orEmpty() else ""
+            }
+        customProviderJob =
+            viewModelScope.launch {
+                customProviderDialogState.update {
+                    it?.copy(isFetchingModels = true, fetchError = null, fetchedModelCount = null, error = null)
+                }
+                runCatching { modelFetcher.fetch(baseUrl, apiKey) }
+                    .onSuccess { models ->
+                        customProviderJob = null
+                        customProviderDialogState.update {
+                            if (models.isEmpty()) {
+                                it?.copy(isFetchingModels = false, fetchError = customProviderFetchEmptyMessage)
+                            } else {
+                                it?.copy(
+                                    isFetchingModels = false,
+                                    models = models.joinToString(", "),
+                                    fetchedModelCount = models.size,
+                                )
+                            }
+                        }
+                    }.onFailure { error ->
+                        // A dismissed dialog cancels this job; its late failure must not land in a
+                        // dialog opened afterwards, nor clear that dialog's own job reference.
+                        if (error is CancellationException) throw error
+                        customProviderJob = null
+                        val detail = error.message?.takeIf(String::isNotBlank)?.let(SecretRedaction::redact)
+                        customProviderDialogState.update {
+                            it?.copy(
+                                isFetchingModels = false,
+                                fetchError = listOfNotNull(customProviderFetchFailedMessage, detail).joinToString("\n"),
+                            )
+                        }
+                    }
+            }
     }
 
     fun dismissCustomProviderDialog() {
@@ -637,15 +731,16 @@ class SettingsViewModel(
      */
     fun submitCustomProvider() {
         val dialog = customProviderDialogState.value ?: return
-        if (dialog.isSubmitting || customProviderJob?.isActive == true) return
+        if (dialog.isBusy || customProviderJob?.isActive == true) return
         val target = providerTarget() ?: return
         val definition =
             CustomProviderDefinition(
                 id = dialog.id.trim(),
                 name = dialog.name.trim().ifEmpty { dialog.id.trim() },
                 baseUrl = dialog.baseUrl.trim(),
-                models = dialog.models.split(',').map(String::trim).filter(String::isNotEmpty).distinct(),
+                models = parseModelIdList(dialog.models),
             )
+        val typedApiKey = dialog.apiKey.trim()
         if (definition.id.isEmpty() || definition.baseUrl.isEmpty() || definition.models.isEmpty()) {
             customProviderDialogState.update { it?.copy(error = customProviderInvalidMessage) }
             return
@@ -666,14 +761,39 @@ class SettingsViewModel(
                     catalog.refreshProvidersOnly()
                     catalog.refresh()
                     refreshProviderAuth()
-                    openProviderAuth(definition.id)
+                    finishCustomProviderSubmit(definition.id, dialog.editing, typedApiKey, target)
                 }.onFailure { error ->
+                    if (error is CancellationException) throw error
                     customProviderJob = null
                     customProviderDialogState.update {
                         it?.copy(isSubmitting = false, error = error.message?.takeIf(String::isNotBlank) ?: customProviderInvalidMessage)
                     }
                 }
             }
+    }
+
+    private fun finishCustomProviderSubmit(
+        providerId: String,
+        editing: Boolean,
+        typedApiKey: String,
+        target: RuntimeTarget,
+    ) {
+        if (editing && typedApiKey.isEmpty() && credentials.hasCredential(providerId)) {
+            // Only the definition changed and the stored key still applies: skip the key dialog,
+            // but the runtime still has to reload to pick up the new model list.
+            settingsTick.update { it + 1 }
+            if (target.kind == BackendKind.LOCAL) onLocalRuntimeRestartNeeded?.invoke()
+            return
+        }
+        openProviderAuth(providerId)
+        if (typedApiKey.isEmpty()) return
+        // The key was already typed to fetch models; prefill it so the user just confirms instead
+        // of pasting it a second time.
+        val apiIndex = oauthState.value.dialog?.methods?.indexOfFirst { it.type == "api" } ?: -1
+        if (apiIndex >= 0) {
+            selectProviderAuthMethod(apiIndex)
+            updateProviderApiKey(typedApiKey)
+        }
     }
 
     /** Forgets a custom provider entirely: its definition and its stored credential. */

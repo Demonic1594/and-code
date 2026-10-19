@@ -43,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,6 +72,7 @@ import com.yugahashimoto.andcode.BuildConfig
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.UrlLauncher
 import com.yugahashimoto.andcode.core.diagnostics.CrashLog
+import com.yugahashimoto.andcode.data.settings.DraftRepository
 import com.yugahashimoto.andcode.feature.activity.ActivityViewModel
 import com.yugahashimoto.andcode.feature.assistant.SpeechRecognizerManager
 import com.yugahashimoto.andcode.feature.assistant.SpeechResult
@@ -254,6 +256,9 @@ fun AndCodeApp(
                         voskModels = app.voskModels,
                         providerDisconnectRejectedMessage = context.getString(R.string.provider_disconnect_rejected),
                         customProviderInvalidMessage = context.getString(R.string.provider_custom_invalid),
+                        customProviderFetchNeedsBaseUrlMessage = context.getString(R.string.provider_custom_fetch_needs_base_url),
+                        customProviderFetchEmptyMessage = context.getString(R.string.provider_custom_fetch_empty),
+                        customProviderFetchFailedMessage = context.getString(R.string.provider_custom_fetch_failed),
                     )
                 },
         )
@@ -322,6 +327,7 @@ fun AndCodeApp(
                                 )
                             }
                         },
+                        draftRepo = DraftRepository(context.applicationContext),
                         monitorConnectionQuality = true,
                         resolvedPermissionFlow = app.activityRepository.resolvedPermissions,
                         pullRequestStatuses = app.pullRequestStatusRepository,
@@ -337,6 +343,7 @@ fun AndCodeApp(
                         // foreground again.
                         awaitForeground = { app.appForeground.foreground.first { visible -> visible } },
                         videoNotSupportedMessage = context.getString(R.string.error_video_not_supported),
+                        workspaceAttachmentNoteTemplate = context.getString(R.string.chat_workspace_attachment_note),
                     )
                 },
         )
@@ -503,26 +510,61 @@ fun AndCodeApp(
                 runCatching {
                     withContext(Dispatchers.IO) {
                         val importer = com.yugahashimoto.andcode.runtime.local.AttachmentImporter(context)
+                        val runtimeWorkspaceRoot = java.io.File(context.filesDir, "runtime/workspace")
+                        // Only the on-device runtime mounts /workspace onto a local directory. A
+                        // remote runtime may also spell its workspace /workspace, but there is no
+                        // local mount to copy into, so its attachments are always sent as-is.
+                        val workspaceDir =
+                            if (selectedRuntime?.kind == com.yugahashimoto.andcode.runtime.BackendKind.LOCAL) {
+                                com.yugahashimoto.andcode.runtime.local.AttachmentSupport.hostWorkspace(
+                                    chatState.sessionDirectory ?: chatState.selectedWorkspacePath,
+                                    runtimeWorkspaceRoot,
+                                )
+                            } else {
+                                null
+                            }
                         importer.importAll(uri).map { attachment ->
-                            val preview =
-                                if (com.yugahashimoto.andcode.runtime.local.VideoAttachmentHelper.isImageMime(
-                                        attachment.mime,
-                                    )
-                                ) {
-                                    runCatching {
-                                        val base64 =
-                                            attachment.url.substringAfter("base64,", missingDelimiterValue = "")
-                                        if (base64.isEmpty()) return@runCatching null
-                                        val bytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
-                                        com.yugahashimoto.andcode.feature.chat.decodeSampledBitmap(
-                                            bytes,
-                                            com.yugahashimoto.andcode.feature.chat.COMPOSER_PREVIEW_MAX_DIMENSION,
+                            // A MIME the provider rejects as a file part (zip, binaries, ...): drop a
+                            // copy into the workspace and let the agent read it from disk. If the
+                            // copy fails, fall back to sending the attachment as before.
+                            val workspacePath =
+                                workspaceDir
+                                    ?.takeIf {
+                                        !com.yugahashimoto.andcode.runtime.local.AttachmentSupport.isModelSendable(
+                                            attachment.mime,
                                         )
-                                    }.getOrNull()
-                                } else {
-                                    null
-                                }
-                            attachment to preview
+                                    }?.let { directory ->
+                                        runCatching { importer.writeToWorkspace(attachment, directory) }
+                                            .getOrNull()
+                                            ?.let {
+                                                com.yugahashimoto.andcode.runtime.local.AttachmentSupport
+                                                    .guestWorkspacePath(it, runtimeWorkspaceRoot)
+                                            }
+                                    }
+                            if (workspacePath != null) {
+                                attachment.copy(url = "", workspacePath = workspacePath) to null
+                            } else {
+                                val preview =
+                                    if (com.yugahashimoto.andcode.runtime.local.VideoAttachmentHelper.isImageMime(
+                                            attachment.mime,
+                                        )
+                                    ) {
+                                        runCatching {
+                                            val base64 =
+                                                attachment.url.substringAfter("base64,", missingDelimiterValue = "")
+                                            if (base64.isEmpty()) return@runCatching null
+                                            val bytes =
+                                                android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
+                                            com.yugahashimoto.andcode.feature.chat.decodeSampledBitmap(
+                                                bytes,
+                                                com.yugahashimoto.andcode.feature.chat.COMPOSER_PREVIEW_MAX_DIMENSION,
+                                            )
+                                        }.getOrNull()
+                                    } else {
+                                        null
+                                    }
+                                attachment to preview
+                            }
                         }
                     }
                 }.onSuccess { attachments ->
@@ -661,7 +703,9 @@ fun AndCodeApp(
     // Lets the in-guest agent pop the guest browser open for the user by dropping a command
     // file into the active workspace (see GuestBrowserCommandWatcher).
     GuestBrowserCommandWatcher(
-        workspacePath = chatState.selectedWorkspacePath,
+        workspacePath = chatState.sessionDirectory ?: chatState.selectedWorkspacePath,
+        agent = selectedRuntime?.agent,
+        runtimeDirectory = java.io.File(context.filesDir, "runtime"),
         onOpenUrl = { url ->
             navController.navigate(guestBrowserRoute(url)) { launchSingleTop = true }
         },
@@ -1054,6 +1098,7 @@ fun AndCodeApp(
                             state = chatState,
                             providers = settingsState.providers,
                             agents = settingsState.agents,
+                            agentsLoading = settingsState.agentsLoading,
                             selectedProviderId = chatState.selectedProviderId ?: fallbackProviderId,
                             selectedModelId = chatState.selectedModelId ?: fallbackModelId,
                             selectedAgentId = chatState.selectedAgentId ?: settingsState.agentId,
@@ -1121,6 +1166,7 @@ fun AndCodeApp(
                             },
                             onSelectModel = settingsViewModel::selectModel,
                             onSelectAgent = settingsViewModel::selectAgent,
+                            onRefreshAgents = app.catalogRepository::refreshAgents,
                             selectedVariant = chatState.selectedVariant,
                             onSelectVariant = chatViewModel::selectVariant,
                             onAttach = { attachmentLauncher.launch("*/*") },
@@ -1148,6 +1194,7 @@ fun AndCodeApp(
                             onCancelQuestion = chatViewModel::cancelQuestion,
                             onDismissQuestion = chatViewModel::dismissQuestion,
                             onDismissTodoBar = chatViewModel::dismissTodoBar,
+                            onDismissPullRequest = chatViewModel::dismissPullRequest,
                             autoAcceptPermissions = settingsState.autoAcceptPermissions,
                             onToggleAutoAccept = settingsViewModel::setAutoAcceptPermissions,
                             enterToSend = preferences.enterToSend,
@@ -1197,6 +1244,8 @@ fun AndCodeApp(
                             },
                             onOpenPatchDiff = chatViewModel::openPatchDiff,
                             onDismissPatchDiff = chatViewModel::dismissPatchDiff,
+                            onLoadDraft = { sessionId -> chatViewModel.loadDraft(sessionId)?.text },
+                            onSaveDraft = { sessionId, text -> chatViewModel.saveDraft(sessionId, text) },
                         )
                     }
 
@@ -1352,6 +1401,7 @@ fun AndCodeApp(
                             runtimeTargets = runtimeTargets,
                             providers = settingsState.providers,
                             workspaces = workspaceState.workspaces,
+                            selectedRuntimeId = selectedRuntime?.id,
                             favoriteModelKeys = settingsState.favoriteModelKeys,
                             recentModelKeys = settingsState.recentModelKeys,
                             hiddenModelKeys = settingsState.hiddenModelKeys,
@@ -1444,11 +1494,11 @@ private fun GithubCloneDialog(
     onCloned: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var source by remember { mutableStateOf(if (githubConfigured) CloneSource.REPOS else CloneSource.URL) }
-    var url by remember { mutableStateOf("") }
+    var source by rememberSaveable { mutableStateOf(if (githubConfigured) CloneSource.REPOS else CloneSource.URL) }
+    var url by rememberSaveable { mutableStateOf("") }
     var repos by remember { mutableStateOf<List<GitHubRepo>>(emptyList()) }
     var isLoadingRepos by remember { mutableStateOf(false) }
-    var search by remember { mutableStateOf("") }
+    var search by rememberSaveable { mutableStateOf("") }
     var isCloning by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()

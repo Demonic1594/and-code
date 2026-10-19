@@ -32,7 +32,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,12 +66,15 @@ fun ProviderSettingsScreen(
     onCustomProviderNameChange: (String) -> Unit,
     onCustomProviderBaseUrlChange: (String) -> Unit,
     onCustomProviderModelsChange: (String) -> Unit,
+    onCustomProviderApiKeyChange: (String) -> Unit,
+    onFetchCustomProviderModels: () -> Unit,
+    onEditCustomProvider: (String) -> Unit,
     onSubmitCustomProvider: () -> Unit,
     onDismissCustomProviderDialog: () -> Unit,
     onRemoveCustomProvider: (String) -> Unit,
     onBack: () -> Unit,
 ) {
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -114,11 +117,13 @@ fun ProviderSettingsScreen(
                 shape = RoundedCornerShape(14.dp),
             )
 
-            OutlinedButton(
-                onClick = onOpenAddCustomProvider,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.provider_add_custom))
+            if (state.customProvidersEditable) {
+                OutlinedButton(
+                    onClick = onOpenAddCustomProvider,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.provider_add_custom))
+                }
             }
 
             val filtered =
@@ -155,6 +160,7 @@ fun ProviderSettingsScreen(
                         onConnect = { onOpenProviderAuth(provider.id) },
                         onDisconnect = { onDisconnectProvider(provider.id) },
                         onRemove = { onRemoveCustomProvider(provider.id) },
+                        onEdit = { onEditCustomProvider(provider.id) },
                     )
                 }
             }
@@ -202,6 +208,8 @@ fun ProviderSettingsScreen(
             onNameChange = onCustomProviderNameChange,
             onBaseUrlChange = onCustomProviderBaseUrlChange,
             onModelsChange = onCustomProviderModelsChange,
+            onApiKeyChange = onCustomProviderApiKeyChange,
+            onFetchModels = onFetchCustomProviderModels,
             onSubmit = onSubmitCustomProvider,
             onDismiss = onDismissCustomProviderDialog,
         )
@@ -289,6 +297,7 @@ private fun ProviderRow(
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onRemove: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     Column(
         modifier =
@@ -346,6 +355,9 @@ private fun ProviderRow(
                 }
             }
             if (isCustom) {
+                TextButton(onClick = onEdit) {
+                    Text(stringResource(R.string.provider_custom_edit))
+                }
                 TextButton(onClick = onRemove) {
                     Text(stringResource(R.string.provider_custom_remove))
                 }
@@ -395,6 +407,9 @@ private fun ProviderSettingsScreenPreview() {
             onCustomProviderNameChange = {},
             onCustomProviderBaseUrlChange = {},
             onCustomProviderModelsChange = {},
+            onCustomProviderApiKeyChange = {},
+            onFetchCustomProviderModels = {},
+            onEditCustomProvider = {},
             onSubmitCustomProvider = {},
             onDismissCustomProviderDialog = {},
             onRemoveCustomProvider = {},

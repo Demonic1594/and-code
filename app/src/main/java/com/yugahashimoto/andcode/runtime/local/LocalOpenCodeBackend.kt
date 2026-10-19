@@ -15,12 +15,14 @@ import com.yugahashimoto.andcode.core.api.OpenCodeHealth
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
 import com.yugahashimoto.andcode.core.api.OpenCodePathInfo
 import com.yugahashimoto.andcode.core.api.OpenCodeProject
+import com.yugahashimoto.andcode.core.api.OpenCodeProtocol
 import com.yugahashimoto.andcode.core.api.OpenCodeSearchMatch
 import com.yugahashimoto.andcode.core.api.OpenCodeSession
 import com.yugahashimoto.andcode.core.api.OpenCodeSkill
 import com.yugahashimoto.andcode.core.api.OpenCodeTodo
 import com.yugahashimoto.andcode.core.api.OpenCodeVcsInfo
 import com.yugahashimoto.andcode.core.api.PromptRequest
+import com.yugahashimoto.andcode.core.api.ProtocolDetectingOpenCodeApi
 import com.yugahashimoto.andcode.core.api.ProviderAuthAuthorization
 import com.yugahashimoto.andcode.core.api.ProviderAuthMethod
 import com.yugahashimoto.andcode.core.api.ProviderCatalog
@@ -36,12 +38,14 @@ import kotlinx.serialization.json.JsonObject
 
 class LocalOpenCodeBackend(
     private val portProvider: () -> Int?,
+    private val passwordProvider: () -> String? = { null },
     private val backendFactory: (ConnectionProfile) -> RemoteOpenCodeBackend = { profile ->
-        RemoteOpenCodeBackend(profile)
+        RemoteOpenCodeBackend(profile, ProtocolDetectingOpenCodeApi(profile))
     },
 ) : OpenCodeBackend {
     constructor(runtimeManager: LocalRuntimeManager) : this(
         portProvider = runtimeManager::installedPort,
+        passwordProvider = runtimeManager::localServerPassword,
     )
 
     override val id: String = "local-android"
@@ -56,21 +60,23 @@ class LocalOpenCodeBackend(
         val port =
             portProvider()
                 ?: error("Android local OpenCode runtime is not installed")
-        cached?.takeIf { it.port == port }?.let { return it.backend }
+        val password = passwordProvider()
+        cached?.takeIf { it.port == port && it.password == password }?.let { return it.backend }
 
         synchronized(lock) {
-            cached?.takeIf { it.port == port }?.let { return it.backend }
+            cached?.takeIf { it.port == port && it.password == password }?.let { return it.backend }
             val backend =
                 backendFactory(
                     ConnectionProfile(
                         id = id,
                         name = displayName,
                         baseUrl = "http://127.0.0.1:$port/",
-                        username = "opencode",
+                        username = LocalServerAuth.USERNAME,
+                        password = password,
                         allowInsecureLan = true,
                     ),
                 )
-            cached = CachedDelegate(port, backend)
+            cached = CachedDelegate(port, password, backend)
             return backend
         }
     }
@@ -78,6 +84,14 @@ class LocalOpenCodeBackend(
     fun invalidate() {
         cached = null
     }
+
+    /**
+     * Protocol of the current local server, or null when the runtime is not installed yet or has
+     * not been probed. Reads only the already-built delegate: capability checks run from Compose on
+     * the main thread, and building a delegate reads runtime metadata and the password from disk.
+     */
+    val protocol: OpenCodeProtocol?
+        get() = cached?.backend?.protocol
 
     override suspend fun health(): OpenCodeHealth = delegate().health()
 
@@ -254,6 +268,7 @@ class LocalOpenCodeBackend(
 
     private data class CachedDelegate(
         val port: Int,
+        val password: String?,
         val backend: RemoteOpenCodeBackend,
     )
 }

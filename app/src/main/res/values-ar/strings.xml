@@ -198,6 +198,22 @@
     <string name="provider_custom_models_hint">مفصولة بفواصل، مثال: gpt-4o, gpt-4o-mini</string>
     <string name="provider_custom_invalid">أدخل معرف الموفر وعنوان URL الأساسي ونموذجًا واحدًا على الأقل.</string>
     <string name="provider_custom_remove">إزالة</string>
+    <string name="provider_custom_edit">تعديل</string>
+    <string name="provider_edit_custom_title">تعديل المزوّد المخصّص</string>
+    <string name="provider_custom_fetch_models">جلب النماذج</string>
+    <string name="provider_custom_api_key_help">اختياري. يُستخدم لجلب النماذج من &lt;base URL&gt;/models، ويمكنك أيضًا إدخاله في الخطوة التالية.</string>
+    <string name="provider_custom_api_key_stored_help">اتركه فارغًا لاستخدام مفتاح API المحفوظ.</string>
+    <string name="provider_custom_fetch_needs_base_url">أدخل عنوان URL الأساسي أولًا.</string>
+    <string name="provider_custom_fetch_empty">لم تُرجع نقطة النهاية أي نماذج.</string>
+    <string name="provider_custom_fetch_failed">تعذّر جلب قائمة النماذج.</string>
+    <plurals name="provider_custom_fetch_success">
+        <item quantity="zero">تم جلب %1$d نموذج. احذف ما لا تحتاج إليه.</item>
+        <item quantity="one">تم جلب نموذج واحد. احذفه إن لم تكن بحاجة إليه.</item>
+        <item quantity="two">تم جلب نموذجين. احذف ما لا تحتاج إليه.</item>
+        <item quantity="few">تم جلب %1$d نماذج. احذف ما لا تحتاج إليه.</item>
+        <item quantity="many">تم جلب %1$d نموذجًا. احذف ما لا تحتاج إليه.</item>
+        <item quantity="other">تم جلب %1$d نموذج. احذف ما لا تحتاج إليه.</item>
+    </plurals>
     <string name="continue_label">متابعة</string>
     <string name="question_free_text_label">أخرى (اكتب إجابتك)</string>
     <string name="question_cancel">رفض الإجابة</string>
@@ -468,8 +484,11 @@
     <string name="chat_system_prompt_default">الموجّه</string>
     <string name="chat_mode_build">بناء</string>
     <string name="chat_mode_plan">تخطيط</string>
+    <string name="chat_agents_loading">جارٍ تحميل الوكلاء…</string>
+    <string name="chat_agents_load_failed">تعذّر تحميل الوكلاء. انقر لإعادة المحاولة.</string>
     <string name="chat_mode_auto_accept">قبول تلقائي</string>
     <string name="chat_auto_accept_short">تلقائي</string>
+    <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">عمليات GitHub Git</string>
     <string name="github_not_connected">غير متصل</string>
     <string name="github_connect">الاتصال بـ GitHub</string>
@@ -590,7 +609,6 @@
     <string name="legal_license_lgpl3">LGPL-3.0</string>
     <string name="legal_license_bsd3">BSD-3-Clause (libandroid-shmem)</string>
     <string name="legal_license_apache2">رخصة Apache 2.0</string>
-    <string name="legal_license_ccbyncsa4">CC BY-NC-SA 4.0 (نماذج كلمة التنبيه)</string>
     <string name="section_appearance_settings">المظهر</string>
     <string name="theme_row">السمة</string>
     <string name="theme_dialog_title">تحديد السمة</string>
@@ -1134,6 +1152,7 @@
     <string name="pr_collapse">طيّ</string>
     <string name="cd_pull_request_expand">عرض %1$d طلبات سحب إضافية</string>
     <string name="cd_pull_request_collapse">عرض عدد أقل من طلبات السحب</string>
+    <string name="cd_pull_request_dismiss">إخفاء طلب السحب رقم %1$d</string>
     <string name="runtime_connection_unhealthy">بيئة OpenCode المحلية لا تعمل بشكل سليم</string>
     <string name="runtime_connection_failed">تعذر الاتصال بـ OpenCode المحلي</string>
     <string name="runtime_update_insufficient_space">لا توجد مساحة كافية للتحديث: المطلوب %1$d بايت والمتاح %2$d بايت</string>

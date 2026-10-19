@@ -180,6 +180,18 @@
     <string name="provider_custom_models_hint">Comma-separated, e.g. gpt-4o, gpt-4o-mini</string>
     <string name="provider_custom_invalid">Enter a provider ID, base URL, and at least one model ID.</string>
     <string name="provider_custom_remove">Remove</string>
+    <string name="provider_custom_edit">Edit</string>
+    <string name="provider_edit_custom_title">Edit custom provider</string>
+    <string name="provider_custom_fetch_models">Fetch models</string>
+    <string name="provider_custom_api_key_help">Optional. Used to fetch models from &lt;base URL&gt;/models; you can also enter it in the next step.</string>
+    <string name="provider_custom_api_key_stored_help">Leave empty to use the saved API key.</string>
+    <string name="provider_custom_fetch_needs_base_url">Enter a base URL first.</string>
+    <string name="provider_custom_fetch_empty">The endpoint returned no models.</string>
+    <string name="provider_custom_fetch_failed">Could not fetch the model list.</string>
+    <plurals name="provider_custom_fetch_success">
+        <item quantity="one">Fetched %1$d model. Remove any you don\'t want.</item>
+        <item quantity="other">Fetched %1$d models. Remove any you don\'t want.</item>
+    </plurals>
     <string name="continue_label">Continue</string>
     <string name="question_free_text_label">Other (type your own answer)</string>
     <string name="question_cancel">Decline to answer</string>
@@ -452,8 +464,11 @@
     <string name="chat_system_prompt_default">Prompt</string>
     <string name="chat_mode_build">Build</string>
     <string name="chat_mode_plan">Plan</string>
+    <string name="chat_agents_loading">Loading agents…</string>
+    <string name="chat_agents_load_failed">Couldn\'t load agents. Tap to retry.</string>
     <string name="chat_mode_auto_accept">Auto accept</string>
     <string name="chat_auto_accept_short">Auto</string>
+    <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">GitHub Git operations</string>
     <string name="github_not_connected">Not connected</string>
     <string name="github_connect">Connect GitHub</string>
@@ -559,7 +574,7 @@
     <string name="remote_connection_row">Remote connection</string>
     <string name="settings_workspace_row">Workspace</string>
     <string name="notifications_row">Notifications</string>
-    <string name="analytics_row" translatable="false">Anonymous usage analytics</string>
+    <string name="analytics_row" translatable="false">Anonymous usage analytics &amp; crash reports</string>
     <string name="local_runtime_idle_stop_row">Stop idle runtime</string>
     <string name="local_runtime_idle_stop_row_description">Restarts automatically when a schedule runs or you open the app, but not automatically after a device restart</string>
     <string name="privacy_row">Privacy &amp; data</string>
@@ -585,7 +600,6 @@
     <string name="legal_license_lgpl3">LGPL-3.0</string>
     <string name="legal_license_bsd3">BSD-3-Clause (libandroid-shmem)</string>
     <string name="legal_license_apache2">Apache License 2.0</string>
-    <string name="legal_license_ccbyncsa4">CC BY-NC-SA 4.0 (wake-word models)</string>
     <string name="section_appearance_settings">Appearance</string>
     <string name="theme_row">Theme</string>
     <string name="theme_dialog_title">Select theme</string>
@@ -838,6 +852,7 @@
     <string name="attach_gallery">Gallery</string>
     <string name="attachment_load_failed">Could not attach file</string>
     <string name="error_video_not_supported">Video files cannot be sent directly. Remove the video and attach images instead.</string>
+    <string name="chat_workspace_attachment_note" translatable="false">[Attached file available in the workspace: %1$s]</string>
     <string name="status_queued">Queued</string>
 
     <!-- Resume command -->
@@ -1183,6 +1198,7 @@
     <string name="pr_collapse">Fewer</string>
     <string name="cd_pull_request_expand">Show %1$d more pull requests</string>
     <string name="cd_pull_request_collapse">Show fewer pull requests</string>
+    <string name="cd_pull_request_dismiss">Hide pull request #%1$d</string>
     <string name="guest_browser_title">Guest Browser</string>
     <string name="guest_browser_row">Guest Browser</string>
     <string name="guest_browser_url_hint">http://127.0.0.1:port</string>

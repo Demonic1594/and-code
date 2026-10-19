@@ -1,6 +1,5 @@
 package com.yugahashimoto.andcode.runtime.local
 
-import com.yugahashimoto.andcode.core.storage.DeviceStorage
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -56,35 +55,17 @@ class LocalRuntimeProcessLauncher(
         val prootTmp = File(runtimeDirectory, "proot-tmp").apply { mkdirs() }
 
         val command =
-            buildList {
-                add(suite.proot.absolutePath)
-                add("--kill-on-exit")
-                add("--link2symlink")
-                add("-0")
-                add("-r")
-                add(rootfs.absolutePath)
-                add("-b")
-                add("/dev")
-                add("-b")
-                add("/proc")
-                add("-b")
-                add("/sys")
-                add("-b")
-                add("/system")
-                add("-b")
-                add("${workspace.absolutePath}:/workspace")
-                // Nothing while all-files access is ungranted, so the sandbox stays exactly as
-                // narrow as it was until the user opens the device up to it.
-                addAll(DeviceStorage.bindArguments())
-                add("-w")
-                add("/workspace")
-                add("/usr/local/bin/opencode")
-                add("serve")
-                add("--hostname")
-                add("127.0.0.1")
-                add("--port")
-                add(port.toString())
-            }
+            prootCommandPrefix(suite, rootfs, workspace) +
+                listOf(
+                    "-w",
+                    "/workspace",
+                    "/usr/local/bin/opencode",
+                    "serve",
+                    "--hostname",
+                    "127.0.0.1",
+                    "--port",
+                    port.toString(),
+                )
 
         val builder =
             ProcessBuilder(command)
@@ -93,7 +74,14 @@ class LocalRuntimeProcessLauncher(
                 .redirectOutput(ProcessBuilder.Redirect.appendTo(logFile))
         builder.environment().apply {
             clear()
-            putAll(localRuntimeEnvironment(suite.environment(), prootTmp, githubToken()))
+            putAll(
+                localRuntimeEnvironment(
+                    suiteEnvironment = suite.environment(),
+                    prootTmp = prootTmp,
+                    githubToken = githubToken(),
+                    serverPassword = LocalServerAuth.password(runtimeDirectory),
+                ),
+            )
         }
         val started = builder.start()
         process = started
@@ -327,6 +315,7 @@ internal fun localRuntimeEnvironment(
     suiteEnvironment: Map<String, String>,
     prootTmp: File,
     githubToken: String? = null,
+    serverPassword: String? = null,
 ): Map<String, String> =
     buildMap {
         putAll(suiteEnvironment)
@@ -349,6 +338,12 @@ internal fun localRuntimeEnvironment(
         githubToken?.takeIf(String::isNotBlank)?.let {
             put("OPENCODE_GITHUB_TOKEN", it)
             put("GH_TOKEN", it)
+        }
+        // Without this the server's HTTP API is unauthenticated on a loopback port any other app
+        // with INTERNET can reach; see LocalServerAuth.
+        serverPassword?.takeIf(String::isNotBlank)?.let {
+            put(LocalServerAuth.PASSWORD_ENV, it)
+            put("OPENCODE_SERVER_USERNAME", LocalServerAuth.USERNAME)
         }
     }
 

@@ -195,6 +195,19 @@
     <string name="provider_custom_models_hint">Separados por comas, ej. gpt-4o, gpt-4o-mini</string>
     <string name="provider_custom_invalid">Ingresa un ID de proveedor, una URL base y al menos un ID de modelo.</string>
     <string name="provider_custom_remove">Eliminar</string>
+    <string name="provider_custom_edit">Editar</string>
+    <string name="provider_edit_custom_title">Editar proveedor personalizado</string>
+    <string name="provider_custom_fetch_models">Obtener modelos</string>
+    <string name="provider_custom_api_key_help">Opcional. Se usa para obtener los modelos de &lt;base URL&gt;/models; también puedes introducirla en el siguiente paso.</string>
+    <string name="provider_custom_api_key_stored_help">Déjalo vacío para usar la clave API guardada.</string>
+    <string name="provider_custom_fetch_needs_base_url">Introduce primero una URL base.</string>
+    <string name="provider_custom_fetch_empty">El endpoint no devolvió ningún modelo.</string>
+    <string name="provider_custom_fetch_failed">No se pudo obtener la lista de modelos.</string>
+    <plurals name="provider_custom_fetch_success">
+        <item quantity="one">Se obtuvo %1$d modelo. Elimina los que no quieras.</item>
+        <item quantity="many">Se obtuvieron %1$d modelos. Elimina los que no quieras.</item>
+        <item quantity="other">Se obtuvieron %1$d modelos. Elimina los que no quieras.</item>
+    </plurals>
     <string name="continue_label">Continuar</string>
     <string name="question_free_text_label">Otro (escribe tu respuesta)</string>
     <string name="question_cancel">No responder</string>
@@ -465,8 +478,11 @@
     <string name="chat_system_prompt_default">Prompt</string>
     <string name="chat_mode_build">Construir</string>
     <string name="chat_mode_plan">Planificar</string>
+    <string name="chat_agents_loading">Cargando agentes…</string>
+    <string name="chat_agents_load_failed">No se pudieron cargar los agentes. Toca para reintentar.</string>
     <string name="chat_mode_auto_accept">Aceptación automática</string>
     <string name="chat_auto_accept_short">Auto</string>
+    <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">Operaciones Git de GitHub</string>
     <string name="github_not_connected">No conectado</string>
     <string name="github_connect">Conectar GitHub</string>
@@ -587,7 +603,6 @@
     <string name="legal_license_lgpl3">LGPL-3.0</string>
     <string name="legal_license_bsd3">BSD-3-Clause (libandroid-shmem)</string>
     <string name="legal_license_apache2">Licencia Apache 2.0</string>
-    <string name="legal_license_ccbyncsa4">CC BY-NC-SA 4.0 (modelos de palabra de activación)</string>
     <string name="section_appearance_settings">Apariencia</string>
     <string name="theme_row">Tema</string>
     <string name="theme_dialog_title">Seleccionar tema</string>
@@ -1128,6 +1143,7 @@
     <string name="pr_collapse">Menos</string>
     <string name="cd_pull_request_expand">Mostrar %1$d pull requests más</string>
     <string name="cd_pull_request_collapse">Mostrar menos pull requests</string>
+    <string name="cd_pull_request_dismiss">Ocultar la pull request #%1$d</string>
     <string name="runtime_connection_unhealthy">El entorno local de OpenCode no funciona correctamente</string>
     <string name="runtime_connection_failed">No se pudo conectar a OpenCode local</string>
     <string name="runtime_update_insufficient_space">No hay suficiente espacio libre para la actualización: se necesitan %1$d bytes y hay %2$d disponibles</string>

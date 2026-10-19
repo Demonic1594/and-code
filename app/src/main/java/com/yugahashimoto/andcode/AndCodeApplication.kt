@@ -17,7 +17,6 @@ import com.yugahashimoto.andcode.core.lifecycle.ProcessLifecycleAppForeground
 import com.yugahashimoto.andcode.core.locale.AppLanguage
 import com.yugahashimoto.andcode.core.notification.RuntimeNotificationHelper
 import com.yugahashimoto.andcode.core.runtime.RuntimeWorkTracker
-import com.yugahashimoto.andcode.core.security.SecretRedaction
 import com.yugahashimoto.andcode.core.storage.DeviceStorage
 import com.yugahashimoto.andcode.core.storage.DeviceStorageAccess
 import com.yugahashimoto.andcode.core.util.debounceFalseEdge
@@ -74,6 +73,7 @@ import com.yugahashimoto.andcode.runtime.local.LocalRuntimeReleaseClient
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeServiceController
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeTarget
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeUpdater
+import com.yugahashimoto.andcode.runtime.local.StartupCommandsRunner
 import com.yugahashimoto.andcode.runtime.local.SystemPromptStore
 import com.yugahashimoto.andcode.runtime.local.VerifiedRuntimeDownloader
 import com.yugahashimoto.andcode.runtime.local.applyOpenCodeSystemPrompt
@@ -250,8 +250,10 @@ class AndCodeApplication : Application() {
         // dependency instead of a nullable one wired in after the fact.
         runtimeWork = RuntimeWorkTracker()
         settings = SecureSettingsRepository(this)
-        // Analytics is explicitly opt-in; source-code tooling should not silently collect usage data.
+        // Analytics and crash reporting are explicitly opt-in; source-code tooling should not
+        // silently collect usage data or crash reports.
         AnalyticsReporter.install(this, settings.analyticsEnabled)
+        CrashReporter.setEnabled(settings.analyticsEnabled)
         preferences = AppPreferencesRepository(settings)
         scheduleRepository = ScheduleRepository(this).also { it.reconcileStaleRuns() }
         deviceStorageAccess = DeviceStorageAccess(this)
@@ -287,6 +289,13 @@ class AndCodeApplication : Application() {
                 accessCoordinator = accessCoordinator,
             )
         localRuntimeInstaller = installer
+        // Guest startup commands (issue #379): read from the workspace on every runtime start,
+        // launched detached so they can neither block nor fail the start itself.
+        val startupCommandsRunner =
+            StartupCommandsRunner(
+                runtimeDirectory = runtimeDirectory,
+                githubToken = { settings.githubToken },
+            )
         val launcher =
             LocalRuntimeProcessLauncher(
                 runtimeDirectory = runtimeDirectory,
@@ -300,6 +309,7 @@ class AndCodeApplication : Application() {
                             if (settings.githubToken.isNullOrBlank()) helper.remove() else helper.install()
                         }
                     }
+                    runCatching { startupCommandsRunner.schedule(installed) }
                 },
             )
         commandRunner =
@@ -523,13 +533,11 @@ class AndCodeApplication : Application() {
                     notifications.notifySessionComplete(sessionId, title, runtimeId)
                     githubStarCoordinator.onSessionCompleted()
                 },
-                onSessionError = { sessionId, message, runtimeId ->
+                onSessionError = { sessionId, message, errorType, runtimeId ->
                     AnalyticsReporter.recordRuntimeSessionError()
-                    CrashReporter.recordException(
-                        error = IllegalStateException(SecretRedaction.redact(message ?: "Runtime session failed")),
-                        message = "Runtime session error",
-                        customKeys = mapOf("session_id" to (sessionId ?: "unknown")),
-                    )
+                    // Report only the runtime id and error type: the raw message can echo prompts,
+                    // model output, file paths and hosts, and stays on-device in the notification.
+                    CrashReporter.recordRuntimeSessionError(runtimeId, errorType)
                     notifications.notifySessionError(sessionId, message, runtimeId)
                 },
                 onQuestionAsked = { request, title, runtimeId ->

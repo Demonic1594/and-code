@@ -95,6 +95,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -111,10 +112,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
@@ -128,6 +133,8 @@ import com.yugahashimoto.andcode.core.api.OpenCodeCommand
 import com.yugahashimoto.andcode.core.api.OpenCodeProvider
 import com.yugahashimoto.andcode.core.api.OpenCodeSkill
 import com.yugahashimoto.andcode.core.api.PromptAttachment
+import com.yugahashimoto.andcode.core.api.defaultAgentName
+import com.yugahashimoto.andcode.core.api.selectablePrimaryAgents
 import com.yugahashimoto.andcode.core.diagnostics.StallDiagnosis
 import com.yugahashimoto.andcode.core.diagnostics.StallReason
 import com.yugahashimoto.andcode.core.diagnostics.explain
@@ -144,6 +151,7 @@ import com.yugahashimoto.andcode.ui.components.VolumeMeter
 import com.yugahashimoto.andcode.ui.components.systemPromptPresetLabel
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -153,6 +161,8 @@ private data class MessageActionTarget(
     val text: String,
     val canEdit: Boolean,
 )
+
+private const val DRAFT_SAVE_DEBOUNCE_MS = 400L
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -168,6 +178,9 @@ fun ChatHomeScreen(
     onSelectRuntime: (String) -> Unit,
     onSelectModel: (String, String) -> Unit,
     onSelectAgent: (String) -> Unit,
+    /** Asks the runtime for its agents again; the mode chip calls it when its list is empty. */
+    onRefreshAgents: () -> Unit = {},
+    agentsLoading: Boolean = false,
     selectedVariant: String? = null,
     onSelectVariant: (String?) -> Unit = {},
     attachments: List<PromptAttachment> = emptyList(),
@@ -204,6 +217,8 @@ fun ChatHomeScreen(
     onCancelQuestion: (String) -> Unit = {},
     onDismissQuestion: (String) -> Unit = {},
     onDismissTodoBar: (String) -> Unit = {},
+    /** Hides one pull request badge above the composer, by its ref key. */
+    onDismissPullRequest: (String) -> Unit = {},
     autoAcceptPermissions: Boolean = false,
     /** False for a runtime that never raises permission prompts, so the auto-accept chip is hidden. */
     supportsPermissions: Boolean = true,
@@ -238,8 +253,18 @@ fun ChatHomeScreen(
     /** Fetches and opens the diff dialog for a tapped [ChatPart.Patch] card. */
     onOpenPatchDiff: (ChatPart.Patch) -> Unit = {},
     onDismissPatchDiff: () -> Unit = {},
+    /** Reads the unsent text kept for a session, for restoring after the app was closed. */
+    onLoadDraft: (String) -> String? = { null },
+    /** Keeps the composer's unsent text for a session; blank text clears it. */
+    onSaveDraft: (String, String) -> Unit = { _, _ -> },
 ) {
-    var input by remember { mutableStateOf("") }
+    // Saved state, not plain remember: the Activity is recreated on rotation and other
+    // configuration changes, and a remembered field would come back empty. The TextFieldValue
+    // saver also keeps the cursor and selection, not just the string (issue #355).
+    var inputValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(""))
+    }
+    val input = inputValue.text
     val listState = rememberLazyListState()
     var showModelPicker by remember { mutableStateOf(false) }
     val errorKind = classifyChatError(state.error)
@@ -325,7 +350,35 @@ fun ChatHomeScreen(
 
     LaunchedEffect(state.partialText) {
         if ((state.isListening || state.isSpeechProcessing) && state.partialText.isNotBlank()) {
-            input = state.partialText
+            inputValue = TextFieldValue(state.partialText, TextRange(state.partialText.length))
+        }
+    }
+
+    // Keeps the unsent text beyond this composition: the saved state above survives rotation and
+    // the system reclaiming the process, while the stored draft also survives the user closing the
+    // app and gives each chat its own text. A draft restored on first show only fills an empty
+    // field, so it never overwrites what is being typed or text carried over from before a
+    // configuration change; moving to another chat swaps the field for that chat's draft instead
+    // of leaking the previous chat's text into it. A chat without a session yet has nothing to
+    // key a draft on and relies on the saved state alone.
+    val draftSessionId = state.sessionId
+    var lastDraftSessionId by remember { mutableStateOf(draftSessionId) }
+    LaunchedEffect(draftSessionId) {
+        val switched =
+            lastDraftSessionId != null && draftSessionId != null && lastDraftSessionId != draftSessionId
+        lastDraftSessionId = draftSessionId
+        if (draftSessionId != null && (switched || inputValue.text.isEmpty())) {
+            val draft = onLoadDraft(draftSessionId)?.takeIf { it.isNotEmpty() }.orEmpty()
+            if (switched || draft.isNotEmpty()) {
+                inputValue = TextFieldValue(draft, TextRange(draft.length))
+            }
+        }
+    }
+    LaunchedEffect(draftSessionId, input) {
+        if (draftSessionId != null) {
+            // Debounced so a burst of typing is one write; sending clears the stored draft itself.
+            delay(DRAFT_SAVE_DEBOUNCE_MS)
+            onSaveDraft(draftSessionId, input)
         }
     }
 
@@ -335,7 +388,7 @@ fun ChatHomeScreen(
     // than the user having to retype it.
     LaunchedEffect(state.editDraft) {
         state.editDraft?.let { draft ->
-            input = draft
+            inputValue = TextFieldValue(draft, TextRange(draft.length))
             onEditDraftConsumed()
         }
     }
@@ -565,16 +618,16 @@ fun ChatHomeScreen(
 
             if (!runtimeNotReady) {
                 ChatComposer(
-                    input = input,
-                    onInputChange = {
-                        input = it
-                        showSlashCommands = it.startsWith("/")
+                    inputValue = inputValue,
+                    onInputValueChange = {
+                        inputValue = it
+                        showSlashCommands = it.text.startsWith("/")
                     },
                     isRunning = state.isRunning,
                     onSend = {
                         if (input.isNotBlank() || state.attachments.isNotEmpty()) {
                             onSendMessage(input)
-                            input = ""
+                            inputValue = TextFieldValue("")
                             showSlashCommands = false
                         }
                     },
@@ -596,6 +649,8 @@ fun ChatHomeScreen(
                     agents = agents,
                     selectedAgentId = selectedAgentId,
                     onSelectAgent = onSelectAgent,
+                    onRefreshAgents = onRefreshAgents,
+                    agentsLoading = agentsLoading,
                     thinkingOptions =
                         providers
                             .firstOrNull { it.id == selectedProviderId }
@@ -624,16 +679,19 @@ fun ChatHomeScreen(
                             .firstOrNull { it.id == selectedProviderId }
                             ?.models?.get(selectedModelId)
                             ?.limit?.context ?: 0L,
+                    tokensPerSecond = state.connectionQuality?.tokensPerSecond ?: 0.0,
                     showSlashCommands = showSlashCommands,
                     slashCommands = state.slashCommands,
                     slashSkills = state.slashSkills,
                     onSlashCommandSelect = { suggestion ->
-                        input = suggestion.name + " "
+                        val completed = suggestion.name + " "
+                        inputValue = TextFieldValue(completed, TextRange(completed.length))
                         showSlashCommands = false
                     },
                     githubRefs = githubRefs,
                     pullRequests = state.pullRequests,
                     onOpenUrl = onOpenUrl,
+                    onDismissPullRequest = onDismissPullRequest,
                     // The composer thumbnails render the ViewModel's previews directly: a local
                     // copy of the list drifted out of step with the attachments it stood for, so a
                     // removal could drop the wrong image or leave a thumbnail with nothing behind it.
@@ -1174,8 +1232,8 @@ private fun ChatStallCard(
 
 @Composable
 private fun ChatComposer(
-    input: String,
-    onInputChange: (String) -> Unit,
+    inputValue: TextFieldValue,
+    onInputValueChange: (TextFieldValue) -> Unit,
     isRunning: Boolean,
     onSend: () -> Unit,
     onAbort: () -> Unit,
@@ -1187,6 +1245,8 @@ private fun ChatComposer(
     agents: List<OpenCodeAgent>,
     selectedAgentId: String?,
     onSelectAgent: (String) -> Unit,
+    onRefreshAgents: () -> Unit,
+    agentsLoading: Boolean = false,
     thinkingOptions: List<String>,
     selectedVariant: String?,
     onSelectVariant: (String?) -> Unit,
@@ -1207,6 +1267,7 @@ private fun ChatComposer(
     enterToSend: Boolean,
     contextTokensUsed: Long,
     contextLimit: Long,
+    tokensPerSecond: Double,
     showSlashCommands: Boolean,
     slashCommands: List<OpenCodeCommand>,
     slashSkills: List<OpenCodeSkill>,
@@ -1214,11 +1275,13 @@ private fun ChatComposer(
     githubRefs: List<GitHubReference>,
     pullRequests: List<ChatPullRequest>,
     onOpenUrl: (String) -> Unit,
+    onDismissPullRequest: (String) -> Unit,
     attachedImages: List<Bitmap>,
     onRemoveImage: (Int) -> Unit,
     onCameraLaunch: () -> Unit,
     onGalleryLaunch: () -> Unit,
 ) {
+    val input = inputValue.text
     val voiceActive = isListening || isSpeechProcessing
     var showAttachMenu by remember { mutableStateOf(false) }
 
@@ -1274,6 +1337,7 @@ private fun ChatComposer(
         PullRequestLinkBar(
             pullRequests = pullRequests,
             onOpenUrl = onOpenUrl,
+            onDismiss = onDismissPullRequest,
             modifier = Modifier.padding(bottom = 6.dp),
         )
 
@@ -1340,8 +1404,8 @@ private fun ChatComposer(
                         )
                     }
                     BasicTextField(
-                        value = input,
-                        onValueChange = onInputChange,
+                        value = inputValue,
+                        onValueChange = onInputValueChange,
                         modifier =
                             Modifier
                                 .fillMaxWidth()
@@ -1546,6 +1610,8 @@ private fun ChatComposer(
                     agents = agents,
                     selectedAgentId = selectedAgentId,
                     onSelect = onSelectAgent,
+                    onRefresh = onRefreshAgents,
+                    loading = agentsLoading,
                 )
                 // Auto-accept answers permission prompts, so it only means something on a runtime
                 // that asks for permission. Antigravity decides permissions per invocation from its
@@ -1576,6 +1642,9 @@ private fun ChatComposer(
                     tokensUsed = contextTokensUsed,
                     contextLimit = contextLimit,
                 )
+            }
+            if (isRunning && tokensPerSecond >= 0.05) {
+                CompactTokenSpeed(tokensPerSecond)
             }
         }
     }
@@ -1811,23 +1880,35 @@ private fun ModeChip(
     agents: List<OpenCodeAgent>,
     selectedAgentId: String?,
     onSelect: (String) -> Unit,
+    onRefresh: () -> Unit = {},
+    loading: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    // OpenCode servers can report arbitrary custom agents alongside its two built-ins; this chip
-    // only offers build/plan to keep the picker to the two modes users actually switch between.
-    // Fall back to the full list if a server configuration omits both, rather than showing an
-    // unusable empty dropdown.
-    val selectableAgents = agents.filter { it.name == "build" || it.name == "plan" }.ifEmpty { agents }
+    // Every primary agent the server reports is offered, not just build/plan: plugins such as
+    // oh-my-opencode-slim register their own primary (`orchestrator`), and hiding it left users
+    // unable to reach it. `agents` is normally narrowed upstream already; filtering again keeps
+    // subagents and OpenCode's internal compaction/title/summary agents out even if a caller
+    // passes the raw list.
+    val selectableAgents = agents.selectablePrimaryAgents()
     // The selection is remembered across runtimes, so an id this runtime does not offer would
     // otherwise label the chip with another agent's name. An empty list is not a licence to trust
     // it either: that is exactly the state a stopped runtime is in.
-    val label = selectedAgentId?.takeIf { id -> selectableAgents.any { it.name == id } } ?: "build"
+    val label =
+        selectedAgentId?.takeIf { id -> selectableAgents.any { it.name == id } }
+            ?: agents.defaultAgentName()
+            ?: "build"
     Box {
         Surface(
             modifier =
                 Modifier
                     .widthIn(max = 92.dp)
-                    .clickable(onClick = { expanded = true }),
+                    .clickable(
+                        onClick = {
+                            expanded = true
+                            if (selectableAgents.isEmpty() && !loading) onRefresh()
+                        },
+                    )
+                    .testTag("chat-mode-chip"),
             shape = RoundedCornerShape(100.dp),
             color = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1837,11 +1918,20 @@ private fun ModeChip(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Icon(
-                    Icons.Outlined.Shield,
-                    contentDescription = stringResource(R.string.cd_agent_mode),
-                    modifier = Modifier.size(14.dp),
-                )
+                if (loading && selectableAgents.isEmpty()) {
+                    val loadingDescription = stringResource(R.string.chat_agents_loading)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp).semantics { contentDescription = loadingDescription },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        strokeWidth = 1.5.dp,
+                    )
+                } else {
+                    Icon(
+                        Icons.Outlined.Shield,
+                        contentDescription = stringResource(R.string.cd_agent_mode),
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
                 Text(
                     label,
                     style = MaterialTheme.typography.labelMedium,
@@ -1856,6 +1946,20 @@ private fun ModeChip(
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            if (selectableAgents.isEmpty()) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(
+                                if (loading) R.string.chat_agents_loading else R.string.chat_agents_load_failed,
+                            ),
+                        )
+                    },
+                    onClick = onRefresh,
+                    enabled = !loading,
+                    modifier = if (loading) Modifier.testTag("chat-mode-loading") else Modifier,
+                )
+            }
             selectableAgents.forEach { agent ->
                 DropdownMenuItem(
                     text = { Text(agent.name) },
@@ -2109,6 +2213,20 @@ private fun formatTokenCount(tokens: Long): String =
         tokens >= 1_000 -> "%.0fk".format(tokens / 1_000.0)
         else -> tokens.toString()
     }
+
+@Composable
+private fun CompactTokenSpeed(tokensPerSecond: Double) {
+    Text(
+        text = stringResource(R.string.chat_token_speed, formatTokenRate(tokensPerSecond)),
+        style = MaterialTheme.typography.labelSmall,
+        fontSize = 9.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 2.dp),
+    )
+}
+
+private fun formatTokenRate(tokensPerSecond: Double): String =
+    if (tokensPerSecond >= 10.0) "%.0f".format(tokensPerSecond) else "%.1f".format(tokensPerSecond)
 
 @Preview(showBackground = true)
 @Composable

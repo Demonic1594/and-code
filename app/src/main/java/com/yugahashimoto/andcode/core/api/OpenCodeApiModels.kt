@@ -165,7 +165,28 @@ data class OpenCodeAgent(
     val description: String? = null,
     val mode: String? = null,
     val native: Boolean = false,
+    /**
+     * Nullable on purpose: OpenCode sends `"hidden": null` for plugin agents (oh-my-opencode-slim's
+     * `orchestrator`, `fixer`, ...), and a non-null Boolean made the whole `GET /agent` list fail to
+     * decode, leaving the mode picker with nothing to offer. Only `true` hides an agent.
+     */
+    val hidden: Boolean? = null,
 )
+
+/**
+ * The agents a user can start a chat with: OpenCode's primary (and `all`) agents, minus the hidden
+ * internal ones (compaction, title, summary). Plugin-defined primaries such as oh-my-opencode-slim's
+ * `orchestrator` are included.
+ *
+ * Server order is kept on purpose: OpenCode's `GET /agent` sorts its configured `default_agent`
+ * first (or `build` when none is set), so [defaultAgentName] follows the server's choice instead of
+ * hard-coding `build`.
+ */
+fun List<OpenCodeAgent>.selectablePrimaryAgents(): List<OpenCodeAgent> =
+    filter { (it.mode == null || it.mode == "primary" || it.mode == "all") && it.hidden != true }
+
+/** The server's default agent: the first selectable primary it lists, or null when it offers none. */
+fun List<OpenCodeAgent>.defaultAgentName(): String? = selectablePrimaryAgents().firstOrNull()?.name
 
 @Serializable
 data class OpenCodeProject(
@@ -286,6 +307,11 @@ data class PromptAttachment(
     val filename: String,
     val mime: String,
     val url: String,
+    /**
+     * Guest path of a copy of this file inside the workspace, set when the file's MIME type cannot
+     * be sent as a model file part. The agent reads it from disk instead; [url] is blank then.
+     */
+    val workspacePath: String? = null,
 )
 
 @Serializable

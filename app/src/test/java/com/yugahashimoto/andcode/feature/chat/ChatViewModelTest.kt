@@ -15,6 +15,8 @@ import com.yugahashimoto.andcode.core.api.PermissionRequest
 import com.yugahashimoto.andcode.core.api.PromptAttachment
 import com.yugahashimoto.andcode.core.api.PromptRequest
 import com.yugahashimoto.andcode.core.api.ProviderCatalog
+import com.yugahashimoto.andcode.data.settings.Draft
+import com.yugahashimoto.andcode.data.settings.DraftStore
 import com.yugahashimoto.andcode.runtime.BackendKind
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import com.yugahashimoto.andcode.runtime.OpenCodeBackend
@@ -108,6 +110,51 @@ class ChatViewModelTest {
 
             assertEquals(listOf("s1" to "research"), applied)
             assertNull(viewModel.uiState.value.draftSystemPrompt)
+        }
+
+    /** Unsent composer text is kept per session, so reopening a chat brings its draft back (#355). */
+    @Test
+    fun `a saved draft is loaded back for its own session only`() =
+        runTest(dispatcher) {
+            val store = InMemoryDraftStore()
+            val viewModel = ChatViewModel(FakeBackend(), draftRepo = store)
+            advanceUntilIdle()
+
+            viewModel.saveDraft("s1", "half-written prompt")
+
+            assertEquals("half-written prompt", viewModel.loadDraft("s1")?.text)
+            assertNull(viewModel.loadDraft("s2"))
+        }
+
+    /** Emptying the field must not leave a blank draft behind to be restored over a fresh chat. */
+    @Test
+    fun `saving blank text clears the stored draft`() =
+        runTest(dispatcher) {
+            val store = InMemoryDraftStore()
+            val viewModel = ChatViewModel(FakeBackend(), draftRepo = store)
+            advanceUntilIdle()
+            viewModel.saveDraft("s1", "something")
+
+            viewModel.saveDraft("s1", "   ")
+
+            assertNull(viewModel.loadDraft("s1"))
+        }
+
+    /** Once the text is sent it is no longer a draft, or it would reappear in the composer. */
+    @Test
+    fun `sending a message clears the session's stored draft`() =
+        runTest(dispatcher) {
+            val store = InMemoryDraftStore()
+            val viewModel = ChatViewModel(FakeBackend(), draftRepo = store)
+            advanceUntilIdle()
+            viewModel.sendMessage("Hello")
+            advanceUntilIdle()
+            viewModel.saveDraft("s1", "next thing")
+
+            viewModel.sendMessage("next thing")
+            advanceUntilIdle()
+
+            assertNull(viewModel.loadDraft("s1"))
         }
 
     /** The choice belongs to the chat it was made in, so leaving that chat drops it. */
@@ -1855,6 +1902,73 @@ class ChatViewModelTest {
                 ),
             ),
     )
+
+    /**
+     * A file the provider rejects as a file part is carried as a workspace copy: it stays a visible
+     * chip but must not reach the runtime as an attachment, and the prompt points at its path.
+     */
+    @Test
+    fun `a workspace-backed attachment is referenced by path instead of sent as a file part`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel =
+                ChatViewModel(backend, workspaceAttachmentNoteTemplate = "[file: %s]")
+            advanceUntilIdle()
+            viewModel.addAttachment(
+                PromptAttachment(
+                    filename = "archive.zip",
+                    mime = "application/zip",
+                    url = "",
+                    workspacePath = "/workspace/proj/.andcode-attachments/archive.zip",
+                ),
+            )
+
+            viewModel.sendMessage("please read this")
+            advanceUntilIdle()
+
+            val request = backend.sentPrompts.single().second
+            assertTrue(request.attachments.isEmpty())
+            assertEquals(
+                "please read this\n\n[file: /workspace/proj/.andcode-attachments/archive.zip]",
+                request.text,
+            )
+        }
+
+    @Test
+    fun `a sendable attachment is still sent as a file part without a workspace note`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel =
+                ChatViewModel(backend, workspaceAttachmentNoteTemplate = "[file: %s]")
+            advanceUntilIdle()
+            viewModel.addAttachment(
+                PromptAttachment(filename = "photo.png", mime = "image/png", url = "data:image/png;base64,AAAA"),
+            )
+
+            viewModel.sendMessage("look")
+            advanceUntilIdle()
+
+            val request = backend.sentPrompts.single().second
+            assertEquals(listOf("photo.png"), request.attachments.map { it.filename })
+            assertEquals("look", request.text)
+        }
+
+    private class InMemoryDraftStore : DraftStore {
+        private val drafts = mutableMapOf<String, Draft>()
+
+        override fun save(
+            sessionId: String,
+            draft: Draft,
+        ) {
+            drafts[sessionId] = draft
+        }
+
+        override fun load(sessionId: String): Draft? = drafts[sessionId]
+
+        override fun clear(sessionId: String) {
+            drafts.remove(sessionId)
+        }
+    }
 
     private class FakeBackend(
         /** False reports the server as down, which is what routes a send to the offline queue. */

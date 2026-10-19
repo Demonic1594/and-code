@@ -30,7 +30,7 @@ import com.yugahashimoto.andcode.core.diagnostics.provesRunProgress
 import com.yugahashimoto.andcode.core.util.safeMessage
 import com.yugahashimoto.andcode.data.repository.PullRequestStatusRepository
 import com.yugahashimoto.andcode.data.settings.Draft
-import com.yugahashimoto.andcode.data.settings.DraftRepository
+import com.yugahashimoto.andcode.data.settings.DraftStore
 import com.yugahashimoto.andcode.runtime.OpenCodeBackend
 import com.yugahashimoto.andcode.runtime.PermissionResponse
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
@@ -165,10 +165,18 @@ internal fun mergeReloadedMessages(
                             (message.text.isNotBlank() || candidate.attachments.isNotEmpty())
                     }
             val previous = existingIndex?.let { index -> existing[index].also { usedExisting += index } }
-            val reloadedImageNames = message.attachments.filter { it.mime.startsWith("image/") }.map { it.filename }.toSet()
+            val reloadedImages = message.attachments.filter { it.mime.startsWith("image/") }
+            val reloadedImageNames = reloadedImages.map { it.filename }.toSet()
+            // A runtime that echoes the prompt back (Codex) rebuilds the image attachment from the
+            // data URL it was sent, under a filename of its own: matching by filename alone would
+            // read that image as "missing from the transcript" and append the optimistic copy,
+            // showing it twice. The URL is the same bytes either way, so it is the reliable key.
+            val reloadedImageUrls = reloadedImages.map { it.url }.toSet()
             val missingImages =
                 previous?.attachments.orEmpty().filter {
-                    it.mime.startsWith("image/") && it.filename !in reloadedImageNames
+                    it.mime.startsWith("image/") &&
+                        it.filename !in reloadedImageNames &&
+                        it.url !in reloadedImageUrls
                 }
             val attachments = message.attachments + missingImages
             val previews =
@@ -560,7 +568,7 @@ class ChatViewModel(
      */
     private val onRunStateChanged: (String, Boolean) -> Unit = { _, _ -> },
     private val onSessionAborted: (String) -> Unit = {},
-    private val draftRepo: DraftRepository? = null,
+    private val draftRepo: DraftStore? = null,
     /**
      * Starts the periodic connection probe. It runs an unbounded polling loop, which a virtual
      * test clock advances through forever, so it stays off unless the real app asks for it.
@@ -594,6 +602,13 @@ class ChatViewModel(
      */
     private val videoNotSupportedMessage: String =
         "Video files cannot be sent directly. Remove the video and attach images instead.",
+    /**
+     * Template (one `%s`) telling the agent where a non-sendable attachment was copied inside the
+     * workspace. Injected the same way as [videoNotSupportedMessage]; the app passes the string
+     * resource (kept English-only, since it is a prompt fragment for the model) while tests keep
+     * the same default.
+     */
+    private val workspaceAttachmentNoteTemplate: String = "[Attached file available in the workspace: %s]",
 ) : ViewModel() {
     private val _uiState =
         MutableStateFlow(
@@ -608,6 +623,15 @@ class ChatViewModel(
     val workspaceTitleSource: StateFlow<String> = _workspaceTitleSource.asStateFlow()
 
     private val pullRequestRefs = MutableStateFlow<List<PullRequestRef>>(emptyList())
+
+    /**
+     * Pull requests the user hid with [dismissPullRequest]. Scanning re-derives the refs from the
+     * transcript on every message change, so without this set every refetch would put the dismissed
+     * badge back. Like [dismissedQuestionIds] it is cleared when the composer moves to another chat:
+     * the dismissal belongs to the chat it was made in, and opening a chat is an explicit act of
+     * attention that offers its badges again.
+     */
+    private val dismissedPullRequestKeys = mutableSetOf<String>()
 
     /**
      * Sessions whose idles currently belong to a run this chat interrupted rather than to the prompt
@@ -778,7 +802,7 @@ class ChatViewModel(
                 .distinctUntilChanged()
                 .conflate()
                 .collect { messages ->
-                    val refs = pullRequestRefsIn(messages)
+                    val refs = pullRequestRefsIn(messages).filterNot { it.key in dismissedPullRequestKeys }
                     pullRequestRefs.value = refs
                     statuses.track(refs)
                     delay(PULL_REQUEST_SCAN_THROTTLE_MS)
@@ -799,6 +823,17 @@ class ChatViewModel(
      */
     fun refreshPullRequests() {
         pullRequestStatuses?.track(pullRequestRefs.value)
+    }
+
+    /**
+     * Hides one pull request's badges above the composer. Nothing server-side tracks this — the
+     * badge is a view over the transcript, and the transcript keeps its link — so this is purely a
+     * local "stop showing me this": the ref is dropped here, which also stops the periodic refresh
+     * from fetching its state, and stays dismissed for as long as this chat is open.
+     */
+    fun dismissPullRequest(key: String) {
+        dismissedPullRequestKeys += key
+        pullRequestRefs.value = pullRequestRefs.value.filterNot { it.key == key }
     }
 
     /**
@@ -862,13 +897,21 @@ class ChatViewModel(
         _workspaceTitleSource.value = source
     }
 
+    /**
+     * Keeps unsent composer text for [sessionId]. Blank text clears the entry instead, so emptying
+     * the field never leaves an empty draft behind to be "restored" later.
+     */
     fun saveDraft(
         sessionId: String,
         text: String,
-        model: String?,
-        agent: String?,
+        model: String? = null,
+        agent: String? = null,
     ) {
-        draftRepo?.save(sessionId, Draft(text, emptyList(), model, agent))
+        if (text.isBlank()) {
+            draftRepo?.clear(sessionId)
+        } else {
+            draftRepo?.save(sessionId, Draft(text, emptyList(), model, agent))
+        }
     }
 
     fun loadDraft(sessionId: String): Draft? = draftRepo?.load(sessionId)
@@ -966,6 +1009,7 @@ class ChatViewModel(
         // Opening the chat is an explicit act of attention, so questions the user hid earlier are
         // offered again rather than staying suppressed by a stale dismissal.
         dismissedQuestionIds.clear()
+        dismissedPullRequestKeys.clear()
         _uiState.update {
             it.copy(
                 sessionId = sessionId,
@@ -1093,6 +1137,7 @@ class ChatViewModel(
         streamedParts.clear()
         messageRoles.clear()
         dismissedQuestionIds.clear()
+        dismissedPullRequestKeys.clear()
         pendingInterrupts.clear()
         _uiState.update {
             it.copy(
@@ -1261,6 +1306,22 @@ class ChatViewModel(
         _uiState.update { it.copy(editDraft = null) }
     }
 
+    /**
+     * Appends a reference for every [PromptAttachment] that only exists as a workspace file, so the
+     * agent knows to read it from disk. Returns [text] unchanged when there is nothing to reference.
+     */
+    private fun appendWorkspaceAttachmentRefs(
+        text: String,
+        attachments: List<PromptAttachment>,
+    ): String {
+        if (attachments.isEmpty()) return text
+        val refs =
+            attachments.joinToString("\n") { attachment ->
+                workspaceAttachmentNoteTemplate.format(attachment.workspacePath.orEmpty())
+            }
+        return if (text.isBlank()) refs else "$text\n\n$refs"
+    }
+
     fun sendMessage(text: String) {
         val normalized = text.trim()
         val pendingAttachments = _uiState.value.attachments
@@ -1282,6 +1343,12 @@ class ChatViewModel(
             _uiState.update { it.copy(error = videoNotSupportedMessage) }
             return
         }
+        // Attachments whose MIME a provider would reject as a file part were copied into the
+        // workspace at attach time. They stay visible as chips but must not reach the runtime: the
+        // outgoing text points the agent at the on-disk copy instead.
+        val (modelAttachments, workspaceAttachments) =
+            pendingAttachments.partition { it.workspacePath.isNullOrBlank() }
+        val outgoingText = appendWorkspaceAttachmentRefs(normalized, workspaceAttachments)
         val currentBackend = backend
         if (currentBackend == null) {
             _uiState.update { it.copy(error = "OpenCode connection is not configured") }
@@ -1298,19 +1365,19 @@ class ChatViewModel(
 
         if (!_uiState.value.isConnected) {
             offlineMessageQueue.update {
-                it + QueuedPrompt(normalized, pendingAttachments, _uiState.value.imagePreviews)
+                it + QueuedPrompt(outgoingText, modelAttachments, _uiState.value.imagePreviews)
             }
             val userMessage =
                 ChatMessage(
                     isUser = true,
-                    parts = listOf(ChatPart.Text(id = UUID.randomUUID().toString(), text = normalized)),
+                    parts = listOf(ChatPart.Text(id = UUID.randomUUID().toString(), text = outgoingText)),
                     attachments = pendingAttachments,
                     imagePreviews = _uiState.value.imagePreviews,
                 )
             _uiState.update {
                 it.copy(
                     messages = it.messages + userMessage,
-                    offlineQueue = it.offlineQueue + normalized,
+                    offlineQueue = it.offlineQueue + outgoingText,
                     isOfflineQueued = true,
                     attachments = emptyList(),
                     imagePreviews = emptyList(),
@@ -1325,7 +1392,7 @@ class ChatViewModel(
         val mustQueue = (currentBackend as? RuntimeTarget)?.capabilities?.forcesQueue == true
         if ((_sendBehavior.value == "queue" || mustQueue) && _uiState.value.isRunning) {
             messageQueue.update {
-                it + QueuedPrompt(normalized, pendingAttachments, _uiState.value.imagePreviews)
+                it + QueuedPrompt(outgoingText, modelAttachments, _uiState.value.imagePreviews)
             }
             _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
             return
@@ -1336,7 +1403,7 @@ class ChatViewModel(
             ChatMessage(
                 isUser = true,
                 parts =
-                    normalized.takeIf { it.isNotEmpty() }?.let {
+                    outgoingText.takeIf { it.isNotEmpty() }?.let {
                         listOf(ChatPart.Text(id = UUID.randomUUID().toString(), text = it))
                     }.orEmpty(),
                 attachments = pendingAttachments,
@@ -1398,12 +1465,12 @@ class ChatViewModel(
                 currentBackend.sendMessage(
                     targetSessionId,
                     PromptRequest(
-                        text = normalized,
+                        text = outgoingText,
                         providerId = _uiState.value.selectedProviderId,
                         modelId = _uiState.value.selectedModelId,
                         agent = _uiState.value.selectedAgentId,
                         variant = _uiState.value.selectedVariant,
-                        attachments = pendingAttachments,
+                        attachments = modelAttachments,
                     ),
                 )
                 runCatching { currentBackend.session(targetSessionId).title }

@@ -1366,7 +1366,7 @@ class RuntimeActivityRepositoryTest {
                     registry = registry,
                     scope = scope,
                     onSessionStalled = { sessionId, _, _, _ -> stalled += sessionId },
-                    onSessionError = { sessionId, _, _ -> failed += sessionId.orEmpty() },
+                    onSessionError = { sessionId, _, _, _ -> failed += sessionId.orEmpty() },
                     stallThresholdMillis = 1_000L,
                     stallCheckIntervalMillis = 100L,
                     stallSettleAfterMillis = 60_000L,

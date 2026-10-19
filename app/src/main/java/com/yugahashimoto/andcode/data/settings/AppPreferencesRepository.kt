@@ -2,6 +2,8 @@ package com.yugahashimoto.andcode.data.settings
 
 import com.yugahashimoto.andcode.core.api.OpenCodeAgent
 import com.yugahashimoto.andcode.core.api.ProviderCatalog
+import com.yugahashimoto.andcode.core.api.defaultAgentName
+import com.yugahashimoto.andcode.core.api.selectablePrimaryAgents
 import com.yugahashimoto.andcode.data.connection.SecureSettingsRepository
 import com.yugahashimoto.andcode.feature.assistant.TtsTuning
 import com.yugahashimoto.andcode.feature.wakeword.WakeWordGrammar
@@ -144,11 +146,10 @@ class AppPreferencesRepository(
         ) {
             selectModel(reconciled.providerId, reconciled.modelId)
         }
-        val primaryAgents = agents.filter { it.mode == null || it.mode == "primary" }
+        val primaryAgents = agents.selectablePrimaryAgents()
         val agentId =
             current.agentId?.takeIf { selected -> primaryAgents.any { it.name == selected } }
-                ?: primaryAgents.firstOrNull { it.name == "build" }?.name
-                ?: primaryAgents.firstOrNull()?.name
+                ?: agents.defaultAgentName()
         if (agentId != current.agentId) {
             selectAgent(agentId)
         }
@@ -334,6 +335,7 @@ class AppPreferencesRepository(
     fun setAnalyticsEnabled(enabled: Boolean) {
         settings.analyticsEnabled = enabled
         com.yugahashimoto.andcode.core.diagnostics.AnalyticsReporter.setEnabled(enabled)
+        com.yugahashimoto.andcode.core.diagnostics.CrashReporter.setEnabled(enabled)
         mutableState.update { it.copy(analyticsEnabled = enabled) }
     }
 

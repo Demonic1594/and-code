@@ -19,4 +19,25 @@ class CrashReportSanitizerTest {
         assertEquals("value", CrashReportSanitizer.value(" value "))
         assertEquals(100, CrashReportSanitizer.value("x".repeat(200)).length)
     }
+
+    @Test
+    fun `error category keeps only the runtime id and a limited error type`() {
+        assertEquals(
+            "Runtime session error: opencode-local/ProviderAuthError",
+            CrashReportSanitizer.errorCategory("opencode-local", "ProviderAuthError"),
+        )
+    }
+
+    @Test
+    fun `error category falls back to unknown for a missing or unusable type`() {
+        assertEquals("Runtime session error: opencode-local/unknown", CrashReportSanitizer.errorCategory("opencode-local", null))
+        assertEquals(
+            "Runtime session error: opencode-local/unknown",
+            CrashReportSanitizer.errorCategory("opencode-local", "ProviderAuthError: /home/user/prompt.txt"),
+        )
+        assertEquals(
+            "Runtime session error: opencode-local/unknown",
+            CrashReportSanitizer.errorCategory("opencode-local", "https://host.example.com/secret"),
+        )
+    }
 }
