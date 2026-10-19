@@ -189,6 +189,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".heap"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
