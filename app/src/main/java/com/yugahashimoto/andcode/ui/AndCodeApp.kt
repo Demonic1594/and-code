@@ -310,6 +310,8 @@ fun AndCodeApp(
                         onApplySystemPrompt = { sessionId, presetId ->
                             app.claudeCodeController.selectSystemPrompt(presetId, sessionId)
                         },
+                        onCodexFastModeChanged = app.preferences::setCodexFastMode,
+                        initialCodexFastMode = app.settings.codexFastMode,
                         onSessionAborted = { sessionId ->
                             app.activityRepository.markSessionAborted(sessionId)
                             // Stopping the run answers the "this run has gone quiet" notice.
@@ -650,6 +652,9 @@ fun AndCodeApp(
             preferences.modelId?.takeIf { model != null },
             preferences.agentId?.takeIf { id -> settingsState.agents.any { it.name == id } },
             model?.limit?.context ?: 0L,
+            fastServiceTier = model?.codexFastServiceTier,
+            fastByDefault = model?.codexFastByDefault == true,
+            fastDescription = model?.codexFastDescription,
         )
     }
 
@@ -1169,6 +1174,7 @@ fun AndCodeApp(
                             onRefreshAgents = app.catalogRepository::refreshAgents,
                             selectedVariant = chatState.selectedVariant,
                             onSelectVariant = chatViewModel::selectVariant,
+                            onToggleFastMode = chatViewModel::setFastMode,
                             onAttach = { attachmentLauncher.launch("*/*") },
                             onRemoveAttachment = chatViewModel::removeAttachment,
                             onImageAttachment = { bitmap ->
