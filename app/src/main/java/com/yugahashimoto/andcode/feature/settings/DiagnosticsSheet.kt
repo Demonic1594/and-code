@@ -169,7 +169,9 @@ private fun DiagnosticsSectionHeader(title: String) {
     )
 }
 
-private const val CRASH_PREVIEW_LINES = 12
+// The report's header is eight lines (including the blank one before the stack), so this leaves
+// roughly the same amount of the stack visible as before the version and heap rows were added.
+private const val CRASH_PREVIEW_LINES = 14
 
 private fun formatBytes(bytes: Long): String {
     val gb = bytes / (1024.0 * 1024.0 * 1024.0)
