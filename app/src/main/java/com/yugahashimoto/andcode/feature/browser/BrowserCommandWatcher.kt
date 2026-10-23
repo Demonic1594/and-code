@@ -5,9 +5,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import com.yugahashimoto.andcode.core.storage.DeviceStorage
+import com.yugahashimoto.andcode.core.util.pollWhileActive
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -17,26 +18,41 @@ private const val POLL_INTERVAL_MILLIS = 1000L
  * Watches the active workspace for a browser command written by the in-guest agent
  * (`.and-code/browser-command.json`, e.g. `{"action":"open","url":"http://127.0.0.1:8080/"}`)
  * and opens the guest browser at the requested URL so the user can watch and join in.
+ *
+ * Only polls while [foreground] is `true`: opening a browser nobody is looking at achieves nothing,
+ * and a composition outlives the activity being stopped, so without the gate this read the disk
+ * every second for as long as the process was alive. A command written while the app was away is
+ * opened as soon as it returns.
  */
 @Composable
 fun GuestBrowserCommandWatcher(
     workspacePath: String?,
     agent: LocalAgent?,
     runtimeDirectory: File,
+    foreground: Flow<Boolean>,
     onOpenUrl: (String) -> Unit,
 ) {
     val openUrl by rememberUpdatedState(onOpenUrl)
-    LaunchedEffect(workspacePath, agent, runtimeDirectory) {
+    LaunchedEffect(workspacePath, agent, runtimeDirectory, foreground) {
         if (workspacePath == null || agent == null) return@LaunchedEffect
-        while (true) {
-            delay(POLL_INTERVAL_MILLIS)
-            val url =
+        watchBrowserCommands(
+            active = foreground,
+            poll = {
                 withContext(Dispatchers.IO) {
                     consumeBrowserOpenCommand(workspacePath, agent, runtimeDirectory, DeviceStorage.mounts())
                 }
-            if (url != null) {
-                openUrl(url)
-            }
-        }
+            },
+            onOpenUrl = { url -> openUrl(url) },
+        )
     }
+}
+
+/** The watcher's loop, apart from Compose so the gating can be tested with a virtual clock. */
+internal suspend fun watchBrowserCommands(
+    active: Flow<Boolean>,
+    poll: suspend () -> String?,
+    onOpenUrl: (String) -> Unit,
+    intervalMillis: Long = POLL_INTERVAL_MILLIS,
+) {
+    active.pollWhileActive(intervalMillis) { poll()?.let(onOpenUrl) }
 }

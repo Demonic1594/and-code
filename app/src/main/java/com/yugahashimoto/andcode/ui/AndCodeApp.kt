@@ -711,6 +711,7 @@ fun AndCodeApp(
         workspacePath = chatState.sessionDirectory ?: chatState.selectedWorkspacePath,
         agent = selectedRuntime?.agent,
         runtimeDirectory = java.io.File(context.filesDir, "runtime"),
+        foreground = app.appForeground.foreground,
         onOpenUrl = { url ->
             navController.navigate(guestBrowserRoute(url)) { launchSingleTop = true }
         },

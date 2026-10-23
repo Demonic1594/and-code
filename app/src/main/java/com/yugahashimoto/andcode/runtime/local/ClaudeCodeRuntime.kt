@@ -8,13 +8,13 @@ import com.yugahashimoto.andcode.core.api.OpenCodeTime
 import com.yugahashimoto.andcode.core.api.OpenCodeTodo
 import com.yugahashimoto.andcode.core.api.PromptAttachment
 import com.yugahashimoto.andcode.core.api.QuestionRequest
+import com.yugahashimoto.andcode.core.util.pollWhileActive
 import com.yugahashimoto.andcode.runtime.PermissionResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,6 +65,13 @@ class ClaudeCodeRuntime(
     internal val permissionBridge =
         ClaudePermissionBridge(File(runtimeDirectory, ClaudePermissionBridge.HOST_DIR_NAME))
     private var bridgeWatchJob: Job? = null
+
+    /**
+     * Whether any CLI process is registered in [sessions]; what the permission-bridge watcher polls
+     * on. Published from every place [sessions] changes, under the same monitor, so the watcher can
+     * never be left parked while a process that could raise a request exists.
+     */
+    private val hasLiveSessions = MutableStateFlow(false)
 
     /** One live CLI process, plus what is needed to decide whether it can be reused. */
     private class SessionProcess(
@@ -235,32 +242,45 @@ class ClaudeCodeRuntime(
             .filter { sessions[it.androidSessionId]?.process?.isAlive == true }
             .mapNotNull(permissionBridge::toQuestionRequest)
 
+    @Synchronized
+    private fun publishLiveSessions() {
+        hasLiveSessions.value = sessions.isNotEmpty()
+    }
+
+    /**
+     * Starts the watcher that turns permission requests parked on disk into events. It is a single
+     * long-lived coroutine, but it only polls while a CLI process exists: the hook that parks a
+     * request dies with its process (see [pendingQuestions]), so with none alive there is nothing
+     * that could appear. Without that it kept reading the directory every [BRIDGE_POLL_INTERVAL_MILLIS]
+     * for the rest of the process once any session had ever started.
+     */
     private fun ensureBridgeWatcher() {
         if (bridgeWatchJob?.isActive == true) return
         bridgeWatchJob =
             scope.launch {
-                while (isActive) {
-                    permissionBridge.pollPending().forEach { request ->
-                        when (request.kind) {
-                            ClaudePermissionBridge.Kind.QUESTION -> {
-                                val question = permissionBridge.toQuestionRequest(request)
-                                if (question != null) {
-                                    events.tryEmit(OpenCodeEvent.QuestionAsked(question))
-                                } else {
-                                    events.tryEmit(
-                                        OpenCodeEvent.PermissionAsked(permissionBridge.toPermissionRequest(request)),
-                                    )
-                                }
-                            }
-                            else ->
-                                events.tryEmit(
-                                    OpenCodeEvent.PermissionAsked(permissionBridge.toPermissionRequest(request)),
-                                )
-                        }
-                    }
-                    delay(250)
-                }
+                hasLiveSessions.pollWhileActive(BRIDGE_POLL_INTERVAL_MILLIS) { emitPendingBridgeRequests() }
             }
+    }
+
+    private fun emitPendingBridgeRequests() {
+        permissionBridge.pollPending().forEach { request ->
+            when (request.kind) {
+                ClaudePermissionBridge.Kind.QUESTION -> {
+                    val question = permissionBridge.toQuestionRequest(request)
+                    if (question != null) {
+                        events.tryEmit(OpenCodeEvent.QuestionAsked(question))
+                    } else {
+                        events.tryEmit(
+                            OpenCodeEvent.PermissionAsked(permissionBridge.toPermissionRequest(request)),
+                        )
+                    }
+                }
+                else ->
+                    events.tryEmit(
+                        OpenCodeEvent.PermissionAsked(permissionBridge.toPermissionRequest(request)),
+                    )
+            }
+        }
     }
 
     fun update() {
@@ -304,6 +324,7 @@ class ClaudeCodeRuntime(
             session.readerJob.cancel()
             if (session.process.isAlive) session.process.destroyForcibly()
         }
+        publishLiveSessions()
         messageStore.flush()
     }
 
@@ -400,6 +421,7 @@ class ClaudeCodeRuntime(
                 messageStore.flush()
                 synchronized(this@ClaudeCodeRuntime) {
                     if (sessions[sessionId]?.process === process) sessions.remove(sessionId)
+                    publishLiveSessions()
                 }
                 // stop() cancels this job; the abort path owns the state transitions, and an idle
                 // emitted here would announce the killed run as completed.
@@ -417,7 +439,10 @@ class ClaudeCodeRuntime(
             }
 
         return SessionProcess(process, readerJob, parser, permissionMode, directory, model, effort, systemPrompt)
-            .also { sessions[sessionId] = it }
+            .also {
+                sessions[sessionId] = it
+                publishLiveSessions()
+            }
     }
 
     private fun processArguments(
@@ -768,5 +793,8 @@ class ClaudeCodeRuntime(
         const val TITLE_TIMEOUT_SECONDS = 45L
         const val WORKSPACE_COMMAND_TIMEOUT_SECONDS = 60L
         const val INTERRUPTED_TOOL_ERROR = "Claude Code session ended before the tool result was received"
+
+        /** How often a live session's parked permission requests are looked for. */
+        const val BRIDGE_POLL_INTERVAL_MILLIS = 250L
     }
 }

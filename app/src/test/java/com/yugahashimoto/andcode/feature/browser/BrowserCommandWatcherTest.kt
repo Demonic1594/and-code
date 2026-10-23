@@ -2,6 +2,15 @@ package com.yugahashimoto.andcode.feature.browser
 
 import com.yugahashimoto.andcode.core.storage.DeviceStorage
 import com.yugahashimoto.andcode.runtime.LocalAgent
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -124,6 +133,40 @@ class BrowserCommandWatcherTest {
         assertNull(consume("/workspace/../outside"))
         assertTrue(file.exists())
     }
+
+    /**
+     * The guest browser is only worth opening for someone looking at the app, so the watcher stays
+     * parked while it is in the background and hands over what arrived the moment it returns.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `watcher opens a pending command only while the app is in the foreground`() =
+        runTest {
+            val foreground = MutableStateFlow(false)
+            val opened = mutableListOf<String>()
+            var pending: String? = "https://www.google.com/"
+            val scope = TestScope(StandardTestDispatcher(testScheduler))
+            try {
+                scope.launch {
+                    watchBrowserCommands(
+                        active = foreground,
+                        intervalMillis = 1_000L,
+                        poll = { pending.also { pending = null } },
+                        onOpenUrl = { opened += it },
+                    )
+                }
+                advanceTimeBy(60_000L)
+                runCurrent()
+                assertEquals(emptyList<String>(), opened)
+
+                foreground.value = true
+                runCurrent()
+
+                assertEquals(listOf("https://www.google.com/"), opened)
+            } finally {
+                scope.cancel()
+            }
+        }
 
     private fun consume(
         path: String?,

@@ -1,10 +1,11 @@
 package com.yugahashimoto.andcode.feature.schedule
 
+import com.yugahashimoto.andcode.core.util.pollWhileActive
 import com.yugahashimoto.andcode.data.schedule.CronExpression
 import com.yugahashimoto.andcode.data.schedule.Schedule
 import com.yugahashimoto.andcode.data.schedule.ScheduleRepository
 import com.yugahashimoto.andcode.data.schedule.ScheduleRun
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -92,14 +93,17 @@ class ScheduleBridge(
 ) {
     val bridgeDir: File = File(workspaceDir, BRIDGE_RELATIVE_PATH)
 
-    /** Runs the poll loop until cancelled; typically launched on the application scope. */
-    suspend fun run() {
-        while (true) {
-            // A single failing request or IO error must never kill the bridge for the process
-            // lifetime; drop it and keep polling.
-            runCatching { pollOnce() }
-            delay(pollIntervalMillis)
-        }
+    /**
+     * Runs the poll loop until cancelled; typically launched on the application scope.
+     *
+     * [active] says whether the guest could be talking to the bridge right now. It is required
+     * rather than defaulted to "always": a default would let a future call site forget it and
+     * quietly bring back a loop that polls for the life of the process.
+     */
+    suspend fun run(active: Flow<Boolean>) {
+        // A single failing request or IO error must never kill the bridge for the process
+        // lifetime; drop it and keep polling.
+        active.pollWhileActive(pollIntervalMillis) { runCatching { pollOnce() } }
     }
 
     /** Handles every currently pending request and prunes stale files. */

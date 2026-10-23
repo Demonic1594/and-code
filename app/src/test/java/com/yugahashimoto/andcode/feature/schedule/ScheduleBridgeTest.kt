@@ -3,6 +3,15 @@ package com.yugahashimoto.andcode.feature.schedule
 import com.yugahashimoto.andcode.data.schedule.Schedule
 import com.yugahashimoto.andcode.data.schedule.ScheduleRun
 import com.yugahashimoto.andcode.data.schedule.ScheduleRunStatus
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -442,4 +451,33 @@ class ScheduleBridgeTest {
 
         assertTrue(!orphan.exists())
     }
+
+    /**
+     * Nothing can be waiting on the bridge while the app is backgrounded and no work is in flight -
+     * the device is free to suspend and the guest freezes with it - so the loop must stay parked
+     * then, and answer at once when the gate opens again.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `run answers pending requests only while the gate is open`() =
+        runTest {
+            val bridge = bridgeWith(FakeStore())
+            val id = requestId()
+            writeRequest(bridge, id, "list")
+            val gate = MutableStateFlow(false)
+            val scope = TestScope(StandardTestDispatcher(testScheduler))
+            try {
+                scope.launch { bridge.run(gate) }
+                advanceTimeBy(10 * ScheduleBridge.POLL_INTERVAL_MILLIS)
+                runCurrent()
+                assertFalse(File(responsesDir(bridge), "$id.json").exists())
+
+                gate.value = true
+                runCurrent()
+
+                assertTrue(File(responsesDir(bridge), "$id.json").exists())
+            } finally {
+                scope.cancel()
+            }
+        }
 }

@@ -581,9 +581,15 @@ class AndCodeApplication : Application() {
         // Re-arm alarms for schedules that were saved in a previous process lifetime.
         scheduleManager.rescheduleAll()
         // Let guest agents read and manage schedules through the and-code-schedule MCP server.
-        // The poll loop is a cheap no-op (one directory stat) while no guest has touched the bridge.
+        // The guest can only be asking for something while it can run: the app is on screen, or
+        // something holds runtimeWork (and with it the wake lock). With neither, the device is free
+        // to suspend and the guest freezes with it, so the loop stays parked instead of polling for
+        // the life of the process.
         val scheduleBridge = ScheduleBridge(File(runtimeDirectory, "workspace"), AppScheduleStore(scheduleRepository, scheduleManager))
-        applicationScope.launch { scheduleBridge.run() }
+        val scheduleBridgeActive =
+            combine(appForeground.foreground, runtimeWork.active) { foreground, working -> foreground || working }
+                .distinctUntilChanged()
+        applicationScope.launch { scheduleBridge.run(scheduleBridgeActive) }
         observeForegroundForRuntimeRestart()
         scheduleDeferredInitialization()
     }
