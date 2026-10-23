@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.core.diagnostics
 
 import android.content.Context
 import android.os.Build
+import com.yugahashimoto.andcode.BuildConfig
 import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -51,9 +52,11 @@ object CrashLog {
             buildString {
                 appendLine("AndCode crash")
                 appendLine("Time: ${TIMESTAMP.format(Date())}")
+                appendLine("Version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
                 appendLine("Thread: ${thread.name}")
                 appendLine("Android: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
                 appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
+                appendLine("Heap: ${heapUsage()}")
                 appendLine()
                 append(stackTrace.take(MAX_TRACE_CHARS))
             }
@@ -62,7 +65,16 @@ object CrashLog {
         target.writeText(report)
     }
 
+    private fun heapUsage(): String {
+        val runtime = Runtime.getRuntime()
+        val used = (runtime.totalMemory() - runtime.freeMemory()) / MEGABYTE
+        val max = runtime.maxMemory() / MEGABYTE
+        return "$used MB used of $max MB"
+    }
+
     private fun file(context: Context): File = File(File(context.filesDir, "diagnostics"), "last-crash.txt")
+
+    private const val MEGABYTE = 1024L * 1024L
 
     private val TIMESTAMP = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
     private const val MAX_TRACE_CHARS = 12_000

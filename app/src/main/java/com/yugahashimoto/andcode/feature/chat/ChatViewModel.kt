@@ -19,6 +19,7 @@ import com.yugahashimoto.andcode.core.api.PromptRequest
 import com.yugahashimoto.andcode.core.api.PullRequestRef
 import com.yugahashimoto.andcode.core.api.QuestionPrompt
 import com.yugahashimoto.andcode.core.api.QuestionRequest
+import com.yugahashimoto.andcode.core.api.RunRetry
 import com.yugahashimoto.andcode.core.api.sessionIdOrNull
 import com.yugahashimoto.andcode.core.diagnostics.RunSignals
 import com.yugahashimoto.andcode.core.diagnostics.StallDiagnosis
@@ -508,6 +509,15 @@ data class ChatUiState(
     val autoAcceptPermissions: Boolean = false,
     val contextTokensUsed: Long = 0L,
     val selectedVariant: String? = null,
+    /**
+     * Whether the selected model offers Codex's fast service tier. Only Codex sets this, and only
+     * for a model that lists the tier, so the toggle is hidden everywhere else.
+     */
+    val fastModeAvailable: Boolean = false,
+    /** Effective fast-mode state: the user's choice, or the model's own default when there is none. */
+    val fastModeEnabled: Boolean = false,
+    /** The server's own description of the fast tier, read out by screen readers on the Fast chip. */
+    val fastModeDescription: String? = null,
     val attachments: List<PromptAttachment> = emptyList(),
     val imagePreviews: List<Bitmap> = emptyList(),
     val selectedProviderId: String? = null,
@@ -536,6 +546,13 @@ data class ChatUiState(
      * best available answer to "is this still working, and if not, why not".
      */
     val stall: StallDiagnosis? = null,
+    /**
+     * Set while the runtime is waiting out a failing provider call before trying it again, and
+     * cleared by the first output of the run or its end. Without it a rate-limited or overloaded
+     * model looks exactly like a slow one: the chat sits on "Thinking" for as long as the retries
+     * last, which has no upper bound.
+     */
+    val retry: RunRetry? = null,
     val error: String? = null,
     /**
      * Set by [ChatViewModel.editLastUserMessage] to the text of the message it just removed, so the
@@ -547,6 +564,24 @@ data class ChatUiState(
     /** The diff dialog open on a tapped [ChatPart.Patch] card, or null when none is open. */
     val patchDiff: PatchDiffState? = null,
 )
+
+/**
+ * The `serviceTier` a prompt carries for a model whose fast tier is [fastTier], given the user's
+ * [fastMode] choice: null when the model has no fast tier or the choice still follows the model's
+ * default (Codex decides), the tier when fast mode is on, and `"default"` when it was turned off on a
+ * model that would otherwise run fast.
+ */
+internal fun codexServiceTier(
+    fastTier: String?,
+    fastMode: Boolean?,
+): String? {
+    fastTier ?: return null
+    return when (fastMode) {
+        null -> null
+        true -> fastTier
+        false -> "default"
+    }
+}
 
 class ChatViewModel(
     private val backend: OpenCodeBackend? = null,
@@ -609,6 +644,10 @@ class ChatViewModel(
      * the same default.
      */
     private val workspaceAttachmentNoteTemplate: String = "[Attached file available in the workspace: %s]",
+    /** Persists the Codex fast-mode choice (null = follow the model default). */
+    private val onCodexFastModeChanged: (Boolean?) -> Unit = {},
+    /** The user's saved Codex fast-mode choice, read when the ViewModel starts. */
+    private val initialCodexFastMode: Boolean? = null,
 ) : ViewModel() {
     private val _uiState =
         MutableStateFlow(
@@ -650,6 +689,15 @@ class ChatViewModel(
     private var eventJob: Job? = null
     private var tts: TextToSpeech? = null
     private var contextLimit: Long = 0L
+
+    /** Codex fast-mode user choice; null follows the selected model's own default. */
+    private var codexFastMode: Boolean? = initialCodexFastMode
+
+    /** The selected model's Codex fast tier id, or null when that model offers no fast mode. */
+    private var selectedFastServiceTier: String? = null
+
+    /** Whether the selected model's Codex fast tier is on by default. */
+    private var selectedFastByDefault: Boolean = false
     private var recoveringTransiently = false
     private val streamedParts = mutableMapOf<String, LinkedHashMap<String, ChatPart>>()
 
@@ -766,7 +814,9 @@ class ChatViewModel(
                     .collectLatest { running ->
                         if (!running) {
                             // Whatever the run was doing, it is not doing it any more.
-                            if (_uiState.value.stall != null) _uiState.update { it.copy(stall = null) }
+                            if (_uiState.value.stall != null || _uiState.value.retry != null) {
+                                _uiState.update { it.copy(stall = null, retry = null) }
+                            }
                             return@collectLatest
                         }
                         recordProgress()
@@ -867,8 +917,13 @@ class ChatViewModel(
         modelId: String?,
         agentId: String?,
         contextLimit: Long = 0L,
+        fastServiceTier: String? = null,
+        fastByDefault: Boolean = false,
+        fastDescription: String? = null,
     ) {
         this.contextLimit = contextLimit
+        selectedFastServiceTier = fastServiceTier
+        selectedFastByDefault = fastByDefault
         _uiState.update {
             val modelChanged = providerId != it.selectedProviderId || modelId != it.selectedModelId
             it.copy(
@@ -881,9 +936,41 @@ class ChatViewModel(
                 // variant straight off whatever provider set it last, for any model whose id has no
                 // effort baked in.
                 selectedVariant = if (modelChanged) null else it.selectedVariant,
+                fastModeDescription = fastDescription,
+            )
+        }
+        refreshFastMode()
+    }
+
+    /**
+     * Derives the three fast-mode fields from the model and the user's choice. Fast mode exists only
+     * for a model that lists a fast tier, so every other model reads as unavailable.
+     */
+    private fun refreshFastMode() {
+        val available = selectedFastServiceTier != null
+        _uiState.update {
+            it.copy(
+                fastModeAvailable = available,
+                fastModeEnabled = available && (codexFastMode ?: selectedFastByDefault),
             )
         }
     }
+
+    /**
+     * Sets the Codex fast-mode choice and persists it. Passing null returns to the model's default.
+     */
+    fun setFastMode(enabled: Boolean?) {
+        codexFastMode = enabled
+        onCodexFastModeChanged(enabled)
+        refreshFastMode()
+    }
+
+    /**
+     * The `serviceTier` for a prompt on the selected model: null when fast mode is unavailable or
+     * still follows the default (Codex then chooses), the model's fast tier when the user turned it
+     * on, and `"default"` when they turned it off on a model that would otherwise be fast.
+     */
+    private fun serviceTierForPrompt(): String? = codexServiceTier(selectedFastServiceTier, codexFastMode)
 
     fun setAutoAcceptPermissions(enabled: Boolean) {
         _uiState.update { it.copy(autoAcceptPermissions = enabled) }
@@ -1414,6 +1501,7 @@ class ChatViewModel(
                 messages = it.messages + userMessage,
                 isRunning = true,
                 isThinking = true,
+                retry = null,
                 partialText = "",
                 error = null,
             )
@@ -1471,6 +1559,7 @@ class ChatViewModel(
                         agent = _uiState.value.selectedAgentId,
                         variant = _uiState.value.selectedVariant,
                         attachments = modelAttachments,
+                        serviceTier = serviceTierForPrompt(),
                     ),
                 )
                 runCatching { currentBackend.session(targetSessionId).title }
@@ -1629,6 +1718,7 @@ class ChatViewModel(
                 messages = it.messages + userMessage,
                 isRunning = true,
                 isThinking = true,
+                retry = null,
                 partialText = "",
                 error = null,
             )
@@ -2182,6 +2272,7 @@ class ChatViewModel(
                     streamError = streamError,
                     awaitingPermission = state.permissions.isNotEmpty(),
                     awaitingQuestion = state.pendingQuestions.isNotEmpty(),
+                    retry = state.retry,
                     transcript = transcript.map(::inspectRun).getOrDefault(RunSignals()),
                 ),
             )
@@ -2361,6 +2452,10 @@ class ChatViewModel(
                         if (!_uiState.value.isRunning) {
                             _uiState.update { it.copy(isRunning = true) }
                         }
+                        // Kept through the busy that starts each new attempt and only cleared by
+                        // output or the end of the run, so the card does not flicker back to
+                        // "Thinking" between failures.
+                        event.retry?.let { retry -> _uiState.update { it.copy(retry = retry) } }
                     }
                 }
             }
@@ -2462,7 +2557,7 @@ class ChatViewModel(
                                 isStreaming = !existing.isUser,
                             )
                     }
-                return@update state.copy(messages = updated, isRunning = true, isThinking = false)
+                return@update state.copy(messages = updated, isRunning = true, isThinking = false, retry = null)
             }
 
             val incomingText = parts.filterIsInstance<ChatPart.Text>().joinToString("") { it.text }
@@ -2486,6 +2581,7 @@ class ChatViewModel(
                         ),
                 isRunning = true,
                 isThinking = false,
+                retry = null,
             )
         }
     }

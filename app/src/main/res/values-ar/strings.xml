@@ -141,11 +141,15 @@
     <string name="chat_stall_reason_awaiting_permission">التنفيذ متوقّف بانتظار موافقة. أجب عن طلب الموافقة للمتابعة.</string>
     <string name="chat_stall_reason_awaiting_question">التنفيذ متوقّف بانتظار إجابة عن سؤال. أجب عنه للمتابعة.</string>
     <string name="chat_stall_reason_stream_disconnected">انقطع اتصال الأحداث، لذا لا يصل التقدّم إلى التطبيق.</string>
+    <string name="chat_stall_reason_provider_retrying">يواصل مزوّد النموذج إرجاع أخطاء وتعيد بيئة التشغيل المحاولة. سيستمر التنفيذ إذا تعافى المزوّد؛ أوقفه إن كنت لا تريد الانتظار.</string>
     <string name="chat_stall_reason_tool_running">الأداة %1$s ما زالت قيد التشغيل ولم تُرجع نتيجة.</string>
     <string name="chat_stall_reason_no_output">تُبلّغ بيئة التشغيل بأن التنفيذ جارٍ لكنها لا تُنتج شيئًا. من المرجّح أنه توقّف.</string>
     <string name="chat_stall_reason_tool_running_unnamed">ما زالت إحدى الأدوات قيد التشغيل ولم تُرجع نتيجة.</string>
     <string name="chat_stall_recheck">إعادة الفحص</string>
     <string name="chat_stall_stop">إيقاف التنفيذ</string>
+    <string name="chat_retry_title">أعاد مزوّد النموذج خطأً</string>
+    <string name="chat_retry_attempt">تتم إعادة المحاولة تلقائيًا · المحاولة %1$d</string>
+    <string name="chat_retry_hint">يستمر التنفيذ تلقائيًا إذا تعافى المزوّد. يمكنك إيقافه في أي وقت بزر الإيقاف.</string>
     <string name="schedule_run_interrupted">تم إيقاف التشغيل قبل اكتماله</string>
     <string name="schedule_completion_timeout">توقّف التشغيل المجدول عن الاستجابة ولم يكتمل</string>
     <string name="schedule_max_duration">تجاوز التشغيل المجدول أقصى مدة مسموحة</string>
@@ -481,6 +485,10 @@
     <string name="chat_thinking_level_high">مرتفع</string>
     <string name="chat_thinking_level_xhigh">مرتفع جدًا</string>
     <string name="chat_thinking_level_max">الحد الأقصى</string>
+    <string name="chat_thinking_level_none">إيقاف</string>
+    <string name="chat_thinking_level_minimal">الحد الأدنى</string>
+    <string name="chat_thinking_level_ultra">فائق</string>
+    <string name="chat_fast_mode">سريع</string>
     <string name="chat_system_prompt_default">الموجّه</string>
     <string name="chat_mode_build">بناء</string>
     <string name="chat_mode_plan">تخطيط</string>
@@ -761,6 +769,8 @@
     <string name="cd_camera">Camera</string>
     <string name="cd_gallery">Gallery</string>
     <string name="cd_thinking">Thinking</string>
+    <string name="cd_fast_mode">الوضع السريع</string>
+    <string name="cd_fast_mode_with_description">الوضع السريع: %1$s</string>
     <string name="cd_system_prompt">موجّه النظام</string>
     <string name="cd_agent_mode">Agent mode</string>
     <string name="cd_updating">Updating</string>

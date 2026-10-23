@@ -138,11 +138,15 @@
     <string name="chat_stall_reason_awaiting_permission">La ejecución está bloqueada esperando una aprobación. Responde la solicitud de aprobación para continuar.</string>
     <string name="chat_stall_reason_awaiting_question">La ejecución está bloqueada esperando la respuesta a una pregunta. Respóndela para continuar.</string>
     <string name="chat_stall_reason_stream_disconnected">La conexión de eventos está caída, así que el progreso no llega a la app.</string>
+    <string name="chat_stall_reason_provider_retrying">El proveedor del modelo sigue devolviendo errores y el runtime está reintentando. La ejecución continuará si el proveedor se recupera; detén la ejecución si prefieres no esperar.</string>
     <string name="chat_stall_reason_tool_running">La herramienta %1$s sigue en ejecución y no ha respondido.</string>
     <string name="chat_stall_reason_no_output">El runtime sigue informando que trabaja, pero no produce nada. Probablemente se haya detenido.</string>
     <string name="chat_stall_reason_tool_running_unnamed">Una herramienta sigue en ejecución y no ha respondido.</string>
     <string name="chat_stall_recheck">Comprobar de nuevo</string>
     <string name="chat_stall_stop">Detener la ejecución</string>
+    <string name="chat_retry_title">El proveedor del modelo devolvió un error</string>
+    <string name="chat_retry_attempt">Reintentando automáticamente · intento %1$d</string>
+    <string name="chat_retry_hint">La ejecución continúa sola si el proveedor se recupera. Puedes detenerla en cualquier momento con el botón de parar.</string>
     <string name="schedule_run_interrupted">La ejecución se interrumpió antes de terminar</string>
     <string name="schedule_completion_timeout">La ejecución programada se quedó en silencio y nunca terminó</string>
     <string name="schedule_max_duration">La ejecución programada superó su duración máxima</string>
@@ -475,6 +479,10 @@
     <string name="chat_thinking_level_high">Alto</string>
     <string name="chat_thinking_level_xhigh">Muy alto</string>
     <string name="chat_thinking_level_max">Máximo</string>
+    <string name="chat_thinking_level_none">Desactivado</string>
+    <string name="chat_thinking_level_minimal">Mínimo</string>
+    <string name="chat_thinking_level_ultra">Ultra</string>
+    <string name="chat_fast_mode">Rápido</string>
     <string name="chat_system_prompt_default">Prompt</string>
     <string name="chat_mode_build">Construir</string>
     <string name="chat_mode_plan">Planificar</string>
@@ -752,6 +760,8 @@
     <string name="cd_camera">Camera</string>
     <string name="cd_gallery">Gallery</string>
     <string name="cd_thinking">Thinking</string>
+    <string name="cd_fast_mode">Modo rápido</string>
+    <string name="cd_fast_mode_with_description">Modo rápido: %1$s</string>
     <string name="cd_system_prompt">Prompt del sistema</string>
     <string name="cd_agent_mode">Agent mode</string>
     <string name="cd_updating">Updating</string>

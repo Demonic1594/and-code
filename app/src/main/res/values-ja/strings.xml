@@ -136,11 +136,15 @@
     <string name="chat_stall_reason_awaiting_permission">承認待ちで止まっています。許可リクエストに回答すると再開します。</string>
     <string name="chat_stall_reason_awaiting_question">質問への回答待ちで止まっています。回答すると再開します。</string>
     <string name="chat_stall_reason_stream_disconnected">イベント接続が切れているため、進捗がアプリに届いていません。</string>
+    <string name="chat_stall_reason_provider_retrying">モデルプロバイダーがエラーを返し続けており、ランタイムが再試行しています。プロバイダーが回復すれば続行されます。待たない場合は停止してください。</string>
     <string name="chat_stall_reason_tool_running">ツール %1$s の実行が終わっていません。</string>
     <string name="chat_stall_reason_no_output">ランタイムは実行中と報告していますが、出力がありません。停止している可能性が高いです。</string>
     <string name="chat_stall_reason_tool_running_unnamed">ツールの実行が終わっていません。</string>
     <string name="chat_stall_recheck">再確認</string>
     <string name="chat_stall_stop">実行を停止</string>
+    <string name="chat_retry_title">モデルプロバイダーからエラーが返されました</string>
+    <string name="chat_retry_attempt">自動で再試行しています(%1$d 回目)</string>
+    <string name="chat_retry_hint">プロバイダーが回復すれば自動で続行されます。待たない場合は停止ボタンで止められます。</string>
     <string name="schedule_run_interrupted">完了前に実行が中断されました</string>
     <string name="schedule_completion_timeout">スケジュール実行が無応答のまま終了しませんでした</string>
     <string name="schedule_max_duration">スケジュール実行が最大実行時間を超えました</string>
@@ -473,6 +477,10 @@
     <string name="chat_thinking_level_high">高</string>
     <string name="chat_thinking_level_xhigh">最高</string>
     <string name="chat_thinking_level_max">Max</string>
+    <string name="chat_thinking_level_none">オフ</string>
+    <string name="chat_thinking_level_minimal">最低</string>
+    <string name="chat_thinking_level_ultra">Ultra</string>
+    <string name="chat_fast_mode">高速</string>
     <string name="chat_system_prompt_default">プロンプト</string>
     <string name="chat_mode_build">ビルド</string>
     <string name="chat_mode_plan">計画</string>
@@ -759,6 +767,8 @@
     <string name="cd_camera">カメラ</string>
     <string name="cd_gallery">ギャラリー</string>
     <string name="cd_thinking">思考中</string>
+    <string name="cd_fast_mode">高速モード</string>
+    <string name="cd_fast_mode_with_description">高速モード: %1$s</string>
     <string name="cd_system_prompt">システムプロンプト</string>
     <string name="cd_agent_mode">エージェントモード</string>
     <string name="cd_updating">更新中</string>

@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Psychology
@@ -73,10 +74,12 @@ fun ModelAndRuntimePickerSheet(
     selectedProviderId: String?,
     selectedModelId: String?,
     onSelectModel: (String, String) -> Unit,
-    favoriteModelKeys: Set<String> = emptySet(),
+    // Required, with no default: every row draws a star. A caller that forgot these used to get an
+    // empty set and a no-op, so its stars rendered but did nothing when tapped.
+    favoriteModelKeys: Set<String>,
+    onToggleFavorite: (String, String) -> Unit,
     recentModelKeys: List<String> = emptyList(),
     hiddenModelKeys: Set<String> = emptySet(),
-    onToggleFavorite: (String, String) -> Unit = { _, _ -> },
     showLocalSuffix: Boolean = true,
     onConnectProvider: (() -> Unit)? = null,
     onDismiss: () -> Unit,
@@ -404,6 +407,16 @@ private fun ModelRow(
                     Icon(
                         imageVector = Icons.Default.Psychology,
                         contentDescription = stringResource(R.string.cd_thinking),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+                // The same kind of hint for a Codex model with a fast tier, so the composer's Fast
+                // chip is not a surprise that only shows up after the model is picked.
+                if (model.codexFastServiceTier != null) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = stringResource(R.string.cd_fast_mode),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp),
                     )

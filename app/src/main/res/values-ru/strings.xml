@@ -139,11 +139,15 @@
     <string name="chat_stall_reason_awaiting_permission">Выполнение ждёт подтверждения. Ответьте на запрос подтверждения, чтобы продолжить.</string>
     <string name="chat_stall_reason_awaiting_question">Выполнение ждёт ответа на вопрос. Ответьте, чтобы продолжить.</string>
     <string name="chat_stall_reason_stream_disconnected">Соединение событий разорвано, поэтому прогресс не доходит до приложения.</string>
+    <string name="chat_stall_reason_provider_retrying">Поставщик модели продолжает возвращать ошибки, среда выполнения повторяет запрос. Если поставщик восстановится, выполнение продолжится; остановите его, если не хотите ждать.</string>
     <string name="chat_stall_reason_tool_running">Инструмент %1$s всё ещё работает и ничего не вернул.</string>
     <string name="chat_stall_reason_no_output">Среда выполнения сообщает, что работа идёт, но ничего не выдаёт. Скорее всего, она остановилась.</string>
     <string name="chat_stall_reason_tool_running_unnamed">Инструмент всё ещё работает и ничего не вернул.</string>
     <string name="chat_stall_recheck">Проверить снова</string>
     <string name="chat_stall_stop">Остановить выполнение</string>
+    <string name="chat_retry_title">Поставщик модели вернул ошибку</string>
+    <string name="chat_retry_attempt">Автоматический повтор · попытка %1$d</string>
+    <string name="chat_retry_hint">Выполнение продолжится само, если поставщик восстановится. Остановить его можно в любой момент кнопкой остановки.</string>
     <string name="schedule_run_interrupted">Запуск прерван до завершения</string>
     <string name="schedule_completion_timeout">Запланированный запуск перестал отвечать и не завершился</string>
     <string name="schedule_max_duration">Запланированный запуск превысил максимальную длительность</string>
@@ -477,6 +481,10 @@
     <string name="chat_thinking_level_high">Высокий</string>
     <string name="chat_thinking_level_xhigh">Очень высокий</string>
     <string name="chat_thinking_level_max">Максимум</string>
+    <string name="chat_thinking_level_none">Выкл.</string>
+    <string name="chat_thinking_level_minimal">Минимум</string>
+    <string name="chat_thinking_level_ultra">Ультра</string>
+    <string name="chat_fast_mode">Быстрый</string>
     <string name="chat_system_prompt_default">Промпт</string>
     <string name="chat_mode_build">Сборка</string>
     <string name="chat_mode_plan">План</string>
@@ -755,6 +763,8 @@
     <string name="cd_camera">Camera</string>
     <string name="cd_gallery">Gallery</string>
     <string name="cd_thinking">Thinking</string>
+    <string name="cd_fast_mode">Быстрый режим</string>
+    <string name="cd_fast_mode_with_description">Быстрый режим: %1$s</string>
     <string name="cd_system_prompt">Системный промпт</string>
     <string name="cd_agent_mode">Agent mode</string>
     <string name="cd_updating">Updating</string>

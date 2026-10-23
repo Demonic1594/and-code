@@ -207,6 +207,28 @@ class OpenCodeEventParserTest {
 
         assertEquals("s1", event.sessionId)
         assertEquals("busy", event.status)
+        assertNull(event.retry)
+    }
+
+    @Test
+    fun `parses a retry status with the provider's reason`() {
+        val event =
+            parser.parse(
+                """{"type":"session.status","properties":{"sessionID":"s1","status":{"type":"retry","attempt":3,"message":"Rate limit exceeded","next":1760000000000}}}""",
+            ) as OpenCodeEvent.SessionStatusChanged
+
+        assertEquals("retry", event.status)
+        assertEquals(RunRetry(attempt = 3, message = "Rate limit exceeded"), event.retry)
+    }
+
+    @Test
+    fun `a retry status missing its details is still a retry`() {
+        val event =
+            parser.parse(
+                """{"type":"session.status","properties":{"sessionID":"s1","status":{"type":"retry"}}}""",
+            ) as OpenCodeEvent.SessionStatusChanged
+
+        assertEquals(RunRetry(attempt = 1, message = null), event.retry)
     }
 
     @Test
