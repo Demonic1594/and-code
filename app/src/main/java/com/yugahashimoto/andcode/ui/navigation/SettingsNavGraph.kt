@@ -28,6 +28,7 @@ import com.yugahashimoto.andcode.feature.settings.ModelVisibilityScreen
 import com.yugahashimoto.andcode.feature.settings.OpenCodeAgentSettingsScreen
 import com.yugahashimoto.andcode.feature.settings.OpenCodeAgentSettingsViewModel
 import com.yugahashimoto.andcode.feature.settings.ProviderSettingsScreen
+import com.yugahashimoto.andcode.feature.settings.SavedPromptsScreen
 import com.yugahashimoto.andcode.feature.settings.SettingsScreenV2
 import com.yugahashimoto.andcode.feature.settings.SettingsViewModel
 import com.yugahashimoto.andcode.feature.settings.SystemPromptScreen
@@ -112,6 +113,10 @@ fun NavGraphBuilder.settingsNavGraph(
             onSendBehaviorChange = { appPreferences.setSendBehavior(it) },
             enterToSend = preferences().enterToSend,
             onEnterToSendChange = { appPreferences.setEnterToSend(it) },
+            hapticsEnabled = preferences().hapticsEnabled,
+            onHapticsEnabledChange = appPreferences::setHapticsEnabled,
+            savedPromptCount = preferences().savedPrompts.size,
+            onOpenSavedPrompts = { navController.navigate(ROUTE_SETTINGS_SAVED_PROMPTS) },
             autoArchiveStaleEnabled = preferences().autoArchiveStaleEnabled,
             onAutoArchiveStaleEnabledChange = appPreferences::setAutoArchiveStaleEnabled,
             autoArchiveStaleDays = preferences().autoArchiveStaleDays,
@@ -365,6 +370,15 @@ fun NavGraphBuilder.settingsNavGraph(
             onOpenUrl = { url ->
                 UrlLauncher.openUrl(context, url)
             },
+            onBack = { navController.popBackStack() },
+        )
+    }
+
+    composable(ROUTE_SETTINGS_SAVED_PROMPTS) {
+        SavedPromptsScreen(
+            prompts = preferences().savedPrompts,
+            onSave = appPreferences::saveSavedPrompt,
+            onDelete = appPreferences::deleteSavedPrompt,
             onBack = { navController.popBackStack() },
         )
     }

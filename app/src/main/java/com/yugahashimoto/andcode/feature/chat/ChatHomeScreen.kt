@@ -58,14 +58,18 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DataUsage
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Tune
@@ -81,6 +85,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -144,6 +149,7 @@ import com.yugahashimoto.andcode.core.diagnostics.StallDiagnosis
 import com.yugahashimoto.andcode.core.diagnostics.StallReason
 import com.yugahashimoto.andcode.core.diagnostics.explain
 import com.yugahashimoto.andcode.core.diagnostics.supportingDetail
+import com.yugahashimoto.andcode.data.settings.SavedPrompt
 import com.yugahashimoto.andcode.feature.workspace.GitHubAutoAttachChips
 import com.yugahashimoto.andcode.feature.workspace.GitHubReference
 import com.yugahashimoto.andcode.runtime.PermissionResponse
@@ -151,8 +157,10 @@ import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import com.yugahashimoto.andcode.runtime.local.AntigravityPermissionMode
 import com.yugahashimoto.andcode.runtime.local.ClaudePermissionMode
 import com.yugahashimoto.andcode.runtime.local.SystemPromptPreset
+import com.yugahashimoto.andcode.ui.components.HapticEvent
 import com.yugahashimoto.andcode.ui.components.StatusChip
 import com.yugahashimoto.andcode.ui.components.VolumeMeter
+import com.yugahashimoto.andcode.ui.components.rememberHaptics
 import com.yugahashimoto.andcode.ui.components.systemPromptPresetLabel
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 import kotlinx.coroutines.Dispatchers
@@ -268,6 +276,8 @@ fun ChatHomeScreen(
     onLoadDraft: (String) -> String? = { null },
     /** Keeps the composer's unsent text for a session; blank text clears it. */
     onSaveDraft: (String, String) -> Unit = { _, _ -> },
+    /** The user's saved prompts, offered in the slash popup next to the built-in commands. */
+    savedPrompts: List<SavedPrompt> = emptyList(),
 ) {
     // Saved state, not plain remember: the Activity is recreated on rotation and other
     // configuration changes, and a remembered field would come back empty. The TextFieldValue
@@ -290,6 +300,8 @@ fun ChatHomeScreen(
     val coroutineScope = rememberCoroutineScope()
     var showSlashCommands by remember { mutableStateOf(false) }
     var showSidePanel by remember { mutableStateOf(false) }
+    var showChatMenu by remember { mutableStateOf(false) }
+    val haptics = rememberHaptics()
     val context = androidx.compose.ui.platform.LocalContext.current
     val imageSaveLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/*")) { uri ->
@@ -466,6 +478,48 @@ fun ChatHomeScreen(
                     IconButton(onClick = onNewChat) {
                         Icon(Icons.Default.Add, contentDescription = stringResource(R.string.new_chat))
                     }
+                    if (state.messages.isNotEmpty()) {
+                        Box {
+                            IconButton(onClick = { showChatMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.chat_menu_more))
+                            }
+                            ChatOverflowMenu(
+                                expanded = showChatMenu,
+                                onDismiss = { showChatMenu = false },
+                                usage = state.sessionUsage,
+                                onShare = {
+                                    showChatMenu = false
+                                    val title = state.sessionTitle.ifBlank { context.getString(R.string.chat_home_title) }
+                                    val labels =
+                                        TranscriptLabels(
+                                            user = context.getString(R.string.transcript_user),
+                                            assistant = context.getString(R.string.transcript_assistant),
+                                            tool = context.getString(R.string.transcript_tool),
+                                            error = context.getString(R.string.transcript_error),
+                                        )
+                                    shareChatTranscript(
+                                        context = context,
+                                        title = title,
+                                        markdown = chatTranscriptMarkdown(title, state.messages, labels),
+                                        chooserTitle = context.getString(R.string.chat_menu_share),
+                                    )
+                                },
+                                onCopy = {
+                                    showChatMenu = false
+                                    val title = state.sessionTitle.ifBlank { context.getString(R.string.chat_home_title) }
+                                    val labels =
+                                        TranscriptLabels(
+                                            user = context.getString(R.string.transcript_user),
+                                            assistant = context.getString(R.string.transcript_assistant),
+                                            tool = context.getString(R.string.transcript_tool),
+                                            error = context.getString(R.string.transcript_error),
+                                        )
+                                    clipboardManager.setText(AnnotatedString(chatTranscriptMarkdown(title, state.messages, labels)))
+                                    haptics.perform(HapticEvent.CONFIRM)
+                                },
+                            )
+                        }
+                    }
                 },
                 colors =
                     TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -565,7 +619,12 @@ fun ChatHomeScreen(
                                 }
                             }
                             items(state.permissions, key = { "permission-${it.id}" }) { permission ->
-                                PermissionCard(permission, onPermission)
+                                PermissionCard(permission) { id, response, always ->
+                                    haptics.perform(
+                                        if (response == PermissionResponse.REJECT) HapticEvent.REJECT else HapticEvent.CONFIRM,
+                                    )
+                                    onPermission(id, response, always)
+                                }
                             }
                             items(state.pendingQuestions, key = { "question-${it.request.id}" }) { question ->
                                 QuestionCard(
@@ -641,6 +700,7 @@ fun ChatHomeScreen(
                     isRunning = state.isRunning,
                     onSend = {
                         if (input.isNotBlank() || state.attachments.isNotEmpty()) {
+                            haptics.perform(HapticEvent.CONFIRM)
                             onSendMessage(input)
                             inputValue = TextFieldValue("")
                             showSlashCommands = false
@@ -702,8 +762,15 @@ fun ChatHomeScreen(
                     showSlashCommands = showSlashCommands,
                     slashCommands = state.slashCommands,
                     slashSkills = state.slashSkills,
+                    savedPrompts = savedPrompts,
                     onSlashCommandSelect = { suggestion ->
-                        val completed = suggestion.name + " "
+                        // A saved prompt expands to its text, left in the composer to send or tweak;
+                        // everything else completes to its command name for the send path to route.
+                        val completed =
+                            when (suggestion) {
+                                is SlashSuggestion.Saved -> suggestion.prompt.text
+                                else -> suggestion.name + " "
+                            }
                         inputValue = TextFieldValue(completed, TextRange(completed.length))
                         showSlashCommands = false
                     },
@@ -1347,6 +1414,7 @@ private fun ChatComposer(
     showSlashCommands: Boolean,
     slashCommands: List<OpenCodeCommand>,
     slashSkills: List<OpenCodeSkill>,
+    savedPrompts: List<SavedPrompt>,
     onSlashCommandSelect: (SlashSuggestion) -> Unit,
     githubRefs: List<GitHubReference>,
     pullRequests: List<ChatPullRequest>,
@@ -1370,7 +1438,7 @@ private fun ChatComposer(
                 .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
         if (showSlashCommands) {
-            val filtered = SlashCommandRegistry.suggestions(input, slashCommands, slashSkills)
+            val filtered = SlashCommandRegistry.suggestions(input, slashCommands, slashSkills, savedPrompts)
             if (filtered.isNotEmpty()) {
                 Card(
                     modifier =
@@ -2464,6 +2532,52 @@ private fun ChatHomeScreenCodexFastPreview() {
             onOpenLocalSetup = {},
             onOpenRemoteSetup = {},
             onOpenDrawer = {},
+        )
+    }
+}
+
+@Composable
+private fun ChatOverflowMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    usage: SessionUsage?,
+    onShare: () -> Unit,
+    onCopy: () -> Unit,
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        usage?.let {
+            val tokens =
+                stringResource(
+                    R.string.chat_usage_tokens,
+                    formatUsageTokens(it.inputTokens + it.cacheReadTokens),
+                    formatUsageTokens(it.outputTokens + it.reasoningTokens),
+                )
+            DropdownMenuItem(
+                text = {
+                    Column {
+                        Text(stringResource(R.string.chat_usage_title), style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            text = it.costUsd?.let { cost -> "$tokens · ${formatUsd(cost)}" } ?: tokens,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                leadingIcon = { Icon(Icons.Default.DataUsage, contentDescription = null) },
+                onClick = {},
+                enabled = false,
+            )
+            HorizontalDivider()
+        }
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.chat_menu_share)) },
+            leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
+            onClick = onShare,
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.chat_menu_copy_markdown)) },
+            leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+            onClick = onCopy,
         )
     }
 }

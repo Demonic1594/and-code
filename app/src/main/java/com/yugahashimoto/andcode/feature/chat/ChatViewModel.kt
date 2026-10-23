@@ -508,6 +508,8 @@ data class ChatUiState(
     val partialText: String = "",
     val autoAcceptPermissions: Boolean = false,
     val contextTokensUsed: Long = 0L,
+    /** What this chat has used so far; null until a turn reports tokens. */
+    val sessionUsage: SessionUsage? = null,
     val selectedVariant: String? = null,
     /**
      * Whether the selected model offers Codex's fast service tier. Only Codex sets this, and only
@@ -1053,15 +1055,17 @@ class ChatViewModel(
         viewModelScope.launch {
             runCatching {
                 val messages = currentBackend.listMessages(sessionId)
+                val usage = summarizeSessionUsage(messages)
                 val latestMessageTokens =
                     messages.asReversed()
                         .firstNotNullOfOrNull { message ->
                             message.info.tokens?.contextUsed
                                 ?.takeIf { !message.info.role.equals("user", ignoreCase = true) }
                         }
-                latestMessageTokens ?: currentBackend.session(sessionId).tokens?.contextUsed ?: 0L
-            }.onSuccess { used ->
-                _uiState.update { it.copy(contextTokensUsed = used) }
+                val used = latestMessageTokens ?: currentBackend.session(sessionId).tokens?.contextUsed ?: 0L
+                used to usage
+            }.onSuccess { (used, usage) ->
+                _uiState.update { it.copy(contextTokensUsed = used, sessionUsage = usage) }
             }
         }
     }
@@ -1101,6 +1105,7 @@ class ChatViewModel(
             it.copy(
                 sessionId = sessionId,
                 sessionTitle = title,
+                sessionUsage = if (it.sessionId == sessionId) it.sessionUsage else null,
                 parentSession = parent,
                 isLoadingHistory = true,
                 messages = emptyList(),
@@ -1232,6 +1237,7 @@ class ChatViewModel(
                 draftSystemPrompt = null,
                 sessionId = null,
                 sessionTitle = "",
+                sessionUsage = null,
                 parentSession = null,
                 messages = emptyList(),
                 permissions = emptyList(),

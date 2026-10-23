@@ -429,6 +429,19 @@ class SecureSettingsRepository(context: Context) : RuntimeConnectionStore, Unrea
         get() = preferences.getBoolean(KEY_ENTER_TO_SEND, false)
         set(value) = preferences.edit().putBoolean(KEY_ENTER_TO_SEND, value).apply()
 
+    var hapticsEnabled: Boolean
+        get() = preferences.getBoolean(KEY_HAPTICS_ENABLED, true)
+        set(value) = preferences.edit().putBoolean(KEY_HAPTICS_ENABLED, value).apply()
+
+    var pinnedSessionIds: Set<String>
+        get() = preferences.getStringSet(KEY_PINNED_SESSIONS, emptySet()).orEmpty()
+        set(value) = preferences.edit().putStringSet(KEY_PINNED_SESSIONS, value).apply()
+
+    /** Saved prompts as a JSON array; parsed by SavedPromptCodec so this class stays storage-only. */
+    var savedPromptsJson: String?
+        get() = preferences.getString(KEY_SAVED_PROMPTS, null)
+        set(value) = preferences.edit().putString(KEY_SAVED_PROMPTS, value).apply()
+
     var sidebarGrouping: String
         get() = preferences.getString(KEY_SIDEBAR_GROUPING, "project") ?: "project"
         set(value) = preferences.edit().putString(KEY_SIDEBAR_GROUPING, value).apply()
@@ -607,6 +620,9 @@ class SecureSettingsRepository(context: Context) : RuntimeConnectionStore, Unrea
         private const val KEY_CODEX_FAST_MODE = "codex_fast_mode"
         private const val KEY_SEND_BEHAVIOR = "send_behavior"
         private const val KEY_ENTER_TO_SEND = "enter_to_send"
+        private const val KEY_HAPTICS_ENABLED = "haptics_enabled"
+        private const val KEY_PINNED_SESSIONS = "pinned_sessions"
+        private const val KEY_SAVED_PROMPTS = "saved_prompts"
         private const val KEY_SIDEBAR_GROUPING = "sidebar_grouping"
         private const val KEY_WORKSPACE_TITLE_SOURCE = "workspace_title_source"
         private const val KEY_LANGUAGE = "language"

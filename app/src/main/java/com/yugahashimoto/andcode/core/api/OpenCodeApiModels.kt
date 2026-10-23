@@ -76,6 +76,8 @@ data class OpenCodeMessageInfo(
     val agent: String? = null,
     val model: OpenCodeModelReference? = null,
     val tokens: OpenCodeSessionTokens? = null,
+    /** What the provider charged for this turn in USD, when the runtime reports it (OpenCode does). */
+    val cost: Double? = null,
     /** Provider/session failure recorded on the message, e.g. `ApiError` with `statusCode` 429. */
     val error: OpenCodeMessageError? = null,
 )

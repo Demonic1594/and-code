@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.api.OpenCodeCommand
 import com.yugahashimoto.andcode.core.api.OpenCodeSkill
+import com.yugahashimoto.andcode.data.settings.SavedPrompt
 
 enum class SlashAction { NEW_CHAT, CLEAR, MODEL, AGENT, ATTACH, HELP }
 
@@ -44,7 +45,15 @@ sealed interface SlashSuggestion {
         override val description: String,
         val isSkill: Boolean = false,
     ) : SlashSuggestion
+
+    /** One of the user's saved prompts: picking it puts [prompt]'s text in the composer. */
+    data class Saved(val prompt: SavedPrompt) : SlashSuggestion {
+        override val name: String = prompt.command
+        override val description: String = prompt.text.lineSequence().first().take(SAVED_PREVIEW_LENGTH)
+    }
 }
+
+private const val SAVED_PREVIEW_LENGTH = 60
 
 object SlashCommandRegistry {
     val commands: List<SlashCommand> =
@@ -57,20 +66,28 @@ object SlashCommandRegistry {
             SlashCommand("/help", R.string.slash_desc_help, SlashAction.HELP),
         )
 
+    val builtInCommandNames: Set<String> = commands.map { it.name }.toSet()
+
     /**
-     * Builds the popup list: app commands first, then the backend's commands and skills, filtering
-     * everything by what the user has typed so far.
+     * Builds the popup list: app commands first, then the user's saved prompts, then the backend's
+     * commands and skills, filtering everything by what the user has typed so far.
      */
     fun suggestions(
         query: String,
         backendCommands: List<OpenCodeCommand>,
         backendSkills: List<OpenCodeSkill>,
+        savedPrompts: List<SavedPrompt> = emptyList(),
     ): List<SlashSuggestion> {
         val trimmed = query.trim()
 
         fun matches(name: String): Boolean = trimmed.isEmpty() || name.startsWith(trimmed, ignoreCase = true)
 
         val app = commands.filter { matches(it.name) }.map(SlashSuggestion::App)
+        val saved =
+            savedPrompts
+                .filter { it.command != "/" && it.command !in builtInCommandNames && matches(it.command) }
+                .sortedBy { it.command }
+                .map(SlashSuggestion::Saved)
         val backend =
             backendCommands
                 .filter { matches("/${it.name}") }
@@ -78,6 +95,6 @@ object SlashCommandRegistry {
                 backendSkills
                     .filter { matches("/${it.name}") }
                     .map { SlashSuggestion.Backend("/${it.name}", it.description.orEmpty(), isSkill = true) }
-        return app + backend.sortedBy { it.name }
+        return app + saved + backend.sortedBy { it.name }
     }
 }
