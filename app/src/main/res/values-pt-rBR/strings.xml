@@ -138,11 +138,15 @@
     <string name="chat_stall_reason_awaiting_permission">A execução está parada aguardando uma aprovação. Responda à solicitação de aprovação para continuar.</string>
     <string name="chat_stall_reason_awaiting_question">A execução está parada aguardando a resposta de uma pergunta. Responda para continuar.</string>
     <string name="chat_stall_reason_stream_disconnected">A conexão de eventos caiu, então o progresso não chega ao app.</string>
+    <string name="chat_stall_reason_provider_retrying">O provedor do modelo continua retornando erros e o runtime está tentando novamente. A execução continua se o provedor se recuperar; interrompa-a se preferir não esperar.</string>
     <string name="chat_stall_reason_tool_running">A ferramenta %1$s continua em execução e não retornou nada.</string>
     <string name="chat_stall_reason_no_output">O runtime ainda informa que está trabalhando, mas não produz nada. Provavelmente parou.</string>
     <string name="chat_stall_reason_tool_running_unnamed">Uma ferramenta continua em execução e não retornou nada.</string>
     <string name="chat_stall_recheck">Verificar de novo</string>
     <string name="chat_stall_stop">Parar a execução</string>
+    <string name="chat_retry_title">O provedor do modelo retornou um erro</string>
+    <string name="chat_retry_attempt">Tentando novamente automaticamente · tentativa %1$d</string>
+    <string name="chat_retry_hint">A execução continua sozinha se o provedor se recuperar. Você pode interrompê-la a qualquer momento com o botão de parar.</string>
     <string name="schedule_run_interrupted">A execução foi interrompida antes de terminar</string>
     <string name="schedule_completion_timeout">A execução agendada ficou em silêncio e nunca terminou</string>
     <string name="schedule_max_duration">A execução agendada passou da duração máxima</string>

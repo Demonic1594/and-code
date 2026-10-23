@@ -15,6 +15,7 @@ fun StallDiagnosis.explain(context: Context): String =
         StallReason.AWAITING_PERMISSION -> context.getString(R.string.chat_stall_reason_awaiting_permission)
         StallReason.AWAITING_QUESTION -> context.getString(R.string.chat_stall_reason_awaiting_question)
         StallReason.STREAM_DISCONNECTED -> context.getString(R.string.chat_stall_reason_stream_disconnected)
+        StallReason.PROVIDER_RETRYING -> context.getString(R.string.chat_stall_reason_provider_retrying)
         // A sentence of its own rather than a noun dropped into the one above: "The tool a tool is
         // still running" is not a sentence in any of the languages this ships in.
         StallReason.TOOL_RUNNING ->
@@ -27,7 +28,15 @@ fun StallDiagnosis.explain(context: Context): String =
 /**
  * The runtime's own words for the stall, when they add something the sentence above does not
  * already say. A tool name is already in that sentence, and the terminal reasons are reported
- * through the normal error surfaces, so only a failed probe leaves anything extra to show.
+ * through the normal error surfaces, so only a failed probe, or the provider failure a retry is
+ * waiting out, leaves anything extra to show.
  */
 fun StallDiagnosis.supportingDetail(): String? =
-    detail?.takeIf { it.isNotBlank() && (reason == StallReason.RUNTIME_UNREACHABLE || reason == StallReason.STREAM_DISCONNECTED) }
+    detail?.takeIf {
+        it.isNotBlank() &&
+            (
+                reason == StallReason.RUNTIME_UNREACHABLE ||
+                    reason == StallReason.STREAM_DISCONNECTED ||
+                    reason == StallReason.PROVIDER_RETRYING
+            )
+    }

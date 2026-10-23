@@ -12,6 +12,7 @@ import com.yugahashimoto.andcode.core.api.OpenCodeTime
 import com.yugahashimoto.andcode.core.api.PermissionRequest
 import com.yugahashimoto.andcode.core.api.PromptRequest
 import com.yugahashimoto.andcode.core.api.ProviderCatalog
+import com.yugahashimoto.andcode.core.api.RunRetry
 import com.yugahashimoto.andcode.core.diagnostics.StallReason
 import com.yugahashimoto.andcode.runtime.BackendKind
 import com.yugahashimoto.andcode.runtime.OpenCodeBackend
@@ -219,6 +220,95 @@ class ChatViewModelStallTest {
         }
 
     @Test
+    fun `a provider retry is kept so the chat can say why nothing is coming`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = viewModel(backend)
+
+            viewModel.sendMessage("Hello")
+            backend.events.emit(retryStatus(attempt = 3, message = "Rate limit exceeded"))
+            advanceUntilIdle()
+
+            assertEquals(RunRetry(attempt = 3, message = "Rate limit exceeded"), viewModel.uiState.value.retry)
+            assertTrue(viewModel.uiState.value.isRunning)
+        }
+
+    @Test
+    fun `the retry is dropped once the reply starts streaming`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = viewModel(backend)
+
+            viewModel.sendMessage("Hello")
+            backend.events.emit(retryStatus(attempt = 1, message = "Overloaded"))
+            advanceUntilIdle()
+            assertEquals(1, viewModel.uiState.value.retry?.attempt)
+
+            backend.events.emit(
+                OpenCodeEvent.MessagePartDelta(
+                    sessionId = "s1",
+                    messageId = "m1",
+                    partId = "p1",
+                    field = "text",
+                    delta = "Here you go",
+                ),
+            )
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.retry)
+        }
+
+    @Test
+    fun `the retry is dropped when the run ends`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = viewModel(backend)
+
+            viewModel.sendMessage("Hello")
+            backend.events.emit(retryStatus(attempt = 2, message = "Overloaded"))
+            advanceUntilIdle()
+
+            backend.events.emit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isRunning)
+            assertNull(viewModel.uiState.value.retry)
+        }
+
+    @Test
+    fun `a replacement prompt does not inherit the previous run's retry`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = viewModel(backend)
+
+            viewModel.sendMessage("Hello")
+            backend.events.emit(retryStatus(attempt = 2, message = "Overloaded"))
+            advanceUntilIdle()
+
+            viewModel.sendMessage("Try again")
+
+            assertNull(viewModel.uiState.value.retry)
+        }
+
+    @Test
+    fun `a run the provider keeps failing is explained as a retry, not as producing nothing`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = viewModel(backend)
+
+            viewModel.sendMessage("Hello")
+            backend.events.emit(retryStatus(attempt = 5, message = "Rate limit exceeded"))
+            runSilentlyPastThePoll()
+            viewModel.checkForStall()
+            advanceUntilIdle()
+
+            val stall = viewModel.uiState.value.stall
+            assertEquals(StallReason.PROVIDER_RETRYING, stall?.reason)
+            assertEquals("Rate limit exceeded", stall?.detail)
+            assertFalse(stall?.isStopped ?: true)
+        }
+
+    @Test
     fun `the watchdog reports a quiet run on its own, without being asked`() =
         runTest(dispatcher) {
             val backend = FakeBackend()
@@ -342,6 +432,12 @@ class ChatViewModelStallTest {
         advanceTimeBy(STALL_THRESHOLD_MS + 1000L)
         runCurrent()
     }
+
+    /** What OpenCode announces while it waits to try a failing provider call again. */
+    private fun retryStatus(
+        attempt: Int,
+        message: String?,
+    ): OpenCodeEvent = OpenCodeEvent.SessionStatusChanged("s1", "retry", RunRetry(attempt = attempt, message = message))
 
     private class FakeBackend : OpenCodeBackend {
         override val id: String = "fake"
