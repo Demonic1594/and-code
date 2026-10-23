@@ -68,8 +68,9 @@ class ClaudeCodeRuntime(
 
     /**
      * Whether any CLI process is registered in [sessions]; what the permission-bridge watcher polls
-     * on. Published from every place [sessions] changes, under the same monitor, so the watcher can
-     * never be left parked while a process that could raise a request exists.
+     * on. Kept in step by [registerSession] and [unregisterSession], under the same monitor as
+     * [sessions], so the watcher can never be left parked while a process that could raise a request
+     * exists.
      */
     private val hasLiveSessions = MutableStateFlow(false)
 
@@ -85,6 +86,7 @@ class ClaudeCodeRuntime(
         val systemPrompt: String?,
     )
 
+    /** Mutate only through [registerSession] and [unregisterSession], which keep [hasLiveSessions] in step. */
     private val sessions = linkedMapOf<String, SessionProcess>()
 
     /**
@@ -242,9 +244,31 @@ class ClaudeCodeRuntime(
             .filter { sessions[it.androidSessionId]?.process?.isAlive == true }
             .mapNotNull(permissionBridge::toQuestionRequest)
 
+    /** The only place [sessions] gains an entry, so [hasLiveSessions] can never lag behind it. */
     @Synchronized
-    private fun publishLiveSessions() {
+    private fun registerSession(
+        sessionId: String,
+        session: SessionProcess,
+    ) {
+        sessions[sessionId] = session
+        hasLiveSessions.value = true
+    }
+
+    /**
+     * The only place [sessions] loses an entry. With [onlyProcess] set, an entry that has since been
+     * replaced by a newer process is left alone - the case of an old reader job finishing after its
+     * session was relaunched. Returns the removed entry, or null if nothing was removed.
+     */
+    @Synchronized
+    private fun unregisterSession(
+        sessionId: String,
+        onlyProcess: Process? = null,
+    ): SessionProcess? {
+        val session = sessions[sessionId] ?: return null
+        if (onlyProcess != null && session.process !== onlyProcess) return null
+        sessions.remove(sessionId)
         hasLiveSessions.value = sessions.isNotEmpty()
+        return session
     }
 
     /**
@@ -320,11 +344,10 @@ class ClaudeCodeRuntime(
     /** Stops the process backing [sessionId]; the next send resumes the same Claude conversation. */
     @Synchronized
     fun stop(sessionId: String) {
-        sessions.remove(sessionId)?.let { session ->
+        unregisterSession(sessionId)?.let { session ->
             session.readerJob.cancel()
             if (session.process.isAlive) session.process.destroyForcibly()
         }
-        publishLiveSessions()
         messageStore.flush()
     }
 
@@ -419,10 +442,7 @@ class ClaudeCodeRuntime(
                     }.exceptionOrNull()
                         .takeUnless { it is CancellationException }
                 messageStore.flush()
-                synchronized(this@ClaudeCodeRuntime) {
-                    if (sessions[sessionId]?.process === process) sessions.remove(sessionId)
-                    publishLiveSessions()
-                }
+                unregisterSession(sessionId, onlyProcess = process)
                 // stop() cancels this job; the abort path owns the state transitions, and an idle
                 // emitted here would announce the killed run as completed.
                 if (!isActive) return@launch
@@ -439,10 +459,7 @@ class ClaudeCodeRuntime(
             }
 
         return SessionProcess(process, readerJob, parser, permissionMode, directory, model, effort, systemPrompt)
-            .also {
-                sessions[sessionId] = it
-                publishLiveSessions()
-            }
+            .also { registerSession(sessionId, it) }
     }
 
     private fun processArguments(

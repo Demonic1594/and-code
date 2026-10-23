@@ -133,6 +133,16 @@ class ScheduleBridge(
             writeResponse(responsesDir, requestId, errorResponse("Malformed request"), now)
             return
         }
+        // The guest stops waiting after RESPONSE_TIMEOUT_S and reports the call as failed. A request
+        // that sat unanswered past that - written while the poll was parked - must not run on the
+        // way back in, or a create/delete/runNow the agent was told did not happen would happen
+        // anyway. A missing or zero timestamp is "unknown", not "ancient", so it still runs.
+        val createdAtMs = request.optLong("createdAtMs", 0L)
+        if (createdAtMs > 0L && now - createdAtMs > REQUEST_EXPIRES_AFTER_MILLIS) {
+            file.delete()
+            writeResponse(responsesDir, requestId, errorResponse("Request expired before the AndCode app could handle it"), now)
+            return
+        }
         val response =
             try {
                 execute(request)
@@ -371,5 +381,8 @@ class ScheduleBridge(
         const val BRIDGE_RELATIVE_PATH = ".and-code/schedule-bridge"
         const val POLL_INTERVAL_MILLIS = 800L
         const val STALE_AFTER_MILLIS = 15 * 60_000L
+
+        /** The guest's 90 s reply timeout (`RESPONSE_TIMEOUT_S`) plus headroom for clock drift. */
+        const val REQUEST_EXPIRES_AFTER_MILLIS = 2 * 60_000L
     }
 }

@@ -96,8 +96,9 @@ fun Flow<Boolean>.debounceFalseEdge(graceMillis: Long): Flow<Boolean> =
  * Opening the gate polls at once rather than after a first interval, so whatever arrived while it
  * was shut - a request written just before the app was backgrounded, say - is picked up on the way
  * back in instead of a beat later. Closing it cancels the wait in progress, so nothing fires after
- * the flip; an [action] already running is allowed to finish. Never returns normally while the flow
- * stays open, so callers launch it in a scope they cancel.
+ * the flip. An [action] that never suspends always runs to completion; one that does is cancelled
+ * at its next suspension point, so it should not suspend between taking something and handing it
+ * on. Never returns normally while the flow stays open, so callers launch it in a scope they cancel.
  */
 suspend fun Flow<Boolean>.pollWhileActive(
     intervalMillis: Long,

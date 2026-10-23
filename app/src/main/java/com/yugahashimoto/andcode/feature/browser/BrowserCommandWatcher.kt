@@ -23,6 +23,10 @@ private const val POLL_INTERVAL_MILLIS = 1000L
  * and a composition outlives the activity being stopped, so without the gate this read the disk
  * every second for as long as the process was alive. A command written while the app was away is
  * opened as soon as it returns.
+ *
+ * [foreground] keys the effect, so it must be a reference that stays the same across recompositions
+ * (the app's own `StateFlow` is); a flow built inline would restart the watcher, and its immediate
+ * first poll, on every recomposition.
  */
 @Composable
 fun GuestBrowserCommandWatcher(
@@ -47,7 +51,13 @@ fun GuestBrowserCommandWatcher(
     }
 }
 
-/** The watcher's loop, apart from Compose so the gating can be tested with a virtual clock. */
+/**
+ * The watcher's loop, apart from Compose so the gating can be tested with a virtual clock.
+ *
+ * [poll] suspends while it reads the command file, so a gate that closes in that instant can drop
+ * the URL it has just consumed. That is a window of milliseconds at the moment the app is leaving
+ * the screen, when nobody is left to watch the browser open.
+ */
 internal suspend fun watchBrowserCommands(
     active: Flow<Boolean>,
     poll: suspend () -> String?,
