@@ -517,4 +517,42 @@ class ScheduleBridgeTest {
         assertTrue(readResponse(bridge, id).getBoolean("ok"))
         assertEquals(1, store.schedules.size)
     }
+
+    @Test
+    fun `the expiry line falls at the configured age`() {
+        val store = FakeStore()
+        val now = System.currentTimeMillis()
+        val bridge = bridgeWith(store, clock = { now })
+        val inside = requestId()
+        val outside = requestId()
+        val limit = ScheduleBridge.REQUEST_EXPIRES_AFTER_MILLIS
+        writeRequest(bridge, inside, "create", createArgs(prompt = "inside"), createdAtMs = now - limit + 1_000L)
+        writeRequest(bridge, outside, "create", createArgs(prompt = "outside"), createdAtMs = now - limit - 1_000L)
+
+        bridge.pollOnce()
+
+        assertTrue(readResponse(bridge, inside).getBoolean("ok"))
+        assertFalse(readResponse(bridge, outside).getBoolean("ok"))
+        assertEquals(listOf("inside"), store.schedules.map { it.prompt })
+    }
+
+    /** Only a timestamp that is plainly in the past counts as old; anything else is run as before. */
+    @Test
+    fun `a request stamped in the future or with no timestamp is run`() {
+        val store = FakeStore()
+        val now = System.currentTimeMillis()
+        val bridge = bridgeWith(store, clock = { now })
+        val future = requestId()
+        val missing = requestId()
+        writeRequest(bridge, future, "create", createArgs(prompt = "future"), createdAtMs = now + 60_000L)
+        File(pendingDir(bridge), "$missing.json").writeText(
+            JSONObject().put("op", "create").put("args", createArgs(prompt = "missing")).toString(),
+        )
+
+        bridge.pollOnce()
+
+        assertTrue(readResponse(bridge, future).getBoolean("ok"))
+        assertTrue(readResponse(bridge, missing).getBoolean("ok"))
+        assertEquals(setOf("future", "missing"), store.schedules.map { it.prompt }.toSet())
+    }
 }

@@ -218,6 +218,7 @@ OpenCodeがOAuthの `auto` 方式を返した場合、Androidはブラウザを�
 
 - `andcode-schedule-mcp.py` が `/usr/local/bin` に入り、全エージェントのMCP設定（OpenCodeの`opencode.json`、Claude Codeの`.claude.json`、Antigravityの`mcp_config.json`）へ `and-code-schedule` サーバーとして登録される
 - サーバーは `/workspace/.and-code/schedule-bridge/pending/<id>.json` へリクエストを書き、アプリ側の`ScheduleBridge`がポーリングして実行し、`responses/<id>.json` へ結果を書き戻す
+- ポーリングは、アプリが前面にあるか、ランタイムが作業中（チャットのセッション実行・スケジュール実行など）の間だけ動く。どちらでもないときは端末がスリープでき、ゲストも止まっているため待機し、前面に戻るか作業が始まった時点で即座に処理する。ゲスト側の応答待ち（90秒）を過ぎた古いリクエストは、実行せず期限切れエラーで破棄する
 - 書き込み系はスケジューリングUIと同じく暗号化リポジトリとアラーム（`ScheduleManager`）を通るため、変更はアプリのスケジュール画面へ即反映される
 - 提供ツール: `schedule_list` / `schedule_get` / `schedule_runs` / `schedule_create` / `schedule_update` / `schedule_delete` / `schedule_set_enabled` / `schedule_run_now`
 

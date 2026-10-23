@@ -382,7 +382,12 @@ class ScheduleBridge(
         const val POLL_INTERVAL_MILLIS = 800L
         const val STALE_AFTER_MILLIS = 15 * 60_000L
 
-        /** The guest's 90 s reply timeout (`RESPONSE_TIMEOUT_S`) plus headroom for clock drift. */
-        const val REQUEST_EXPIRES_AFTER_MILLIS = 2 * 60_000L
+        /**
+         * Just past the guest's 90 s reply timeout (`RESPONSE_TIMEOUT_S` in andcode-schedule-mcp.py,
+         * which must be kept in step with this), so a request is dropped once its caller has given up
+         * on it. No allowance for clock drift is needed: the guest runs under PRoot and reads the same
+         * kernel clock as this process.
+         */
+        const val REQUEST_EXPIRES_AFTER_MILLIS = 95_000L
     }
 }
