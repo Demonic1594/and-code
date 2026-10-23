@@ -268,6 +268,8 @@ fun NavGraphBuilder.settingsNavGraph(
             onAssistantModelChange = { providerId, modelId ->
                 settingsViewModel.setAssistantModel(providerId, modelId)
             },
+            favoriteModelKeys = settingsState.favoriteModelKeys,
+            onToggleFavoriteModel = settingsViewModel::toggleFavoriteModel,
             onAssistantWorkspaceChange = { path ->
                 settingsViewModel.setAssistantWorkspacePath(path)
             },

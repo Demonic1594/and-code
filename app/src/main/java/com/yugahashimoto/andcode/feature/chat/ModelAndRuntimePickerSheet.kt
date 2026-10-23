@@ -74,10 +74,12 @@ fun ModelAndRuntimePickerSheet(
     selectedProviderId: String?,
     selectedModelId: String?,
     onSelectModel: (String, String) -> Unit,
-    favoriteModelKeys: Set<String> = emptySet(),
+    // Required, with no default: every row draws a star. A caller that forgot these used to get an
+    // empty set and a no-op, so its stars rendered but did nothing when tapped.
+    favoriteModelKeys: Set<String>,
+    onToggleFavorite: (String, String) -> Unit,
     recentModelKeys: List<String> = emptyList(),
     hiddenModelKeys: Set<String> = emptySet(),
-    onToggleFavorite: (String, String) -> Unit = { _, _ -> },
     showLocalSuffix: Boolean = true,
     onConnectProvider: (() -> Unit)? = null,
     onDismiss: () -> Unit,

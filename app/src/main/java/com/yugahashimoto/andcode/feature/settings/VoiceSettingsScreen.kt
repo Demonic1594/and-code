@@ -105,6 +105,7 @@ fun VoiceSettingsScreen(
     workspaces: List<WorkspaceRef> = emptyList(),
     assistantProviderId: String? = null,
     assistantModelId: String? = null,
+    favoriteModelKeys: Set<String> = emptySet(),
     assistantWorkspacePath: String = "",
     onTtsChange: (Boolean) -> Unit,
     onTtsProviderChange: (String) -> Unit = {},
@@ -129,6 +130,7 @@ fun VoiceSettingsScreen(
     onWakeWordModelRemove: () -> Unit = {},
     onAssistantRuntimeChange: (String) -> Unit = {},
     onAssistantModelChange: (String, String) -> Unit = { _, _ -> },
+    onToggleFavoriteModel: (String, String) -> Unit = { _, _ -> },
     onAssistantWorkspaceChange: (String) -> Unit = {},
     onBack: () -> Unit,
 ) {
@@ -302,9 +304,11 @@ fun VoiceSettingsScreen(
                             assistantRuntimeId = assistantRuntimeId,
                             assistantProviderId = assistantProviderId,
                             assistantModelId = assistantModelId,
+                            favoriteModelKeys = favoriteModelKeys,
                             assistantWorkspacePath = assistantWorkspacePath,
                             onRuntimeChange = onAssistantRuntimeChange,
                             onModelChange = onAssistantModelChange,
+                            onToggleFavoriteModel = onToggleFavoriteModel,
                             onWorkspaceChange = onAssistantWorkspaceChange,
                         )
                     }
@@ -587,9 +591,11 @@ private fun AssistantTargetSection(
     assistantRuntimeId: String?,
     assistantProviderId: String?,
     assistantModelId: String?,
+    favoriteModelKeys: Set<String>,
     assistantWorkspacePath: String,
     onRuntimeChange: (String) -> Unit,
     onModelChange: (String, String) -> Unit,
+    onToggleFavoriteModel: (String, String) -> Unit,
     onWorkspaceChange: (String) -> Unit,
 ) {
     var showPicker by remember { mutableStateOf(false) }
@@ -648,6 +654,8 @@ private fun AssistantTargetSection(
             providers = targetProviders,
             selectedProviderId = assistantProviderId,
             selectedModelId = assistantModelId,
+            favoriteModelKeys = favoriteModelKeys,
+            onToggleFavorite = onToggleFavoriteModel,
             showLocalSuffix = false,
             onSelectModel = { providerId, modelId ->
                 onModelChange(providerId, modelId)
