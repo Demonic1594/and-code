@@ -1220,10 +1220,13 @@ private fun ChatStallCard(
             Text(text = stall.explain(context))
             stall.supportingDetail()?.let { detail ->
                 Spacer(Modifier.height(4.dp))
+                // Capped: a provider failure can arrive as a whole JSON error body.
                 Text(
                     text = detail,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Spacer(Modifier.height(12.dp))

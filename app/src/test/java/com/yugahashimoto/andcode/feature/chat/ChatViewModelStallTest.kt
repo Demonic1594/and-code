@@ -291,6 +291,24 @@ class ChatViewModelStallTest {
         }
 
     @Test
+    fun `stopping a retrying run takes the retry down with it`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = viewModel(backend)
+
+            viewModel.sendMessage("Hello")
+            backend.events.emit(retryStatus(attempt = 2, message = "Overloaded"))
+            advanceUntilIdle()
+            assertEquals(2, viewModel.uiState.value.retry?.attempt)
+
+            viewModel.abort()
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isRunning)
+            assertNull(viewModel.uiState.value.retry)
+        }
+
+    @Test
     fun `a run the provider keeps failing is explained as a retry, not as producing nothing`() =
         runTest(dispatcher) {
             val backend = FakeBackend()
