@@ -5,6 +5,8 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -104,11 +106,15 @@ class OpenCodeEventParser(
                         )
                     OpenCodeEvent.SessionUpdated(session)
                 }
-                "session.status" ->
+                "session.status" -> {
+                    val status = properties["status"]!!.jsonObject
+                    val statusType = status["type"]!!.jsonPrimitive.content
                     OpenCodeEvent.SessionStatusChanged(
                         sessionId = properties["sessionID"]!!.jsonPrimitive.content,
-                        status = properties["status"]!!.jsonObject["type"]!!.jsonPrimitive.content,
+                        status = statusType,
+                        retry = if (statusType == "retry") parseRetry(status) else null,
                     )
+                }
                 "session.error" -> {
                     val errorObject = properties["error"] as? JsonObject
                     OpenCodeEvent.SessionError(
@@ -121,6 +127,18 @@ class OpenCodeEventParser(
             }
         }.getOrElse { OpenCodeEvent.Unknown(type, raw) }
     }
+
+    /**
+     * `{"type":"retry","attempt":3,"message":"...","next":<epoch millis>}`. A retry status missing
+     * its details is still a retry, so the fields fall back rather than the whole event being lost
+     * to [OpenCodeEvent.Unknown]. `next` is not kept: a countdown rendered from it would sit stale
+     * between events.
+     */
+    private fun parseRetry(status: JsonObject): RunRetry =
+        RunRetry(
+            attempt = (status["attempt"] as? JsonPrimitive)?.intOrNull?.coerceAtLeast(1) ?: 1,
+            message = (status["message"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() },
+        )
 
     /**
      * OpenCode reports session failures as a named error object, e.g.

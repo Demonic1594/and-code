@@ -379,6 +379,18 @@ data class QuestionRequest(
     val directory: String? = null,
 )
 
+/**
+ * A provider call that failed in a way the runtime retries on its own (a rate limit, an overloaded
+ * model, a dropped connection). While it waits out the backoff the run produces no output at all,
+ * which from the chat looks identical to a model that is thinking hard.
+ */
+data class RunRetry(
+    /** Which attempt just failed, counting from 1. */
+    val attempt: Int,
+    /** The provider's own words for the failure, when the runtime passed them on. */
+    val message: String?,
+)
+
 sealed interface OpenCodeEvent {
     data object ServerConnected : OpenCodeEvent
 
@@ -408,8 +420,15 @@ sealed interface OpenCodeEvent {
     /** A session's metadata changed; carries the same payload as [SessionCreated]. */
     data class SessionUpdated(val session: OpenCodeSession) : OpenCodeEvent
 
-    /** Replacement for the deprecated `session.idle`: status is `idle`, `busy` or `retry`. */
-    data class SessionStatusChanged(val sessionId: String, val status: String) : OpenCodeEvent
+    /**
+     * Replacement for the deprecated `session.idle`: status is `idle`, `busy` or `retry`. A `retry`
+     * carries [retry], the provider failure the runtime is waiting out before it tries again.
+     */
+    data class SessionStatusChanged(
+        val sessionId: String,
+        val status: String,
+        val retry: RunRetry? = null,
+    ) : OpenCodeEvent
 
     /**
      * A run stopped on purpose — stop button, or interrupted by a replacement prompt — is a decision,

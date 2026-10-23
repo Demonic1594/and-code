@@ -137,6 +137,7 @@ import com.yugahashimoto.andcode.core.api.OpenCodeModel
 import com.yugahashimoto.andcode.core.api.OpenCodeProvider
 import com.yugahashimoto.andcode.core.api.OpenCodeSkill
 import com.yugahashimoto.andcode.core.api.PromptAttachment
+import com.yugahashimoto.andcode.core.api.RunRetry
 import com.yugahashimoto.andcode.core.api.defaultAgentName
 import com.yugahashimoto.andcode.core.api.selectablePrimaryAgents
 import com.yugahashimoto.andcode.core.diagnostics.StallDiagnosis
@@ -550,6 +551,10 @@ fun ChatHomeScreen(
                                         onStop = onAbort,
                                     )
                                 }
+                            } else if (state.isRunning && state.retry != null) {
+                                // The runtime is waiting out a provider failure. Saying so beats a
+                                // "Processing" label that reads the same as a model that is just slow.
+                                item(key = "retry") { ChatRetryCard(retry = state.retry) }
                             } else if (state.isRunning && timelineEntries.isNotEmpty()) {
                                 item(key = "processing") {
                                     Text(
@@ -574,7 +579,7 @@ fun ChatHomeScreen(
                             // Not while a stall is up: a turn that has produced nothing never
                             // cleared this flag, so the warning would sit directly above a chip
                             // cheerfully reporting that the same turn is thinking.
-                            if (state.isThinking && state.stall == null) {
+                            if (state.isThinking && state.stall == null && state.retry == null) {
                                 item { StatusChip(text = stringResource(R.string.thinking), active = true) }
                             }
                             state.error?.let { error ->
@@ -1215,10 +1220,13 @@ private fun ChatStallCard(
             Text(text = stall.explain(context))
             stall.supportingDetail()?.let { detail ->
                 Spacer(Modifier.height(4.dp))
+                // Capped: a provider failure can arrive as a whole JSON error body.
                 Text(
                     text = detail,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Spacer(Modifier.height(12.dp))
@@ -1240,6 +1248,56 @@ private fun ChatStallCard(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Tells the user why a run that is still going is not producing anything: the provider failed and
+ * the runtime is trying again by itself. A rate-limited or overloaded model can keep this up for a
+ * long time, and without the card it is indistinguishable from one that is thinking slowly.
+ */
+@Composable
+private fun ChatRetryCard(retry: RunRetry) {
+    Surface(
+        modifier = Modifier.testTag("chat-retry-card"),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WarningAmber,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = stringResource(R.string.chat_retry_title),
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.chat_retry_attempt, retry.attempt),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            retry.message?.let { message ->
+                Spacer(Modifier.height(6.dp))
+                // The provider's own words, capped: some return a whole JSON error body.
+                Text(text = message, maxLines = 4, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.chat_retry_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

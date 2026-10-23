@@ -138,11 +138,15 @@
     <string name="chat_stall_reason_awaiting_permission">L’exécution est bloquée sur une approbation. Répondez à la demande d’approbation pour continuer.</string>
     <string name="chat_stall_reason_awaiting_question">L’exécution est bloquée sur une question. Répondez-y pour continuer.</string>
     <string name="chat_stall_reason_stream_disconnected">La connexion aux événements est coupée : la progression n’arrive plus à l’application.</string>
+    <string name="chat_stall_reason_provider_retrying">Le fournisseur du modèle renvoie sans cesse des erreurs et le runtime réessaie. L’exécution reprendra si le fournisseur se rétablit ; arrêtez-la si vous préférez ne pas attendre.</string>
     <string name="chat_stall_reason_tool_running">L’outil %1$s est toujours en cours et n’a rien renvoyé.</string>
     <string name="chat_stall_reason_no_output">Le runtime indique toujours une exécution en cours mais ne produit rien. Elle s’est probablement arrêtée.</string>
     <string name="chat_stall_reason_tool_running_unnamed">Un outil est toujours en cours et n’a rien renvoyé.</string>
     <string name="chat_stall_recheck">Vérifier à nouveau</string>
     <string name="chat_stall_stop">Arrêter l’exécution</string>
+    <string name="chat_retry_title">Le fournisseur du modèle a renvoyé une erreur</string>
+    <string name="chat_retry_attempt">Nouvelle tentative automatique · essai %1$d</string>
+    <string name="chat_retry_hint">L’exécution reprend d’elle-même si le fournisseur se rétablit. Vous pouvez l’arrêter à tout moment avec le bouton d’arrêt.</string>
     <string name="schedule_run_interrupted">L\'exécution a été interrompue avant la fin</string>
     <string name="schedule_completion_timeout">L\'exécution planifiée n\'a plus donné signe de vie et ne s\'est jamais terminée</string>
     <string name="schedule_max_duration">L\'exécution planifiée a dépassé sa durée maximale</string>

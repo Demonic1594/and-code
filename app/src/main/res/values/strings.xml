@@ -137,11 +137,15 @@
     <string name="chat_stall_reason_awaiting_permission">The run is blocked on an approval. Answer the approval request to continue.</string>
     <string name="chat_stall_reason_awaiting_question">The run is blocked on a question. Answer it to continue.</string>
     <string name="chat_stall_reason_stream_disconnected">The event connection is down, so progress is not reaching the app.</string>
+    <string name="chat_stall_reason_provider_retrying">The model provider keeps returning errors and the runtime is retrying. The run continues if the provider recovers; stop it if you would rather not wait.</string>
     <string name="chat_stall_reason_tool_running">The tool %1$s is still running and has not reported back.</string>
     <string name="chat_stall_reason_no_output">The runtime still reports the run as working but is producing nothing. It has probably stopped.</string>
     <string name="chat_stall_reason_tool_running_unnamed">A tool is still running and has not reported back.</string>
     <string name="chat_stall_recheck">Check again</string>
     <string name="chat_stall_stop">Stop the run</string>
+    <string name="chat_retry_title">The model provider returned an error</string>
+    <string name="chat_retry_attempt">Retrying automatically · attempt %1$d</string>
+    <string name="chat_retry_hint">The run continues by itself if the provider recovers. Stop it any time with the stop button.</string>
     <string name="notification_stalled_title">A run has gone quiet</string>
     <string name="notification_stalled_body">%1$s · %2$s</string>
     <string name="notification_permission_failed">Could not send the approval. Open the app and try again.</string>

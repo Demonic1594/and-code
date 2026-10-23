@@ -19,6 +19,7 @@ import com.yugahashimoto.andcode.core.api.PromptRequest
 import com.yugahashimoto.andcode.core.api.PullRequestRef
 import com.yugahashimoto.andcode.core.api.QuestionPrompt
 import com.yugahashimoto.andcode.core.api.QuestionRequest
+import com.yugahashimoto.andcode.core.api.RunRetry
 import com.yugahashimoto.andcode.core.api.sessionIdOrNull
 import com.yugahashimoto.andcode.core.diagnostics.RunSignals
 import com.yugahashimoto.andcode.core.diagnostics.StallDiagnosis
@@ -545,6 +546,13 @@ data class ChatUiState(
      * best available answer to "is this still working, and if not, why not".
      */
     val stall: StallDiagnosis? = null,
+    /**
+     * Set while the runtime is waiting out a failing provider call before trying it again, and
+     * cleared by the first output of the run or its end. Without it a rate-limited or overloaded
+     * model looks exactly like a slow one: the chat sits on "Thinking" for as long as the retries
+     * last, which has no upper bound.
+     */
+    val retry: RunRetry? = null,
     val error: String? = null,
     /**
      * Set by [ChatViewModel.editLastUserMessage] to the text of the message it just removed, so the
@@ -806,7 +814,9 @@ class ChatViewModel(
                     .collectLatest { running ->
                         if (!running) {
                             // Whatever the run was doing, it is not doing it any more.
-                            if (_uiState.value.stall != null) _uiState.update { it.copy(stall = null) }
+                            if (_uiState.value.stall != null || _uiState.value.retry != null) {
+                                _uiState.update { it.copy(stall = null, retry = null) }
+                            }
                             return@collectLatest
                         }
                         recordProgress()
@@ -1491,6 +1501,7 @@ class ChatViewModel(
                 messages = it.messages + userMessage,
                 isRunning = true,
                 isThinking = true,
+                retry = null,
                 partialText = "",
                 error = null,
             )
@@ -1707,6 +1718,7 @@ class ChatViewModel(
                 messages = it.messages + userMessage,
                 isRunning = true,
                 isThinking = true,
+                retry = null,
                 partialText = "",
                 error = null,
             )
@@ -2260,6 +2272,7 @@ class ChatViewModel(
                     streamError = streamError,
                     awaitingPermission = state.permissions.isNotEmpty(),
                     awaitingQuestion = state.pendingQuestions.isNotEmpty(),
+                    retry = state.retry,
                     transcript = transcript.map(::inspectRun).getOrDefault(RunSignals()),
                 ),
             )
@@ -2439,6 +2452,10 @@ class ChatViewModel(
                         if (!_uiState.value.isRunning) {
                             _uiState.update { it.copy(isRunning = true) }
                         }
+                        // Kept through the busy that starts each new attempt and only cleared by
+                        // output or the end of the run, so the card does not flicker back to
+                        // "Thinking" between failures.
+                        event.retry?.let { retry -> _uiState.update { it.copy(retry = retry) } }
                     }
                 }
             }
@@ -2540,7 +2557,7 @@ class ChatViewModel(
                                 isStreaming = !existing.isUser,
                             )
                     }
-                return@update state.copy(messages = updated, isRunning = true, isThinking = false)
+                return@update state.copy(messages = updated, isRunning = true, isThinking = false, retry = null)
             }
 
             val incomingText = parts.filterIsInstance<ChatPart.Text>().joinToString("") { it.text }
@@ -2564,6 +2581,7 @@ class ChatViewModel(
                         ),
                 isRunning = true,
                 isThinking = false,
+                retry = null,
             )
         }
     }

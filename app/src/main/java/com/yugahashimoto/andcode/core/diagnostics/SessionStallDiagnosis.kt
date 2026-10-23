@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.core.diagnostics
 
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
+import com.yugahashimoto.andcode.core.api.RunRetry
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -32,6 +33,9 @@ enum class StallReason {
 
     /** The event stream is down, so progress may be happening unseen. */
     STREAM_DISCONNECTED,
+
+    /** The provider keeps failing and the runtime is waiting out its backoff to try again. */
+    PROVIDER_RETRYING,
 
     /** A tool call has been in flight for the whole silent stretch. */
     TOOL_RUNNING,
@@ -89,6 +93,11 @@ data class StallEvidence(
     val streamError: String? = null,
     val awaitingPermission: Boolean = false,
     val awaitingQuestion: Boolean = false,
+    /**
+     * The retry the runtime last announced for this run, if it has not produced anything since.
+     * Only the chat sees these as they arrive; a caller that does not track them leaves it null.
+     */
+    val retry: RunRetry? = null,
     val transcript: RunSignals = RunSignals(),
 )
 
@@ -142,6 +151,13 @@ fun diagnoseStall(evidence: StallEvidence): StallDiagnosis {
         !evidence.streamConnected -> {
             reason = StallReason.STREAM_DISCONNECTED
             detail = evidence.streamError
+        }
+        // After the stream check because a retry is only known from events: with the stream down it
+        // may be long out of date. Before the tool check because a retry is what a run is doing
+        // once its tools have finished and the next model call keeps failing.
+        evidence.retry != null -> {
+            reason = StallReason.PROVIDER_RETRYING
+            detail = evidence.retry.message
         }
         evidence.transcript.runningTool != null -> {
             reason = StallReason.TOOL_RUNNING

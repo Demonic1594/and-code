@@ -5,6 +5,7 @@ import com.yugahashimoto.andcode.core.api.OpenCodeMessageError
 import com.yugahashimoto.andcode.core.api.OpenCodeMessageInfo
 import com.yugahashimoto.andcode.core.api.OpenCodePart
 import com.yugahashimoto.andcode.core.api.OpenCodeTime
+import com.yugahashimoto.andcode.core.api.RunRetry
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -104,6 +105,51 @@ class SessionStallDiagnosisTest {
 
         assertEquals(StallReason.STREAM_DISCONNECTED, diagnosis.reason)
         assertEquals("unexpected end of stream", diagnosis.detail)
+    }
+
+    @Test
+    fun `a run the runtime keeps retrying is named as that, with the provider's reason`() {
+        val diagnosis =
+            diagnoseStall(
+                StallEvidence(
+                    silentForMillis = 200_000L,
+                    retry = RunRetry(attempt = 4, message = "Rate limit exceeded"),
+                ),
+            )
+
+        assertEquals(StallReason.PROVIDER_RETRYING, diagnosis.reason)
+        assertEquals("Rate limit exceeded", diagnosis.detail)
+        // The runtime is alive and says why it is waiting; this is not the red "it has stopped".
+        assertFalse(diagnosis.isStopped)
+        assertFalse(diagnosis.isTerminal)
+    }
+
+    @Test
+    fun `a retry that is out of date does not hide a turn the transcript shows as finished`() {
+        val diagnosis =
+            diagnoseStall(
+                StallEvidence(
+                    silentForMillis = 200_000L,
+                    retry = RunRetry(attempt = 2, message = "Overloaded"),
+                    transcript = RunSignals(turnCompleted = true),
+                ),
+            )
+
+        assertEquals(StallReason.COMPLETION_MISSED, diagnosis.reason)
+    }
+
+    @Test
+    fun `a retry does not hide a dead event stream`() {
+        val diagnosis =
+            diagnoseStall(
+                StallEvidence(
+                    silentForMillis = 200_000L,
+                    streamConnected = false,
+                    retry = RunRetry(attempt = 2, message = "Overloaded"),
+                ),
+            )
+
+        assertEquals(StallReason.STREAM_DISCONNECTED, diagnosis.reason)
     }
 
     @Test
