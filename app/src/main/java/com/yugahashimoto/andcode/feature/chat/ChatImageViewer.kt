@@ -303,7 +303,7 @@ private fun File.isInside(root: File): Boolean {
     return canonicalFile.toPath().startsWith(canonicalRoot)
 }
 
-private fun readLimited(input: java.io.InputStream): ByteArray {
+internal fun readLimited(input: java.io.InputStream): ByteArray {
     val output = ByteArrayOutputStream()
     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
     var total = 0
