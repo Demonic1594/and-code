@@ -119,6 +119,7 @@ import com.yugahashimoto.andcode.ui.navigation.ROUTE_SCHEDULES
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SCHEDULE_EDIT
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_AGENT_CODEX
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_PROVIDERS
+import com.yugahashimoto.andcode.ui.navigation.ROUTE_WORKSPACES
 import com.yugahashimoto.andcode.ui.navigation.SCHEDULE_DETAIL_ROUTE_PATTERN
 import com.yugahashimoto.andcode.ui.navigation.SCHEDULE_EDIT_ARG_ID
 import com.yugahashimoto.andcode.ui.navigation.SCHEDULE_EDIT_ROUTE_PATTERN
@@ -186,6 +187,8 @@ fun AndCodeApp(
     uiFontSize: Int = 16,
     chatDeepLink: ChatDeepLink? = null,
     onChatDeepLinkConsumed: () -> Unit = {},
+    shortcutLink: ShortcutLink? = null,
+    onShortcutLinkConsumed: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -711,6 +714,23 @@ fun AndCodeApp(
         val title = knownSession?.session?.title?.takeIf(String::isNotBlank) ?: link.sessionId
         pendingSession = link.sessionId to title
         navController.navigate(ROUTE_CHAT) { launchSingleTop = true }
+    }
+
+    // A launcher shortcut. Ignored until onboarding is done: there is no chat or workspace to land
+    // on yet, and skipping past setup would leave the user on an empty screen.
+    LaunchedEffect(shortcutLink) {
+        val link = shortcutLink ?: return@LaunchedEffect
+        onShortcutLinkConsumed()
+        if (!app.settings.onboardingCompleted) return@LaunchedEffect
+        when (link.destination) {
+            ShortcutDestination.NEW_CHAT -> {
+                pendingSession = null
+                chatViewModel.newSession()
+                navController.navigate(ROUTE_CHAT) { launchSingleTop = true }
+            }
+            ShortcutDestination.WORKSPACES -> navController.navigate(ROUTE_WORKSPACES) { launchSingleTop = true }
+            ShortcutDestination.SCHEDULES -> navController.navigate(ROUTE_SCHEDULES) { launchSingleTop = true }
+        }
     }
 
     // Lets the in-guest agent pop the guest browser open for the user by dropping a command

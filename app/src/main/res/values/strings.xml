@@ -1273,4 +1273,12 @@
     <string name="git_commit_title">Commit changes</string>
     <string name="git_commit_body">Changed files: %1$d. All of them will be staged and committed.</string>
     <string name="git_commit_message_label">Commit message</string>
+    <string name="shortcut_new_chat">New chat</string>
+    <string name="tile_quick_prompt">AndCode prompt</string>
+    <string name="schedule_templates_title">Start from a template</string>
+    <string name="schedule_template_daily_summary">Daily change summary</string>
+    <string name="schedule_template_dependencies">Weekly dependency check</string>
+    <string name="schedule_template_tests">Nightly test run</string>
+    <string name="schedule_template_todos">TODO sweep</string>
+    <string name="schedule_template_security">Monthly security review</string>
 </resources>
