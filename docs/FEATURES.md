@@ -18,6 +18,8 @@ page: [`TOKEN_EFFICIENCY.md`](TOKEN_EFFICIENCY.md).
 | Feature | Where | Notes |
 |---------|-------|-------|
 | Search chats | Drawer → search field above the chat list | Matches every word against the chat title and its project folder. |
+| Search inside messages | Drawer → type in the search field → **Search messages for "…"** | Reads every chat's messages through its agent, a few chats at a time, and lists the chats that contain the text, best matches first, each with a line of context. **Include archived** adds the Archive. A chat that was not changed since the last search is not read again. Tapping a result opens the chat with the same text already in its find bar. |
+| Find in chat | Chat → 🔍 in the top bar | Highlights every row that contains the text, shows "3 of 12", and jumps between matches with ↑/↓, starting at the newest. Finds the reasoning and tool calls inside collapsed activity groups too. Back closes it. |
 | Pin chats | Long-press a chat in the drawer → pin icon | Pinned chats get their own section at the top. Long-press again to unpin. Auto-archive never touches a pinned chat, and up to two pinned chats also appear as launcher shortcuts. |
 | Saved prompts | Settings → Chat → **Saved prompts**; type `/` in the composer | Each saved prompt answers to `/name`. Picking it from the popup puts its text in the composer to edit first; sending `/name` sends the saved text. Arguments work like Claude Code's custom commands: `/fix-issue 123 high` fills `$ARGUMENTS` with everything after the command and `$1`, `$2`… with single words. A prompt without placeholders gets the arguments appended. Picking a prompt that takes arguments from the popup inserts `/name ` so you can type them. A prompt can't take the name of a built-in command. |
 | Delete for real | Drawer → long-press a chat → delete | The chat is gone everywhere, not just hidden: Claude Code's transcript, todos and file history in the runtime, Antigravity's conversation files, the Codex thread and the OpenCode session, plus AndCode's own pin, draft and unread mark. One chat goes at once with **Undo** on the snackbar for 5 seconds; several ask first. If an agent refuses (an older Codex without `thread/delete`, say), the snackbar says why instead of the chat quietly coming back. |
@@ -53,8 +55,7 @@ it too.
 ## Not done yet
 
 Researched and ranked in the landscape doc but not built: checkpoints / rewind, per-workspace
-rules, an AI-written commit message button, saved prompts stored as files in the repo, search
-inside message text, an ongoing "run in progress" notification, an
+rules, an AI-written commit message button, saved prompts stored as files in the repo, an ongoing "run in progress" notification, an
 interactive PTY terminal, one worktree per chat, best-of-N attempts, inline diff comments, E2E
 relay pairing, spec-driven templates, an agent tasks inbox, a dev-server preview button and an
 issue-to-chat entry point.

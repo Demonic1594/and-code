@@ -70,6 +70,7 @@ import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Terminal
@@ -109,6 +110,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -279,6 +281,12 @@ fun ChatHomeScreen(
     onSaveDraft: (String, String) -> Unit = { _, _ -> },
     /** The user's saved prompts, offered in the slash popup next to the built-in commands. */
     savedPrompts: List<SavedPrompt> = emptyList(),
+    /**
+     * Opens the find bar on a chat with this text, e.g. from a search result in another screen,
+     * as (session id, query); then [onFindRequestConsumed].
+     */
+    findRequest: Pair<String, String>? = null,
+    onFindRequestConsumed: () -> Unit = {},
 ) {
     // Saved state, not plain remember: the Activity is recreated on rotation and other
     // configuration changes, and a remembered field would come back empty. The TextFieldValue
@@ -297,6 +305,18 @@ fun ChatHomeScreen(
     var selectedImage by remember { mutableStateOf<ChatImageSource?>(null) }
     var legacyDownload by remember { mutableStateOf<ChatImageSource?>(null) }
     val timelineEntries = remember(state.messages) { groupConversationTimeline(state.messages) }
+    // Find in chat: which rows match, and which of them is the current one. A new query starts at
+    // the newest match, since the chat itself sits at the bottom.
+    var findActive by rememberSaveable { mutableStateOf(false) }
+    var findQuery by rememberSaveable { mutableStateOf("") }
+    var findIndex by remember { mutableStateOf(-1) }
+    // The chat the find bar belongs to: switching to another chat closes it.
+    var findSessionId by rememberSaveable { mutableStateOf<String?>(null) }
+    val findMatches =
+        remember(timelineEntries, findQuery, findActive) {
+            if (findActive) chatFindMatches(timelineEntries, findQuery) else emptyList()
+        }
+    val currentMatchRow = findMatches.getOrNull(findIndex)
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
     var showSlashCommands by remember { mutableStateOf(false) }
@@ -367,6 +387,29 @@ fun ChatHomeScreen(
         }.collect { atBottom -> isAtBottom.value = atBottom }
     }
 
+    // Declared before the request effect, so a request for a chat that is still loading is not
+    // closed by this check on the same frame.
+    LaunchedEffect(state.sessionId) {
+        if (findActive && findSessionId != state.sessionId) findActive = false
+    }
+    LaunchedEffect(findRequest) {
+        val (sessionId, query) = findRequest ?: return@LaunchedEffect
+        findActive = true
+        findSessionId = sessionId
+        findQuery = query
+        findIndex = -1
+        onFindRequestConsumed()
+    }
+    LaunchedEffect(findMatches) {
+        if (findIndex !in findMatches.indices) findIndex = findMatches.lastIndex
+    }
+    // Keyed on the position and query only, so a reply streaming in does not yank the list back.
+    LaunchedEffect(findIndex, findQuery) {
+        val row = findMatches.getOrNull(findIndex) ?: return@LaunchedEffect
+        isAtBottom.value = false
+        listState.animateScrollToItem(row)
+    }
+
     LaunchedEffect(timelineEntries.size, state.permissions.size, state.pendingQuestions.size) {
         val totalItems = timelineEntries.size + state.permissions.size + state.pendingQuestions.size
         if (totalItems > 0 && isAtBottom.value) listState.animateScrollToItem(totalItems - 1)
@@ -419,7 +462,8 @@ fun ChatHomeScreen(
 
     // A subagent session is a detour, not a destination: the system back gesture returns to the
     // main agent instead of leaving the chat, matching the in-chat return banner.
-    BackHandler(enabled = state.parentSession != null) { onReturnToParentSession() }
+    BackHandler(enabled = state.parentSession != null && !findActive) { onReturnToParentSession() }
+    BackHandler(enabled = findActive) { findActive = false }
 
     Box(
         modifier =
@@ -460,86 +504,108 @@ fun ChatHomeScreen(
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background),
         ) {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        text = state.sessionTitle.ifBlank { stringResource(R.string.chat_home_title) },
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.menu_description))
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onNewChat) {
-                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.new_chat))
-                    }
-                    if (state.messages.isNotEmpty()) {
-                        Box {
-                            IconButton(onClick = { showChatMenu = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.chat_menu_more))
-                            }
-                            ChatOverflowMenu(
-                                expanded = showChatMenu,
-                                onDismiss = { showChatMenu = false },
-                                usage = state.sessionUsage,
-                                onShare = {
-                                    showChatMenu = false
-                                    val title = state.sessionTitle.ifBlank { context.getString(R.string.chat_home_title) }
-                                    val labels =
-                                        TranscriptLabels(
-                                            user = context.getString(R.string.transcript_user),
-                                            assistant = context.getString(R.string.transcript_assistant),
-                                            tool = context.getString(R.string.transcript_tool),
-                                            error = context.getString(R.string.transcript_error),
-                                        )
-                                    shareChatTranscript(
-                                        context = context,
-                                        title = title,
-                                        markdown = chatTranscriptMarkdown(title, state.messages, labels),
-                                        chooserTitle = context.getString(R.string.chat_menu_share),
-                                    )
-                                },
-                                onCopy = {
-                                    showChatMenu = false
-                                    val title = state.sessionTitle.ifBlank { context.getString(R.string.chat_home_title) }
-                                    val labels =
-                                        TranscriptLabels(
-                                            user = context.getString(R.string.transcript_user),
-                                            assistant = context.getString(R.string.transcript_assistant),
-                                            tool = context.getString(R.string.transcript_tool),
-                                            error = context.getString(R.string.transcript_error),
-                                        )
-                                    val markdown = chatTranscriptMarkdown(title, state.messages, labels)
-                                    val copied =
-                                        markdown.length <= MAX_CLIPBOARD_TRANSCRIPT_CHARS &&
-                                            runCatching { clipboardManager.setText(AnnotatedString(markdown)) }.isSuccess
-                                    if (copied) {
-                                        haptics.perform(HapticEvent.CONFIRM)
-                                    } else {
-                                        // Too big for the clipboard: hand it over as a file instead.
-                                        haptics.perform(HapticEvent.REJECT)
-                                        Toast.makeText(context, R.string.chat_copy_too_long, Toast.LENGTH_LONG).show()
-                                        shareChatTranscript(context, title, markdown, context.getString(R.string.chat_menu_share))
-                                    }
-                                },
-                            )
+            if (findActive) {
+                ChatFindBar(
+                    query = findQuery,
+                    onQueryChange = {
+                        findQuery = it
+                        findIndex = -1
+                    },
+                    current = findIndex,
+                    total = findMatches.size,
+                    onOlder = { if (findMatches.isNotEmpty()) findIndex = (findIndex - 1 + findMatches.size) % findMatches.size },
+                    onNewer = { if (findMatches.isNotEmpty()) findIndex = (findIndex + 1) % findMatches.size },
+                    onClose = { findActive = false },
+                )
+            } else {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = state.sessionTitle.ifBlank { stringResource(R.string.chat_home_title) },
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onOpenDrawer) {
+                            Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.menu_description))
                         }
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
-                        actionIconContentColor = MaterialTheme.colorScheme.onBackground,
-                    ),
-            )
+                    },
+                    actions = {
+                        IconButton(onClick = onNewChat) {
+                            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.new_chat))
+                        }
+                        if (state.messages.isNotEmpty()) {
+                            IconButton(onClick = {
+                                findActive = true
+                                findSessionId = state.sessionId
+                                findIndex = -1
+                            }) {
+                                Icon(Icons.Default.Search, contentDescription = stringResource(R.string.chat_find_open))
+                            }
+                            Box {
+                                IconButton(onClick = { showChatMenu = true }) {
+                                    Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.chat_menu_more))
+                                }
+                                ChatOverflowMenu(
+                                    expanded = showChatMenu,
+                                    onDismiss = { showChatMenu = false },
+                                    usage = state.sessionUsage,
+                                    onShare = {
+                                        showChatMenu = false
+                                        val title = state.sessionTitle.ifBlank { context.getString(R.string.chat_home_title) }
+                                        val labels =
+                                            TranscriptLabels(
+                                                user = context.getString(R.string.transcript_user),
+                                                assistant = context.getString(R.string.transcript_assistant),
+                                                tool = context.getString(R.string.transcript_tool),
+                                                error = context.getString(R.string.transcript_error),
+                                            )
+                                        shareChatTranscript(
+                                            context = context,
+                                            title = title,
+                                            markdown = chatTranscriptMarkdown(title, state.messages, labels),
+                                            chooserTitle = context.getString(R.string.chat_menu_share),
+                                        )
+                                    },
+                                    onCopy = {
+                                        showChatMenu = false
+                                        val title = state.sessionTitle.ifBlank { context.getString(R.string.chat_home_title) }
+                                        val labels =
+                                            TranscriptLabels(
+                                                user = context.getString(R.string.transcript_user),
+                                                assistant = context.getString(R.string.transcript_assistant),
+                                                tool = context.getString(R.string.transcript_tool),
+                                                error = context.getString(R.string.transcript_error),
+                                            )
+                                        val markdown = chatTranscriptMarkdown(title, state.messages, labels)
+                                        val copied =
+                                            markdown.length <= MAX_CLIPBOARD_TRANSCRIPT_CHARS &&
+                                                runCatching { clipboardManager.setText(AnnotatedString(markdown)) }.isSuccess
+                                        if (copied) {
+                                            haptics.perform(HapticEvent.CONFIRM)
+                                        } else {
+                                            // Too big for the clipboard: hand it over as a file instead.
+                                            haptics.perform(HapticEvent.REJECT)
+                                            Toast.makeText(context, R.string.chat_copy_too_long, Toast.LENGTH_LONG).show()
+                                            shareChatTranscript(context, title, markdown, context.getString(R.string.chat_menu_share))
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    },
+                    colors =
+                        TopAppBarDefaults.centerAlignedTopAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.background,
+                            titleContentColor = MaterialTheme.colorScheme.onBackground,
+                            navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+                            actionIconContentColor = MaterialTheme.colorScheme.onBackground,
+                        ),
+                )
+            }
 
             state.parentSession?.let { parent ->
                 SubagentSessionBanner(
@@ -568,7 +634,7 @@ fun ChatHomeScreen(
                             // it, which is a bigger, riskier action than this affordance is meant
                             // for (see issue #269).
                             val lastUserMessageId = state.messages.lastOrNull { it.isUser }?.id
-                            items(timelineEntries, key = { it.id }) { entry ->
+                            itemsIndexed(timelineEntries, key = { _, entry -> entry.id }) { index, entry ->
                                 val copyable =
                                     when (entry) {
                                         is TimelineEntry.UserMessage ->
@@ -587,16 +653,26 @@ fun ChatHomeScreen(
                                         is TimelineEntry.Error -> null
                                         is TimelineEntry.Footer -> null
                                     }
+                                val findTint =
+                                    when {
+                                        index == currentMatchRow -> MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                                        index in findMatches -> MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+                                        else -> Color.Transparent
+                                    }
                                 Box(
                                     modifier =
-                                        if (copyable == null) {
-                                            Modifier
-                                        } else {
-                                            Modifier.combinedClickable(
-                                                onClick = {},
-                                                onLongClick = { showActionSheet = copyable },
-                                            )
-                                        },
+                                        Modifier
+                                            .background(findTint, RoundedCornerShape(12.dp))
+                                            .then(
+                                                if (copyable == null) {
+                                                    Modifier
+                                                } else {
+                                                    Modifier.combinedClickable(
+                                                        onClick = {},
+                                                        onLongClick = { showActionSheet = copyable },
+                                                    )
+                                                },
+                                            ),
                                 ) {
                                     TimelineEntryRow(
                                         entry,

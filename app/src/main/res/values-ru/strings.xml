@@ -1310,4 +1310,19 @@
     <string name="chat_restore_failed_snackbar">Не восстановлено (%1$d): %2$s</string>
     <string name="chat_action_reason_unsupported">эта версия агента или сервера этого не поддерживает</string>
     <string name="chat_action_reason_not_found">чат не найден у его агента</string>
+    <string name="chat_find_open">Найти в чате</string>
+    <string name="chat_find_none">Нет совпадений</string>
+    <string name="chat_find_position">%1$d из %2$d</string>
+    <string name="chat_find_older">Предыдущее совпадение</string>
+    <string name="chat_find_newer">Следующее совпадение</string>
+    <string name="chat_find_close">Закрыть поиск</string>
+    <string name="message_search_hint">Поиск по всем чатам</string>
+    <string name="message_search_include_archived">Включая архив</string>
+    <string name="message_search_progress">Просмотрено чатов: %1$d из %2$d</string>
+    <string name="message_search_empty_title">Поиск по всем чатам</string>
+    <string name="message_search_empty_body">Находит слова в том, что написали вы и агенты, во всех чатах всех агентов, а не только в заголовках.</string>
+    <string name="message_search_no_results_title">Нет совпадений</string>
+    <string name="message_search_no_results_body">Ни один чат не содержит этот текст. Попробуйте меньше слов или включите архивные чаты.</string>
+    <string name="message_search_match_count">Совпадений: %1$d</string>
+    <string name="drawer_search_messages">Искать «%1$s» в сообщениях</string>
 </resources>

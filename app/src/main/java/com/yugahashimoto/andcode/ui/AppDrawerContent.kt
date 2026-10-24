@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.ManageSearch
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.ChevronRight
@@ -132,6 +133,8 @@ fun AppDrawerContent(
     onSelectAgent: (DrawerAgent) -> Unit = {},
     onBatchDelete: (Set<String>) -> Unit = {},
     onBatchArchive: (Set<String>) -> Unit = {},
+    /** Opens the search across every chat's messages with the drawer's query. */
+    onSearchMessages: (String) -> Unit = {},
     collapsedSections: Set<String> = emptySet(),
     onToggleSection: (String) -> Unit = {},
     pinnedSessionIds: Set<String> = emptySet(),
@@ -324,6 +327,8 @@ fun AppDrawerContent(
                             }
                             val pinned = recentSessions.filter { it.id in pinnedSessionIds }
                             if (searchQuery.isNotBlank()) {
+                                // Titles are matched here; the full message text is one tap away.
+                                DrawerSearchMessagesRow(query = searchQuery.trim(), onClick = { onSearchMessages(searchQuery.trim()) })
                                 val matches = filterDrawerSessions(recentSessions, searchQuery)
                                 if (matches.isEmpty()) {
                                     Text(
@@ -386,6 +391,36 @@ fun AppDrawerContent(
                     Text(stringResource(R.string.cancel))
                 }
             },
+        )
+    }
+}
+
+@Composable
+private fun DrawerSearchMessagesRow(
+    query: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(
+            Icons.AutoMirrored.Filled.ManageSearch,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            text = stringResource(R.string.drawer_search_messages, query),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
