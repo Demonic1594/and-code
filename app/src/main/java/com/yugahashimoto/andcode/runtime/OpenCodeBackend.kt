@@ -190,6 +190,19 @@ interface OpenCodeBackend {
 
     suspend fun archiveSession(sessionId: String): OpenCodeSession = unsupported("session archive")
 
+    /**
+     * Chats this backend has archived, for the Archive screen, optionally narrowed to one
+     * [directory] like [listSessions]. A backend without an archive has none.
+     */
+    suspend fun listArchivedSessions(directory: String? = null): List<OpenCodeSession> = emptyList()
+
+    /**
+     * Brings an archived chat back to the chat list. Throws [UnsupportedOperationException] where
+     * the backend can archive but not restore (OpenCode's legacy API only accepts a timestamp, never
+     * a clear), so the Archive screen can offer "delete forever" alone.
+     */
+    suspend fun unarchiveSession(sessionId: String): OpenCodeSession = unsupported("session unarchive")
+
     suspend fun mcpServers(): List<McpServer> = unsupported("MCP servers")
 
     suspend fun addMcpServer(body: JsonObject): McpServer = unsupported("MCP add server")

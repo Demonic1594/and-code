@@ -231,6 +231,10 @@ class LocalOpenCodeBackend(
 
     override suspend fun archiveSession(sessionId: String): OpenCodeSession = delegate().archiveSession(sessionId)
 
+    override suspend fun listArchivedSessions(directory: String?): List<OpenCodeSession> = delegate().listArchivedSessions(directory)
+
+    override suspend fun unarchiveSession(sessionId: String): OpenCodeSession = delegate().unarchiveSession(sessionId)
+
     override suspend fun mcpServers(): List<McpServer> = delegate().mcpServers()
 
     override suspend fun addMcpServer(body: JsonObject): McpServer = delegate().addMcpServer(body)

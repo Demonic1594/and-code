@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
@@ -113,6 +114,7 @@ fun SettingsScreenV2(
     onHapticsEnabledChange: (Boolean) -> Unit = {},
     savedPromptCount: Int = 0,
     onOpenSavedPrompts: () -> Unit = {},
+    onOpenArchive: () -> Unit = {},
     autoArchiveStaleEnabled: Boolean = false,
     onAutoArchiveStaleEnabledChange: (Boolean) -> Unit = {},
     autoArchiveStaleDays: Int = 30,
@@ -309,6 +311,12 @@ fun SettingsScreenV2(
                     title = stringResource(R.string.auto_archive_max_sessions_value_row),
                     value = autoArchiveMaxSessions.toString(),
                     onClick = { showAutoArchiveMaxSessionsDialog = true },
+                )
+                SettingsDivider()
+                SettingsRow(
+                    icon = Icons.Default.Inventory2,
+                    title = stringResource(R.string.settings_archive_row),
+                    onClick = onOpenArchive,
                 )
             }
 

@@ -53,7 +53,7 @@ class SessionAutoArchiver(
         val stale =
             if (prefs.autoArchiveStaleEnabled) {
                 val cutoff = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(prefs.autoArchiveStaleDays.toLong())
-                candidates.filter { updatedAt(it) < cutoff }
+                candidates.filter { updatedAt(it, prefs) < cutoff }
             } else {
                 emptyList()
             }
@@ -64,7 +64,7 @@ class SessionAutoArchiver(
                 // one archived to make room, so the cap is honored by keeping fewer of the
                 // archivable candidates rather than by ignoring active sessions altogether.
                 val toKeep = (prefs.autoArchiveMaxSessions - active.size - pinned.size).coerceAtLeast(0)
-                candidates.sortedByDescending(::updatedAt).drop(toKeep)
+                candidates.sortedByDescending { updatedAt(it, prefs) }.drop(toKeep)
             } else {
                 emptyList()
             }
@@ -89,5 +89,9 @@ class SessionAutoArchiver(
         catalog.refreshAllSessions()
     }
 
-    private fun updatedAt(ref: RuntimeSessionRef): Long = ref.session.time.updated ?: ref.session.time.created
+    /** Last activity, where restoring a chat from the Archive counts as activity. */
+    private fun updatedAt(
+        ref: RuntimeSessionRef,
+        prefs: AppPreferences,
+    ): Long = maxOf(ref.session.time.updated ?: ref.session.time.created, prefs.restoredSessionTimes[ref.session.id] ?: 0L)
 }

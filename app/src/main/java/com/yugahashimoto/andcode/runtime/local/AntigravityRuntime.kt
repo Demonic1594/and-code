@@ -39,6 +39,8 @@ data class AntigravitySessionRecord(
     val title: String? = null,
     /** Hidden from the drawer without deleting the transcript, like the OpenCode server's archive. */
     val archived: Boolean = false,
+    /** When [archived] was last set, for the Archive screen; null for chats archived before it was kept. */
+    val archivedAt: Long? = null,
 )
 
 class AntigravityRuntime(
@@ -371,11 +373,24 @@ class AntigravityRuntime(
     /** Every chat's workspace, archived ones included: the picker must keep offering folders whose chats were all archived. */
     fun workspacePaths(): List<String> = records.values.map { it.workspace }.distinct()
 
+    /** Archived chats, the counterpart of [listSessions]. */
+    fun listArchivedSessions(): List<AntigravitySessionRecord> = records.values.filter { it.archived }
+
+    /** Brings an archived chat back to the drawer. */
+    fun unarchive(sessionId: String): AntigravitySessionRecord? {
+        val record = records[sessionId] ?: return null
+        if (!record.archived) return record
+        val restored = record.copy(archived = false, archivedAt = null)
+        records[sessionId] = restored
+        persistRecords()
+        return restored
+    }
+
     /** Marks a session archived; see [AntigravitySessionRecord.archived]. */
     fun archive(sessionId: String): AntigravitySessionRecord? {
         val record = records[sessionId] ?: return null
         if (record.archived) return record
-        val archived = record.copy(archived = true)
+        val archived = record.copy(archived = true, archivedAt = System.currentTimeMillis())
         records[sessionId] = archived
         persistRecords()
         return archived
@@ -383,9 +398,14 @@ class AntigravityRuntime(
 
     fun listMessages(sessionId: String): List<OpenCodeMessage> = messageStore.list(sessionId)
 
+    /** Deletes the chat's record, messages and attachments, and the CLI's own copy of the conversation. */
     fun remove(sessionId: String): Boolean {
         abort(sessionId)
-        val removed = records.remove(sessionId) != null
+        val record = records.remove(sessionId)
+        val removed = record != null
+        record?.conversationId?.let { conversationId ->
+            currentRootfs()?.let { AgentTranscriptFiles.deleteAntigravity(File(it, "root/.gemini"), listOf(conversationId)) }
+        }
         messageStore.remove(sessionId)
         val safeSession = sessionId.replace(Regex("[^A-Za-z0-9._-]"), "_")
         File(runtimeDirectory, "workspace/$ATTACHMENT_DIRECTORY/$safeSession").deleteRecursively()

@@ -279,6 +279,12 @@ class CodexTarget(
     override suspend fun archiveSession(sessionId: String): OpenCodeSession =
         withContext(Dispatchers.IO) { runtime.archiveSession(sessionId) }
 
+    override suspend fun listArchivedSessions(directory: String?): List<OpenCodeSession> =
+        withContext(Dispatchers.IO) { runtime.listArchivedSessions() }.filter { directory == null || it.directory == directory }
+
+    override suspend fun unarchiveSession(sessionId: String): OpenCodeSession =
+        withContext(Dispatchers.IO) { runtime.unarchiveSession(sessionId) }
+
     override suspend fun respondToPermission(
         sessionId: String,
         permissionId: String,

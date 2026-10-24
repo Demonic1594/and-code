@@ -20,6 +20,7 @@ the vendor's docs before relying on them.
 - [Feature matrix](#feature-matrix)
 - [What AndCode should add](#what-andcode-should-add)
 - [Round 2: how our new features compare](#round-2-how-our-new-features-compare)
+- [Round 3: other mobile companions](#round-3-other-mobile-companions)
 - [Sources](#sources)
 
 ## How to read this
@@ -300,6 +301,36 @@ Round 2 sources:
 - Claude Code status line: [docs](https://code.claude.com/docs/en/statusline)
 - VS Code / Kilo commit messages: [Kilo Code docs](https://kilocode.ai/docs/basic-usage/git-commit-generation), [Medium walkthrough](https://medium.com/@yanirmanor/how-to-generate-commit-messages-with-ai-in-visual-studio-code-4b7367bbafe3)
 - Acode and Termux:Widget: [Acode on IzzyOnDroid](https://apt.izzysoft.de/fdroid/index/apk/com.foxdebug.acode?repo=main), [Termux:Widget on F-Droid](https://f-droid.org/de/packages/com.termux.widget/)
+
+## Round 3: other mobile companions
+
+A third pass looked only at apps in AndCode's own niche: a phone front end for coding agents.
+These are small projects whose feature lists come from their store pages and READMEs, so they are
+noted briefly. "Worth adding" means the idea is on this fork's list, not that it is built.
+
+| App | Platform | Notable features | Worth adding to AndCode |
+|---|---|---|---|
+| OpenCode Mobile | iOS / Android | Several OpenCode servers, keys in the Keystore, diffs, tool approval, **biometric unlock for the app and before sending** | Biometric lock |
+| Buddy | Android | Runs on the phone, **floating chat bubble** over other apps, drives the phone through Accessibility | Floating bubble (not phone control) |
+| Mobile-Harness | Android | Chat, terminal, editor, diff and a **web preview** of a dev server in one app | Dev-server preview |
+| PocketCode | Android | Agent CLIs inside Termux | – (AndCode ships its own runtime) |
+| FlyCode, OpenLens, OpenClient | iOS | OpenCode clients | – |
+| Cosyra | Web / mobile | Cloud terminal that hibernates when idle | – (cloud, not on-device) |
+| Happy | iOS / Android | End-to-end encrypted relay, voice, push, picks a worktree per session | Worktree per chat (already listed) |
+| CC Pocket | iOS | Worktree per session | Same |
+| Paseo | Desktop + mobile | One front end for ~39 agent CLIs | – |
+| MobileCLI, Termly | iOS / Android | Streams a real terminal (PTY) from a computer, QR pairing | Interactive PTY terminal |
+| OpenChamber | Web / mobile | Runs one prompt on several models side by side, **session goals**, a **guided diff walkthrough** | Session goals, guided diff walkthrough (best-of-N is already listed) |
+| Open Minis | iOS | `SKILL.md` skills | Covered by the agents' own skills support |
+
+### Chat lifecycle (delete and archive)
+
+Most of these apps treat delete as "hide in this app", the same gap AndCode had: the agent's own
+transcript stayed on disk. This fork now deletes the CLI's copy too (Claude Code's
+`~/.claude/projects/*/<id>.jsonl`, todos and file history; Antigravity's conversation files; a
+Codex `thread/delete`; OpenCode's own delete). Archived chats get their own screen with
+search, restore and "delete forever", the way ChatGPT and Claude.ai keep an archive page. A single
+delete has a 5-second Undo, as Gmail and ChatGPT do.
 
 ## Sources
 

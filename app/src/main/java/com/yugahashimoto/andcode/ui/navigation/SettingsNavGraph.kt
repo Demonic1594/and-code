@@ -117,6 +117,7 @@ fun NavGraphBuilder.settingsNavGraph(
             onHapticsEnabledChange = appPreferences::setHapticsEnabled,
             savedPromptCount = preferences().savedPrompts.size,
             onOpenSavedPrompts = { navController.navigate(ROUTE_SETTINGS_SAVED_PROMPTS) },
+            onOpenArchive = { navController.navigate(ROUTE_ARCHIVE) { launchSingleTop = true } },
             autoArchiveStaleEnabled = preferences().autoArchiveStaleEnabled,
             onAutoArchiveStaleEnabledChange = appPreferences::setAutoArchiveStaleEnabled,
             autoArchiveStaleDays = preferences().autoArchiveStaleDays,

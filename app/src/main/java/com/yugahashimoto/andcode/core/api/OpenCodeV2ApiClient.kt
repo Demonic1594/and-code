@@ -105,6 +105,12 @@ class OpenCodeV2ApiClient(
             query("directory" to directory, "order" to "desc", "limit" to PAGE_LIMIT),
         ).map { it.toSession() }.filter { it.time.archived == null }
 
+    override suspend fun archivedSessions(directory: String?): List<OpenCodeSession> =
+        pagedList<V2SessionInfo>(
+            SESSIONS_PATH,
+            query("directory" to directory, "order" to "desc", "limit" to PAGE_LIMIT),
+        ).map { it.toSession() }.filter { it.time.archived != null }
+
     override suspend fun session(sessionId: String): OpenCodeSession = rawSession(sessionId).toSession()
 
     override suspend fun createSession(
@@ -553,6 +559,30 @@ class OpenCodeV2ApiClient(
         sendVoid(
             requestBuilder("api/session/${encodePath(sessionId)}")
                 .patch(jsonBody(buildJsonObject { put("metadata", metadata) })),
+        )
+        return session(sessionId)
+    }
+
+    /**
+     * Drops AndCode's archive marker from `metadata` and also sends `archived: false`, which newer
+     * servers use to clear an archive made by another client (older ones ignore the unknown key).
+     */
+    override suspend fun unarchiveSession(
+        sessionId: String,
+        directory: String?,
+    ): OpenCodeSession {
+        val current = rawSession(sessionId)
+        val metadata = JsonObject((current.metadata ?: emptyMap()) - ARCHIVED_METADATA_KEY)
+        sendVoid(
+            requestBuilder("api/session/${encodePath(sessionId)}")
+                .patch(
+                    jsonBody(
+                        buildJsonObject {
+                            put("metadata", metadata)
+                            put("archived", false)
+                        },
+                    ),
+                ),
         )
         return session(sessionId)
     }

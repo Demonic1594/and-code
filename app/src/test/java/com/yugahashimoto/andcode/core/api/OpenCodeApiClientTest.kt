@@ -88,6 +88,27 @@ class OpenCodeApiClientTest {
         }
 
     @Test
+    fun `archived list returns only archived sessions`() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """[{"id":"s1","title":"Active","time":{"created":1,"updated":2}},""" +
+                        """{"id":"s2","title":"Archived","time":{"created":3,"updated":4,"archived":5}}]""",
+                ),
+            )
+            val client = client()
+
+            val sessions = client.archivedSessions()
+
+            assertEquals(listOf("s2"), sessions.map { it.id })
+        }
+
+    @Test(expected = UnsupportedOperationException::class)
+    fun `the legacy api cannot unarchive`() {
+        runBlocking { client().unarchiveSession("s2") }
+    }
+
+    @Test
     fun `archiving marks time archived instead of the ignored archive flag`() =
         runBlocking {
             server.enqueue(MockResponse().setBody("""{"id":"s1","title":"Old","time":{"created":1,"updated":2,"archived":9}}"""))

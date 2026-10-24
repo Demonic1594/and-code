@@ -138,6 +138,14 @@ interface OpenCodeApi {
         directory: String? = null,
     ): OpenCodeSession
 
+    /** The archived counterpart of [sessions]. */
+    suspend fun archivedSessions(directory: String? = null): List<OpenCodeSession> = emptyList()
+
+    suspend fun unarchiveSession(
+        sessionId: String,
+        directory: String? = null,
+    ): OpenCodeSession = throw UnsupportedOperationException("This server cannot restore archived sessions")
+
     suspend fun mcpServers(): List<McpServer>
 
     suspend fun addMcpServer(body: JsonObject): McpServer

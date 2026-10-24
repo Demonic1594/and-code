@@ -49,6 +49,11 @@ data class AppPreferences(
     val enterToSend: Boolean = false,
     val hapticsEnabled: Boolean = true,
     val pinnedSessionIds: Set<String> = emptySet(),
+    /**
+     * When a chat was last restored from the Archive. Auto-archive counts that as activity, so a
+     * chat brought back on purpose is not archived again by the next pass.
+     */
+    val restoredSessionTimes: Map<String, Long> = emptyMap(),
     val savedPrompts: List<SavedPrompt> = emptyList(),
     val sidebarGrouping: String = "project",
     val workspaceTitleSource: String = "title",
@@ -103,6 +108,7 @@ class AppPreferencesRepository(
                 enterToSend = settings.enterToSend,
                 hapticsEnabled = settings.hapticsEnabled,
                 pinnedSessionIds = settings.pinnedSessionIds,
+                restoredSessionTimes = settings.restoredSessionTimes,
                 savedPrompts = SavedPromptCodec.decode(settings.savedPromptsJson),
                 sidebarGrouping = settings.sidebarGrouping,
                 workspaceTitleSource = settings.workspaceTitleSource,
@@ -338,6 +344,25 @@ class AppPreferencesRepository(
         val updated = if (pinned) settings.pinnedSessionIds + sessionId else settings.pinnedSessionIds - sessionId
         settings.pinnedSessionIds = updated
         mutableState.update { it.copy(pinnedSessionIds = updated) }
+    }
+
+    fun markSessionRestored(
+        sessionId: String,
+        atMillis: Long = System.currentTimeMillis(),
+    ) {
+        val updated = settings.restoredSessionTimes + (sessionId to atMillis)
+        settings.restoredSessionTimes = updated
+        mutableState.update { it.copy(restoredSessionTimes = updated) }
+    }
+
+    /** Drops everything kept about a deleted chat: its pin and its restore time. */
+    fun forgetSession(sessionId: String) {
+        if (sessionId in settings.pinnedSessionIds) setSessionPinned(sessionId, false)
+        if (sessionId in settings.restoredSessionTimes) {
+            val updated = settings.restoredSessionTimes - sessionId
+            settings.restoredSessionTimes = updated
+            mutableState.update { it.copy(restoredSessionTimes = updated) }
+        }
     }
 
     /** Adds [prompt], or replaces the saved prompt with the same id. */

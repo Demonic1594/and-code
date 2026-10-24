@@ -76,6 +76,32 @@ class SessionAutoArchiverTest {
         }
 
     @Test
+    fun `a chat restored from the archive counts as recently active`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val target =
+                FakeTarget(
+                    "mac",
+                    sessions = listOf(session("restored", updatedDaysAgo = 45), session("old", updatedDaysAgo = 45)),
+                )
+            val registry = registry(target)
+            val catalog = RuntimeCatalogRepository(registry, TestScope(dispatcher))
+            val preferences =
+                fakePreferences(
+                    autoArchiveStaleEnabled = true,
+                    autoArchiveStaleDays = 30,
+                    restoredSessionTimes = mapOf("restored" to System.currentTimeMillis()),
+                )
+            val archiver =
+                SessionAutoArchiver(registry, catalog, activeSessionIds = { emptySet() }, preferences, TestScope(dispatcher))
+
+            archiver.start()
+            advanceUntilIdle()
+
+            assertEquals(listOf("old"), target.archivedIds)
+        }
+
+    @Test
     fun `pinned chats are never archived and count toward the cap`() =
         runTest {
             val dispatcher = StandardTestDispatcher(testScheduler)
@@ -232,6 +258,7 @@ class SessionAutoArchiverTest {
         autoArchiveMaxSessionsEnabled: Boolean = false,
         autoArchiveMaxSessions: Int = 50,
         pinnedSessionIds: Set<String> = emptySet(),
+        restoredSessionTimes: Map<String, Long> = emptyMap(),
     ): MutableStateFlow<AppPreferences> =
         MutableStateFlow(
             AppPreferences(
@@ -240,6 +267,7 @@ class SessionAutoArchiverTest {
                 autoArchiveMaxSessionsEnabled = autoArchiveMaxSessionsEnabled,
                 autoArchiveMaxSessions = autoArchiveMaxSessions,
                 pinnedSessionIds = pinnedSessionIds,
+                restoredSessionTimes = restoredSessionTimes,
             ),
         )
 

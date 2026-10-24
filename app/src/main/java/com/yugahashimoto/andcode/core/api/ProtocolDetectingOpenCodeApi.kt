@@ -192,6 +192,13 @@ class ProtocolDetectingOpenCodeApi(
         directory: String?,
     ): OpenCodeSession = current().archiveSession(sessionId, directory)
 
+    override suspend fun archivedSessions(directory: String?): List<OpenCodeSession> = current().archivedSessions(directory)
+
+    override suspend fun unarchiveSession(
+        sessionId: String,
+        directory: String?,
+    ): OpenCodeSession = current().unarchiveSession(sessionId, directory)
+
     override suspend fun mcpServers(): List<McpServer> = current().mcpServers()
 
     override suspend fun addMcpServer(body: JsonObject): McpServer = current().addMcpServer(body)

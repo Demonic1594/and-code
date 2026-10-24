@@ -321,6 +321,15 @@ class OpenCodeApiClient(
         )
     }
 
+    /**
+     * Archived sessions, for the Archive screen. There is deliberately no `unarchiveSession` here:
+     * the legacy API's `time.archived` only accepts a finite number, so no value clears it (the
+     * server lists a session as active only while it is null). The inherited default throws
+     * [UnsupportedOperationException], which the Archive screen reads as "delete only".
+     */
+    override suspend fun archivedSessions(directory: String?): List<OpenCodeSession> =
+        getList<OpenCodeSession>("session", query("directory" to directory)).filter { it.time.archived != null }
+
     override suspend fun deleteSession(
         sessionId: String,
         directory: String?,

@@ -195,6 +195,10 @@ class RemoteOpenCodeBackend(
 
     override suspend fun archiveSession(sessionId: String): OpenCodeSession = client.archiveSession(sessionId)
 
+    override suspend fun listArchivedSessions(directory: String?): List<OpenCodeSession> = client.archivedSessions(directory)
+
+    override suspend fun unarchiveSession(sessionId: String): OpenCodeSession = client.unarchiveSession(sessionId)
+
     override suspend fun mcpServers(): List<McpServer> = client.mcpServers()
 
     override suspend fun addMcpServer(body: JsonObject): McpServer = client.addMcpServer(body)
