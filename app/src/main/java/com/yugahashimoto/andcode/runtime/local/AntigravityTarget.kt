@@ -197,7 +197,8 @@ class AntigravityTarget(internal val runtime: AntigravityRuntime) : RuntimeTarge
         // Claude Code summarises while its answer is still streaming; here it has to wait for the
         // send to finish, because two concurrent `agy` processes hang each other. Failure is silent:
         // the prompt-derived name set above is already in the drawer and simply stays.
-        if (needsTitle) {
+        // A short opening line is already the title; a full `agy` run just to restate it is skipped.
+        if (needsTitle && needsSummarizedTitle(request.text)) {
             titleScope.launch {
                 val summary = withContext(kotlinx.coroutines.Dispatchers.IO) { runtime.summarizeTitle(request.text) }
                 if (summary != null) runtime.setSessionTitle(sessionId, summary)

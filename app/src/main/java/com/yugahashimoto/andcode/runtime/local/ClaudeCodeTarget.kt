@@ -367,8 +367,12 @@ class ClaudeCodeTarget(
         if (record.session.title == DEFAULT_TITLE) {
             // The prompt stands in immediately so the drawer is never left saying "Claude Code";
             // the summarised name replaces it once Claude answers.
-            titleFromPrompt(request.text)?.let { renameSession(sessionId, it) }
+            val provisional = titleFromPrompt(request.text)
+            provisional?.let { renameSession(sessionId, it) }
+            // A short opening line already is a fine title; asking a model to restate it is a whole
+            // extra API call per chat for nothing.
             titleScope.launch {
+                if (!needsSummarizedTitle(request.text)) return@launch
                 val summary = withContext(Dispatchers.IO) { runtime.summarizeTitle(request.text) }
                 if (summary != null && records[sessionId] != null) renameSession(sessionId, summary)
             }
@@ -395,7 +399,7 @@ class ClaudeCodeTarget(
     }
 
     override suspend fun abortSession(sessionId: String): Boolean {
-        withContext(Dispatchers.IO) { runtime.stop(sessionId) }
+        withContext(Dispatchers.IO) { runtime.interrupt(sessionId) }
         return true
     }
 
