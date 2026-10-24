@@ -45,4 +45,12 @@ class ChatFindTest {
     fun `blank query matches nothing`() {
         assertTrue(chatFindMatches(entries, "   ").isEmpty())
     }
+
+    @Test
+    fun `position falls back to the newest match when it no longer points at one`() {
+        assertEquals(2, resolveFindIndex(-1, 3))
+        assertEquals(1, resolveFindIndex(1, 3))
+        assertEquals(2, resolveFindIndex(7, 3))
+        assertEquals(-1, resolveFindIndex(-1, 0))
+    }
 }

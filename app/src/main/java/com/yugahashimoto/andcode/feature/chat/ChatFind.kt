@@ -69,6 +69,15 @@ internal fun chatFindMatches(
     return entries.indices.filter { searchableText(entries[it]).contains(needle, ignoreCase = true) }
 }
 
+/**
+ * The match a find bar is on: [index] while it points at one of [matchCount] matches, otherwise
+ * the newest match (the chat sits at the bottom), or -1 when there are none.
+ */
+internal fun resolveFindIndex(
+    index: Int,
+    matchCount: Int,
+): Int = if (index in 0 until matchCount) index else matchCount - 1
+
 /** Replaces the chat's top bar while finding: the query, "3 of 12", older/newer, and close. */
 @Composable
 internal fun ChatFindBar(

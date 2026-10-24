@@ -316,7 +316,10 @@ fun ChatHomeScreen(
         remember(timelineEntries, findQuery, findActive) {
             if (findActive) chatFindMatches(timelineEntries, findQuery) else emptyList()
         }
-    val currentMatchRow = findMatches.getOrNull(findIndex)
+    // Resolved on every read rather than corrected in an effect: a longer query often matches the
+    // very same rows, an equal list that would never re-run such an effect.
+    val currentFindIndex = resolveFindIndex(findIndex, findMatches.size)
+    val currentMatchRow = findMatches.getOrNull(currentFindIndex)
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
     var showSlashCommands by remember { mutableStateOf(false) }
@@ -400,12 +403,11 @@ fun ChatHomeScreen(
         findIndex = -1
         onFindRequestConsumed()
     }
-    LaunchedEffect(findMatches) {
-        if (findIndex !in findMatches.indices) findIndex = findMatches.lastIndex
-    }
-    // Keyed on the position and query only, so a reply streaming in does not yank the list back.
-    LaunchedEffect(findIndex, findQuery) {
-        val row = findMatches.getOrNull(findIndex) ?: return@LaunchedEffect
+    // Keyed on the row, not the list, so a reply streaming in does not yank the view. Once shown,
+    // the position is pinned, so a new match arriving later does not move it either.
+    LaunchedEffect(currentMatchRow, findQuery) {
+        val row = currentMatchRow ?: return@LaunchedEffect
+        findIndex = currentFindIndex
         isAtBottom.value = false
         listState.animateScrollToItem(row)
     }
@@ -511,10 +513,10 @@ fun ChatHomeScreen(
                         findQuery = it
                         findIndex = -1
                     },
-                    current = findIndex,
+                    current = currentFindIndex,
                     total = findMatches.size,
-                    onOlder = { if (findMatches.isNotEmpty()) findIndex = (findIndex - 1 + findMatches.size) % findMatches.size },
-                    onNewer = { if (findMatches.isNotEmpty()) findIndex = (findIndex + 1) % findMatches.size },
+                    onOlder = { if (findMatches.isNotEmpty()) findIndex = (currentFindIndex - 1 + findMatches.size) % findMatches.size },
+                    onNewer = { if (findMatches.isNotEmpty()) findIndex = (currentFindIndex + 1) % findMatches.size },
                     onClose = { findActive = false },
                 )
             } else {

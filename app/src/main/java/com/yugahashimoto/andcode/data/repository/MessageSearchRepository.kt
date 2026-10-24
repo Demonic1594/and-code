@@ -2,12 +2,14 @@ package com.yugahashimoto.andcode.data.repository
 
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.withContext
 
 /** One chat that matched a search, with a line of context around its first match. */
 data class MessageSearchHit(
@@ -43,13 +45,15 @@ data class MessageSearchProgress(
 class MessageSearchRepository(
     private val targets: () -> List<RuntimeTarget>,
     private val parallelism: Int = DEFAULT_PARALLELISM,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private data class CachedChat(
         val updated: Long,
         val texts: List<String>,
     )
 
-    private val cache = ConcurrentHashMap<String, CachedChat>()
+    /** Most recently read chats last; trimmed to [MAX_CACHED_CHATS] so a long history cannot grow it without bound. */
+    private val cache = LinkedHashMap<String, CachedChat>(INITIAL_CAPACITY, LOAD_FACTOR, true)
 
     /** Searches [chats] for [query]; emits progress after each chat is read. A blank query finds nothing. */
     fun search(
@@ -85,7 +89,7 @@ class MessageSearchRepository(
 
     /** Forgets a chat's cached text, e.g. after it was deleted. */
     fun forget(sessionId: String) {
-        cache.keys.removeAll { it.endsWith("/$sessionId") }
+        synchronized(cache) { cache.keys.removeAll { it.endsWith("/$sessionId") } }
     }
 
     private suspend fun textsOf(
@@ -94,16 +98,25 @@ class MessageSearchRepository(
     ): List<String> {
         val key = "${ref.runtimeId}/${ref.session.id}"
         val updated = ref.session.time.updated ?: ref.session.time.created
-        cache[key]?.takeIf { it.updated == updated }?.let { return it.texts }
+        synchronized(cache) { cache[key] }?.takeIf { it.updated == updated }?.let { return it.texts }
         // An unreachable runtime or a chat that cannot be read is just left out of the results.
-        val messages = target?.let { runCatching { it.listMessages(ref.session.id) }.getOrNull() } ?: return emptyList()
+        // Off the main thread: a local agent reads its message store from disk here.
+        val messages =
+            target?.let { withContext(ioDispatcher) { runCatching { it.listMessages(ref.session.id) }.getOrNull() } }
+                ?: return emptyList()
         val texts = messages.map(OpenCodeMessage::text).filter { it.isNotBlank() }
-        cache[key] = CachedChat(updated, texts)
+        synchronized(cache) {
+            cache[key] = CachedChat(updated, texts)
+            while (cache.size > MAX_CACHED_CHATS) cache.remove(cache.keys.first())
+        }
         return texts
     }
 
     companion object {
         private const val DEFAULT_PARALLELISM = 4
+        private const val MAX_CACHED_CHATS = 200
+        private const val INITIAL_CAPACITY = 64
+        private const val LOAD_FACTOR = 0.75f
         private const val SNIPPET_RADIUS = 48
 
         internal fun match(

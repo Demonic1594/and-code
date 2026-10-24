@@ -44,7 +44,8 @@ class MessageSearchViewModel(
 
     fun setQuery(query: String) {
         if (query == mutableState.value.query) return
-        mutableState.update { it.copy(query = query) }
+        // The old results go at once: left up, they would be highlighted against the new text.
+        mutableState.update { it.copy(query = query, hits = emptyList(), searched = 0, total = 0, searching = query.isNotBlank()) }
         restart()
     }
 
@@ -65,9 +66,9 @@ class MessageSearchViewModel(
             viewModelScope.launch {
                 if (!immediately) delay(debounceMillis)
                 mutableState.update { it.copy(searching = true) }
-                val chats =
-                    activeChats().filter { it.session.parentId == null } +
-                        if (mutableState.value.includeArchived) archivedChats() else emptyList()
+                val archived = if (mutableState.value.includeArchived) archivedChats() else emptyList()
+                // Subagent chats are reached from their parent, as in the drawer.
+                val chats = (activeChats() + archived).filter { it.session.parentId == null }
                 repository.search(query, chats.distinctBy { it.runtimeId to it.session.id }).collect { progress ->
                     mutableState.update {
                         it.copy(
