@@ -84,15 +84,7 @@ class AntigravityTarget(internal val runtime: AntigravityRuntime) : RuntimeTarge
 
     override suspend fun health(): OpenCodeHealth = connect().getOrElse { OpenCodeHealth(false, "") }
 
-    override suspend fun listSessions(directory: String?): List<OpenCodeSession> =
-        runtime.listSessions(directory).map {
-            OpenCodeSession(
-                it.appSessionId,
-                directory = it.workspace,
-                title = it.title ?: DEFAULT_TITLE,
-                time = OpenCodeTime(it.createdAt, it.updatedAt),
-            )
-        }
+    override suspend fun listSessions(directory: String?): List<OpenCodeSession> = runtime.listSessions(directory).map { it.toSession() }
 
     override suspend fun createSession(
         title: String?,
@@ -121,12 +113,7 @@ class AntigravityTarget(internal val runtime: AntigravityRuntime) : RuntimeTarge
     ): OpenCodeSession {
         withContext(kotlinx.coroutines.Dispatchers.IO) { runtime.setSessionTitle(sessionId, title) }
         val record = runtime.findSession(sessionId) ?: error("Antigravity session not found")
-        return OpenCodeSession(
-            record.appSessionId,
-            directory = record.workspace,
-            title = record.title ?: DEFAULT_TITLE,
-            time = OpenCodeTime(record.createdAt, record.updatedAt),
-        )
+        return record.toSession()
     }
 
     /** Same as [ClaudeCodeTarget.listMessages]: names the model for chats held before it was stored. */
@@ -247,13 +234,33 @@ class AntigravityTarget(internal val runtime: AntigravityRuntime) : RuntimeTarge
      */
     override suspend fun archiveSession(sessionId: String): OpenCodeSession {
         val record = withContext(kotlinx.coroutines.Dispatchers.IO) { runtime.archive(sessionId) } ?: error("Antigravity session not found")
-        return OpenCodeSession(
-            record.appSessionId,
-            directory = record.workspace,
-            title = record.title ?: DEFAULT_TITLE,
-            time = OpenCodeTime(record.createdAt, record.updatedAt),
-        )
+        return record.toSession()
     }
+
+    /** Archived chats included, so one opened from the Archive screen still resolves. */
+    override suspend fun session(sessionId: String): OpenCodeSession =
+        runtime.findSession(sessionId)?.toSession() ?: error("Session not found: $sessionId")
+
+    override suspend fun listArchivedSessions(directory: String?): List<OpenCodeSession> =
+        runtime.listArchivedSessions()
+            .filter { directory == null || it.workspace == directory }
+            .map { it.toSession() }
+
+    override suspend fun unarchiveSession(sessionId: String): OpenCodeSession {
+        val record =
+            withContext(
+                kotlinx.coroutines.Dispatchers.IO,
+            ) { runtime.unarchive(sessionId) } ?: error("Antigravity session not found")
+        return record.toSession()
+    }
+
+    private fun AntigravitySessionRecord.toSession(): OpenCodeSession =
+        OpenCodeSession(
+            appSessionId,
+            directory = workspace,
+            title = title ?: DEFAULT_TITLE,
+            time = OpenCodeTime(createdAt, updatedAt, archived = archivedAt),
+        )
 
     override suspend fun respondToPermission(
         sessionId: String,

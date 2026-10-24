@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
@@ -68,6 +69,7 @@ import com.yugahashimoto.andcode.ui.components.HapticEvent
 import com.yugahashimoto.andcode.ui.components.SessionStatus
 import com.yugahashimoto.andcode.ui.components.StatusDot
 import com.yugahashimoto.andcode.ui.components.rememberHaptics
+import com.yugahashimoto.andcode.ui.navigation.ROUTE_ARCHIVE
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 
 data class DrawerRecentSession(
@@ -128,8 +130,6 @@ fun AppDrawerContent(
     agents: List<DrawerAgent> = emptyList(),
     selectedRuntimeId: String? = null,
     onSelectAgent: (DrawerAgent) -> Unit = {},
-    onDeleteSession: (String) -> Unit = {},
-    onArchiveSession: (String) -> Unit = {},
     onBatchDelete: (Set<String>) -> Unit = {},
     onBatchArchive: (Set<String>) -> Unit = {},
     collapsedSections: Set<String> = emptySet(),
@@ -310,7 +310,16 @@ fun AppDrawerContent(
                                         onBatchArchive(selectedSessionIds)
                                         selectedSessionIds = emptySet()
                                     },
-                                    onDelete = { showDeleteConfirm = true },
+                                    onDelete = {
+                                        // One chat goes straight away, with Undo on the snackbar; a
+                                        // batch is worth a question first.
+                                        if (selectedSessionIds.size == 1) {
+                                            onBatchDelete(selectedSessionIds)
+                                            selectedSessionIds = emptySet()
+                                        } else {
+                                            showDeleteConfirm = true
+                                        }
+                                    },
                                 )
                             }
                             val pinned = recentSessions.filter { it.id in pinnedSessionIds }
@@ -335,6 +344,11 @@ fun AppDrawerContent(
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.42f))
+            DrawerDestinationRow(
+                icon = Icons.Default.Inventory2,
+                label = stringResource(R.string.archive_title),
+                onClick = { onNavigate(ROUTE_ARCHIVE) },
+            )
             DrawerDestinationRow(
                 icon = Icons.Default.Schedule,
                 label = stringResource(R.string.nav_schedules),

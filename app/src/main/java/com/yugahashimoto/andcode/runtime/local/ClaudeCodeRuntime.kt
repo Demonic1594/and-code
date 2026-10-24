@@ -375,13 +375,22 @@ class ClaudeCodeRuntime(
         return messageStore.list(sessionId)
     }
 
+    /**
+     * Forgets a chat entirely: AndCode's records and the CLI's own transcript, todo and
+     * file-history files in the guest's `~/.claude`. The CLI files are named after the id Claude
+     * Code reported for the conversation, which is the app's session id unless it was resumed under
+     * a new one.
+     */
     @Synchronized
     fun deleteSessionData(sessionId: String) {
         stop(sessionId)
-        resumeIds.remove(sessionId)
+        val resumeId = resumeIds.remove(sessionId)
         persistResumeIds()
         todos.remove(sessionId)
         messageStore.remove(sessionId)
+        installedRuntimeProvider()?.rootfs?.let { rootfs ->
+            AgentTranscriptFiles.deleteClaude(File(rootfs, "root/.claude"), listOfNotNull(sessionId, resumeId))
+        }
     }
 
     private fun ensureProcess(

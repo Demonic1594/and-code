@@ -23,6 +23,7 @@ import com.yugahashimoto.andcode.core.util.debounceFalseEdge
 import com.yugahashimoto.andcode.data.connection.SecureSettingsRepository
 import com.yugahashimoto.andcode.data.repository.AndroidRuntimeActivityMessages
 import com.yugahashimoto.andcode.data.repository.AndroidRuntimeCatalogMessages
+import com.yugahashimoto.andcode.data.repository.ChatLifecycleRepository
 import com.yugahashimoto.andcode.data.repository.ProviderCatalogCache
 import com.yugahashimoto.andcode.data.repository.PullRequestStatusRepository
 import com.yugahashimoto.andcode.data.repository.RuntimeActivityRepository
@@ -30,6 +31,7 @@ import com.yugahashimoto.andcode.data.repository.RuntimeCatalogRepository
 import com.yugahashimoto.andcode.data.repository.SessionAutoArchiver
 import com.yugahashimoto.andcode.data.schedule.ScheduleRepository
 import com.yugahashimoto.andcode.data.settings.AppPreferencesRepository
+import com.yugahashimoto.andcode.data.settings.DraftRepository
 import com.yugahashimoto.andcode.di.appModule
 import com.yugahashimoto.andcode.di.viewModelModule
 import com.yugahashimoto.andcode.feature.schedule.AppScheduleStore
@@ -154,6 +156,10 @@ class AndCodeApplication : Application() {
         private set
 
     lateinit var activityRepository: RuntimeActivityRepository
+        private set
+
+    /** Deletes, archives and restores chats; see [ChatLifecycleRepository]. */
+    lateinit var chatLifecycle: ChatLifecycleRepository
         private set
 
     lateinit var notifications: RuntimeNotificationHelper
@@ -552,6 +558,22 @@ class AndCodeApplication : Application() {
                 },
                 unreadStore = settings,
                 messages = AndroidRuntimeActivityMessages(this),
+            )
+        val drafts = DraftRepository(this)
+        chatLifecycle =
+            ChatLifecycleRepository(
+                targets = { runtimeRegistry.targets.value },
+                ownerOf = { id -> catalogRepository.allSessions.value.firstOrNull { it.session.id == id }?.runtimeId },
+                scope = applicationScope,
+                forgetLocally = { id ->
+                    preferences.forgetSession(id)
+                    drafts.clear(id)
+                    activityRepository.markSessionRead(id)
+                },
+                onRestored = { id -> preferences.markSessionRestored(id) },
+                // The restore time only matters while a chat is out of the archive.
+                onArchived = { id -> preferences.clearSessionRestored(id) },
+                onChatsChanged = catalogRepository::refreshSessionsOnly,
             )
         SessionAutoArchiver(
             registry = runtimeRegistry,

@@ -83,6 +83,7 @@ class MainActivity : ComponentActivity() {
                     onChatDeepLinkConsumed = { chatDeepLink = null },
                     shortcutLink = shortcutLink,
                     onShortcutLinkConsumed = { shortcutLink = null },
+                    snackbarHostState = snackbarHostState,
                 )
                 SnackbarHost(
                     hostState = snackbarHostState,

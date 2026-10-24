@@ -437,6 +437,16 @@ class SecureSettingsRepository(context: Context) : RuntimeConnectionStore, Unrea
         get() = preferences.getStringSet(KEY_PINNED_SESSIONS, emptySet()).orEmpty()
         set(value) = preferences.edit().putStringSet(KEY_PINNED_SESSIONS, value).apply()
 
+    /** When each chat was last restored from the Archive, stored as `<epoch ms>:<session id>` entries. */
+    var restoredSessionTimes: Map<String, Long>
+        get() =
+            preferences.getStringSet(KEY_RESTORED_SESSIONS, emptySet()).orEmpty().mapNotNull { entry ->
+                val millis = entry.substringBefore(':').toLongOrNull() ?: return@mapNotNull null
+                entry.substringAfter(':').takeIf { it.isNotEmpty() }?.let { it to millis }
+            }.toMap()
+        set(value) =
+            preferences.edit().putStringSet(KEY_RESTORED_SESSIONS, value.map { (id, millis) -> "$millis:$id" }.toSet()).apply()
+
     /** Saved prompts as a JSON array; parsed by SavedPromptCodec so this class stays storage-only. */
     var savedPromptsJson: String?
         get() = preferences.getString(KEY_SAVED_PROMPTS, null)
@@ -622,6 +632,7 @@ class SecureSettingsRepository(context: Context) : RuntimeConnectionStore, Unrea
         private const val KEY_ENTER_TO_SEND = "enter_to_send"
         private const val KEY_HAPTICS_ENABLED = "haptics_enabled"
         private const val KEY_PINNED_SESSIONS = "pinned_sessions"
+        private const val KEY_RESTORED_SESSIONS = "restored_sessions"
         private const val KEY_SAVED_PROMPTS = "saved_prompts"
         private const val KEY_SIDEBAR_GROUPING = "sidebar_grouping"
         private const val KEY_WORKSPACE_TITLE_SOURCE = "workspace_title_source"

@@ -128,8 +128,20 @@ class LocalRuntimeTarget(
 
     override suspend fun health(): OpenCodeHealth = backend.health()
 
-    override suspend fun listSessions(directory: String?): List<OpenCodeSession> {
-        if (directory != null) return backend.listSessions(directory)
+    override suspend fun listSessions(directory: String?): List<OpenCodeSession> = acrossProjects(directory, backend::listSessions)
+
+    override suspend fun listArchivedSessions(directory: String?): List<OpenCodeSession> =
+        acrossProjects(directory, backend::listArchivedSessions)
+
+    /**
+     * Sessions are scoped to a directory on the server, so a list across the whole runtime asks for
+     * the unscoped list plus one per known project and merges them.
+     */
+    private suspend fun acrossProjects(
+        directory: String?,
+        list: suspend (String?) -> List<OpenCodeSession>,
+    ): List<OpenCodeSession> {
+        if (directory != null) return list(directory)
         val projects = runCatching { backend.listProjects() }.getOrDefault(emptyList())
         val directories =
             buildList<String?> {
@@ -143,7 +155,7 @@ class LocalRuntimeTarget(
             }.distinct()
         val sessionLists =
             directories.map { scopedDirectory ->
-                runCatching { backend.listSessions(scopedDirectory) }.getOrDefault(emptyList())
+                runCatching { list(scopedDirectory) }.getOrDefault(emptyList())
             }
         return mergeSessionLists(sessionLists)
     }
@@ -262,6 +274,8 @@ class LocalRuntimeTarget(
     ): Boolean = backend.respondToPermission(sessionId, permissionId, response, remember)
 
     override suspend fun archiveSession(sessionId: String): OpenCodeSession = backend.archiveSession(sessionId)
+
+    override suspend fun unarchiveSession(sessionId: String): OpenCodeSession = backend.unarchiveSession(sessionId)
 
     override suspend fun mcpServers(): List<com.yugahashimoto.andcode.core.api.McpServer> = backend.mcpServers()
 

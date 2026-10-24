@@ -343,16 +343,37 @@ class CodexRuntime(
 
     fun listMessages(sessionId: String): List<OpenCodeMessage> = messageStore.list(sessionId)
 
-    suspend fun deleteSession(sessionId: String): Boolean =
-        runCatching {
-            call("thread/delete", buildJsonObject { put("threadId", JsonPrimitive(sessionId)) })
-            messageStore.remove(sessionId)
-            true
-        }.getOrDefault(false)
+    /**
+     * Deletes the thread on the app-server, then AndCode's copy of its messages. A failure (an older
+     * Codex without `thread/delete`, or a server that is down) is thrown rather than turned into
+     * `false`, so the user sees why the chat is still there.
+     */
+    suspend fun deleteSession(sessionId: String): Boolean {
+        call("thread/delete", buildJsonObject { put("threadId", JsonPrimitive(sessionId)) })
+        messageStore.remove(sessionId)
+        return true
+    }
 
     suspend fun archiveSession(sessionId: String): OpenCodeSession {
         call("thread/archive", buildJsonObject { put("threadId", JsonPrimitive(sessionId)) })
         return session(sessionId)
+    }
+
+    /**
+     * `thread/list` with `archived: true` returns only archived threads. A Codex too old to know the
+     * filter ignores it and answers with the active ones, so those are left out by id: listing a live
+     * chat as archived would be worse than an empty Archive screen.
+     */
+    suspend fun listArchivedSessions(): List<OpenCodeSession> {
+        val result = call("thread/list", buildJsonObject { put("archived", JsonPrimitive(true)) })
+        val threads = result["data"] as? JsonArray ?: return emptyList()
+        val active = listSessions().mapTo(HashSet()) { it.id }
+        return threads.mapNotNull { it as? JsonObject }.map(::threadToSession).filterNot { it.id in active }
+    }
+
+    suspend fun unarchiveSession(sessionId: String): OpenCodeSession {
+        val result = call("thread/unarchive", buildJsonObject { put("threadId", JsonPrimitive(sessionId)) })
+        return result["thread"]?.jsonObject?.let(::threadToSession) ?: session(sessionId)
     }
 
     /**

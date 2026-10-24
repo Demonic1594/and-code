@@ -22,6 +22,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -104,6 +105,12 @@ class OpenCodeV2ApiClient(
             SESSIONS_PATH,
             query("directory" to directory, "order" to "desc", "limit" to PAGE_LIMIT),
         ).map { it.toSession() }.filter { it.time.archived == null }
+
+    override suspend fun archivedSessions(directory: String?): List<OpenCodeSession> =
+        pagedList<V2SessionInfo>(
+            SESSIONS_PATH,
+            query("directory" to directory, "order" to "desc", "limit" to PAGE_LIMIT),
+        ).map { it.toSession() }.filter { it.time.archived != null }
 
     override suspend fun session(sessionId: String): OpenCodeSession = rawSession(sessionId).toSession()
 
@@ -555,6 +562,34 @@ class OpenCodeV2ApiClient(
                 .patch(jsonBody(buildJsonObject { put("metadata", metadata) })),
         )
         return session(sessionId)
+    }
+
+    /**
+     * Clears AndCode's archive marker in `metadata` (set to null rather than left out, so it is
+     * cleared whether the server replaces or merges the map) and also sends `archived: false`,
+     * which newer servers use to clear an archive made by another client (older ones ignore it).
+     * A session that still reads as archived afterwards is a failure, not a restore.
+     */
+    override suspend fun unarchiveSession(
+        sessionId: String,
+        directory: String?,
+    ): OpenCodeSession {
+        val current = rawSession(sessionId)
+        val metadata = JsonObject((current.metadata ?: emptyMap()) + (ARCHIVED_METADATA_KEY to JsonNull))
+        sendVoid(
+            requestBuilder("api/session/${encodePath(sessionId)}")
+                .patch(
+                    jsonBody(
+                        buildJsonObject {
+                            put("metadata", metadata)
+                            put("archived", false)
+                        },
+                    ),
+                ),
+        )
+        val restored = session(sessionId)
+        check(restored.time.archived == null) { "The server kept the session archived" }
+        return restored
     }
 
     override suspend fun mcpServers(): List<McpServer> =

@@ -11,6 +11,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
@@ -264,6 +265,38 @@ class OpenCodeV2ApiClientTest {
             val sessions = client.sessions()
 
             assertEquals(listOf("ses_active"), sessions.map { it.id })
+        }
+
+    @Test
+    fun `archived list returns only sessions archived through metadata`() =
+        runBlocking {
+            server.enqueue(json(SESSION_ARCHIVED))
+            val client = client()
+
+            val sessions = client.archivedSessions()
+
+            assertEquals(listOf("ses_gone"), sessions.map { it.id })
+        }
+
+    @Test
+    fun `unarchive drops the metadata marker and asks the server to clear its own`() =
+        runBlocking {
+            server.enqueue(json(SESSION_ONE_ARCHIVED))
+            server.enqueue(noContent())
+            server.enqueue(json(SESSION_WITH_METADATA))
+            val client = client()
+
+            val restored = client.unarchiveSession("ses_one")
+
+            assertNull(restored.time.archived)
+            server.takeRequest()
+            val patch = server.takeRequest()
+            assertEquals("PATCH", patch.method)
+            val body = Json.parseToJsonElement(patch.body.readUtf8()).jsonObject
+            val metadata = body["metadata"]!!.jsonObject
+            assertEquals("keep", metadata["existing"]!!.jsonPrimitive.content)
+            assertEquals(JsonNull, metadata[ARCHIVED_METADATA_KEY])
+            assertEquals("false", body["archived"]!!.jsonPrimitive.content)
         }
 
     @Test

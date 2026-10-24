@@ -437,10 +437,31 @@ class ClaudeCodeTarget(
     override suspend fun archiveSession(sessionId: String): OpenCodeSession {
         val record = records[sessionId] ?: error("Claude Code session not found")
         if (!record.archived) {
-            records[sessionId] = record.copy(archived = true)
+            // The time goes on the session too, for the Archive screen's "Archived 3 days ago".
+            val time = record.session.time.copy(archived = System.currentTimeMillis())
+            records[sessionId] = record.copy(archived = true, session = record.session.copy(time = time))
             persist()
         }
         return record.session
+    }
+
+    /** Archived chats included, so one opened from the Archive screen still has its title. */
+    override suspend fun session(sessionId: String): OpenCodeSession = records[sessionId]?.session ?: error("Session not found: $sessionId")
+
+    override suspend fun listArchivedSessions(directory: String?): List<OpenCodeSession> =
+        records.values
+            .filter(ClaudeSessionRecord::archived)
+            .map(ClaudeSessionRecord::session)
+            .filter { directory == null || it.directory == directory }
+
+    override suspend fun unarchiveSession(sessionId: String): OpenCodeSession {
+        val record = records[sessionId] ?: error("Claude Code session not found")
+        if (record.archived) {
+            val time = record.session.time.copy(archived = null)
+            records[sessionId] = record.copy(archived = false, session = record.session.copy(time = time))
+            persist()
+        }
+        return records.getValue(sessionId).session
     }
 
     /**

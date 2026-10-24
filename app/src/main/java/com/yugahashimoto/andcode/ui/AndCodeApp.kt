@@ -36,6 +36,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -77,8 +80,13 @@ import com.yugahashimoto.andcode.BuildConfig
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.UrlLauncher
 import com.yugahashimoto.andcode.core.diagnostics.CrashLog
+import com.yugahashimoto.andcode.data.repository.ChatAction
+import com.yugahashimoto.andcode.data.repository.ChatActionReport
+import com.yugahashimoto.andcode.data.repository.ChatLifecycleRepository
 import com.yugahashimoto.andcode.data.settings.DraftRepository
 import com.yugahashimoto.andcode.feature.activity.ActivityViewModel
+import com.yugahashimoto.andcode.feature.archive.ArchiveScreen
+import com.yugahashimoto.andcode.feature.archive.ArchiveViewModel
 import com.yugahashimoto.andcode.feature.assistant.SpeechRecognizerManager
 import com.yugahashimoto.andcode.feature.assistant.SpeechResult
 import com.yugahashimoto.andcode.feature.assistant.SpeechTranscriptAccumulator
@@ -112,11 +120,13 @@ import com.yugahashimoto.andcode.ui.components.SessionStatus
 import com.yugahashimoto.andcode.ui.navigation.ClaudeSettingsActions
 import com.yugahashimoto.andcode.ui.navigation.DRAWER_ROOT_ROUTES
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ANDROID_SETUP
+import com.yugahashimoto.andcode.ui.navigation.ROUTE_ARCHIVE
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_CHAT
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ONBOARDING
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_REMOTE_CONNECTION
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SCHEDULES
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SCHEDULE_EDIT
+import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_AGENT_CODEX
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_PROVIDERS
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_WORKSPACES
@@ -134,9 +144,6 @@ import com.yugahashimoto.andcode.ui.theme.AppTheme
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -145,6 +152,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
 
 /** How often the open chat asks GitHub whether its pull requests have moved on. */
@@ -161,6 +169,35 @@ private fun speechLocaleTag(context: android.content.Context): String {
             context.resources.configuration.locale
         }
     return locale?.toLanguageTag()?.takeIf { it.isNotBlank() } ?: "en-US"
+}
+
+/** The snackbar text for a finished chat action, or null when it needs none. */
+private fun chatActionMessage(
+    context: android.content.Context,
+    report: ChatActionReport,
+): String? {
+    val (action, result) = report
+    if (result.failed.isNotEmpty()) {
+        val reason =
+            when (val raw = result.failed.values.first()) {
+                ChatLifecycleRepository.UNSUPPORTED -> context.getString(R.string.chat_action_reason_unsupported)
+                ChatLifecycleRepository.NOT_FOUND -> context.getString(R.string.chat_action_reason_not_found)
+                else -> raw
+            }
+        val format =
+            when (action) {
+                ChatAction.DELETE -> R.string.chat_delete_failed_snackbar
+                ChatAction.ARCHIVE -> R.string.chat_archive_failed_snackbar
+                ChatAction.RESTORE -> R.string.chat_restore_failed_snackbar
+            }
+        return context.getString(format, result.failed.size, reason)
+    }
+    if (action != ChatAction.RESTORE || result.succeeded.isEmpty()) return null
+    return if (result.succeeded.size == 1) {
+        context.getString(R.string.chat_restored_snackbar)
+    } else {
+        context.getString(R.string.chats_restored_snackbar, result.succeeded.size)
+    }
 }
 
 private fun relativeTimeLabel(
@@ -189,6 +226,8 @@ fun AndCodeApp(
     onChatDeepLinkConsumed: () -> Unit = {},
     shortcutLink: ShortcutLink? = null,
     onShortcutLinkConsumed: () -> Unit = {},
+    /** The activity's snackbar host, for delete/archive confirmations with Undo. */
+    snackbarHostState: SnackbarHostState? = null,
 ) {
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -364,6 +403,17 @@ fun AndCodeApp(
 
     val speechManager = remember { SpeechRecognizerManager(context.applicationContext) }
     val voiceScope = rememberCoroutineScope()
+
+    // Says what a delete, archive or restore could not do, and why, instead of letting the chat
+    // quietly stay or come back. Successes are announced where they start (with Undo); a restore
+    // has no other confirmation, so it gets one here.
+    LaunchedEffect(snackbarHostState) {
+        val host = snackbarHostState ?: return@LaunchedEffect
+        app.chatLifecycle.reports.collect { report ->
+            val message = chatActionMessage(context, report) ?: return@collect
+            launch { host.showSnackbar(message) }
+        }
+    }
     settingsViewModel.onProviderAuthCompleted = {
         navController.navigate(ROUTE_SETTINGS_PROVIDERS) {
             launchSingleTop = true
@@ -770,10 +820,12 @@ fun AndCodeApp(
     // Every runtime's chats, not just the selected one's: switching agent used to look like the
     // history had been wiped. Each row carries the runtime that owns it so opening one can switch.
     val allSessions by app.catalogRepository.allSessions.collectAsState()
+    // Chats waiting out the undo window after a delete already look gone.
+    val pendingDeletion by app.chatLifecycle.pendingDeletion.collectAsState()
     val recentSessions =
-        remember(allSessions, activityState.activeSessionIds, activityState.completedSessionIds) {
+        remember(allSessions, activityState.activeSessionIds, activityState.completedSessionIds, pendingDeletion) {
             allSessions
-                .filter { it.session.parentId == null }
+                .filter { it.session.parentId == null && it.session.id !in pendingDeletion }
                 .take(25).map { ref ->
                     val session = ref.session
                     DrawerRecentSession(
@@ -942,58 +994,59 @@ fun AndCodeApp(
                                 closeDrawer()
                                 navController.navigate(route) { launchSingleTop = true }
                             },
-                            onDeleteSession = { sessionId ->
-                                voiceScope.launch {
-                                    val targets = app.runtimeRegistry.targets.value
-                                    val results =
-                                        coroutineScope {
-                                            targets.map { target ->
-                                                async { runCatching { target.deleteSession(sessionId) } }
-                                            }.awaitAll()
-                                        }
-                                    // A deleted chat's pin would otherwise linger in preferences forever;
-                                    // a delete that failed everywhere keeps it.
-                                    if (results.any { it.getOrDefault(false) }) app.preferences.setSessionPinned(sessionId, false)
-                                    app.catalogRepository.refreshSessionsOnly()
-                                }
-                            },
-                            onArchiveSession = { sessionId ->
-                                voiceScope.launch {
-                                    val targets = app.runtimeRegistry.targets.value
-                                    coroutineScope {
-                                        targets.map { target ->
-                                            async { runCatching { target.archiveSession(sessionId) } }
-                                        }.awaitAll()
-                                    }
-                                    app.catalogRepository.refreshSessionsOnly()
-                                }
-                            },
-                            onBatchDelete = { sessionIds ->
-                                voiceScope.launch {
-                                    val targets = app.runtimeRegistry.targets.value
-                                    val deleted =
-                                        coroutineScope {
-                                            sessionIds.flatMap { id ->
-                                                targets.map { target ->
-                                                    async { id to runCatching { target.deleteSession(id) }.getOrDefault(false) }
+                            onBatchDelete = { requested ->
+                                val sessionIds = app.chatLifecycle.scheduleDelete(requested)
+                                if (sessionIds.isNotEmpty()) {
+                                    snackbarHostState?.let { host ->
+                                        voiceScope.launch {
+                                            val message =
+                                                if (sessionIds.size == 1) {
+                                                    context.getString(R.string.chat_deleted_snackbar)
+                                                } else {
+                                                    context.getString(R.string.chats_deleted_snackbar, sessionIds.size)
                                                 }
-                                            }.awaitAll()
-                                        }.filter { it.second }.map { it.first }.toSet()
-                                    deleted.forEach { app.preferences.setSessionPinned(it, false) }
-                                    app.catalogRepository.refreshSessionsOnly()
+                                            // A snackbar with an action never times out on its own, and
+                                            // Undo is only real while the delete is still waiting: the
+                                            // snackbar is cut to that window, and one already showing is
+                                            // dismissed so this one does not queue behind it.
+                                            host.currentSnackbarData?.dismiss()
+                                            val choice =
+                                                withTimeoutOrNull(ChatLifecycleRepository.UNDO_WINDOW_MILLIS) {
+                                                    host.showSnackbar(
+                                                        message,
+                                                        actionLabel = context.getString(R.string.code_undo),
+                                                        duration = SnackbarDuration.Indefinite,
+                                                    )
+                                                }
+                                            if (choice == SnackbarResult.ActionPerformed) app.chatLifecycle.undoDelete(sessionIds)
+                                        }
+                                    }
                                 }
                             },
                             onBatchArchive = { sessionIds ->
+                                // Owners are looked up now: once archived, a chat leaves the list the
+                                // lookup reads, and Undo still has to reach the right runtime.
+                                val owners = sessionIds.associateWith { id -> allSessions.firstOrNull { it.session.id == id }?.runtimeId }
                                 voiceScope.launch {
-                                    val targets = app.runtimeRegistry.targets.value
-                                    coroutineScope {
-                                        sessionIds.flatMap { id ->
-                                            targets.map { target ->
-                                                async { runCatching { target.archiveSession(id) } }
-                                            }
-                                        }.awaitAll()
+                                    val archived = app.chatLifecycle.archive(owners).succeeded
+                                    if (archived.isEmpty()) return@launch
+                                    val host = snackbarHostState ?: return@launch
+                                    val message =
+                                        if (archived.size == 1) {
+                                            context.getString(R.string.chat_archived_snackbar)
+                                        } else {
+                                            context.getString(R.string.chats_archived_snackbar, archived.size)
+                                        }
+                                    host.currentSnackbarData?.dismiss()
+                                    val choice =
+                                        host.showSnackbar(
+                                            message,
+                                            actionLabel = context.getString(R.string.code_undo),
+                                            duration = SnackbarDuration.Short,
+                                        )
+                                    if (choice == SnackbarResult.ActionPerformed) {
+                                        app.chatLifecycle.restore(owners.filterKeys { it in archived })
                                     }
-                                    app.catalogRepository.refreshSessionsOnly()
                                 }
                             },
                             pinnedSessionIds = preferences.pinnedSessionIds,
@@ -1379,6 +1432,21 @@ fun AndCodeApp(
                                 microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                             },
                         )
+
+                        composable(ROUTE_ARCHIVE) {
+                            val archiveViewModel: ArchiveViewModel =
+                                viewModel(factory = ViewModelFactory { ArchiveViewModel(app.chatLifecycle) })
+                            val archiveState by archiveViewModel.state.collectAsState()
+                            ArchiveScreen(
+                                state = archiveState,
+                                relativeTime = { relativeTimeLabel(context, it) },
+                                onOpen = { chat -> openSessionInChat(chat.session.id, chat.session.title, chat.runtimeId) },
+                                onRestore = archiveViewModel::restore,
+                                onDeleteForever = archiveViewModel::deleteForever,
+                                onOpenAutoArchiveSettings = { navController.navigate(ROUTE_SETTINGS) { launchSingleTop = true } },
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
 
                         composable(ROUTE_SCHEDULES) {
                             ScheduleListScreen(
