@@ -237,6 +237,10 @@ class AntigravityTarget(internal val runtime: AntigravityRuntime) : RuntimeTarge
         return record.toSession()
     }
 
+    /** Archived chats included, so one opened from the Archive screen still resolves. */
+    override suspend fun session(sessionId: String): OpenCodeSession =
+        runtime.findSession(sessionId)?.toSession() ?: error("Session not found: $sessionId")
+
     override suspend fun listArchivedSessions(directory: String?): List<OpenCodeSession> =
         runtime.listArchivedSessions()
             .filter { directory == null || it.workspace == directory }

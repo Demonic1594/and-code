@@ -571,6 +571,8 @@ class AndCodeApplication : Application() {
                     activityRepository.markSessionRead(id)
                 },
                 onRestored = { id -> preferences.markSessionRestored(id) },
+                // The restore time only matters while a chat is out of the archive.
+                onArchived = { id -> preferences.clearSessionRestored(id) },
                 onChatsChanged = catalogRepository::refreshSessionsOnly,
             )
         SessionAutoArchiver(

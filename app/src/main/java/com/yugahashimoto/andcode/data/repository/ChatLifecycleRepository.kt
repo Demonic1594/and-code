@@ -52,7 +52,8 @@ data class ChatActionReport(
  *
  * A delete from the drawer is not sent at once: [scheduleDelete] hides the chats ([pendingDeletion])
  * for [undoWindowMillis] first, so the snackbar's Undo can take it back. Only after that does the
- * delete reach the runtime, and its outcome arrives on [reports].
+ * delete reach the runtime, and its outcome arrives on [reports]. If the process dies inside the
+ * window the delete never happens and the chat comes back, which is the safe way to fail.
  */
 class ChatLifecycleRepository(
     private val targets: () -> List<RuntimeTarget>,
@@ -60,6 +61,7 @@ class ChatLifecycleRepository(
     private val scope: CoroutineScope,
     private val forgetLocally: (String) -> Unit,
     private val onRestored: (String) -> Unit = {},
+    private val onArchived: (String) -> Unit = {},
     private val onChatsChanged: () -> Unit = {},
     private val undoWindowMillis: Long = UNDO_WINDOW_MILLIS,
 ) {
@@ -81,9 +83,12 @@ class ChatLifecycleRepository(
      * from an earlier delete keep their own window.
      */
     fun scheduleDelete(requested: Set<String>): Set<String> {
-        val sessionIds = requested - mutablePendingDeletion.value
+        var sessionIds = emptySet<String>()
+        mutablePendingDeletion.update { pending ->
+            sessionIds = requested - pending
+            pending + sessionIds
+        }
         if (sessionIds.isEmpty()) return emptySet()
-        mutablePendingDeletion.update { it + sessionIds }
         val job =
             scope.launch {
                 delay(undoWindowMillis)
@@ -115,8 +120,11 @@ class ChatLifecycleRepository(
         return report(ChatAction.DELETE, result)
     }
 
-    suspend fun archive(chats: Map<String, String?>): ChatActionResult =
-        report(ChatAction.ARCHIVE, runOnOwners(chats) { target, id -> target.archiveSession(id) })
+    suspend fun archive(chats: Map<String, String?>): ChatActionResult {
+        val result = runOnOwners(chats) { target, id -> target.archiveSession(id) }
+        result.succeeded.forEach(onArchived)
+        return report(ChatAction.ARCHIVE, result)
+    }
 
     suspend fun restore(chats: Map<String, String?>): ChatActionResult {
         val result = runOnOwners(chats) { target, id -> target.unarchiveSession(id) }

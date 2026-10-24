@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -294,7 +295,7 @@ class OpenCodeV2ApiClientTest {
             val body = Json.parseToJsonElement(patch.body.readUtf8()).jsonObject
             val metadata = body["metadata"]!!.jsonObject
             assertEquals("keep", metadata["existing"]!!.jsonPrimitive.content)
-            assertNull(metadata[ARCHIVED_METADATA_KEY])
+            assertEquals(JsonNull, metadata[ARCHIVED_METADATA_KEY])
             assertEquals("false", body["archived"]!!.jsonPrimitive.content)
         }
 

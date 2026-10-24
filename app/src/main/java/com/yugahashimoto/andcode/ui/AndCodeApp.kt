@@ -36,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
@@ -151,6 +152,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
 
 /** How often the open chat asks GitHub whether its pull requests have moved on. */
@@ -1003,7 +1005,19 @@ fun AndCodeApp(
                                                 } else {
                                                     context.getString(R.string.chats_deleted_snackbar, sessionIds.size)
                                                 }
-                                            val choice = host.showSnackbar(message, actionLabel = context.getString(R.string.code_undo))
+                                            // A snackbar with an action never times out on its own, and
+                                            // Undo is only real while the delete is still waiting: the
+                                            // snackbar is cut to that window, and one already showing is
+                                            // dismissed so this one does not queue behind it.
+                                            host.currentSnackbarData?.dismiss()
+                                            val choice =
+                                                withTimeoutOrNull(ChatLifecycleRepository.UNDO_WINDOW_MILLIS) {
+                                                    host.showSnackbar(
+                                                        message,
+                                                        actionLabel = context.getString(R.string.code_undo),
+                                                        duration = SnackbarDuration.Indefinite,
+                                                    )
+                                                }
                                             if (choice == SnackbarResult.ActionPerformed) app.chatLifecycle.undoDelete(sessionIds)
                                         }
                                     }
@@ -1023,7 +1037,13 @@ fun AndCodeApp(
                                         } else {
                                             context.getString(R.string.chats_archived_snackbar, archived.size)
                                         }
-                                    val choice = host.showSnackbar(message, actionLabel = context.getString(R.string.code_undo))
+                                    host.currentSnackbarData?.dismiss()
+                                    val choice =
+                                        host.showSnackbar(
+                                            message,
+                                            actionLabel = context.getString(R.string.code_undo),
+                                            duration = SnackbarDuration.Short,
+                                        )
                                     if (choice == SnackbarResult.ActionPerformed) {
                                         app.chatLifecycle.restore(owners.filterKeys { it in archived })
                                     }

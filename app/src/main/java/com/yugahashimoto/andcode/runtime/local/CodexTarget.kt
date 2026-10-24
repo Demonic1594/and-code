@@ -279,6 +279,9 @@ class CodexTarget(
     override suspend fun archiveSession(sessionId: String): OpenCodeSession =
         withContext(Dispatchers.IO) { runtime.archiveSession(sessionId) }
 
+    /** `thread/read` finds archived threads too, unlike the default lookup through [listSessions]. */
+    override suspend fun session(sessionId: String): OpenCodeSession = withContext(Dispatchers.IO) { runtime.session(sessionId) }
+
     override suspend fun listArchivedSessions(directory: String?): List<OpenCodeSession> =
         withContext(Dispatchers.IO) { runtime.listArchivedSessions() }.filter { directory == null || it.directory == directory }
 

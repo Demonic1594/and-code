@@ -7,6 +7,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.nio.file.Files
 
 class AgentTranscriptFilesTest {
     @get:Rule
@@ -55,6 +56,20 @@ class AgentTranscriptFilesTest {
         assertEquals(0, AgentTranscriptFiles.deleteMatching(listOf(folder), listOf("abc", "", "../x", "a/b/c/d/e/f")))
         assertTrue(file.exists())
         assertTrue(dotted.exists())
+    }
+
+    @Test
+    fun `a symbolic link inside a deleted folder is removed without touching its target`() {
+        val workspace = temp.newFolder("workspace")
+        val precious = File(workspace, "Main.kt").apply { writeText("keep") }
+        val folder = temp.newFolder("file-history")
+        val entry = File(folder, id).apply { mkdirs() }
+        Files.createSymbolicLink(File(entry, "link").toPath(), workspace.toPath())
+
+        AgentTranscriptFiles.deleteMatching(listOf(folder), listOf(id))
+
+        assertFalse(entry.exists())
+        assertTrue(precious.exists())
     }
 
     @Test

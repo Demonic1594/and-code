@@ -355,14 +355,17 @@ class AppPreferencesRepository(
         mutableState.update { it.copy(restoredSessionTimes = updated) }
     }
 
+    fun clearSessionRestored(sessionId: String) {
+        if (sessionId !in settings.restoredSessionTimes) return
+        val updated = settings.restoredSessionTimes - sessionId
+        settings.restoredSessionTimes = updated
+        mutableState.update { it.copy(restoredSessionTimes = updated) }
+    }
+
     /** Drops everything kept about a deleted chat: its pin and its restore time. */
     fun forgetSession(sessionId: String) {
         if (sessionId in settings.pinnedSessionIds) setSessionPinned(sessionId, false)
-        if (sessionId in settings.restoredSessionTimes) {
-            val updated = settings.restoredSessionTimes - sessionId
-            settings.restoredSessionTimes = updated
-            mutableState.update { it.copy(restoredSessionTimes = updated) }
-        }
+        clearSessionRestored(sessionId)
     }
 
     /** Adds [prompt], or replaces the saved prompt with the same id. */
