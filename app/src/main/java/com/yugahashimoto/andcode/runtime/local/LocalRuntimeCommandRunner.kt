@@ -10,6 +10,11 @@ class LocalRuntimeCommandRunner(
     private val timeoutSeconds: Long = 15L,
     private val maxOutputCharacters: Int = 4_000,
     private val messages: LocalRuntimeMessages = LocalRuntimeMessages,
+    /**
+     * Host directory bound at `/workspace`, as the agents see it. Without it a command could not reach
+     * the default workspace, so git actions and file saves from the explorer would fail there.
+     */
+    private val workspaceDirectory: File? = null,
 ) {
     init {
         require(timeoutSeconds > 0)
@@ -32,7 +37,7 @@ class LocalRuntimeCommandRunner(
             val outputFile = File.createTempFile("diagnostic-", ".log", File(runtimeDirectory, "logs").apply { mkdirs() })
             try {
                 val command =
-                    prootCommandPrefix(runtime.commandSuite, runtime.rootfs) +
+                    prootCommandPrefix(runtime.commandSuite, runtime.rootfs, workspaceDirectory?.takeIf { it.isDirectory }) +
                         listOf(
                             "-w",
                             "/root",

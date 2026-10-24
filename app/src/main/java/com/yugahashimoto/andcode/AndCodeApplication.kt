@@ -318,6 +318,7 @@ class AndCodeApplication : Application() {
                 installedRuntimeProvider = installer::installedRuntime,
                 accessCoordinator = accessCoordinator,
                 messages = AndroidLocalRuntimeMessages(this),
+                workspaceDirectory = File(runtimeDirectory, "workspace"),
             )
         val claudeMessages = AndroidClaudeMessages(this)
         claudeCodeRuntime =

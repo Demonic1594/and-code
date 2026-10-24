@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.feature.workspace
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
@@ -7,16 +8,23 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.WrapText
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -26,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,15 +48,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.ui.components.HapticEvent
+import com.yugahashimoto.andcode.ui.components.rememberHaptics
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 import com.yugahashimoto.andcode.ui.theme.SyntaxTheme
 import com.yugahashimoto.andcode.ui.theme.syntaxThemeFor
@@ -77,7 +90,35 @@ fun CodeViewerScreen(
     state: CodeViewerUiState,
     onBack: () -> Unit,
     syntaxThemeKey: String? = null,
+    onStartEditing: () -> Unit = {},
+    onEditChange: (String) -> Unit = {},
+    onSave: () -> Unit = {},
+    onCancelEditing: () -> Unit = {},
 ) {
+    var confirmDiscard by remember { mutableStateOf(false) }
+    val haptics = rememberHaptics()
+    LaunchedEffect(state.savedCount) { if (state.savedCount > 0) haptics.perform(HapticEvent.CONFIRM) }
+    LaunchedEffect(state.saveError) { if (state.saveError != null) haptics.perform(HapticEvent.REJECT) }
+    // Back while editing with unsaved text asks first; losing an edit typed on a phone keyboard hurts.
+    BackHandler(enabled = state.isEditing) {
+        if (state.hasUnsavedChanges) confirmDiscard = true else onCancelEditing()
+    }
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text(stringResource(R.string.code_discard_title)) },
+            text = { Text(stringResource(R.string.code_discard_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDiscard = false
+                    onCancelEditing()
+                }) { Text(stringResource(R.string.code_discard_confirm), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
     val theme = remember(syntaxThemeKey) { syntaxThemeFor(syntaxThemeKey) }
     val lines = remember(state.content) { state.content.split("\n") }
 
@@ -116,11 +157,32 @@ fun CodeViewerScreen(
             TopAppBar(
                 title = { Text(state.filePath.substringAfterLast('/')) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        when {
+                            state.hasUnsavedChanges -> confirmDiscard = true
+                            state.isEditing -> onCancelEditing()
+                            else -> onBack()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 actions = {
+                    if (state.isEditing) {
+                        if (state.isSaving) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp).padding(end = 4.dp), strokeWidth = 2.dp)
+                        } else {
+                            IconButton(onClick = onSave, enabled = state.hasUnsavedChanges) {
+                                Icon(Icons.Default.Save, contentDescription = stringResource(R.string.save))
+                            }
+                        }
+                        return@TopAppBar
+                    }
+                    if (state.canEdit) {
+                        IconButton(onClick = onStartEditing) {
+                            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.code_edit))
+                        }
+                    }
                     IconButton(onClick = { showSearch = !showSearch }) {
                         Icon(Icons.Default.Search, contentDescription = stringResource(R.string.cd_search))
                     }
@@ -146,6 +208,36 @@ fun CodeViewerScreen(
                 Text(
                     text = state.error ?: stringResource(R.string.binary_file_no_preview),
                     color = if (state.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        } else if (state.draft != null) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .background(CodeBackground),
+            ) {
+                state.saveError?.let { error ->
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = CodeFontFamily,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
+                BasicTextField(
+                    value = state.draft,
+                    onValueChange = onEditChange,
+                    textStyle = TextStyle(color = CodeForeground, fontSize = 13.sp, lineHeight = 19.sp, fontFamily = CodeFontFamily),
+                    cursorBrush = SolidColor(CodeForeground),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(12.dp)
+                            .imePadding(),
                 )
             }
         } else {

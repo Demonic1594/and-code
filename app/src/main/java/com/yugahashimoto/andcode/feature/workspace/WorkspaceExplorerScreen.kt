@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.feature.workspace
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,6 +16,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -24,13 +27,18 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Source
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -39,6 +47,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -47,10 +56,12 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -70,9 +81,11 @@ import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.api.OpenCodeFileChange
 import com.yugahashimoto.andcode.core.api.OpenCodeFileNode
 import com.yugahashimoto.andcode.ui.components.FileTypeIcon
+import com.yugahashimoto.andcode.ui.components.HapticEvent
 import com.yugahashimoto.andcode.ui.components.RetainedPanel
 import com.yugahashimoto.andcode.ui.components.SectionCard
 import com.yugahashimoto.andcode.ui.components.StatusChip
+import com.yugahashimoto.andcode.ui.components.rememberHaptics
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 
 data class CommitInfo(
@@ -108,8 +121,12 @@ fun WorkspaceExplorerScreen(
     workspaceDeck: List<String> = emptyList(),
     onOpenTerminal: () -> Unit = {},
     onOpenChange: (OpenCodeFileChange) -> Unit = {},
+    gitActions: GitActions = GitActions(),
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    // The view model's live branch list and history win over the static ones a caller may pass.
+    val shownBranches = state.branches.ifEmpty { branches }
+    val shownCommits = state.commits.ifEmpty { commits }
     val tabs =
         listOf(
             stringResource(R.string.tab_files),
@@ -177,7 +194,7 @@ fun WorkspaceExplorerScreen(
                 when (selectedTab) {
                     0 -> FilesTab(state, onOpenNode, onNavigateUp)
                     1 -> SearchTab(state, onSearch)
-                    2 -> ChangesTab(state, branches, onSwitchBranch, onCreateBranch, commits, onOpenChange)
+                    2 -> ChangesTab(state, shownBranches, onSwitchBranch, onCreateBranch, shownCommits, onOpenChange, gitActions)
                     else -> PrTab(prTitle, prStatus, prDescription)
                 }
             }
@@ -185,7 +202,7 @@ fun WorkspaceExplorerScreen(
             when (selectedTab) {
                 0 -> FilesTab(state, onOpenNode, onNavigateUp)
                 1 -> SearchTab(state, onSearch)
-                2 -> ChangesTab(state, branches, onSwitchBranch, onCreateBranch, commits, onOpenChange)
+                2 -> ChangesTab(state, shownBranches, onSwitchBranch, onCreateBranch, shownCommits, onOpenChange, gitActions)
                 else -> PrTab(prTitle, prStatus, prDescription)
             }
         }
@@ -544,8 +561,10 @@ private fun ChangesTab(
     onCreateBranch: (String) -> Unit,
     commits: List<CommitInfo>,
     onOpenChange: (OpenCodeFileChange) -> Unit = {},
+    gitActions: GitActions = GitActions(),
 ) {
     var showBranchSheet by remember { mutableStateOf(false) }
+    var showCommitDialog by remember { mutableStateOf(false) }
     var diffViewMode by remember { mutableStateOf(DiffViewMode.UNIFIED) }
 
     LazyColumn(
@@ -577,6 +596,16 @@ private fun ChangesTab(
                     }
                     Text(stringResource(R.string.item_count, state.changes.size))
                 }
+            }
+        }
+
+        if (state.canRunGit && state.vcsInfo != null) {
+            item {
+                GitActionBar(
+                    state = state,
+                    onCommit = { showCommitDialog = true },
+                    actions = gitActions,
+                )
             }
         }
 
@@ -622,6 +651,17 @@ private fun ChangesTab(
 
         state.error?.let { item { ErrorCard(it) } }
         item { Spacer(Modifier.height(72.dp)) }
+    }
+
+    if (showCommitDialog) {
+        CommitDialog(
+            changeCount = state.changes.size,
+            onCommit = { message ->
+                gitActions.onCommit(message)
+                showCommitDialog = false
+            },
+            onDismiss = { showCommitDialog = false },
+        )
     }
 
     if (showBranchSheet) {
@@ -1014,4 +1054,129 @@ private fun ErrorCard(message: String) {
         Text(stringResource(R.string.fetch_failed), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
         Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/** Callbacks for the git actions the Changes tab offers on this device's runtime. */
+data class GitActions(
+    val onCommit: (String) -> Unit = {},
+    val onPush: () -> Unit = {},
+    val onPull: () -> Unit = {},
+    val onStash: () -> Unit = {},
+    val onConsumeResult: () -> Unit = {},
+)
+
+@Composable
+private fun GitActionBar(
+    state: WorkspaceExplorerUiState,
+    onCommit: () -> Unit,
+    actions: GitActions,
+) {
+    val haptics = rememberHaptics()
+    val busy = state.runningAction != null
+    LaunchedEffect(state.completedAction, state.actionError) {
+        when {
+            state.completedAction != null -> haptics.perform(HapticEvent.CONFIRM)
+            state.actionError != null -> haptics.perform(HapticEvent.REJECT)
+        }
+    }
+    SectionCard {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Button(onClick = onCommit, enabled = !busy && state.changes.isNotEmpty()) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.git_commit))
+                }
+                OutlinedButton(onClick = actions.onPull, enabled = !busy) {
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.git_pull))
+                }
+                OutlinedButton(onClick = actions.onPush, enabled = !busy) {
+                    Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.git_push))
+                }
+                OutlinedButton(onClick = actions.onStash, enabled = !busy && state.changes.isNotEmpty()) {
+                    Icon(Icons.Default.Inventory2, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.git_stash))
+                }
+            }
+            AnimatedVisibility(visible = busy) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            val confirmation =
+                when (state.completedAction) {
+                    WorkspaceAction.COMMIT -> stringResource(R.string.git_done_commit)
+                    WorkspaceAction.PUSH -> stringResource(R.string.git_done_push)
+                    WorkspaceAction.PULL -> stringResource(R.string.git_done_pull)
+                    WorkspaceAction.STASH -> stringResource(R.string.git_done_stash)
+                    WorkspaceAction.CHECKOUT, WorkspaceAction.CREATE_BRANCH -> stringResource(R.string.git_done_branch)
+                    WorkspaceAction.SAVE, null -> null
+                }
+            val message = state.actionError ?: confirmation
+            if (message != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = message,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = if (state.actionError != null) CodeFontFamily else null,
+                        color = if (state.actionError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        maxLines = 6,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    IconButton(onClick = actions.onConsumeResult) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = stringResource(R.string.close_description),
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CommitDialog(
+    changeCount: Int,
+    onCommit: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var message by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.git_commit_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    stringResource(R.string.git_commit_body, changeCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = message,
+                    onValueChange = { message = it },
+                    label = { Text(stringResource(R.string.git_commit_message_label)) },
+                    minLines = 2,
+                    maxLines = 6,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onCommit(message) }, enabled = message.isNotBlank()) {
+                Text(stringResource(R.string.git_commit))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        },
+    )
 }

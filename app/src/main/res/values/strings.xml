@@ -1257,4 +1257,20 @@
     <string name="transcript_assistant">Assistant</string>
     <string name="transcript_tool">Tool</string>
     <string name="transcript_error">Error</string>
+    <string name="code_edit">Edit file</string>
+    <string name="code_discard_title">Discard changes?</string>
+    <string name="code_discard_body">Your edits to this file have not been saved.</string>
+    <string name="code_discard_confirm">Discard</string>
+    <string name="git_commit">Commit</string>
+    <string name="git_pull">Pull</string>
+    <string name="git_push">Push</string>
+    <string name="git_stash">Stash</string>
+    <string name="git_done_commit">Committed</string>
+    <string name="git_done_push">Pushed</string>
+    <string name="git_done_pull">Up to date with the remote</string>
+    <string name="git_done_stash">Changes stashed</string>
+    <string name="git_done_branch">Switched branch</string>
+    <string name="git_commit_title">Commit changes</string>
+    <string name="git_commit_body">Changed files: %1$d. All of them will be staged and committed.</string>
+    <string name="git_commit_message_label">Commit message</string>
 </resources>
