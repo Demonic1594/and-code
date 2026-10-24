@@ -42,6 +42,9 @@ class CodeViewerViewModel(
     // Edit history for undo/redo. A burst of typing is one step, not one per keystroke: a snapshot is
     // only taken when the previous edit is older than UNDO_COALESCE_MS, the way editors group typing.
     private val undoStack = ArrayDeque<String>()
+
+    /** Total length of [undoStack], kept as it changes so the size cap needs no recount per edit. */
+    private var undoChars = 0L
     private val redoStack = ArrayDeque<String>()
     private var lastEditAt = 0L
 
@@ -97,7 +100,7 @@ class CodeViewerViewModel(
 
     fun undo() {
         val current = mutableState.value.draft ?: return
-        val previous = undoStack.removeLastOrNull() ?: return
+        val previous = undoStack.removeLastOrNull()?.also { undoChars -= it.length } ?: return
         redoStack.addLast(current)
         // The next keystroke starts a new step instead of folding into the one just undone.
         lastEditAt = 0L
@@ -142,13 +145,15 @@ class CodeViewerViewModel(
     // 200 steps of a 1 MB file would otherwise hold hundreds of megabytes.
     private fun pushUndo(text: String) {
         undoStack.addLast(text)
-        while (undoStack.size > MAX_UNDO_STEPS || (undoStack.size > 1 && undoStack.sumOf { it.length } > MAX_UNDO_CHARS)) {
-            undoStack.removeFirst()
+        undoChars += text.length
+        while (undoStack.size > MAX_UNDO_STEPS || (undoStack.size > 1 && undoChars > MAX_UNDO_CHARS)) {
+            undoChars -= undoStack.removeFirst().length
         }
     }
 
     private fun clearHistory() {
         undoStack.clear()
+        undoChars = 0L
         redoStack.clear()
         lastEditAt = 0L
     }
