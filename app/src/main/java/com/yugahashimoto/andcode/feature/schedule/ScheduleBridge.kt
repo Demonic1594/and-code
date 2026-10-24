@@ -1,10 +1,11 @@
 package com.yugahashimoto.andcode.feature.schedule
 
+import com.yugahashimoto.andcode.core.util.pollWhileActive
 import com.yugahashimoto.andcode.data.schedule.CronExpression
 import com.yugahashimoto.andcode.data.schedule.Schedule
 import com.yugahashimoto.andcode.data.schedule.ScheduleRepository
 import com.yugahashimoto.andcode.data.schedule.ScheduleRun
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -92,14 +93,17 @@ class ScheduleBridge(
 ) {
     val bridgeDir: File = File(workspaceDir, BRIDGE_RELATIVE_PATH)
 
-    /** Runs the poll loop until cancelled; typically launched on the application scope. */
-    suspend fun run() {
-        while (true) {
-            // A single failing request or IO error must never kill the bridge for the process
-            // lifetime; drop it and keep polling.
-            runCatching { pollOnce() }
-            delay(pollIntervalMillis)
-        }
+    /**
+     * Runs the poll loop until cancelled; typically launched on the application scope.
+     *
+     * [active] says whether the guest could be talking to the bridge right now. It is required
+     * rather than defaulted to "always": a default would let a future call site forget it and
+     * quietly bring back a loop that polls for the life of the process.
+     */
+    suspend fun run(active: Flow<Boolean>) {
+        // A single failing request or IO error must never kill the bridge for the process
+        // lifetime; drop it and keep polling.
+        active.pollWhileActive(pollIntervalMillis) { runCatching { pollOnce() } }
     }
 
     /** Handles every currently pending request and prunes stale files. */
@@ -127,6 +131,16 @@ class ScheduleBridge(
         if (request == null) {
             file.delete()
             writeResponse(responsesDir, requestId, errorResponse("Malformed request"), now)
+            return
+        }
+        // The guest stops waiting after RESPONSE_TIMEOUT_S and reports the call as failed. A request
+        // that sat unanswered past that - written while the poll was parked - must not run on the
+        // way back in, or a create/delete/runNow the agent was told did not happen would happen
+        // anyway. A missing or zero timestamp is "unknown", not "ancient", so it still runs.
+        val createdAtMs = request.optLong("createdAtMs", 0L)
+        if (createdAtMs > 0L && now - createdAtMs > REQUEST_EXPIRES_AFTER_MILLIS) {
+            file.delete()
+            writeResponse(responsesDir, requestId, errorResponse("Request expired before the AndCode app could handle it"), now)
             return
         }
         val response =
@@ -367,5 +381,13 @@ class ScheduleBridge(
         const val BRIDGE_RELATIVE_PATH = ".and-code/schedule-bridge"
         const val POLL_INTERVAL_MILLIS = 800L
         const val STALE_AFTER_MILLIS = 15 * 60_000L
+
+        /**
+         * Just past the guest's 90 s reply timeout (`RESPONSE_TIMEOUT_S` in andcode-schedule-mcp.py,
+         * which must be kept in step with this), so a request is dropped once its caller has given up
+         * on it. No allowance for clock drift is needed: the guest runs under PRoot and reads the same
+         * kernel clock as this process.
+         */
+        const val REQUEST_EXPIRES_AFTER_MILLIS = 95_000L
     }
 }
