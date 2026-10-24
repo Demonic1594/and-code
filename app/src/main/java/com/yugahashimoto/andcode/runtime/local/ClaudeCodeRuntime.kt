@@ -337,7 +337,9 @@ class ClaudeCodeRuntime(
                 Thread.sleep(INTERRUPT_POLL_MILLIS)
             }
         }
-        if (!session.parser.turnFinished || !session.process.isAlive) stop(sessionId)
+        if (session.parser.turnFinished && session.process.isAlive) return
+        // Only the process this call asked to stop: a send that replaced it meanwhile is left alone.
+        synchronized(this) { if (sessions[sessionId] === session) stop(sessionId) }
     }
 
     private fun interruptRequest(): JsonObject =
