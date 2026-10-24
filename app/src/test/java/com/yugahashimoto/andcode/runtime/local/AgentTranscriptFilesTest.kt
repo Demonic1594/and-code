@@ -73,6 +73,20 @@ class AgentTranscriptFilesTest {
     }
 
     @Test
+    fun `a matching entry that is itself a link loses only the link`() {
+        val workspace = temp.newFolder("workspace")
+        val precious = File(workspace, "Main.kt").apply { writeText("keep") }
+        val folder = temp.newFolder("brain")
+        val link = File(folder, id)
+        Files.createSymbolicLink(link.toPath(), workspace.toPath())
+
+        AgentTranscriptFiles.deleteMatching(listOf(folder), listOf(id))
+
+        assertFalse(Files.exists(link.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS))
+        assertTrue(precious.exists())
+    }
+
+    @Test
     fun `a prefix of another id does not match it`() {
         val folder = temp.newFolder("projects")
         val longer = File(folder, "${id}0.jsonl").apply { writeText("{}") }

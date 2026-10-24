@@ -77,6 +77,13 @@ object AgentTranscriptFiles {
                         return FileVisitResult.CONTINUE
                     }
 
+                    // One unreadable file must not stop the rest of the folder from going; the
+                    // folder itself then stays and the delete reports false.
+                    override fun visitFileFailed(
+                        file: Path,
+                        exc: IOException,
+                    ): FileVisitResult = FileVisitResult.CONTINUE
+
                     override fun postVisitDirectory(
                         dir: Path,
                         exc: IOException?,
