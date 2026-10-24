@@ -1307,4 +1307,19 @@
     <string name="chat_restore_failed_snackbar">Não restauradas (%1$d): %2$s</string>
     <string name="chat_action_reason_unsupported">esta versão do agente ou do servidor não permite isso</string>
     <string name="chat_action_reason_not_found">a conversa não foi encontrada no agente dela</string>
+    <string name="chat_find_open">Localizar na conversa</string>
+    <string name="chat_find_none">Nenhum resultado</string>
+    <string name="chat_find_position">%1$d de %2$d</string>
+    <string name="chat_find_older">Resultado anterior</string>
+    <string name="chat_find_newer">Próximo resultado</string>
+    <string name="chat_find_close">Fechar pesquisa</string>
+    <string name="message_search_hint">Pesquisar em todas as conversas</string>
+    <string name="message_search_include_archived">Incluir arquivadas</string>
+    <string name="message_search_progress">Conversas pesquisadas: %1$d de %2$d</string>
+    <string name="message_search_empty_title">Pesquisar em todas as conversas</string>
+    <string name="message_search_empty_body">Encontra palavras no que você e os agentes escreveram, nas conversas de todos os agentes, não só nos títulos.</string>
+    <string name="message_search_no_results_title">Nenhum resultado</string>
+    <string name="message_search_no_results_body">Nenhuma conversa contém esse texto. Tente menos palavras ou inclua conversas arquivadas.</string>
+    <string name="message_search_match_count">Resultados: %1$d</string>
+    <string name="drawer_search_messages">Pesquisar “%1$s” nas mensagens</string>
 </resources>

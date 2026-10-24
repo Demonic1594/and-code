@@ -1307,4 +1307,19 @@
     <string name="chat_restore_failed_snackbar">Non restaurées (%1$d) : %2$s</string>
     <string name="chat_action_reason_unsupported">cette version de l\'agent ou du serveur ne le permet pas</string>
     <string name="chat_action_reason_not_found">la discussion est introuvable sur son agent</string>
+    <string name="chat_find_open">Rechercher dans la discussion</string>
+    <string name="chat_find_none">Aucun résultat</string>
+    <string name="chat_find_position">%1$d sur %2$d</string>
+    <string name="chat_find_older">Résultat précédent</string>
+    <string name="chat_find_newer">Résultat suivant</string>
+    <string name="chat_find_close">Fermer la recherche</string>
+    <string name="message_search_hint">Rechercher dans toutes les discussions</string>
+    <string name="message_search_include_archived">Inclure les archives</string>
+    <string name="message_search_progress">Discussions parcourues : %1$d sur %2$d</string>
+    <string name="message_search_empty_title">Rechercher dans toutes les discussions</string>
+    <string name="message_search_empty_body">Recherche des mots dans ce que vous et les agents avez écrit, dans les discussions de tous les agents, pas seulement dans leurs titres.</string>
+    <string name="message_search_no_results_title">Aucun résultat</string>
+    <string name="message_search_no_results_body">Aucune discussion ne contient ce texte. Essayez moins de mots ou incluez les discussions archivées.</string>
+    <string name="message_search_match_count">Résultats : %1$d</string>
+    <string name="drawer_search_messages">Rechercher « %1$s » dans les messages</string>
 </resources>

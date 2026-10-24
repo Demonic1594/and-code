@@ -1301,4 +1301,19 @@
     <string name="chat_restore_failed_snackbar">未恢复 (%1$d)：%2$s</string>
     <string name="chat_action_reason_unsupported">该代理或服务器版本不支持此操作</string>
     <string name="chat_action_reason_not_found">在其代理上找不到该聊天</string>
+    <string name="chat_find_open">在聊天中查找</string>
+    <string name="chat_find_none">无匹配项</string>
+    <string name="chat_find_position">第 %1$d 个，共 %2$d 个</string>
+    <string name="chat_find_older">上一个匹配项</string>
+    <string name="chat_find_newer">下一个匹配项</string>
+    <string name="chat_find_close">关闭查找</string>
+    <string name="message_search_hint">搜索所有聊天</string>
+    <string name="message_search_include_archived">包含已归档</string>
+    <string name="message_search_progress">已搜索 %1$d / %2$d 个聊天</string>
+    <string name="message_search_empty_title">搜索所有聊天</string>
+    <string name="message_search_empty_body">在您和代理写下的内容中查找词语，涵盖每个代理的聊天，而不仅是标题。</string>
+    <string name="message_search_no_results_title">无匹配项</string>
+    <string name="message_search_no_results_body">没有聊天包含该文本。请尝试减少词语，或包含已归档的聊天。</string>
+    <string name="message_search_match_count">匹配：%1$d</string>
+    <string name="drawer_search_messages">在消息中搜索“%1$s”</string>
 </resources>

@@ -24,6 +24,7 @@ import com.yugahashimoto.andcode.data.connection.SecureSettingsRepository
 import com.yugahashimoto.andcode.data.repository.AndroidRuntimeActivityMessages
 import com.yugahashimoto.andcode.data.repository.AndroidRuntimeCatalogMessages
 import com.yugahashimoto.andcode.data.repository.ChatLifecycleRepository
+import com.yugahashimoto.andcode.data.repository.MessageSearchRepository
 import com.yugahashimoto.andcode.data.repository.ProviderCatalogCache
 import com.yugahashimoto.andcode.data.repository.PullRequestStatusRepository
 import com.yugahashimoto.andcode.data.repository.RuntimeActivityRepository
@@ -160,6 +161,10 @@ class AndCodeApplication : Application() {
 
     /** Deletes, archives and restores chats; see [ChatLifecycleRepository]. */
     lateinit var chatLifecycle: ChatLifecycleRepository
+        private set
+
+    /** Searches the text of every chat's messages; see [MessageSearchRepository]. */
+    lateinit var messageSearch: MessageSearchRepository
         private set
 
     lateinit var notifications: RuntimeNotificationHelper
@@ -560,6 +565,7 @@ class AndCodeApplication : Application() {
                 messages = AndroidRuntimeActivityMessages(this),
             )
         val drafts = DraftRepository(this)
+        messageSearch = MessageSearchRepository(targets = { runtimeRegistry.targets.value })
         chatLifecycle =
             ChatLifecycleRepository(
                 targets = { runtimeRegistry.targets.value },
@@ -569,6 +575,7 @@ class AndCodeApplication : Application() {
                     preferences.forgetSession(id)
                     drafts.clear(id)
                     activityRepository.markSessionRead(id)
+                    messageSearch.forget(id)
                 },
                 onRestored = { id -> preferences.markSessionRestored(id) },
                 // The restore time only matters while a chat is out of the archive.

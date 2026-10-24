@@ -83,6 +83,7 @@ import com.yugahashimoto.andcode.core.diagnostics.CrashLog
 import com.yugahashimoto.andcode.data.repository.ChatAction
 import com.yugahashimoto.andcode.data.repository.ChatActionReport
 import com.yugahashimoto.andcode.data.repository.ChatLifecycleRepository
+import com.yugahashimoto.andcode.data.repository.RuntimeSessionRef
 import com.yugahashimoto.andcode.data.settings.DraftRepository
 import com.yugahashimoto.andcode.feature.activity.ActivityViewModel
 import com.yugahashimoto.andcode.feature.archive.ArchiveScreen
@@ -103,6 +104,8 @@ import com.yugahashimoto.andcode.feature.schedule.ScheduleEditorScreen
 import com.yugahashimoto.andcode.feature.schedule.ScheduleListScreen
 import com.yugahashimoto.andcode.feature.schedule.ScheduleRunsScreen
 import com.yugahashimoto.andcode.feature.schedule.ScheduleViewModel
+import com.yugahashimoto.andcode.feature.search.MessageSearchScreen
+import com.yugahashimoto.andcode.feature.search.MessageSearchViewModel
 import com.yugahashimoto.andcode.feature.settings.CodexSignInActions
 import com.yugahashimoto.andcode.feature.settings.CodexSignInViewModel
 import com.yugahashimoto.andcode.feature.settings.DiagnosticsSheet
@@ -126,6 +129,7 @@ import com.yugahashimoto.andcode.ui.navigation.ROUTE_ONBOARDING
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_REMOTE_CONNECTION
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SCHEDULES
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SCHEDULE_EDIT
+import com.yugahashimoto.andcode.ui.navigation.ROUTE_SEARCH
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_AGENT_CODEX
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_PROVIDERS
@@ -235,6 +239,10 @@ fun AndCodeApp(
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     var pendingSession by remember { mutableStateOf<Pair<String, String>?>(null) }
+    // Search across chats: the query the search screen opens with, and the (chat, text) the chat's
+    // find bar opens with after a result is tapped.
+    var pendingSearchQuery by remember { mutableStateOf("") }
+    var pendingFindRequest by remember { mutableStateOf<Pair<String, String>?>(null) }
     var pendingHandoffPrompt by remember { mutableStateOf<Pair<String, String>?>(null) }
     // A handoff waits for the model sheet to close: the runtime and the model are chosen in the
     // same sheet, and sending the moment the runtime changes would use whichever model happened
@@ -1023,6 +1031,11 @@ fun AndCodeApp(
                                     }
                                 }
                             },
+                            onSearchMessages = { query ->
+                                closeDrawer()
+                                pendingSearchQuery = query
+                                navController.navigate(ROUTE_SEARCH) { launchSingleTop = true }
+                            },
                             onBatchArchive = { sessionIds ->
                                 // Owners are looked up now: once archived, a chat leaves the list the
                                 // lookup reads, and Undo still has to reach the right runtime.
@@ -1211,6 +1224,8 @@ fun AndCodeApp(
                                 }
                             }
                             ChatHomeScreen(
+                                findRequest = pendingFindRequest,
+                                onFindRequestConsumed = { pendingFindRequest = null },
                                 state = chatState,
                                 providers = settingsState.providers,
                                 agents = settingsState.agents,
@@ -1432,6 +1447,41 @@ fun AndCodeApp(
                                 microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                             },
                         )
+
+                        composable(ROUTE_SEARCH) {
+                            val searchViewModel: MessageSearchViewModel =
+                                viewModel(
+                                    factory =
+                                        ViewModelFactory {
+                                            MessageSearchViewModel(
+                                                repository = app.messageSearch,
+                                                activeChats = { app.catalogRepository.allSessions.value },
+                                                archivedChats = {
+                                                    app.chatLifecycle.listArchived().map {
+                                                        RuntimeSessionRef(
+                                                            it.runtimeId,
+                                                            it.agent,
+                                                            it.session,
+                                                        )
+                                                    }
+                                                },
+                                                initialQuery = pendingSearchQuery,
+                                            )
+                                        },
+                                )
+                            val searchState by searchViewModel.state.collectAsState()
+                            MessageSearchScreen(
+                                state = searchState,
+                                onQueryChange = searchViewModel::setQuery,
+                                onIncludeArchivedChange = searchViewModel::setIncludeArchived,
+                                onOpen = { hit ->
+                                    val session = hit.ref.session
+                                    if (searchState.query.isNotBlank()) pendingFindRequest = session.id to searchState.query.trim()
+                                    openSessionInChat(session.id, session.title, hit.ref.runtimeId)
+                                },
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
 
                         composable(ROUTE_ARCHIVE) {
                             val archiveViewModel: ArchiveViewModel =

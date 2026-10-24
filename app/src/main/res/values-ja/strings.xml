@@ -1321,4 +1321,19 @@
     <string name="chat_restore_failed_snackbar">復元できませんでした (%1$d): %2$s</string>
     <string name="chat_action_reason_unsupported">このエージェントまたはサーバーのバージョンでは実行できません</string>
     <string name="chat_action_reason_not_found">エージェント側でチャットが見つかりませんでした</string>
+    <string name="chat_find_open">チャット内を検索</string>
+    <string name="chat_find_none">一致なし</string>
+    <string name="chat_find_position">%1$d / %2$d</string>
+    <string name="chat_find_older">前の一致</string>
+    <string name="chat_find_newer">次の一致</string>
+    <string name="chat_find_close">検索を閉じる</string>
+    <string name="message_search_hint">すべてのチャットを検索</string>
+    <string name="message_search_include_archived">アーカイブ済みを含める</string>
+    <string name="message_search_progress">%2$d 件中 %1$d 件のチャットを検索済み</string>
+    <string name="message_search_empty_title">すべてのチャットを検索</string>
+    <string name="message_search_empty_body">あなたとエージェントが書いた内容から、すべてのエージェントのチャットを対象に単語を探します（タイトルだけではありません）。</string>
+    <string name="message_search_no_results_title">一致なし</string>
+    <string name="message_search_no_results_body">そのテキストを含むチャットはありません。単語を減らすか、アーカイブ済みのチャットも含めてみてください。</string>
+    <string name="message_search_match_count">一致: %1$d</string>
+    <string name="drawer_search_messages">メッセージから「%1$s」を検索</string>
 </resources>

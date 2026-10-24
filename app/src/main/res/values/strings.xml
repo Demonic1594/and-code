@@ -1326,4 +1326,19 @@
     <string name="chat_restore_failed_snackbar">Not restored (%1$d): %2$s</string>
     <string name="chat_action_reason_unsupported">this agent or server version can\'t do that</string>
     <string name="chat_action_reason_not_found">the chat wasn\'t found on its agent</string>
+    <string name="chat_find_open">Find in chat</string>
+    <string name="chat_find_none">No matches</string>
+    <string name="chat_find_position">%1$d of %2$d</string>
+    <string name="chat_find_older">Previous match</string>
+    <string name="chat_find_newer">Next match</string>
+    <string name="chat_find_close">Close find</string>
+    <string name="message_search_hint">Search all chats</string>
+    <string name="message_search_include_archived">Include archived</string>
+    <string name="message_search_progress">Searched %1$d of %2$d chats</string>
+    <string name="message_search_empty_title">Search every chat</string>
+    <string name="message_search_empty_body">Finds words in what you and the agents wrote, in every agent\'s chats, not just their titles.</string>
+    <string name="message_search_no_results_title">No matches</string>
+    <string name="message_search_no_results_body">No chat contains that text. Try fewer words, or include archived chats.</string>
+    <string name="message_search_match_count">Matches: %1$d</string>
+    <string name="drawer_search_messages">Search messages for “%1$s”</string>
 </resources>

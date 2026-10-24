@@ -1316,4 +1316,19 @@
     <string name="chat_restore_failed_snackbar">لم يُستعد (%1$d): %2$s</string>
     <string name="chat_action_reason_unsupported">لا يدعم هذا الوكيل أو إصدار الخادم ذلك</string>
     <string name="chat_action_reason_not_found">لم يتم العثور على المحادثة لدى وكيلها</string>
+    <string name="chat_find_open">البحث في المحادثة</string>
+    <string name="chat_find_none">لا توجد نتائج</string>
+    <string name="chat_find_position">%1$d من %2$d</string>
+    <string name="chat_find_older">التطابق السابق</string>
+    <string name="chat_find_newer">التطابق التالي</string>
+    <string name="chat_find_close">إغلاق البحث</string>
+    <string name="message_search_hint">البحث في كل المحادثات</string>
+    <string name="message_search_include_archived">تضمين المؤرشفة</string>
+    <string name="message_search_progress">تم البحث في %1$d من %2$d محادثة</string>
+    <string name="message_search_empty_title">البحث في كل المحادثات</string>
+    <string name="message_search_empty_body">يبحث عن الكلمات فيما كتبته أنت والوكلاء، في محادثات كل الوكلاء، وليس في عناوينها فقط.</string>
+    <string name="message_search_no_results_title">لا توجد نتائج</string>
+    <string name="message_search_no_results_body">لا توجد محادثة تحتوي على هذا النص. جرّب كلمات أقل، أو ضمّن المحادثات المؤرشفة.</string>
+    <string name="message_search_match_count">التطابقات: %1$d</string>
+    <string name="drawer_search_messages">البحث في الرسائل عن «%1$s»</string>
 </resources>

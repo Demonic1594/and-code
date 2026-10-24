@@ -1307,4 +1307,19 @@
     <string name="chat_restore_failed_snackbar">No restaurados (%1$d): %2$s</string>
     <string name="chat_action_reason_unsupported">esta versión del agente o del servidor no lo permite</string>
     <string name="chat_action_reason_not_found">no se encontró el chat en su agente</string>
+    <string name="chat_find_open">Buscar en el chat</string>
+    <string name="chat_find_none">Sin coincidencias</string>
+    <string name="chat_find_position">%1$d de %2$d</string>
+    <string name="chat_find_older">Coincidencia anterior</string>
+    <string name="chat_find_newer">Siguiente coincidencia</string>
+    <string name="chat_find_close">Cerrar búsqueda</string>
+    <string name="message_search_hint">Buscar en todos los chats</string>
+    <string name="message_search_include_archived">Incluir archivados</string>
+    <string name="message_search_progress">Chats buscados: %1$d de %2$d</string>
+    <string name="message_search_empty_title">Buscar en todos los chats</string>
+    <string name="message_search_empty_body">Busca palabras en lo que escribiste tú y los agentes, en los chats de todos los agentes, no solo en sus títulos.</string>
+    <string name="message_search_no_results_title">Sin coincidencias</string>
+    <string name="message_search_no_results_body">Ningún chat contiene ese texto. Prueba con menos palabras o incluye los chats archivados.</string>
+    <string name="message_search_match_count">Coincidencias: %1$d</string>
+    <string name="drawer_search_messages">Buscar «%1$s» en los mensajes</string>
 </resources>
