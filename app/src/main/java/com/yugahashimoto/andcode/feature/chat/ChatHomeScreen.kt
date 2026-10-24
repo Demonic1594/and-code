@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -514,8 +515,18 @@ fun ChatHomeScreen(
                                             tool = context.getString(R.string.transcript_tool),
                                             error = context.getString(R.string.transcript_error),
                                         )
-                                    clipboardManager.setText(AnnotatedString(chatTranscriptMarkdown(title, state.messages, labels)))
-                                    haptics.perform(HapticEvent.CONFIRM)
+                                    val markdown = chatTranscriptMarkdown(title, state.messages, labels)
+                                    val copied =
+                                        markdown.length <= MAX_CLIPBOARD_TRANSCRIPT_CHARS &&
+                                            runCatching { clipboardManager.setText(AnnotatedString(markdown)) }.isSuccess
+                                    if (copied) {
+                                        haptics.perform(HapticEvent.CONFIRM)
+                                    } else {
+                                        // Too big for the clipboard: hand it over as a file instead.
+                                        haptics.perform(HapticEvent.REJECT)
+                                        Toast.makeText(context, R.string.chat_copy_too_long, Toast.LENGTH_LONG).show()
+                                        shareChatTranscript(context, title, markdown, context.getString(R.string.chat_menu_share))
+                                    }
                                 },
                             )
                         }
@@ -701,7 +712,7 @@ fun ChatHomeScreen(
                     onSend = {
                         if (input.isNotBlank() || state.attachments.isNotEmpty()) {
                             haptics.perform(HapticEvent.CONFIRM)
-                            onSendMessage(input)
+                            onSendMessage(SlashCommandRegistry.expandSavedPrompt(input, savedPrompts))
                             inputValue = TextFieldValue("")
                             showSlashCommands = false
                         }

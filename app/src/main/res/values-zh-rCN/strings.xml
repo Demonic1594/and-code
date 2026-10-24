@@ -1256,4 +1256,6 @@
     <string name="schedule_template_tests">每晚测试运行</string>
     <string name="schedule_template_todos">TODO 清理</string>
     <string name="schedule_template_security">每月安全审查</string>
+    <string name="chat_copy_too_long">这段聊天太长，无法复制到剪贴板，因此将以文件形式分享。</string>
+    <string name="code_save_too_large">该文件过大，无法从这里保存（上限 1 MB）。</string>
 </resources>

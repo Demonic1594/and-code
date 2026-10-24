@@ -220,7 +220,7 @@ fun CodeViewerScreen(
             ) {
                 state.saveError?.let { error ->
                     Text(
-                        text = error,
+                        text = if (error == SAVE_ERROR_TOO_LARGE) stringResource(R.string.code_save_too_large) else error,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                         fontFamily = CodeFontFamily,

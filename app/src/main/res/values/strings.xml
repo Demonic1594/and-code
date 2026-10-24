@@ -1281,4 +1281,6 @@
     <string name="schedule_template_tests">Nightly test run</string>
     <string name="schedule_template_todos">TODO sweep</string>
     <string name="schedule_template_security">Monthly security review</string>
+    <string name="chat_copy_too_long">This chat is too long for the clipboard, so it is being shared as a file instead.</string>
+    <string name="code_save_too_large">This file is too large to save from here (limit 1 MB).</string>
 </resources>

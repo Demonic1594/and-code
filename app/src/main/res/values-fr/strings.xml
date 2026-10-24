@@ -1262,4 +1262,6 @@
     <string name="schedule_template_tests">Exécution nocturne des tests</string>
     <string name="schedule_template_todos">Revue des TODO</string>
     <string name="schedule_template_security">Revue de sécurité mensuelle</string>
+    <string name="chat_copy_too_long">Cette discussion est trop longue pour le presse-papiers ; elle est donc partagée sous forme de fichier.</string>
+    <string name="code_save_too_large">Ce fichier est trop volumineux pour être enregistré d’ici (limite : 1 Mo).</string>
 </resources>

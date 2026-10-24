@@ -45,13 +45,29 @@ internal fun chatTranscriptMarkdown(
                             part.files.forEach { append("- `").append(it).append("`\n") }
                             append('\n')
                         }
-                    is ChatPart.Image -> append("![").append(part.filename.orEmpty()).append("](").append(part.url).append(")\n\n")
+                    is ChatPart.Image -> append(imageMarkdown(part)).append("\n\n")
                     is ChatPart.Error -> append("> **").append(labels.error).append(":** ").append(part.message).append("\n\n")
                     is ChatPart.Reasoning -> Unit
                 }
             }
         }
     }.trimEnd() + "\n"
+
+/**
+ * An image as Markdown. Attached photos travel as `data:` URLs, hundreds of kilobytes of base64
+ * each; inlining them would bloat a shared file to megabytes and push a clipboard copy past the
+ * binder limit, so those become a named placeholder. Real links are kept.
+ */
+internal fun imageMarkdown(part: ChatPart.Image): String {
+    val name = part.filename?.takeIf(String::isNotBlank) ?: "image"
+    return if (part.url.startsWith("data:", ignoreCase = true)) "![$name](attachment:$name)" else "![$name](${part.url})"
+}
+
+/**
+ * Longest transcript put on the clipboard. The clipboard goes through binder, where a few hundred
+ * kilobytes is already risky and around 1 MB crashes the app; anything longer is offered as a share.
+ */
+internal const val MAX_CLIPBOARD_TRANSCRIPT_CHARS = 200_000
 
 /** A file name that survives every file system the share targets might write to. */
 internal fun transcriptFileName(title: String): String {

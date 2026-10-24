@@ -1271,4 +1271,6 @@
     <string name="schedule_template_tests">تشغيل الاختبارات الليلي</string>
     <string name="schedule_template_todos">مراجعة TODO</string>
     <string name="schedule_template_security">مراجعة الأمان الشهرية</string>
+    <string name="chat_copy_too_long">هذه المحادثة أطول من أن تتسع لها الحافظة، لذا تتم مشاركتها كملف بدلاً من ذلك.</string>
+    <string name="code_save_too_large">هذا الملف أكبر من أن يُحفظ من هنا (الحد الأقصى 1 ميغابايت).</string>
 </resources>

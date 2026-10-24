@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.feature.workspace
 
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeCommandResult
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Base64
@@ -19,6 +20,7 @@ enum class WorkspaceAction { COMMIT, PUSH, PULL, STASH, CHECKOUT, CREATE_BRANCH,
  * [run] executes one shell command with a timeout; it is blocking and is always called on IO.
  */
 class WorkspaceShell(
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val run: (command: String, timeoutSeconds: Long) -> LocalRuntimeCommandResult,
 ) {
     suspend fun branches(directory: String): Result<List<String>> =
@@ -34,12 +36,20 @@ class WorkspaceShell(
     suspend fun checkout(
         directory: String,
         branch: String,
-    ): Result<String> = exec(git(directory, "checkout ${quote(branch)}"))
+    ): Result<String> = validBranch(branch)?.let { exec(git(directory, "checkout ${quote(it)} --")) } ?: invalidBranch()
 
     suspend fun createBranch(
         directory: String,
         name: String,
-    ): Result<String> = exec(git(directory, "checkout -b ${quote(name.trim())}"))
+    ): Result<String> = validBranch(name)?.let { exec(git(directory, "checkout -b ${quote(it)}")) } ?: invalidBranch()
+
+    /**
+     * A name git could read as an option (`-f`, `--orphan`) is refused before it reaches the command
+     * line. Quoting already stops the shell from interpreting it, but not git.
+     */
+    private fun validBranch(name: String): String? = name.trim().takeIf { it.isNotEmpty() && !it.startsWith("-") }
+
+    private fun invalidBranch(): Result<String> = Result.failure(WorkspaceShellException("Invalid branch name"))
 
     /**
      * Stages everything and commits it. A fresh runtime has no git identity, and a commit there would
@@ -51,7 +61,7 @@ class WorkspaceShell(
         message: String,
     ): Result<String> =
         exec(
-            "cd ${quote(directory)} && git add -A && " +
+            "cd ${quote(directory)} && git add -A -- $COMMIT_PATHSPEC && " +
                 "if git config user.email >/dev/null 2>&1; then git commit -m ${quote(message)}; " +
                 "else git -c user.name=AndCode -c user.email=andcode@localhost commit -m ${quote(message)}; fi",
         )
@@ -74,7 +84,7 @@ class WorkspaceShell(
         content: String,
     ): Result<String> {
         val bytes = content.toByteArray(Charsets.UTF_8)
-        if (bytes.size > MAX_WRITE_BYTES) return Result.failure(IllegalArgumentException("File is too large to save from here"))
+        if (bytes.size > MAX_WRITE_BYTES) return Result.failure(FileTooLargeException())
         val encoded = Base64.getEncoder().encodeToString(bytes)
         val temp = "$path.andcode-save"
         val chunks = if (encoded.isEmpty()) listOf("") else encoded.chunked(WRITE_CHUNK_CHARS)
@@ -86,14 +96,15 @@ class WorkspaceShell(
                 return step
             }
         }
-        return exec("cat ${quote(temp)} > ${quote(path)} && rm -f ${quote(temp)}")
+        // The temp file goes either way: left behind, the next commit's `git add -A` would pick it up.
+        return exec("cat ${quote(temp)} > ${quote(path)}; status=\$?; rm -f ${quote(temp)}; exit \$status")
     }
 
     private suspend fun exec(
         command: String,
         timeoutSeconds: Long = DEFAULT_TIMEOUT_SECONDS,
     ): Result<String> =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             val result = run(command, timeoutSeconds)
             if (result.exitCode == 0) {
                 Result.success(result.output.trim())
@@ -109,6 +120,14 @@ class WorkspaceShell(
         private const val NETWORK_TIMEOUT_SECONDS = 120L
         private const val RECENT_COMMIT_LIMIT = 15
         private const val FIELD_SEPARATOR = '\u001f'
+
+        /**
+         * Everything in the repository except what AndCode itself drops into a workspace: attachments
+         * copied in for the agent ([com.yugahashimoto.andcode.runtime.local.ATTACHMENT_DIRECTORY])
+         * and a save's temp file. `:/` makes the add cover the whole repository, as a bare `-A` does,
+         * even when the workspace is a subfolder of it.
+         */
+        private const val COMMIT_PATHSPEC = "':/' ':(exclude,glob)**/.andcode-attachments/**' ':(exclude,glob)**/*.andcode-save'"
 
         /** POSIX single-quoting: safe for any text, including quotes and newlines. */
         internal fun quote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
@@ -135,3 +154,6 @@ class WorkspaceShell(
 
 /** The command's own output, e.g. git's error, which is the most useful thing to show the user. */
 class WorkspaceShellException(message: String) : Exception(message)
+
+/** The edited text is over [WorkspaceShell.MAX_WRITE_BYTES]; the UI shows its own localized message. */
+class FileTooLargeException : Exception("File is too large to save from here")

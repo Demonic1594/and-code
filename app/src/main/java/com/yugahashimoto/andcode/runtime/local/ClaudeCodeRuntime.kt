@@ -303,8 +303,8 @@ class ClaudeCodeRuntime(
      * Killing the process (what [stop] does) forces the next prompt to relaunch with `--resume`.
      * The relaunched CLI rebuilds its system prompt, including a fresh git-status snapshot, so once
      * the agent has touched the repository the prompt no longer matches what the API cached and the
-     * whole conversation is re-read at full price on the next turn. Every "send while running" in
-     * interrupt mode paid that. The CLI's stream-json protocol has an interrupt control request for
+     * whole conversation is re-read at full price on the next turn, after every press of the stop
+     * button. The CLI's stream-json protocol has an interrupt control request for
      * exactly this, so it is tried first; an older CLI that ignores it, or one that does not finish
      * the turn within [graceMillis], is killed as before.
      *

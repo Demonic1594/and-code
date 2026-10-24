@@ -69,6 +69,20 @@ object SlashCommandRegistry {
     val builtInCommandNames: Set<String> = commands.map { it.name }.toSet()
 
     /**
+     * [text] with a saved prompt's command swapped for the prompt itself, when the whole message is
+     * exactly that command (`/review`). Typing the command and sending works the same as picking it
+     * from the popup; anything else, built-in commands included, is returned unchanged.
+     */
+    fun expandSavedPrompt(
+        text: String,
+        savedPrompts: List<SavedPrompt>,
+    ): String {
+        val trimmed = text.trim()
+        if (!trimmed.startsWith("/") || trimmed in builtInCommandNames) return text
+        return savedPrompts.firstOrNull { it.command == trimmed }?.text ?: text
+    }
+
+    /**
      * Builds the popup list: app commands first, then the user's saved prompts, then the backend's
      * commands and skills, filtering everything by what the user has typed so far.
      */

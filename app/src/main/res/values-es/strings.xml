@@ -1262,4 +1262,6 @@
     <string name="schedule_template_tests">Ejecución nocturna de pruebas</string>
     <string name="schedule_template_todos">Revisión de TODO</string>
     <string name="schedule_template_security">Revisión mensual de seguridad</string>
+    <string name="chat_copy_too_long">Este chat es demasiado largo para el portapapeles, así que se compartirá como archivo.</string>
+    <string name="code_save_too_large">Este archivo es demasiado grande para guardarlo desde aquí (límite de 1 MB).</string>
 </resources>

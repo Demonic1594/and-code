@@ -31,3 +31,19 @@ class SlashSavedPromptsTest {
         assertEquals("Review the staged diff", review.description)
     }
 }
+
+class SavedPromptExpansionTest {
+    private val saved = listOf(SavedPrompt("1", "review", "Review the staged diff"), SavedPrompt("2", "new", "shadow"))
+
+    @Test
+    fun `a typed saved command expands to its text`() {
+        assertEquals("Review the staged diff", SlashCommandRegistry.expandSavedPrompt(" /review ", saved))
+    }
+
+    @Test
+    fun `built-in commands, other text and commands with arguments are left alone`() {
+        assertEquals("/new", SlashCommandRegistry.expandSavedPrompt("/new", saved))
+        assertEquals("/review now", SlashCommandRegistry.expandSavedPrompt("/review now", saved))
+        assertEquals("hello", SlashCommandRegistry.expandSavedPrompt("hello", saved))
+    }
+}

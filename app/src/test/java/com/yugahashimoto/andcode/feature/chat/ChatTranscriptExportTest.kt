@@ -40,6 +40,30 @@ class ChatTranscriptExportTest {
     }
 
     @Test
+    fun `attached data-url images become placeholders, links stay`() {
+        val markdown =
+            chatTranscriptMarkdown(
+                title = "Pics",
+                messages =
+                    listOf(
+                        ChatMessage(
+                            isUser = true,
+                            parts =
+                                listOf(
+                                    ChatPart.Image("i1", "image/jpeg", "data:image/jpeg;base64," + "A".repeat(500_000), "photo.jpg"),
+                                    ChatPart.Image("i2", "image/png", "https://example.com/a.png", "a.png"),
+                                ),
+                        ),
+                    ),
+                labels = labels,
+                exportedAt = Date(0),
+            )
+        assertTrue(markdown.contains("![photo.jpg](attachment:photo.jpg)"))
+        assertTrue(markdown.contains("![a.png](https://example.com/a.png)"))
+        assertTrue(markdown.length < 1_000)
+    }
+
+    @Test
     fun `file name is a safe slug`() {
         assertEquals("andcode-fix-the-login-bug.md", transcriptFileName("Fix the login bug!"))
         assertEquals("andcode-chat.md", transcriptFileName("ログイン"))

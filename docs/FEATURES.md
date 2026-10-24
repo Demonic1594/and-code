@@ -19,7 +19,7 @@ page: [`TOKEN_EFFICIENCY.md`](TOKEN_EFFICIENCY.md).
 |---------|-------|-------|
 | Search chats | Drawer → search field above the chat list | Matches every word against the chat title and its project folder. |
 | Pin chats | Long-press a chat in the drawer → pin icon | Pinned chats get their own section at the top. Long-press again to unpin. |
-| Saved prompts | Settings → Chat → **Saved prompts**; type `/` in the composer | Each saved prompt answers to `/name`. Picking it puts its text in the composer to send or edit. It can't take the name of a built-in command. |
+| Saved prompts | Settings → Chat → **Saved prompts**; type `/` in the composer | Each saved prompt answers to `/name`. Picking it from the popup puts its text in the composer to edit first; sending a message that is exactly `/name` sends the saved text. A prompt can't take the name of a built-in command. |
 | Share or copy a chat | Chat → ⋮ → **Share chat** / **Copy as Markdown** | Markdown with one heading per turn, tool calls summarised and reasoning left out. Shared as a `.md` file, so long chats don't hit Android's intent size limit. |
 | Usage readout | Chat → ⋮ | Tokens in and out for the whole chat, plus cost when the runtime reports one (OpenCode does). |
 
@@ -31,7 +31,7 @@ remote PC runtime the buttons stay hidden.
 | Feature | Where | Notes |
 |---------|-------|-------|
 | Edit files | Code viewer → pencil icon | Save writes the file in place and keeps its mode, so an executable script stays executable. Back with unsaved edits asks first. Files up to 1 MB. |
-| Commit | Workspace → Changes → **Commit** | Stages everything and commits with your message. A fresh runtime with no git identity commits as `AndCode <andcode@localhost>`. A configured identity always wins. |
+| Commit | Workspace → Changes → **Commit** | Stages everything (except the `.andcode-attachments` copies AndCode makes for the agent) and commits with your message. A fresh runtime with no git identity commits as `AndCode <andcode@localhost>`. A configured identity always wins. |
 | Pull / Push / Stash | Workspace → Changes | Pull is fast-forward only. Push uses `-u origin HEAD`, so a new branch's first push just works. Git's own error text is shown when something fails. |
 | Switch / create branch | Workspace → Changes → tap the branch name | This sheet existed before but was never connected. It now lists real branches and switches between them. |
 | Recent commits | Workspace → Changes | The last 15 commits. |

@@ -1265,4 +1265,6 @@
     <string name="schedule_template_tests">Ночной запуск тестов</string>
     <string name="schedule_template_todos">Разбор TODO</string>
     <string name="schedule_template_security">Ежемесячная проверка безопасности</string>
+    <string name="chat_copy_too_long">Чат слишком длинный для буфера обмена, поэтому он будет отправлен файлом.</string>
+    <string name="code_save_too_large">Файл слишком большой, чтобы сохранить его отсюда (ограничение — 1 МБ).</string>
 </resources>

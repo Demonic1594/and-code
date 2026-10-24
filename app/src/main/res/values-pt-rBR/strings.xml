@@ -1262,4 +1262,6 @@
     <string name="schedule_template_tests">Execução noturna de testes</string>
     <string name="schedule_template_todos">Revisão de TODOs</string>
     <string name="schedule_template_security">Revisão mensal de segurança</string>
+    <string name="chat_copy_too_long">Este chat é longo demais para a área de transferência, então será compartilhado como arquivo.</string>
+    <string name="code_save_too_large">Este arquivo é grande demais para ser salvo daqui (limite de 1 MB).</string>
 </resources>

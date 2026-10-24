@@ -8,9 +8,9 @@ changed, and what is left as it is on purpose.
 
 ### Claude Code: stopping a turn no longer kills the CLI
 
-**Before:** the stop button, and sending a message while a turn was running (the default
-"interrupt" send behaviour), killed the `claude` process. The next prompt relaunched it with
-`--resume`, which:
+**Before:** the stop button killed the `claude` process. (Sending while a turn runs does not go
+through this path for Claude Code: its runtime queues the new prompt on the running CLI.) The next
+prompt relaunched the CLI with `--resume`, which:
 
 - re-spawned the MCP servers and re-read the whole conversation from disk, and
 - on CLI versions without system-prompt snapshots, rebuilt the system prompt with a fresh
@@ -62,8 +62,6 @@ Nothing is lost for Claude: 1568 px is its own resize target.
 
 ## Tips for users
 
-- **Queue instead of interrupt** (Settings → Chat → Send behavior) when you want to add to a
-  running turn without stopping it.
 - **Start a new chat for a new task.** Every turn re-sends the whole history (mostly from cache), so
   one long chat that wanders across tasks costs more than several focused ones.
 - **Pick the effort level per turn.** The thinking chip's `low`/`medium` levels cut

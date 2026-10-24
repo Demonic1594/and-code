@@ -95,9 +95,18 @@ class CodeViewerViewModel(
                 if (result.isSuccess) {
                     it.copy(content = draft, draft = null, isSaving = false, savedCount = it.savedCount + 1)
                 } else {
-                    it.copy(isSaving = false, saveError = result.exceptionOrNull()?.safeMessage("Save failed"))
+                    val error = result.exceptionOrNull()
+                    // Over-size has its own localized message in the screen; git or shell errors are
+                    // shown as the command printed them.
+                    it.copy(
+                        isSaving = false,
+                        saveError = if (error is FileTooLargeException) SAVE_ERROR_TOO_LARGE else error?.safeMessage("Save failed"),
+                    )
                 }
             }
         }
     }
 }
+
+/** Marker [CodeViewerUiState.saveError] value the screen swaps for its localized "too large" text. */
+internal const val SAVE_ERROR_TOO_LARGE = "\u0000too-large"

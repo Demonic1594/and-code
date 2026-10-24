@@ -79,6 +79,91 @@ class CodeViewerViewModelTest {
             assertFalse(viewModel.state.value.isLoading)
         }
 
+    private class RecordingShell {
+        val commands = mutableListOf<String>()
+        var exitCode = 0
+
+        fun shell(dispatcher: kotlinx.coroutines.CoroutineDispatcher) =
+            WorkspaceShell(dispatcher) { command, _ ->
+                commands += command
+                com.yugahashimoto.andcode.runtime.local.LocalRuntimeCommandResult(exitCode, if (exitCode == 0) "" else "permission denied")
+            }
+    }
+
+    @Test
+    fun `read-only without a shell, editable with one`() =
+        runTest(dispatcher) {
+            val remote = CodeViewerViewModel(FakeBackend(OpenCodeFileContent("text", "a")), "/repo", "a.kt")
+            val local =
+                CodeViewerViewModel(FakeBackend(OpenCodeFileContent("text", "a")), "/repo", "a.kt", RecordingShell().shell(dispatcher))
+            advanceUntilIdle()
+
+            assertFalse(remote.state.value.canEdit)
+            remote.startEditing()
+            assertFalse(remote.state.value.isEditing)
+            assertTrue(local.state.value.canEdit)
+        }
+
+    @Test
+    fun `binary files cannot be edited`() =
+        runTest(dispatcher) {
+            val viewModel =
+                CodeViewerViewModel(
+                    FakeBackend(OpenCodeFileContent("text", "AAEC", encoding = "base64")),
+                    "/repo",
+                    "image.png",
+                    RecordingShell().shell(dispatcher),
+                )
+            advanceUntilIdle()
+
+            assertFalse(viewModel.state.value.canEdit)
+        }
+
+    @Test
+    fun `save writes the draft to the joined guest path and leaves edit mode`() =
+        runTest(dispatcher) {
+            val recorder = RecordingShell()
+            val viewModel =
+                CodeViewerViewModel(
+                    FakeBackend(OpenCodeFileContent("text", "old")),
+                    "/workspace/app",
+                    "src/a.kt",
+                    recorder.shell(dispatcher),
+                )
+            advanceUntilIdle()
+
+            viewModel.startEditing()
+            viewModel.updateDraft("new")
+            assertTrue(viewModel.state.value.hasUnsavedChanges)
+            viewModel.save()
+            advanceUntilIdle()
+
+            assertTrue(recorder.commands.last().contains("'/workspace/app/src/a.kt'"))
+            assertEquals("new", viewModel.state.value.content)
+            assertFalse(viewModel.state.value.isEditing)
+            assertEquals(1, viewModel.state.value.savedCount)
+        }
+
+    @Test
+    fun `a failed save keeps the draft and shows the shell's error`() =
+        runTest(dispatcher) {
+            val recorder = RecordingShell().apply { exitCode = 1 }
+            val viewModel =
+                CodeViewerViewModel(FakeBackend(OpenCodeFileContent("text", "old")), "/repo", "a.kt", recorder.shell(dispatcher))
+            advanceUntilIdle()
+
+            viewModel.startEditing()
+            viewModel.updateDraft("new")
+            viewModel.save()
+            advanceUntilIdle()
+
+            assertEquals("new", viewModel.state.value.draft)
+            assertEquals("permission denied", viewModel.state.value.saveError)
+            viewModel.cancelEditing()
+            assertEquals("old", viewModel.state.value.content)
+            assertFalse(viewModel.state.value.isEditing)
+        }
+
     private class FakeBackend(
         private val file: OpenCodeFileContent?,
     ) : OpenCodeBackend {

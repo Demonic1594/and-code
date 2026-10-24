@@ -102,6 +102,41 @@ class WorkspaceShellTest {
         }
 
     @Test
+    fun `commit leaves AndCode's attachment copies and temp files out`() =
+        runBlocking {
+            File(repo, ".andcode-attachments").mkdirs()
+            File(repo, ".andcode-attachments/photo.jpg").writeText("binary")
+            File(repo, "stale.txt.andcode-save").writeText("temp")
+            File(repo, "real.txt").writeText("keep\n")
+            assertTrue(shell.commitAll(repo.absolutePath, "real change").isSuccess)
+            val committed = sh("git show --name-only --format= HEAD").lines().filter { it.isNotBlank() }
+            assertEquals(listOf("real.txt"), committed)
+        }
+
+    @Test
+    fun `a branch name that looks like an option is refused`() =
+        runBlocking {
+            assertTrue(shell.createBranch(repo.absolutePath, "--orphan").isFailure)
+            assertTrue(shell.checkout(repo.absolutePath, "-f").isFailure)
+            assertEquals("main", sh("git branch --show-current").trim())
+        }
+
+    @Test
+    fun `a failed save does not leave its temp file behind`() =
+        runBlocking {
+            val directory = File(repo, "a-directory").apply { mkdirs() }
+            assertTrue(shell.writeFile(directory.absolutePath, "x").isFailure)
+            assertTrue(repo.listFiles()!!.none { it.name.endsWith(".andcode-save") })
+        }
+
+    @Test
+    fun `an oversized save fails with its own error type`() =
+        runBlocking {
+            val result = shell.writeFile(File(repo, "big.txt").absolutePath, "x".repeat(WorkspaceShell.MAX_WRITE_BYTES + 1))
+            assertTrue(result.exceptionOrNull() is FileTooLargeException)
+        }
+
+    @Test
     fun `guest path joins relative paths onto the workspace`() {
         assertEquals("/workspace/src/a.kt", WorkspaceShell.guestPath("/workspace/", "./src/a.kt"))
         assertEquals("/etc/hosts", WorkspaceShell.guestPath("/workspace", "/etc/hosts"))

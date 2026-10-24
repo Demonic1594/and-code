@@ -31,6 +31,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -102,6 +103,95 @@ class WorkspaceExplorerViewModelTest {
             assertEquals("src/Main.kt", viewModel.state.value.textMatches.single().path.text)
             assertEquals(listOf("src/Main.kt"), viewModel.state.value.fileMatches)
             assertFalse(viewModel.state.value.isSearching)
+        }
+
+    private fun fakeShell(onCommand: (String) -> com.yugahashimoto.andcode.runtime.local.LocalRuntimeCommandResult) =
+        WorkspaceShell(dispatcher) { command, _ -> onCommand(command) }
+
+    private fun ok(output: String = "") = com.yugahashimoto.andcode.runtime.local.LocalRuntimeCommandResult(0, output)
+
+    @Test
+    fun `git actions are offered only with a shell, and load branches and history`() =
+        runTest(dispatcher) {
+            val remote = WorkspaceExplorerViewModel(FakeBackend(), workspace())
+            val local =
+                WorkspaceExplorerViewModel(
+                    FakeBackend(),
+                    workspace(),
+                    fakeShell { command ->
+                        when {
+                            "branch --format" in command -> ok("main\nfeature/x\n")
+                            "log -n" in command -> ok("abc1234\u001fFix bug\u001fAda\u001f2 hours ago")
+                            else -> ok()
+                        }
+                    },
+                )
+            advanceUntilIdle()
+
+            assertFalse(remote.state.value.canRunGit)
+            remote.push()
+            assertEquals(null, remote.state.value.runningAction)
+
+            assertTrue(local.state.value.canRunGit)
+            assertEquals(listOf("main", "feature/x"), local.state.value.branches)
+            assertEquals("Fix bug", local.state.value.commits.single().message)
+        }
+
+    @Test
+    fun `a successful action reports completion and a failed one reports git's message`() =
+        runTest(dispatcher) {
+            var failPush = false
+            val commands = mutableListOf<String>()
+            val viewModel =
+                WorkspaceExplorerViewModel(
+                    FakeBackend(),
+                    workspace(),
+                    fakeShell { command ->
+                        commands += command
+                        if (failPush && "push" in command) {
+                            com.yugahashimoto.andcode.runtime.local.LocalRuntimeCommandResult(1, "rejected: non-fast-forward")
+                        } else {
+                            ok()
+                        }
+                    },
+                )
+            advanceUntilIdle()
+
+            viewModel.commit("  Add feature  ")
+            advanceUntilIdle()
+            assertEquals(WorkspaceAction.COMMIT, viewModel.state.value.completedAction)
+            assertTrue(commands.any { "commit -m 'Add feature'" in it })
+
+            failPush = true
+            viewModel.push()
+            advanceUntilIdle()
+            assertEquals(null, viewModel.state.value.completedAction)
+            assertEquals("rejected: non-fast-forward", viewModel.state.value.actionError)
+
+            viewModel.consumeActionResult()
+            assertEquals(null, viewModel.state.value.actionError)
+        }
+
+    @Test
+    fun `a blank commit message does nothing`() =
+        runTest(dispatcher) {
+            val commands = mutableListOf<String>()
+            val viewModel =
+                WorkspaceExplorerViewModel(
+                    FakeBackend(),
+                    workspace(),
+                    fakeShell {
+                        commands += it
+                        ok()
+                    },
+                )
+            advanceUntilIdle()
+            commands.clear()
+
+            viewModel.commit("   ")
+            advanceUntilIdle()
+
+            assertTrue(commands.none { "commit" in it })
         }
 
     private fun workspace() = WorkspaceRef("/repo", "repo", "/repo")

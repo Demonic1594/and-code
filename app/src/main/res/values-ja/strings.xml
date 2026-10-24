@@ -1276,4 +1276,6 @@
     <string name="schedule_template_tests">毎晩のテスト実行</string>
     <string name="schedule_template_todos">TODO の棚卸し</string>
     <string name="schedule_template_security">毎月のセキュリティレビュー</string>
+    <string name="chat_copy_too_long">このチャットはクリップボードに収まらないほど長いため、代わりにファイルとして共有します。</string>
+    <string name="code_save_too_large">このファイルはサイズが大きすぎるため、ここから保存できません（上限 1 MB）。</string>
 </resources>
