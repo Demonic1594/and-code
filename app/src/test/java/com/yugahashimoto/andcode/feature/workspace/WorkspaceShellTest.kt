@@ -156,6 +156,18 @@ class WorkspaceShellTest {
         }
 
     @Test
+    fun `discard reads root-relative status paths from a workspace in a subfolder`() =
+        runBlocking {
+            val sub = File(repo, "sub").apply { mkdirs() }
+            File(sub, "keep.txt").writeText("k\n")
+            sh("git add -A && git commit -qm sub")
+            File(repo, "a.txt").writeText("edited\n")
+
+            assertTrue(shell.discard(sub.absolutePath, "a.txt").isSuccess)
+            assertEquals("one\n", File(repo, "a.txt").readText())
+        }
+
+    @Test
     fun `AndCode's own files are recognised`() {
         assertTrue(WorkspaceShell.isAndCodeArtifact(".andcode-attachments/photo.jpg"))
         assertTrue(WorkspaceShell.isAndCodeArtifact("src/a.kt.andcode-save"))

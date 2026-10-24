@@ -1235,7 +1235,7 @@
     <string name="saved_prompts_title">保存済みプロンプト</string>
     <string name="saved_prompts_add">新しい保存済みプロンプト</string>
     <string name="saved_prompts_edit">保存済みプロンプトを編集</string>
-    <string name="saved_prompts_caption">チャット入力欄に「/」と入力すると、これらのいずれかを挿入できます。それぞれが独自のコマンドに対応しています（例：/review）。</string>
+    <string name="saved_prompts_caption">チャット入力欄で / と入力すると使えます。それぞれ独自のコマンドに対応します（例：/review）。プロンプトに $ARGUMENTS と書くとコマンドの後に入力した内容がすべて入り、$1〜$9 では単語ごとに入ります。</string>
     <string name="saved_prompts_empty">保存済みプロンプトはまだありません。「+」をタップして追加してください。</string>
     <string name="saved_prompts_delete_title">保存済みプロンプトを削除しますか？</string>
     <string name="saved_prompts_delete_body">%1$s は削除されます。</string>

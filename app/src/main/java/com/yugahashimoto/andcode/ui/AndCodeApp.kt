@@ -801,7 +801,9 @@ fun AndCodeApp(
         recentSessions
             .filter { it.id in preferences.pinnedSessionIds }
             .map { PinnedChatShortcut(it.id, it.title, it.runtimeId) }
-    val shortcutContext = LocalContext.current.applicationContext
+    // The Activity's context, not the Application's: an in-app language switch only recreates the
+    // Activity, so only its resources carry the new locale for the fixed shortcuts' labels.
+    val shortcutContext = LocalContext.current
     LaunchedEffect(pinnedShortcuts) {
         withContext(Dispatchers.Default) { AppShortcuts.publish(shortcutContext, pinnedShortcuts) }
     }
@@ -941,15 +943,17 @@ fun AndCodeApp(
                                 navController.navigate(route) { launchSingleTop = true }
                             },
                             onDeleteSession = { sessionId ->
-                                // A deleted chat's pin would otherwise linger in preferences forever.
-                                app.preferences.setSessionPinned(sessionId, false)
                                 voiceScope.launch {
                                     val targets = app.runtimeRegistry.targets.value
-                                    coroutineScope {
-                                        targets.map { target ->
-                                            async { runCatching { target.deleteSession(sessionId) } }
-                                        }.awaitAll()
-                                    }
+                                    val results =
+                                        coroutineScope {
+                                            targets.map { target ->
+                                                async { runCatching { target.deleteSession(sessionId) } }
+                                            }.awaitAll()
+                                        }
+                                    // A deleted chat's pin would otherwise linger in preferences forever;
+                                    // a delete that failed everywhere keeps it.
+                                    if (results.any { it.getOrDefault(false) }) app.preferences.setSessionPinned(sessionId, false)
                                     app.catalogRepository.refreshSessionsOnly()
                                 }
                             },
@@ -965,16 +969,17 @@ fun AndCodeApp(
                                 }
                             },
                             onBatchDelete = { sessionIds ->
-                                sessionIds.forEach { app.preferences.setSessionPinned(it, false) }
                                 voiceScope.launch {
                                     val targets = app.runtimeRegistry.targets.value
-                                    coroutineScope {
-                                        sessionIds.flatMap { id ->
-                                            targets.map { target ->
-                                                async { runCatching { target.deleteSession(id) } }
-                                            }
-                                        }.awaitAll()
-                                    }
+                                    val deleted =
+                                        coroutineScope {
+                                            sessionIds.flatMap { id ->
+                                                targets.map { target ->
+                                                    async { id to runCatching { target.deleteSession(id) }.getOrDefault(false) }
+                                                }
+                                            }.awaitAll()
+                                        }.filter { it.second }.map { it.first }.toSet()
+                                    deleted.forEach { app.preferences.setSessionPinned(it, false) }
                                     app.catalogRepository.refreshSessionsOnly()
                                 }
                             },

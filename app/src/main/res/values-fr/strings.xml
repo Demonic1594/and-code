@@ -1221,7 +1221,7 @@
     <string name="saved_prompts_title">Invites enregistrées</string>
     <string name="saved_prompts_add">Nouvelle invite enregistrée</string>
     <string name="saved_prompts_edit">Modifier l’invite enregistrée</string>
-    <string name="saved_prompts_caption">Tapez / dans la zone de saisie pour insérer l’une d’elles. Chacune répond à sa propre commande, par exemple /review.</string>
+    <string name="saved_prompts_caption">Tapez / dans la zone de saisie pour en utiliser une ; chacune répond à sa propre commande, comme /review. Mettez $ARGUMENTS dans une invite pour y insérer tout ce qui est tapé après la commande, ou $1 à $9 pour des mots isolés.</string>
     <string name="saved_prompts_empty">Aucune invite enregistrée pour l’instant. Appuyez sur + pour en ajouter une.</string>
     <string name="saved_prompts_delete_title">Supprimer l’invite enregistrée ?</string>
     <string name="saved_prompts_delete_body">%1$s sera supprimée.</string>

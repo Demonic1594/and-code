@@ -69,8 +69,10 @@ object AppShortcuts {
         chat: PinnedChatShortcut,
     ): ShortcutInfoCompat =
         ShortcutInfoCompat.Builder(context, "chat:${chat.sessionId}")
-            .setShortLabel(chat.title.take(SHORT_LABEL_MAX).ifBlank { context.getString(R.string.shortcut_new_chat) })
-            .setLongLabel(chat.title.take(LONG_LABEL_MAX).ifBlank { context.getString(R.string.shortcut_new_chat) })
+            // An untitled chat falls back to its id's start rather than "New chat", which would read
+            // as the shortcut that starts a fresh one.
+            .setShortLabel(chat.title.take(SHORT_LABEL_MAX).ifBlank { chat.sessionId.take(SHORT_LABEL_MAX) })
+            .setLongLabel(chat.title.take(LONG_LABEL_MAX).ifBlank { chat.sessionId.take(LONG_LABEL_MAX) })
             .setIcon(IconCompat.createWithResource(context, R.drawable.ic_shortcut_pinned))
             .setIntent(
                 // The same extras a notification tap carries, so MainActivity's existing deep-link path

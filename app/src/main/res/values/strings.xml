@@ -1240,7 +1240,7 @@
     <string name="saved_prompts_title">Saved prompts</string>
     <string name="saved_prompts_add">New saved prompt</string>
     <string name="saved_prompts_edit">Edit saved prompt</string>
-    <string name="saved_prompts_caption">Type / in the chat composer to insert one of these. Each answers to its own command, for example /review.</string>
+    <string name="saved_prompts_caption">Type / in the chat composer to use one of these; each answers to its own command, such as /review. Put $ARGUMENTS in a prompt to fill in everything typed after the command, or $1 to $9 for single words.</string>
     <string name="saved_prompts_empty">No saved prompts yet. Tap + to add one.</string>
     <string name="saved_prompts_delete_title">Delete saved prompt?</string>
     <string name="saved_prompts_delete_body">%1$s will be removed.</string>

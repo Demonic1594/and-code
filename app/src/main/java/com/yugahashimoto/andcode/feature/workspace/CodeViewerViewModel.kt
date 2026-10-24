@@ -138,9 +138,13 @@ class CodeViewerViewModel(
         mutableState.update { it.copy(draft = null, saveError = null, canUndo = false, canRedo = false) }
     }
 
+    // Each step is a full snapshot, so the history is bounded by total size as well as by count:
+    // 200 steps of a 1 MB file would otherwise hold hundreds of megabytes.
     private fun pushUndo(text: String) {
         undoStack.addLast(text)
-        while (undoStack.size > MAX_UNDO_STEPS) undoStack.removeFirst()
+        while (undoStack.size > MAX_UNDO_STEPS || (undoStack.size > 1 && undoStack.sumOf { it.length } > MAX_UNDO_CHARS)) {
+            undoStack.removeFirst()
+        }
     }
 
     private fun clearHistory() {
@@ -184,6 +188,7 @@ class CodeViewerViewModel(
 
 private const val UNDO_COALESCE_MS = 800L
 private const val MAX_UNDO_STEPS = 200
+private const val MAX_UNDO_CHARS = 8_000_000
 
 /** Marker [CodeViewerUiState.saveError] value the screen swaps for its localized "too large" text. */
 internal const val SAVE_ERROR_TOO_LARGE = "\u0000too-large"

@@ -1221,7 +1221,7 @@
     <string name="saved_prompts_title">Prompts salvos</string>
     <string name="saved_prompts_add">Novo prompt salvo</string>
     <string name="saved_prompts_edit">Editar prompt salvo</string>
-    <string name="saved_prompts_caption">Digite / no campo de mensagem para inserir um deles. Cada um responde ao próprio comando, por exemplo /review.</string>
+    <string name="saved_prompts_caption">Digite / no campo de mensagem para usar um deles; cada um responde ao próprio comando, como /review. Coloque $ARGUMENTS em um prompt para inserir tudo o que for digitado após o comando, ou $1 a $9 para palavras isoladas.</string>
     <string name="saved_prompts_empty">Ainda não há prompts salvos. Toque em + para adicionar um.</string>
     <string name="saved_prompts_delete_title">Excluir prompt salvo?</string>
     <string name="saved_prompts_delete_body">%1$s será removido.</string>

@@ -1230,7 +1230,7 @@
     <string name="saved_prompts_title">الموجّهات المحفوظة</string>
     <string name="saved_prompts_add">موجّه محفوظ جديد</string>
     <string name="saved_prompts_edit">تعديل الموجّه المحفوظ</string>
-    <string name="saved_prompts_caption">اكتب / في مربع الكتابة لإدراج أحدها. لكل منها أمر خاص بها، مثل /review.</string>
+    <string name="saved_prompts_caption">اكتب / في مربع الكتابة لاستخدام أحدها؛ لكل منها أمر خاص بها، مثل /review. ضع $ARGUMENTS في الموجّه لإدراج كل ما يُكتب بعد الأمر، أو $1 إلى $9 للكلمات المفردة.</string>
     <string name="saved_prompts_empty">لا توجد موجّهات محفوظة بعد. اضغط + لإضافة واحد.</string>
     <string name="saved_prompts_delete_title">حذف الموجّه المحفوظ؟</string>
     <string name="saved_prompts_delete_body">سيتم حذف %1$s.</string>

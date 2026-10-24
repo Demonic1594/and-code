@@ -60,7 +60,9 @@ class WorkspaceShell(
         directory: String,
         path: String,
     ): Result<String> {
-        val quoted = quote(path)
+        // Status paths are relative to the repository root, not the workspace, which may be a
+        // subfolder of it; `:(top)` makes git read them that way from wherever it runs.
+        val quoted = quote(":(top)$path")
         return exec(
             "cd ${quote(directory)} && if git ls-files --error-unmatch -- $quoted >/dev/null 2>&1; " +
                 "then git restore --source=HEAD --staged --worktree -- $quoted; " +

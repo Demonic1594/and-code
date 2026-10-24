@@ -1221,7 +1221,7 @@
     <string name="saved_prompts_title">Prompts guardados</string>
     <string name="saved_prompts_add">Nuevo prompt guardado</string>
     <string name="saved_prompts_edit">Editar prompt guardado</string>
-    <string name="saved_prompts_caption">Escribe / en el editor del chat para insertar uno. Cada uno responde a su propio comando, por ejemplo /review.</string>
+    <string name="saved_prompts_caption">Escribe / en el editor del chat para usar uno; cada uno responde a su propio comando, como /review. Pon $ARGUMENTS en un prompt para insertar todo lo que escribas tras el comando, o de $1 a $9 para palabras sueltas.</string>
     <string name="saved_prompts_empty">Aún no hay prompts guardados. Toca + para añadir uno.</string>
     <string name="saved_prompts_delete_title">¿Eliminar el prompt guardado?</string>
     <string name="saved_prompts_delete_body">Se eliminará %1$s.</string>

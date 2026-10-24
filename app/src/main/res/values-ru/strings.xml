@@ -1224,7 +1224,7 @@
     <string name="saved_prompts_title">Сохранённые промпты</string>
     <string name="saved_prompts_add">Новый сохранённый промпт</string>
     <string name="saved_prompts_edit">Изменить сохранённый промпт</string>
-    <string name="saved_prompts_caption">Введите / в поле сообщения, чтобы вставить один из них. У каждого своя команда, например /review.</string>
+    <string name="saved_prompts_caption">Введите / в поле сообщения, чтобы использовать один из промптов; у каждого своя команда, например /review. Добавьте в промпт $ARGUMENTS, чтобы подставить всё, что введено после команды, или $1–$9 для отдельных слов.</string>
     <string name="saved_prompts_empty">Сохранённых промптов пока нет. Нажмите +, чтобы добавить.</string>
     <string name="saved_prompts_delete_title">Удалить сохранённый промпт?</string>
     <string name="saved_prompts_delete_body">%1$s будет удалён.</string>

@@ -1215,7 +1215,7 @@
     <string name="saved_prompts_title">已保存的提示词</string>
     <string name="saved_prompts_add">新建已保存的提示词</string>
     <string name="saved_prompts_edit">编辑已保存的提示词</string>
-    <string name="saved_prompts_caption">在聊天输入框中输入 /，即可插入其中一项。每项都有对应的命令，例如 /review。</string>
+    <string name="saved_prompts_caption">在聊天输入框中输入 / 即可使用；每项都对应一个独立的命令，例如 /review。在提示词中写入 $ARGUMENTS 可填入命令后输入的全部内容，写入 $1 至 $9 则按单个词填入。</string>
     <string name="saved_prompts_empty">尚未保存任何提示词。点击 + 添加一个。</string>
     <string name="saved_prompts_delete_title">删除已保存的提示词？</string>
     <string name="saved_prompts_delete_body">%1$s 将被删除。</string>

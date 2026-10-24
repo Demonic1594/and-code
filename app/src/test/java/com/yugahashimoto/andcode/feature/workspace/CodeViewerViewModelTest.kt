@@ -200,6 +200,36 @@ class CodeViewerViewModelTest {
         }
 
     @Test
+    fun `undo history is bounded by total size`() =
+        runTest(dispatcher) {
+            var now = 0L
+            // Under the 1 MB edit limit, so the file can be edited at all.
+            val big = "x".repeat(900_000)
+            val viewModel =
+                CodeViewerViewModel(
+                    FakeBackend(OpenCodeFileContent("text", big)),
+                    "/repo",
+                    "a.kt",
+                    RecordingShell().shell(dispatcher),
+                    clock = { now },
+                )
+            advanceUntilIdle()
+            viewModel.startEditing()
+            repeat(12) { step ->
+                now += 10_000
+                viewModel.updateDraft(big + step)
+            }
+
+            // ~0.9M chars per snapshot against an 8M cap: only the newest eight survive.
+            var undone = 0
+            while (viewModel.state.value.canUndo) {
+                viewModel.undo()
+                undone++
+            }
+            assertEquals(8, undone)
+        }
+
+    @Test
     fun `replace all counts matches, honours case and undoes in one step`() =
         runTest(dispatcher) {
             val viewModel =
