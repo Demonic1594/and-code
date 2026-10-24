@@ -33,7 +33,12 @@ class SlashSavedPromptsTest {
 }
 
 class SavedPromptExpansionTest {
-    private val saved = listOf(SavedPrompt("1", "review", "Review the staged diff"), SavedPrompt("2", "new", "shadow"))
+    private val saved =
+        listOf(
+            SavedPrompt("1", "review", "Review the staged diff"),
+            SavedPrompt("2", "new", "shadow"),
+            SavedPrompt("3", "fix-issue", "Fix issue #\$1 with priority \$2. Context: \$ARGUMENTS"),
+        )
 
     @Test
     fun `a typed saved command expands to its text`() {
@@ -41,9 +46,32 @@ class SavedPromptExpansionTest {
     }
 
     @Test
-    fun `built-in commands, other text and commands with arguments are left alone`() {
+    fun `arguments fill placeholders`() {
+        assertEquals(
+            "Fix issue #123 with priority high. Context: 123 high",
+            SlashCommandRegistry.expandSavedPrompt("/fix-issue 123 high", saved),
+        )
+    }
+
+    @Test
+    fun `arguments are appended to a prompt without placeholders`() {
+        assertEquals("Review the staged diff\n\nfocus on auth", SlashCommandRegistry.expandSavedPrompt("/review focus on auth", saved))
+    }
+
+    @Test
+    fun `an argument containing a placeholder is inserted as typed`() {
+        assertEquals("Fix issue #\$2 with priority x. Context: \$2 x", SlashCommandRegistry.expandSavedPrompt("/fix-issue \$2 x", saved))
+    }
+
+    @Test
+    fun `missing positional arguments become empty`() {
+        assertEquals("Fix issue # with priority . Context: ", SlashCommandRegistry.expandSavedPrompt("/fix-issue", saved))
+    }
+
+    @Test
+    fun `built-in commands, unknown commands and plain text are left alone`() {
         assertEquals("/new", SlashCommandRegistry.expandSavedPrompt("/new", saved))
-        assertEquals("/review now", SlashCommandRegistry.expandSavedPrompt("/review now", saved))
+        assertEquals("/unknown x", SlashCommandRegistry.expandSavedPrompt("/unknown x", saved))
         assertEquals("hello", SlashCommandRegistry.expandSavedPrompt("hello", saved))
     }
 }

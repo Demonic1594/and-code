@@ -173,6 +173,11 @@ class WorkspaceExplorerViewModel(
         runGitAction(WorkspaceAction.CREATE_BRANCH) { shell, directory -> shell.createBranch(directory, name) }
     }
 
+    fun discard(change: OpenCodeFileChange) {
+        val path = change.displayPath.takeIf(String::isNotBlank) ?: return
+        runGitAction(WorkspaceAction.DISCARD) { shell, directory -> shell.discard(directory, path) }
+    }
+
     fun consumeActionResult() {
         mutableState.update { it.copy(completedAction = null, actionError = null) }
     }
@@ -191,7 +196,10 @@ class WorkspaceExplorerViewModel(
                 it.copy(
                     runningAction = null,
                     completedAction = action.takeIf { result.isSuccess },
-                    actionError = result.exceptionOrNull()?.safeMessage("git failed"),
+                    actionError =
+                        result.exceptionOrNull()?.let { error ->
+                            if (error is InvalidBranchException) ACTION_ERROR_INVALID_BRANCH else error.safeMessage("git failed")
+                        },
                 )
             }
             refreshChanges()
@@ -236,3 +244,6 @@ class WorkspaceExplorerViewModel(
         }
     }
 }
+
+/** Marker [WorkspaceExplorerUiState.actionError] value the screen swaps for its localized text. */
+internal const val ACTION_ERROR_INVALID_BRANCH = "\u0000invalid-branch"

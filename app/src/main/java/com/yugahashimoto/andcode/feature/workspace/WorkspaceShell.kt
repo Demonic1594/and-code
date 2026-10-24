@@ -7,7 +7,7 @@ import kotlinx.coroutines.withContext
 import java.util.Base64
 
 /** A git or file operation the explorer ran, for the confirmation it shows afterwards. */
-enum class WorkspaceAction { COMMIT, PUSH, PULL, STASH, CHECKOUT, CREATE_BRANCH, SAVE }
+enum class WorkspaceAction { COMMIT, PUSH, PULL, STASH, CHECKOUT, CREATE_BRANCH, DISCARD, SAVE }
 
 /**
  * Git and file writes for a workspace on the on-device runtime, run through its shell.
@@ -49,7 +49,24 @@ class WorkspaceShell(
      */
     private fun validBranch(name: String): String? = name.trim().takeIf { it.isNotEmpty() && !it.startsWith("-") }
 
-    private fun invalidBranch(): Result<String> = Result.failure(WorkspaceShellException("Invalid branch name"))
+    private fun invalidBranch(): Result<String> = Result.failure(InvalidBranchException())
+
+    /**
+     * Throws away the uncommitted changes to one file, as VS Code's per-file "Discard Changes" does:
+     * a tracked file goes back to its committed content (index and working tree), and a file git has
+     * never seen is deleted. `--` keeps a path that starts with `-` from reading as an option.
+     */
+    suspend fun discard(
+        directory: String,
+        path: String,
+    ): Result<String> {
+        val quoted = quote(path)
+        return exec(
+            "cd ${quote(directory)} && if git ls-files --error-unmatch -- $quoted >/dev/null 2>&1; " +
+                "then git restore --source=HEAD --staged --worktree -- $quoted; " +
+                "else git clean -f -- $quoted; fi",
+        )
+    }
 
     /**
      * Stages everything and commits it. A fresh runtime has no git identity, and a commit there would
@@ -144,6 +161,9 @@ class WorkspaceShell(
                 CommitInfo(hash = fields[0], message = fields[1], author = fields[2], relativeTime = fields[3])
             }
 
+        /** Files AndCode itself writes into a workspace; commits leave them out (see [COMMIT_PATHSPEC]). */
+        fun isAndCodeArtifact(path: String): Boolean = path.split('/').contains(".andcode-attachments") || path.endsWith(".andcode-save")
+
         /** Where [filePath] lives in the guest: absolute as given, otherwise under [workspacePath]. */
         fun guestPath(
             workspacePath: String,
@@ -154,6 +174,9 @@ class WorkspaceShell(
 
 /** The command's own output, e.g. git's error, which is the most useful thing to show the user. */
 class WorkspaceShellException(message: String) : Exception(message)
+
+/** A branch name git would read as an option; the UI shows its own localized message. */
+class InvalidBranchException : Exception("Invalid branch name")
 
 /** The edited text is over [WorkspaceShell.MAX_WRITE_BYTES]; the UI shows its own localized message. */
 class FileTooLargeException : Exception("File is too large to save from here")

@@ -164,6 +164,67 @@ class CodeViewerViewModelTest {
             assertFalse(viewModel.state.value.isEditing)
         }
 
+    @Test
+    fun `typing bursts undo as one step and redo restores them`() =
+        runTest(dispatcher) {
+            var now = 0L
+            val viewModel =
+                CodeViewerViewModel(
+                    FakeBackend(OpenCodeFileContent("text", "a")),
+                    "/repo",
+                    "a.kt",
+                    RecordingShell().shell(dispatcher),
+                    clock = { now },
+                )
+            advanceUntilIdle()
+            viewModel.startEditing()
+
+            now = 1_000
+            viewModel.updateDraft("ab")
+            now = 1_100
+            viewModel.updateDraft("abc") // same burst
+            now = 5_000
+            viewModel.updateDraft("abcd") // new step
+
+            viewModel.undo()
+            assertEquals("abc", viewModel.state.value.draft)
+            viewModel.undo()
+            assertEquals("a", viewModel.state.value.draft)
+            assertFalse(viewModel.state.value.canUndo)
+            viewModel.redo()
+            assertEquals("abc", viewModel.state.value.draft)
+            assertTrue(viewModel.state.value.canRedo)
+
+            viewModel.updateDraft("abcX")
+            assertFalse(viewModel.state.value.canRedo)
+        }
+
+    @Test
+    fun `replace all counts matches, honours case and undoes in one step`() =
+        runTest(dispatcher) {
+            val viewModel =
+                CodeViewerViewModel(
+                    FakeBackend(OpenCodeFileContent("text", "val foo = Foo(foo)")),
+                    "/repo",
+                    "a.kt",
+                    RecordingShell().shell(dispatcher),
+                )
+            advanceUntilIdle()
+            viewModel.startEditing()
+
+            assertEquals(2, viewModel.replaceAll("foo", "bar", ignoreCase = false))
+            assertEquals("val bar = Foo(bar)", viewModel.state.value.draft)
+            assertEquals(1, viewModel.replaceAll("FOO", "Baz", ignoreCase = true))
+            assertEquals("val bar = Baz(bar)", viewModel.state.value.draft)
+            // Literal text, not a regex: "(" is just a parenthesis.
+            assertEquals(1, viewModel.replaceAll("(", "[", ignoreCase = false))
+            assertEquals("val bar = Baz[bar)", viewModel.state.value.draft)
+            assertEquals(0, viewModel.replaceAll("missing", "x", ignoreCase = false))
+
+            repeat(3) { viewModel.undo() }
+            assertEquals("val foo = Foo(foo)", viewModel.state.value.draft)
+        }
+
     private class FakeBackend(
         private val file: OpenCodeFileContent?,
     ) : OpenCodeBackend {

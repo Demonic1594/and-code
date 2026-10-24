@@ -1264,4 +1264,21 @@
     <string name="schedule_template_security">Revue de sécurité mensuelle</string>
     <string name="chat_copy_too_long">Cette discussion est trop longue pour le presse-papiers ; elle est donc partagée sous forme de fichier.</string>
     <string name="code_save_too_large">Ce fichier est trop volumineux pour être enregistré d’ici (limite : 1 Mo).</string>
+    <string name="chat_usage_cached">%1$s depuis le cache</string>
+    <string name="git_discard">Annuler les modifications</string>
+    <string name="git_discard_title">Annuler les modifications ?</string>
+    <string name="git_discard_body">Les modifications non committées de %1$s seront perdues. Un nouveau fichier sera supprimé.</string>
+    <string name="git_done_discard">Modifications annulées</string>
+    <string name="git_invalid_branch">Un nom de branche ne peut pas commencer par -</string>
+    <string name="git_commit_suggest_one">Mettre à jour %1$s</string>
+    <string name="git_commit_suggest_two">Mettre à jour %1$s et %2$s</string>
+    <string name="git_commit_suggest_many">Mettre à jour %1$s et %2$d autres fichiers</string>
+    <string name="code_undo">Annuler</string>
+    <string name="code_redo">Rétablir</string>
+    <string name="code_find_replace">Rechercher et remplacer</string>
+    <string name="code_find_label">Rechercher</string>
+    <string name="code_replace_label">Remplacer par</string>
+    <string name="code_ignore_case">Ignorer la casse</string>
+    <string name="code_replace_all">Tout remplacer</string>
+    <string name="code_replaced_count">Remplacements : %1$d</string>
 </resources>

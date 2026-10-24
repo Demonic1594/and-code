@@ -19,6 +19,7 @@ the vendor's docs before relying on them.
 - [Multi-agent orchestrators](#multi-agent-orchestrators)
 - [Feature matrix](#feature-matrix)
 - [What AndCode should add](#what-andcode-should-add)
+- [Round 2: how our new features compare](#round-2-how-our-new-features-compare)
 - [Sources](#sources)
 
 ## How to read this
@@ -271,6 +272,34 @@ Ranked by value to a phone user against the cost of building it. The **Status** 
 | 21 | Agent tasks inbox across sessions | GitHub Mobile, Jules | Later |
 | 22 | Preview button for dev servers started by the agent | Replit, Bolt, Lovable | Later |
 | 23 | Issue URL → chat entry point | Copilot, Factory, OpenHands | Later |
+
+## Round 2: how our new features compare
+
+After the first batch shipped, each new feature was checked against how the tools that do it best
+implement it. "Closed" means the gap was fixed in this fork.
+
+| Our feature | Compared with | What they do that we didn't | Status |
+|---|---|---|---|
+| Saved prompts | Claude Code custom commands, Windsurf workflows | Claude Code passes arguments: `$ARGUMENTS` takes everything typed after the command, `$1`, `$2`… one word each. Windsurf keeps workflows as files in the repo. | Closed: `$ARGUMENTS` and `$1`–`$9`, and arguments are appended when a prompt has no placeholders. Repo-stored prompts: later |
+| Pinned chats | Cline (favourite tasks), ChatGPT (pins, projects) | Cline protects starred tasks from bulk deletion. ChatGPT pins sit beside projects. | Closed: pinned chats are never auto-archived and count toward the cap. Pins are dropped when a chat is deleted. Pinned chats also appear as launcher shortcuts |
+| Chat search | Cline (fuzzy history search, sort by cost), Cursor (titles only, via community tools) | Cline also sorts by cost and tokens. | Ours matches every word against title and folder. Search inside message text: later (needs an index) |
+| Share / copy chat | Cline (Markdown export), Cursor (community exporters), Amp (shareable threads) | Amp shares a link. | Markdown export is on par. Link sharing needs a server: not planned |
+| Usage readout | Cline task header (tokens, cost, cache), Claude Code status line (`.cost`, `.context_window`) | Cline shows cache reads apart from fresh input. | Closed: cache reads are shown on their own line |
+| File editing | Acode (Android editor), VS Code | Undo/redo and find & replace are table stakes. | Closed: grouped undo/redo (200 steps) and literal find & replace-all with an ignore-case option |
+| Git actions | VS Code Source Control, GitHub Desktop, Kilo Code | Per-file discard, a suggested commit message, AI-written messages. | Closed: per-file discard with confirmation (restores tracked files, deletes new ones) and a prefilled message ("Update A and 2 more files"). AI-written message: later |
+| Schedule templates | Jules templated tasks | – | On par |
+| Launcher shortcuts | Termux:Widget, GitHub Mobile | Shortcuts to specific items, not just screens. | Closed: up to two pinned chats as shortcuts, each opening its chat directly |
+| Token efficiency | Claude Code status line, Cline auto-compact | – | See [`TOKEN_EFFICIENCY.md`](TOKEN_EFFICIENCY.md) |
+
+Round 2 sources:
+- Claude Code custom commands: [docs](https://docs.claude.com/en/docs/claude-code/slash-commands), [PromptLayer glossary](https://www.promptlayer.com/glossary/claude-code-custom-commands)
+- Windsurf workflows: [docs](https://docs.windsurf.com/windsurf/cascade/workflows)
+- Cline task management: [docs](https://docs.cline.bot/core-workflows/task-management)
+- Cursor history: [forum: Cursor Chronicle](https://forum.cursor.com/t/cursor-chronicle-search-export-and-analyze-your-cursor-chat-history/153309), [forum: smarter search request](https://forum.cursor.com/t/allow-smart-searching-through-conversation-history/138941)
+- ChatGPT projects: [OpenAI help](https://help.openai.com/en/articles/10169521-projects-in-chatgpt)
+- Claude Code status line: [docs](https://code.claude.com/docs/en/statusline)
+- VS Code / Kilo commit messages: [Kilo Code docs](https://kilocode.ai/docs/basic-usage/git-commit-generation), [Medium walkthrough](https://medium.com/@yanirmanor/how-to-generate-commit-messages-with-ai-in-visual-studio-code-4b7367bbafe3)
+- Acode and Termux:Widget: [Acode on IzzyOnDroid](https://apt.izzysoft.de/fdroid/index/apk/com.foxdebug.acode?repo=main), [Termux:Widget on F-Droid](https://f-droid.org/de/packages/com.termux.widget/)
 
 ## Sources
 

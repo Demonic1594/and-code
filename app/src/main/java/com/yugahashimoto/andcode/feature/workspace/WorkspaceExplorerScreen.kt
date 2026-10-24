@@ -24,6 +24,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
@@ -74,7 +75,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
@@ -638,7 +641,12 @@ private fun ChangesTab(
         } else {
             items(state.changes, key = { it.displayPath }) { change ->
                 val detailed = state.diff.firstOrNull { it.displayPath == change.displayPath } ?: change
-                ChangeCard(detailed, diffViewMode, onOpenChange)
+                ChangeCard(
+                    detailed,
+                    diffViewMode,
+                    onOpenChange,
+                    onDiscard = gitActions.onDiscard.takeIf { state.canRunGit && state.runningAction == null },
+                )
             }
         }
 
@@ -654,8 +662,12 @@ private fun ChangesTab(
     }
 
     if (showCommitDialog) {
+        // What the commit will actually contain: AndCode's own attachment copies and temp files are
+        // left out of it (see WorkspaceShell.COMMIT_PATHSPEC), so they are left out of the count too.
+        val committable = state.changes.map { it.displayPath }.filterNot(WorkspaceShell::isAndCodeArtifact)
         CommitDialog(
-            changeCount = state.changes.size,
+            changeCount = committable.size,
+            suggestedMessage = suggestedCommitMessage(committable),
             onCommit = { message ->
                 gitActions.onCommit(message)
                 showCommitDialog = false
@@ -799,7 +811,23 @@ private fun ChangeCard(
     change: OpenCodeFileChange,
     diffViewMode: DiffViewMode,
     onOpen: (OpenCodeFileChange) -> Unit = {},
+    onDiscard: ((OpenCodeFileChange) -> Unit)? = null,
 ) {
+    var confirmDiscard by remember { mutableStateOf(false) }
+    if (confirmDiscard && onDiscard != null) {
+        AlertDialog(
+            onDismissRequest = { confirmDiscard = false },
+            title = { Text(stringResource(R.string.git_discard_title)) },
+            text = { Text(stringResource(R.string.git_discard_body, change.displayPath)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDiscard = false
+                    onDiscard(change)
+                }) { Text(stringResource(R.string.git_discard), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
     var expanded by remember(change.displayPath, change.patch) { mutableStateOf(false) }
     val canOpen = change.isOpenable()
     SectionCard(
@@ -842,6 +870,15 @@ private fun ChangeCard(
             if (!change.patch.isNullOrBlank()) {
                 OutlinedButton(onClick = { expanded = !expanded }) {
                     Text(if (expanded) stringResource(R.string.collapse) else stringResource(R.string.diff_label))
+                }
+            }
+            if (onDiscard != null) {
+                IconButton(onClick = { confirmDiscard = true }) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Undo,
+                        contentDescription = stringResource(R.string.git_discard),
+                        tint = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
         }
@@ -1062,6 +1099,7 @@ data class GitActions(
     val onPush: () -> Unit = {},
     val onPull: () -> Unit = {},
     val onStash: () -> Unit = {},
+    val onDiscard: (OpenCodeFileChange) -> Unit = {},
     val onConsumeResult: () -> Unit = {},
 )
 
@@ -1116,9 +1154,14 @@ private fun GitActionBar(
                     WorkspaceAction.PULL -> stringResource(R.string.git_done_pull)
                     WorkspaceAction.STASH -> stringResource(R.string.git_done_stash)
                     WorkspaceAction.CHECKOUT, WorkspaceAction.CREATE_BRANCH -> stringResource(R.string.git_done_branch)
+                    WorkspaceAction.DISCARD -> stringResource(R.string.git_done_discard)
                     WorkspaceAction.SAVE, null -> null
                 }
-            val message = state.actionError ?: confirmation
+            val message =
+                when (state.actionError) {
+                    ACTION_ERROR_INVALID_BRANCH -> stringResource(R.string.git_invalid_branch)
+                    else -> state.actionError
+                } ?: confirmation
             if (message != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -1146,10 +1189,15 @@ private fun GitActionBar(
 @Composable
 private fun CommitDialog(
     changeCount: Int,
+    suggestedMessage: String,
     onCommit: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var message by rememberSaveable { mutableStateOf("") }
+    // Prefilled from the changed files, like the subject line GitHub Desktop proposes, so a quick
+    // commit from the phone needs no typing; it is selected text, replaced by the first keystroke.
+    var message by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(suggestedMessage, TextRange(0, suggestedMessage.length)))
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.git_commit_title)) },
@@ -1171,7 +1219,7 @@ private fun CommitDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onCommit(message) }, enabled = message.isNotBlank()) {
+            TextButton(onClick = { onCommit(message.text) }, enabled = message.text.isNotBlank()) {
                 Text(stringResource(R.string.git_commit))
             }
         },
@@ -1179,4 +1227,16 @@ private fun CommitDialog(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
+}
+
+/** "Update Main.kt", "Update Main.kt and README.md", "Update Main.kt and 3 more". */
+@Composable
+private fun suggestedCommitMessage(paths: List<String>): String {
+    val names = paths.map { it.substringAfterLast('/') }.distinct()
+    return when (names.size) {
+        0 -> ""
+        1 -> stringResource(R.string.git_commit_suggest_one, names[0])
+        2 -> stringResource(R.string.git_commit_suggest_two, names[0], names[1])
+        else -> stringResource(R.string.git_commit_suggest_many, names[0], names.size - 1)
+    }
 }

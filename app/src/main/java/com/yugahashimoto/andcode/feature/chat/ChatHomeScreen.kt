@@ -775,11 +775,14 @@ fun ChatHomeScreen(
                     slashSkills = state.slashSkills,
                     savedPrompts = savedPrompts,
                     onSlashCommandSelect = { suggestion ->
-                        // A saved prompt expands to its text, left in the composer to send or tweak;
-                        // everything else completes to its command name for the send path to route.
+                        // A saved prompt expands to its text, left in the composer to send or tweak.
+                        // One that takes arguments ($ARGUMENTS, $1...) completes to its command instead,
+                        // so the user types the arguments and sending fills them in. Everything else
+                        // completes to its command name for the send path to route.
                         val completed =
-                            when (suggestion) {
-                                is SlashSuggestion.Saved -> suggestion.prompt.text
+                            when {
+                                suggestion is SlashSuggestion.Saved && !SlashCommandRegistry.hasPlaceholders(suggestion.prompt.text) ->
+                                    suggestion.prompt.text
                                 else -> suggestion.name + " "
                             }
                         inputValue = TextFieldValue(completed, TextRange(completed.length))
@@ -2572,6 +2575,15 @@ private fun ChatOverflowMenu(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        // Cache reads are billed at a fraction of fresh input, so seeing them apart
+                        // tells whether a long chat is actually expensive or mostly served from cache.
+                        if (it.cacheReadTokens > 0) {
+                            Text(
+                                text = stringResource(R.string.chat_usage_cached, formatUsageTokens(it.cacheReadTokens)),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 },
                 leadingIcon = { Icon(Icons.Default.DataUsage, contentDescription = null) },

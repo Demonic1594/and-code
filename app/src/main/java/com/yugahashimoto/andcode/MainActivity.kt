@@ -29,7 +29,6 @@ import com.yugahashimoto.andcode.feature.assistant.AssistantStatus
 import com.yugahashimoto.andcode.feature.support.GitHubStarPromptDialog
 import com.yugahashimoto.andcode.feature.support.openProjectLink
 import com.yugahashimoto.andcode.ui.AndCodeApp
-import com.yugahashimoto.andcode.ui.AppShortcuts
 import com.yugahashimoto.andcode.ui.ChatDeepLink
 import com.yugahashimoto.andcode.ui.ShortcutDestination
 import com.yugahashimoto.andcode.ui.ShortcutLink
@@ -52,7 +51,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleDeepLink(intent)
-        AppShortcuts.publish(this)
         assistantActive = AssistantStatus.isActive(this)
         showInitialStarPrompt = app.githubStarCoordinator.shouldShowInitialPrompt()
         app.githubStarCoordinator.refresh()

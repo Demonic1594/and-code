@@ -187,6 +187,7 @@ fun NavGraphBuilder.workspaceNavGraph(
                         onPush = explorerViewModel::push,
                         onPull = explorerViewModel::pull,
                         onStash = explorerViewModel::stash,
+                        onDiscard = explorerViewModel::discard,
                         onConsumeResult = explorerViewModel::consumeActionResult,
                     ),
             )
@@ -253,6 +254,9 @@ fun NavGraphBuilder.workspaceNavGraph(
                 onEditChange = viewerViewModel::updateDraft,
                 onSave = viewerViewModel::save,
                 onCancelEditing = viewerViewModel::cancelEditing,
+                onUndo = viewerViewModel::undo,
+                onRedo = viewerViewModel::redo,
+                onReplaceAll = viewerViewModel::replaceAll,
             )
         }
     }

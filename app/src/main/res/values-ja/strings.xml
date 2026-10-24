@@ -1278,4 +1278,21 @@
     <string name="schedule_template_security">毎月のセキュリティレビュー</string>
     <string name="chat_copy_too_long">このチャットはクリップボードに収まらないほど長いため、代わりにファイルとして共有します。</string>
     <string name="code_save_too_large">このファイルはサイズが大きすぎるため、ここから保存できません（上限 1 MB）。</string>
+    <string name="chat_usage_cached">うち %1$s はキャッシュから</string>
+    <string name="git_discard">変更を破棄</string>
+    <string name="git_discard_title">変更を破棄しますか？</string>
+    <string name="git_discard_body">%1$s への未コミットの変更は失われます。新規ファイルの場合は削除されます。</string>
+    <string name="git_done_discard">変更を破棄しました</string>
+    <string name="git_invalid_branch">ブランチ名は「-」で始められません</string>
+    <string name="git_commit_suggest_one">%1$s を更新</string>
+    <string name="git_commit_suggest_two">%1$s と %2$s を更新</string>
+    <string name="git_commit_suggest_many">%1$s ほか %2$d 件のファイルを更新</string>
+    <string name="code_undo">元に戻す</string>
+    <string name="code_redo">やり直し</string>
+    <string name="code_find_replace">検索と置換</string>
+    <string name="code_find_label">検索</string>
+    <string name="code_replace_label">置換後の文字列</string>
+    <string name="code_ignore_case">大文字と小文字を区別しない</string>
+    <string name="code_replace_all">すべて置換</string>
+    <string name="code_replaced_count">置換した件数：%1$d</string>
 </resources>

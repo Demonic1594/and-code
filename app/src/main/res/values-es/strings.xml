@@ -1264,4 +1264,21 @@
     <string name="schedule_template_security">Revisión mensual de seguridad</string>
     <string name="chat_copy_too_long">Este chat es demasiado largo para el portapapeles, así que se compartirá como archivo.</string>
     <string name="code_save_too_large">Este archivo es demasiado grande para guardarlo desde aquí (límite de 1 MB).</string>
+    <string name="chat_usage_cached">%1$s desde la caché</string>
+    <string name="git_discard">Descartar cambios</string>
+    <string name="git_discard_title">¿Descartar los cambios?</string>
+    <string name="git_discard_body">Se perderán los cambios sin commit en %1$s. Si es un archivo nuevo, se eliminará.</string>
+    <string name="git_done_discard">Cambios descartados</string>
+    <string name="git_invalid_branch">El nombre de la rama no puede empezar por -</string>
+    <string name="git_commit_suggest_one">Actualizar %1$s</string>
+    <string name="git_commit_suggest_two">Actualizar %1$s y %2$s</string>
+    <string name="git_commit_suggest_many">Actualizar %1$s y %2$d archivos más</string>
+    <string name="code_undo">Deshacer</string>
+    <string name="code_redo">Rehacer</string>
+    <string name="code_find_replace">Buscar y reemplazar</string>
+    <string name="code_find_label">Buscar</string>
+    <string name="code_replace_label">Reemplazar por</string>
+    <string name="code_ignore_case">Ignorar mayúsculas</string>
+    <string name="code_replace_all">Reemplazar todo</string>
+    <string name="code_replaced_count">Reemplazos: %1$d</string>
 </resources>

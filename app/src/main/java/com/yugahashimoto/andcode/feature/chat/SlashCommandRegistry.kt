@@ -69,18 +69,40 @@ object SlashCommandRegistry {
     val builtInCommandNames: Set<String> = commands.map { it.name }.toSet()
 
     /**
-     * [text] with a saved prompt's command swapped for the prompt itself, when the whole message is
-     * exactly that command (`/review`). Typing the command and sending works the same as picking it
-     * from the popup; anything else, built-in commands included, is returned unchanged.
+     * [text] with a saved prompt's command swapped for the prompt itself, when the message starts with
+     * that command (`/review 123 urgent`). Whatever follows the command fills the prompt's
+     * placeholders the way Claude Code's custom commands do: `$ARGUMENTS` takes all of it, `$1`..`$9`
+     * one whitespace-separated word each. A prompt without placeholders gets the arguments appended
+     * on a new paragraph, so nothing typed is lost. Built-in commands and other text pass unchanged.
      */
     fun expandSavedPrompt(
         text: String,
         savedPrompts: List<SavedPrompt>,
     ): String {
         val trimmed = text.trim()
-        if (!trimmed.startsWith("/") || trimmed in builtInCommandNames) return text
-        return savedPrompts.firstOrNull { it.command == trimmed }?.text ?: text
+        if (!trimmed.startsWith("/")) return text
+        val command = trimmed.substringBefore(' ').substringBefore('\n')
+        if (command in builtInCommandNames) return text
+        val prompt = savedPrompts.firstOrNull { it.command == command } ?: return text
+        return fillArguments(prompt.text, trimmed.removePrefix(command).trim())
     }
+
+    internal fun fillArguments(
+        template: String,
+        arguments: String,
+    ): String {
+        val words = arguments.split(Regex("\\s+")).filter(String::isNotEmpty)
+        if (!hasPlaceholders(template)) return if (arguments.isEmpty()) template else "$template\n\n$arguments"
+        // One pass, so an argument that itself contains `$1` is inserted as typed, not expanded again.
+        return PLACEHOLDER.replace(template) { match ->
+            val key = match.groupValues[1]
+            if (key == "ARGUMENTS") arguments else words.getOrNull(key.toInt() - 1).orEmpty()
+        }
+    }
+
+    fun hasPlaceholders(template: String): Boolean = PLACEHOLDER.containsMatchIn(template)
+
+    private val PLACEHOLDER = Regex("\\$(ARGUMENTS|[1-9])")
 
     /**
      * Builds the popup list: app commands first, then the user's saved prompts, then the backend's

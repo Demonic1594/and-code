@@ -1283,4 +1283,21 @@
     <string name="schedule_template_security">Monthly security review</string>
     <string name="chat_copy_too_long">This chat is too long for the clipboard, so it is being shared as a file instead.</string>
     <string name="code_save_too_large">This file is too large to save from here (limit 1 MB).</string>
+    <string name="chat_usage_cached">%1$s served from cache</string>
+    <string name="git_discard">Discard changes</string>
+    <string name="git_discard_title">Discard changes?</string>
+    <string name="git_discard_body">The uncommitted changes to %1$s will be lost. A new file will be deleted.</string>
+    <string name="git_done_discard">Changes discarded</string>
+    <string name="git_invalid_branch">Branch names cannot start with -</string>
+    <string name="git_commit_suggest_one">Update %1$s</string>
+    <string name="git_commit_suggest_two">Update %1$s and %2$s</string>
+    <string name="git_commit_suggest_many">Update %1$s and %2$d more files</string>
+    <string name="code_undo">Undo</string>
+    <string name="code_redo">Redo</string>
+    <string name="code_find_replace">Find and replace</string>
+    <string name="code_find_label">Find</string>
+    <string name="code_replace_label">Replace with</string>
+    <string name="code_ignore_case">Ignore case</string>
+    <string name="code_replace_all">Replace all</string>
+    <string name="code_replaced_count">Replaced: %1$d</string>
 </resources>

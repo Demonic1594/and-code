@@ -795,6 +795,17 @@ fun AndCodeApp(
                 }
         }
 
+    // Launcher shortcuts, re-published when the pinned chats or their titles change. Done here rather
+    // than once at startup because only here are the chats' titles known.
+    val pinnedShortcuts =
+        recentSessions
+            .filter { it.id in preferences.pinnedSessionIds }
+            .map { PinnedChatShortcut(it.id, it.title, it.runtimeId) }
+    val shortcutContext = LocalContext.current.applicationContext
+    LaunchedEffect(pinnedShortcuts) {
+        withContext(Dispatchers.Default) { AppShortcuts.publish(shortcutContext, pinnedShortcuts) }
+    }
+
     // Local agents that are actually provisioned. A target reports Unavailable while its agent is
     // missing, which is exactly the case the switcher must not offer.
     //
@@ -930,6 +941,8 @@ fun AndCodeApp(
                                 navController.navigate(route) { launchSingleTop = true }
                             },
                             onDeleteSession = { sessionId ->
+                                // A deleted chat's pin would otherwise linger in preferences forever.
+                                app.preferences.setSessionPinned(sessionId, false)
                                 voiceScope.launch {
                                     val targets = app.runtimeRegistry.targets.value
                                     coroutineScope {
@@ -952,6 +965,7 @@ fun AndCodeApp(
                                 }
                             },
                             onBatchDelete = { sessionIds ->
+                                sessionIds.forEach { app.preferences.setSessionPinned(it, false) }
                                 voiceScope.launch {
                                     val targets = app.runtimeRegistry.targets.value
                                     coroutineScope {

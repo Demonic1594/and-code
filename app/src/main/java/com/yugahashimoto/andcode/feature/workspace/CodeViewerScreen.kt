@@ -3,6 +3,7 @@ package com.yugahashimoto.andcode.feature.workspace
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,12 +20,16 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.automirrored.filled.WrapText
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FindReplace
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -94,8 +99,16 @@ fun CodeViewerScreen(
     onEditChange: (String) -> Unit = {},
     onSave: () -> Unit = {},
     onCancelEditing: () -> Unit = {},
+    onUndo: () -> Unit = {},
+    onRedo: () -> Unit = {},
+    /** Replaces every match and returns how many there were. */
+    onReplaceAll: (find: String, replacement: String, ignoreCase: Boolean) -> Int = { _, _, _ -> 0 },
 ) {
     var confirmDiscard by remember { mutableStateOf(false) }
+    var showReplace by remember { mutableStateOf(false) }
+    if (showReplace) {
+        ReplaceDialog(onReplaceAll = onReplaceAll, onDismiss = { showReplace = false })
+    }
     val haptics = rememberHaptics()
     LaunchedEffect(state.savedCount) { if (state.savedCount > 0) haptics.perform(HapticEvent.CONFIRM) }
     LaunchedEffect(state.saveError) { if (state.saveError != null) haptics.perform(HapticEvent.REJECT) }
@@ -169,6 +182,15 @@ fun CodeViewerScreen(
                 },
                 actions = {
                     if (state.isEditing) {
+                        IconButton(onClick = onUndo, enabled = state.canUndo) {
+                            Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.code_undo))
+                        }
+                        IconButton(onClick = onRedo, enabled = state.canRedo) {
+                            Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = stringResource(R.string.code_redo))
+                        }
+                        IconButton(onClick = { showReplace = true }) {
+                            Icon(Icons.Default.FindReplace, contentDescription = stringResource(R.string.code_find_replace))
+                        }
                         if (state.isSaving) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp).padding(end = 4.dp), strokeWidth = 2.dp)
                         } else {
@@ -345,6 +367,63 @@ fun CodeViewerScreen(
             }
         }
     }
+}
+
+@Composable
+private fun ReplaceDialog(
+    onReplaceAll: (find: String, replacement: String, ignoreCase: Boolean) -> Int,
+    onDismiss: () -> Unit,
+) {
+    var find by rememberSaveable { mutableStateOf("") }
+    var replacement by rememberSaveable { mutableStateOf("") }
+    var ignoreCase by rememberSaveable { mutableStateOf(false) }
+    var result by remember { mutableStateOf<Int?>(null) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.code_find_replace)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = find,
+                    onValueChange = {
+                        find = it
+                        result = null
+                    },
+                    label = { Text(stringResource(R.string.code_find_label)) },
+                    singleLine = true,
+                    textStyle = TextStyle(fontFamily = CodeFontFamily),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = replacement,
+                    onValueChange = { replacement = it },
+                    label = { Text(stringResource(R.string.code_replace_label)) },
+                    singleLine = true,
+                    textStyle = TextStyle(fontFamily = CodeFontFamily),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Checkbox(checked = ignoreCase, onCheckedChange = { ignoreCase = it })
+                    Text(stringResource(R.string.code_ignore_case))
+                }
+                result?.let {
+                    Text(
+                        text = stringResource(R.string.code_replaced_count, it),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { result = onReplaceAll(find, replacement, ignoreCase) }, enabled = find.isNotEmpty()) {
+                Text(stringResource(R.string.code_replace_all))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.close_description)) }
+        },
+    )
 }
 
 private fun highlightLine(

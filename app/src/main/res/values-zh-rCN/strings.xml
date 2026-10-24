@@ -1258,4 +1258,21 @@
     <string name="schedule_template_security">每月安全审查</string>
     <string name="chat_copy_too_long">这段聊天太长，无法复制到剪贴板，因此将以文件形式分享。</string>
     <string name="code_save_too_large">该文件过大，无法从这里保存（上限 1 MB）。</string>
+    <string name="chat_usage_cached">其中 %1$s 来自缓存</string>
+    <string name="git_discard">放弃更改</string>
+    <string name="git_discard_title">放弃更改？</string>
+    <string name="git_discard_body">%1$s 中未提交的更改将丢失。如果是新文件，将被删除。</string>
+    <string name="git_done_discard">已放弃更改</string>
+    <string name="git_invalid_branch">分支名称不能以 - 开头</string>
+    <string name="git_commit_suggest_one">更新 %1$s</string>
+    <string name="git_commit_suggest_two">更新 %1$s 和 %2$s</string>
+    <string name="git_commit_suggest_many">更新 %1$s 及其他 %2$d 个文件</string>
+    <string name="code_undo">撤销</string>
+    <string name="code_redo">重做</string>
+    <string name="code_find_replace">查找和替换</string>
+    <string name="code_find_label">查找</string>
+    <string name="code_replace_label">替换为</string>
+    <string name="code_ignore_case">忽略大小写</string>
+    <string name="code_replace_all">全部替换</string>
+    <string name="code_replaced_count">已替换：%1$d</string>
 </resources>

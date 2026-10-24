@@ -137,6 +137,32 @@ class WorkspaceShellTest {
         }
 
     @Test
+    fun `discard restores tracked files, deletes untracked ones and unstages new ones`() =
+        runBlocking {
+            File(repo, "a.txt").writeText("edited\n")
+            File(repo, "untracked.txt").writeText("new\n")
+            File(repo, "staged-new.txt").writeText("new\n")
+            sh("git add staged-new.txt")
+
+            assertTrue(shell.discard(repo.absolutePath, "a.txt").isSuccess)
+            assertTrue(shell.discard(repo.absolutePath, "untracked.txt").isSuccess)
+            val stagedResult = shell.discard(repo.absolutePath, "staged-new.txt")
+            assertTrue(stagedResult.exceptionOrNull()?.message ?: "", stagedResult.isSuccess)
+
+            assertEquals("one\n", File(repo, "a.txt").readText())
+            assertTrue(!File(repo, "untracked.txt").exists())
+            assertTrue(!File(repo, "staged-new.txt").exists())
+            assertEquals("", sh("git status --porcelain").trim())
+        }
+
+    @Test
+    fun `AndCode's own files are recognised`() {
+        assertTrue(WorkspaceShell.isAndCodeArtifact(".andcode-attachments/photo.jpg"))
+        assertTrue(WorkspaceShell.isAndCodeArtifact("src/a.kt.andcode-save"))
+        assertTrue(!WorkspaceShell.isAndCodeArtifact("src/andcode-attachments.kt"))
+    }
+
+    @Test
     fun `guest path joins relative paths onto the workspace`() {
         assertEquals("/workspace/src/a.kt", WorkspaceShell.guestPath("/workspace/", "./src/a.kt"))
         assertEquals("/etc/hosts", WorkspaceShell.guestPath("/workspace", "/etc/hosts"))
