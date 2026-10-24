@@ -43,8 +43,13 @@ data class AppPreferences(
     val syntaxTheme: String = "one-dark",
     val toolCallDetailLevel: String = "detailed",
     val autoExpandReasoning: Boolean = false,
+    /** Codex fast mode: null follows each model's default, otherwise the user's explicit choice. */
+    val codexFastMode: Boolean? = null,
     val sendBehavior: String = "interrupt",
     val enterToSend: Boolean = false,
+    val hapticsEnabled: Boolean = true,
+    val pinnedSessionIds: Set<String> = emptySet(),
+    val savedPrompts: List<SavedPrompt> = emptyList(),
     val sidebarGrouping: String = "project",
     val workspaceTitleSource: String = "title",
     val language: String = "system",
@@ -93,8 +98,12 @@ class AppPreferencesRepository(
                 syntaxTheme = settings.syntaxTheme,
                 toolCallDetailLevel = settings.toolCallDetailLevel,
                 autoExpandReasoning = settings.autoExpandReasoning,
+                codexFastMode = settings.codexFastMode,
                 sendBehavior = settings.sendBehavior,
                 enterToSend = settings.enterToSend,
+                hapticsEnabled = settings.hapticsEnabled,
+                pinnedSessionIds = settings.pinnedSessionIds,
+                savedPrompts = SavedPromptCodec.decode(settings.savedPromptsJson),
                 sidebarGrouping = settings.sidebarGrouping,
                 workspaceTitleSource = settings.workspaceTitleSource,
                 language = settings.language,
@@ -302,6 +311,11 @@ class AppPreferencesRepository(
         mutableState.update { it.copy(autoExpandReasoning = enabled) }
     }
 
+    fun setCodexFastMode(enabled: Boolean?) {
+        settings.codexFastMode = enabled
+        mutableState.update { it.copy(codexFastMode = enabled) }
+    }
+
     fun setSendBehavior(behavior: String) {
         settings.sendBehavior = behavior
         mutableState.update { it.copy(sendBehavior = behavior) }
@@ -310,6 +324,41 @@ class AppPreferencesRepository(
     fun setEnterToSend(enabled: Boolean) {
         settings.enterToSend = enabled
         mutableState.update { it.copy(enterToSend = enabled) }
+    }
+
+    fun setHapticsEnabled(enabled: Boolean) {
+        settings.hapticsEnabled = enabled
+        mutableState.update { it.copy(hapticsEnabled = enabled) }
+    }
+
+    fun setSessionPinned(
+        sessionId: String,
+        pinned: Boolean,
+    ) {
+        val updated = if (pinned) settings.pinnedSessionIds + sessionId else settings.pinnedSessionIds - sessionId
+        settings.pinnedSessionIds = updated
+        mutableState.update { it.copy(pinnedSessionIds = updated) }
+    }
+
+    /** Adds [prompt], or replaces the saved prompt with the same id. */
+    fun saveSavedPrompt(prompt: SavedPrompt) {
+        val current = mutableState.value.savedPrompts
+        val updated =
+            if (current.any { it.id == prompt.id }) {
+                current.map { if (it.id == prompt.id) prompt else it }
+            } else {
+                current + prompt
+            }
+        storeSavedPrompts(updated)
+    }
+
+    fun deleteSavedPrompt(id: String) {
+        storeSavedPrompts(mutableState.value.savedPrompts.filterNot { it.id == id })
+    }
+
+    private fun storeSavedPrompts(prompts: List<SavedPrompt>) {
+        settings.savedPromptsJson = SavedPromptCodec.encode(prompts)
+        mutableState.update { it.copy(savedPrompts = prompts) }
     }
 
     fun setSidebarGrouping(grouping: String) {

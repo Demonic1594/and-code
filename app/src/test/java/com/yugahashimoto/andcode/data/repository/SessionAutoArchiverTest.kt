@@ -76,6 +76,41 @@ class SessionAutoArchiverTest {
         }
 
     @Test
+    fun `pinned chats are never archived and count toward the cap`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val target =
+                FakeTarget(
+                    "mac",
+                    sessions =
+                        listOf(
+                            session("pinned-old", updatedDaysAgo = 90),
+                            session("old", updatedDaysAgo = 60),
+                            session("mid", updatedDaysAgo = 5),
+                            session("new", updatedDaysAgo = 1),
+                        ),
+                )
+            val registry = registry(target)
+            val catalog = RuntimeCatalogRepository(registry, TestScope(dispatcher))
+            val preferences =
+                fakePreferences(
+                    autoArchiveStaleEnabled = true,
+                    autoArchiveStaleDays = 30,
+                    autoArchiveMaxSessionsEnabled = true,
+                    autoArchiveMaxSessions = 2,
+                    pinnedSessionIds = setOf("pinned-old"),
+                )
+            val archiver =
+                SessionAutoArchiver(registry, catalog, activeSessionIds = { emptySet() }, preferences, TestScope(dispatcher))
+
+            archiver.start()
+            advanceUntilIdle()
+
+            // Cap 2 with one pinned leaves one slot: only the newest unpinned chat stays.
+            assertEquals(setOf("old", "mid"), target.archivedIds.toSet())
+        }
+
+    @Test
     fun `archives the oldest sessions once the active count passes the configured cap`() =
         runTest {
             val dispatcher = StandardTestDispatcher(testScheduler)
@@ -196,6 +231,7 @@ class SessionAutoArchiverTest {
         autoArchiveStaleDays: Int = 30,
         autoArchiveMaxSessionsEnabled: Boolean = false,
         autoArchiveMaxSessions: Int = 50,
+        pinnedSessionIds: Set<String> = emptySet(),
     ): MutableStateFlow<AppPreferences> =
         MutableStateFlow(
             AppPreferences(
@@ -203,6 +239,7 @@ class SessionAutoArchiverTest {
                 autoArchiveStaleDays = autoArchiveStaleDays,
                 autoArchiveMaxSessionsEnabled = autoArchiveMaxSessionsEnabled,
                 autoArchiveMaxSessions = autoArchiveMaxSessions,
+                pinnedSessionIds = pinnedSessionIds,
             ),
         )
 

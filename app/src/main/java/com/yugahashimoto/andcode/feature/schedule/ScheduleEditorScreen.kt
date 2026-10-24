@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.feature.schedule
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.ModelTraining
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -83,6 +85,61 @@ private val TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm")
 private enum class TimingMode { ONCE, DAILY, WEEKLY, MONTHLY, CUSTOM }
 
 private enum class AutoAcceptMode { DEFAULT, ALWAYS }
+
+/**
+ * A ready-made schedule a new one can start from, like Jules' templated tasks. The prompt is sent to
+ * the agent, so it stays English like every other LLM prompt; only the chip label is translated.
+ */
+private data class ScheduleTemplate(
+    @StringRes val labelRes: Int,
+    val prompt: String,
+    val mode: TimingMode,
+    val time: LocalTime,
+    val dayOfWeek: DayOfWeek? = null,
+    val dayOfMonth: Int? = null,
+)
+
+private val SCHEDULE_TEMPLATES =
+    listOf(
+        ScheduleTemplate(
+            R.string.schedule_template_daily_summary,
+            "Summarize the commits and changes made in this repository over the last 24 hours. " +
+                "Group them by area, call out anything risky or unfinished, and keep it short.",
+            TimingMode.DAILY,
+            LocalTime.of(9, 0),
+        ),
+        ScheduleTemplate(
+            R.string.schedule_template_dependencies,
+            "Check this project's dependencies for available updates and known security advisories. " +
+                "List what is outdated, what is vulnerable, and which upgrades look safe. Do not change any files.",
+            TimingMode.WEEKLY,
+            LocalTime.of(9, 0),
+            dayOfWeek = DayOfWeek.MONDAY,
+        ),
+        ScheduleTemplate(
+            R.string.schedule_template_tests,
+            "Run the project's test suite. If anything fails, find the cause and report it with the " +
+                "failing test names and a suggested fix. Do not commit anything.",
+            TimingMode.DAILY,
+            LocalTime.of(18, 0),
+        ),
+        ScheduleTemplate(
+            R.string.schedule_template_todos,
+            "Find TODO, FIXME and HACK comments in this repository. Pick the three most worthwhile, " +
+                "explain why, and outline how to address each.",
+            TimingMode.WEEKLY,
+            LocalTime.of(16, 0),
+            dayOfWeek = DayOfWeek.FRIDAY,
+        ),
+        ScheduleTemplate(
+            R.string.schedule_template_security,
+            "Review this repository for security problems: hard-coded secrets, injection risks, unsafe " +
+                "file or network handling, and outdated crypto. Report findings by severity. Do not change any files.",
+            TimingMode.MONTHLY,
+            LocalTime.of(10, 0),
+            dayOfMonth = 1,
+        ),
+    )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -245,6 +302,29 @@ fun ScheduleEditorScreen(
                 label = { Text(stringResource(R.string.schedule_name)) },
                 placeholder = { Text(stringResource(R.string.schedule_name_hint)) },
             )
+
+            if (existing == null) {
+                EditorSectionHeader(stringResource(R.string.schedule_templates_title))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    SCHEDULE_TEMPLATES.forEach { template ->
+                        val label = stringResource(template.labelRes)
+                        AssistChip(
+                            onClick = {
+                                name = label
+                                prompt = template.prompt
+                                timingState.mode = template.mode
+                                timingState.setPendingTime(template.time)
+                                template.dayOfWeek?.let { timingState.weeklyDay = it }
+                                template.dayOfMonth?.let { timingState.monthlyDay = it }
+                            },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+            }
 
             EditorSectionHeader(stringResource(R.string.schedule_agent_model))
             Surface(

@@ -189,6 +189,11 @@ android {
     }
 
     buildTypes {
+        // Fork build ("AndCode LH"): debug installs as com.yugahashimoto.andcode.heap so it sits
+        // next to an upstream release instead of replacing it. The matching placeholder
+        // app/src/debug/google-services.json keeps the google-services plugin happy for that
+        // package name, and app/src/debug/res/values/strings.xml gives it its own launcher label.
+        // See docs/FORK.md before changing any of the three.
         debug {
             applicationIdSuffix = ".heap"
         }

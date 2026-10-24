@@ -297,6 +297,60 @@ class ClaudeCodeRuntime(
             events.tryEmit(OpenCodeEvent.SessionIdle(sessionId))
         }
 
+    /**
+     * Stops the running turn of [sessionId] while keeping its CLI process alive.
+     *
+     * Killing the process (what [stop] does) forces the next prompt to relaunch with `--resume`.
+     * The relaunched CLI rebuilds its system prompt, including a fresh git-status snapshot, so once
+     * the agent has touched the repository the prompt no longer matches what the API cached and the
+     * whole conversation is re-read at full price on the next turn, after every press of the stop
+     * button. The CLI's stream-json protocol has an interrupt control request for
+     * exactly this, so it is tried first; an older CLI that ignores it, or one that does not finish
+     * the turn within [graceMillis], is killed as before.
+     *
+     * Not @Synchronized: it waits for the reader, which needs this object's lock to deliver lines.
+     */
+    fun interrupt(
+        sessionId: String,
+        graceMillis: Long = INTERRUPT_GRACE_MILLIS,
+    ) {
+        val session = synchronized(this) { sessions[sessionId] }
+        if (session == null || !session.process.isAlive) {
+            stop(sessionId)
+            return
+        }
+        // Nothing running: the warm process is worth keeping for the next prompt.
+        if (session.parser.turnFinished) return
+        val sent =
+            synchronized(this) {
+                runCatching {
+                    session.parser.requestInterrupt()
+                    session.process.outputStream.apply {
+                        write((json.encodeToString(JsonObject.serializer(), interruptRequest()) + "\n").toByteArray())
+                        flush()
+                    }
+                }.isSuccess
+            }
+        if (sent) {
+            val deadline = System.currentTimeMillis() + graceMillis
+            while (System.currentTimeMillis() < deadline && session.process.isAlive && !session.parser.turnFinished) {
+                Thread.sleep(INTERRUPT_POLL_MILLIS)
+            }
+        }
+        if (session.parser.turnFinished && session.process.isAlive) return
+        // Only the process this call asked to stop: a send that replaced it meanwhile is left alone.
+        synchronized(this) { if (sessions[sessionId] === session) stop(sessionId) }
+    }
+
+    private fun interruptRequest(): JsonObject =
+        JsonObject(
+            mapOf(
+                "type" to JsonPrimitive("control_request"),
+                "request_id" to JsonPrimitive("interrupt-${UUID.randomUUID()}"),
+                "request" to JsonObject(mapOf("subtype" to JsonPrimitive("interrupt"))),
+            ),
+        )
+
     /** Stops the process backing [sessionId]; the next send resumes the same Claude conversation. */
     @Synchronized
     fun stop(sessionId: String) {
@@ -661,7 +715,21 @@ class ClaudeCodeRuntime(
                         runtime = runtime,
                         workspaceHostDir = File(runtimeDirectory, "workspace").apply { mkdirs() },
                         workingDirectory = "/workspace",
-                        arguments = listOf("--print", "--model", "haiku", "--tools", "", instruction),
+                        // A one-line title needs none of Claude Code's agent setup. Replacing its
+                        // system prompt and skipping the MCP servers cuts this call from the full
+                        // agent prompt plus every MCP tool schema to a few hundred tokens.
+                        arguments =
+                            listOf(
+                                "--print",
+                                "--model",
+                                "haiku",
+                                "--tools",
+                                "",
+                                "--strict-mcp-config",
+                                "--system-prompt",
+                                TITLE_SYSTEM_PROMPT,
+                                instruction,
+                            ),
                         pty = false,
                     ),
                 ).directory(runtimeDirectory)
@@ -764,6 +832,9 @@ class ClaudeCodeRuntime(
         /** Reserved key; no model alias can collide with it. */
         const val CLI_VERSION_KEY = "@cliVersion"
         const val TITLE_PROMPT_LIMIT = 500
+        private const val TITLE_SYSTEM_PROMPT = "You name chats. Answer with the title only."
+        private const val INTERRUPT_GRACE_MILLIS = 3_000L
+        private const val INTERRUPT_POLL_MILLIS = 50L
         const val TITLE_MAX_LENGTH = 60
         const val TITLE_TIMEOUT_SECONDS = 45L
         const val WORKSPACE_COMMAND_TIMEOUT_SECONDS = 60L

@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Chat
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.HorizontalDivider
@@ -107,6 +109,10 @@ fun SettingsScreenV2(
     onSendBehaviorChange: (String) -> Unit = {},
     enterToSend: Boolean = false,
     onEnterToSendChange: (Boolean) -> Unit = {},
+    hapticsEnabled: Boolean = true,
+    onHapticsEnabledChange: (Boolean) -> Unit = {},
+    savedPromptCount: Int = 0,
+    onOpenSavedPrompts: () -> Unit = {},
     autoArchiveStaleEnabled: Boolean = false,
     onAutoArchiveStaleEnabledChange: (Boolean) -> Unit = {},
     autoArchiveStaleDays: Int = 30,
@@ -209,6 +215,14 @@ fun SettingsScreenV2(
                     value = syntaxTheme,
                     onClick = { showSyntaxThemeDialog = true },
                 )
+                SettingsDivider()
+                SettingsToggleRow(
+                    icon = Icons.Default.Vibration,
+                    title = stringResource(R.string.haptics_row),
+                    subtitle = stringResource(R.string.haptics_row_description),
+                    checked = hapticsEnabled,
+                    onCheckedChange = onHapticsEnabledChange,
+                )
             }
 
             SettingsSection(title = stringResource(R.string.section_chat_settings)) {
@@ -256,6 +270,13 @@ fun SettingsScreenV2(
                     title = stringResource(R.string.enter_to_send_row),
                     checked = enterToSend,
                     onCheckedChange = onEnterToSendChange,
+                )
+                SettingsDivider()
+                SettingsRow(
+                    icon = Icons.Default.Bookmarks,
+                    title = stringResource(R.string.saved_prompts_title),
+                    value = savedPromptCount.takeIf { it > 0 }?.toString(),
+                    onClick = onOpenSavedPrompts,
                 )
             }
 
@@ -410,7 +431,9 @@ fun SettingsScreenV2(
     }
 
     if (showThemeDialog) {
-        val themes = listOf("dark", "light", "zinc", "midnight", "claude", "ghostty", "auto")
+        val themes =
+            listOf("dark", "light", "zinc", "midnight", "claude", "ghostty", "auto") +
+                if (com.yugahashimoto.andcode.ui.theme.supportsDynamicColor()) listOf("dynamic") else emptyList()
         AlertDialog(
             onDismissRequest = { showThemeDialog = false },
             title = { Text(stringResource(R.string.theme_dialog_title)) },

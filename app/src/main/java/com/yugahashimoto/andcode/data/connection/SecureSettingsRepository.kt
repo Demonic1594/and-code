@@ -409,6 +409,18 @@ class SecureSettingsRepository(context: Context) : RuntimeConnectionStore, Unrea
         get() = preferences.getBoolean(KEY_AUTO_EXPAND_REASONING, false)
         set(value) = preferences.edit().putBoolean(KEY_AUTO_EXPAND_REASONING, value).apply()
 
+    /**
+     * Codex fast mode: null follows each model's own default, true or false is an explicit choice.
+     * Stored as a removable key so "never chosen" and "chosen" stay distinct across restarts.
+     */
+    var codexFastMode: Boolean?
+        get() = if (preferences.contains(KEY_CODEX_FAST_MODE)) preferences.getBoolean(KEY_CODEX_FAST_MODE, false) else null
+        set(value) {
+            val editor = preferences.edit()
+            if (value == null) editor.remove(KEY_CODEX_FAST_MODE) else editor.putBoolean(KEY_CODEX_FAST_MODE, value)
+            editor.apply()
+        }
+
     var sendBehavior: String
         get() = preferences.getString(KEY_SEND_BEHAVIOR, "interrupt") ?: "interrupt"
         set(value) = preferences.edit().putString(KEY_SEND_BEHAVIOR, value).apply()
@@ -416,6 +428,19 @@ class SecureSettingsRepository(context: Context) : RuntimeConnectionStore, Unrea
     var enterToSend: Boolean
         get() = preferences.getBoolean(KEY_ENTER_TO_SEND, false)
         set(value) = preferences.edit().putBoolean(KEY_ENTER_TO_SEND, value).apply()
+
+    var hapticsEnabled: Boolean
+        get() = preferences.getBoolean(KEY_HAPTICS_ENABLED, true)
+        set(value) = preferences.edit().putBoolean(KEY_HAPTICS_ENABLED, value).apply()
+
+    var pinnedSessionIds: Set<String>
+        get() = preferences.getStringSet(KEY_PINNED_SESSIONS, emptySet()).orEmpty()
+        set(value) = preferences.edit().putStringSet(KEY_PINNED_SESSIONS, value).apply()
+
+    /** Saved prompts as a JSON array; parsed by SavedPromptCodec so this class stays storage-only. */
+    var savedPromptsJson: String?
+        get() = preferences.getString(KEY_SAVED_PROMPTS, null)
+        set(value) = preferences.edit().putString(KEY_SAVED_PROMPTS, value).apply()
 
     var sidebarGrouping: String
         get() = preferences.getString(KEY_SIDEBAR_GROUPING, "project") ?: "project"
@@ -592,8 +617,12 @@ class SecureSettingsRepository(context: Context) : RuntimeConnectionStore, Unrea
         private const val KEY_SYNTAX_THEME = "syntax_theme"
         private const val KEY_TOOL_CALL_DETAIL_LEVEL = "tool_call_detail_level"
         private const val KEY_AUTO_EXPAND_REASONING = "auto_expand_reasoning"
+        private const val KEY_CODEX_FAST_MODE = "codex_fast_mode"
         private const val KEY_SEND_BEHAVIOR = "send_behavior"
         private const val KEY_ENTER_TO_SEND = "enter_to_send"
+        private const val KEY_HAPTICS_ENABLED = "haptics_enabled"
+        private const val KEY_PINNED_SESSIONS = "pinned_sessions"
+        private const val KEY_SAVED_PROMPTS = "saved_prompts"
         private const val KEY_SIDEBAR_GROUPING = "sidebar_grouping"
         private const val KEY_WORKSPACE_TITLE_SOURCE = "workspace_title_source"
         private const val KEY_LANGUAGE = "language"

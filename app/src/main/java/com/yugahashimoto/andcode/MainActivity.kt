@@ -30,10 +30,13 @@ import com.yugahashimoto.andcode.feature.support.GitHubStarPromptDialog
 import com.yugahashimoto.andcode.feature.support.openProjectLink
 import com.yugahashimoto.andcode.ui.AndCodeApp
 import com.yugahashimoto.andcode.ui.ChatDeepLink
+import com.yugahashimoto.andcode.ui.ShortcutDestination
+import com.yugahashimoto.andcode.ui.ShortcutLink
 import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     private var chatDeepLink by mutableStateOf<ChatDeepLink?>(null)
+    private var shortcutLink by mutableStateOf<ShortcutLink?>(null)
     private var deepLinkToken = 0L
     private var showInitialStarPrompt by mutableStateOf(false)
     private var assistantActive by mutableStateOf(false)
@@ -78,6 +81,8 @@ class MainActivity : ComponentActivity() {
                     assistantActive = assistantActive,
                     chatDeepLink = chatDeepLink,
                     onChatDeepLinkConsumed = { chatDeepLink = null },
+                    shortcutLink = shortcutLink,
+                    onShortcutLinkConsumed = { shortcutLink = null },
                 )
                 SnackbarHost(
                     hostState = snackbarHostState,
@@ -131,6 +136,12 @@ class MainActivity : ComponentActivity() {
 
     private fun handleDeepLink(intent: Intent?) {
         intent ?: return
+        ShortcutDestination.fromId(intent.getStringExtra(ShortcutDestination.EXTRA))?.let { destination ->
+            deepLinkToken += 1
+            shortcutLink = ShortcutLink(destination, deepLinkToken)
+            intent.removeExtra(ShortcutDestination.EXTRA)
+            return
+        }
         val sessionId =
             intent.getStringExtra(RuntimeNotificationHelper.EXTRA_TARGET_SESSION_ID)
                 ?.takeIf(String::isNotBlank) ?: return

@@ -25,17 +25,23 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -43,6 +49,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,8 +64,10 @@ import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
+import com.yugahashimoto.andcode.ui.components.HapticEvent
 import com.yugahashimoto.andcode.ui.components.SessionStatus
 import com.yugahashimoto.andcode.ui.components.StatusDot
+import com.yugahashimoto.andcode.ui.components.rememberHaptics
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 
 data class DrawerRecentSession(
@@ -88,6 +97,23 @@ private fun DrawerRecentSession.projectKey(): String =
 private fun DrawerRecentSession.projectLabel(defaultLabel: String): String =
     projectKey().substringAfterLast('/').takeIf { it.isNotBlank() } ?: defaultLabel
 
+/**
+ * Chats whose title or project folder contains every word of [query], case-insensitively, in
+ * their original (most recent first) order. A blank query matches nothing: the caller shows the
+ * normal grouped list instead of a search result then.
+ */
+internal fun filterDrawerSessions(
+    sessions: List<DrawerRecentSession>,
+    query: String,
+): List<DrawerRecentSession> {
+    val terms = query.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    if (terms.isEmpty()) return emptyList()
+    return sessions.filter { session ->
+        val haystack = "${session.title} ${session.directory.orEmpty()}"
+        terms.all { haystack.contains(it, ignoreCase = true) }
+    }
+}
+
 @Composable
 fun AppDrawerContent(
     recentSessions: List<DrawerRecentSession>,
@@ -108,11 +134,16 @@ fun AppDrawerContent(
     onBatchArchive: (Set<String>) -> Unit = {},
     collapsedSections: Set<String> = emptySet(),
     onToggleSection: (String) -> Unit = {},
+    pinnedSessionIds: Set<String> = emptySet(),
+    /** Pins every given chat when `true`, unpins them when `false`. */
+    onSetPinned: (Set<String>, Boolean) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     var selectedSessionIds by remember { mutableStateOf(setOf<String>()) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     val selectionMode = selectedSessionIds.isNotEmpty()
+    val haptics = rememberHaptics()
 
     fun toggleSelection(id: String) {
         selectedSessionIds =
@@ -124,7 +155,72 @@ fun AppDrawerContent(
     }
 
     fun enterSelectionMode(id: String) {
+        haptics.perform(HapticEvent.LONG_PRESS)
         selectedSessionIds = setOf(id)
+    }
+
+    @Composable
+    fun ChatRow(
+        session: DrawerRecentSession,
+        indented: Boolean,
+    ) {
+        DrawerChatRow(
+            title = session.title.ifBlank { session.id },
+            status = session.status,
+            hasAttention = session.hasAttention,
+            isActive = session.isActive,
+            hasUnread = session.hasUnread,
+            isSelected = session.id in selectedSessionIds,
+            selectionMode = selectionMode,
+            indented = indented,
+            agent = session.agent,
+            onClick = { onOpenSession(session.id, session.title, session.runtimeId) },
+            onLongClick = { enterSelectionMode(session.id) },
+            onToggleSelection = { toggleSelection(session.id) },
+        )
+    }
+
+    @Composable
+    fun PinnedAndGroupedChats(pinned: List<DrawerRecentSession>) {
+        val defaultLabel = stringResource(R.string.drawer_project_default)
+        if (pinned.isNotEmpty()) {
+            DrawerRecentProjectHeader(
+                label = stringResource(R.string.drawer_pinned_chats),
+                collapsed = collapsedSections.contains("pinned"),
+                onToggle = { onToggleSection("pinned") },
+            )
+            AnimatedVisibility(visible = !collapsedSections.contains("pinned")) {
+                Column {
+                    pinned.forEach { session -> ChatRow(session, indented = true) }
+                }
+            }
+        }
+        // Pinned chats are listed once, above, rather than again in their project.
+        // Grouped by project, always. The project/status switch that used to sit
+        // here made the drawer ask a question before it answered one, and the
+        // status a chat is in already shows on its own row.
+        val grouped =
+            recentSessions
+                .filterNot { it.id in pinnedSessionIds }
+                .groupBy { it.projectKey() }
+                .toList()
+                .sortedByDescending { (_, sessions) ->
+                    sessions.firstOrNull()?.let { recentSessions.indexOf(it) } ?: Int.MAX_VALUE
+                }
+        grouped.forEach { (key, sessions) ->
+            val sectionKey = "project_$key"
+            val sorted = sessions.sortedByDescending { it.hasAttention }
+            DrawerRecentProjectHeader(
+                label = sessions.first().projectLabel(defaultLabel),
+                collapsed = collapsedSections.contains(sectionKey),
+                onToggle = { onToggleSection(sectionKey) },
+            )
+            AnimatedVisibility(visible = !collapsedSections.contains(sectionKey)) {
+                Column {
+                    sorted.forEach { session -> ChatRow(session, indented = true) }
+                }
+            }
+        }
     }
 
     Surface(
@@ -146,6 +242,9 @@ fun AppDrawerContent(
             ) {
                 DrawerHeader()
                 NewChatRow(onClick = onNewChat)
+                if (recentSessions.isNotEmpty()) {
+                    DrawerSearchField(query = searchQuery, onQueryChange = { searchQuery = it })
+                }
 
                 // Only worth a switcher when there is something to switch between.
                 if (agents.size > 1) {
@@ -189,7 +288,6 @@ fun AppDrawerContent(
                 }
 
                 if (recentSessions.isNotEmpty()) {
-                    val defaultLabel = stringResource(R.string.drawer_project_default)
                     DrawerSectionHeader(
                         text = stringResource(R.string.drawer_recent_chats),
                         collapsed = collapsedSections.contains("recent"),
@@ -198,9 +296,16 @@ fun AppDrawerContent(
                     AnimatedVisibility(visible = !collapsedSections.contains("recent")) {
                         Column {
                             if (selectionMode) {
+                                val allPinned = selectedSessionIds.all { it in pinnedSessionIds }
                                 SelectionActionBar(
                                     selectedCount = selectedSessionIds.size,
+                                    allPinned = allPinned,
                                     onCancel = { selectedSessionIds = emptySet() },
+                                    onTogglePin = {
+                                        haptics.perform(HapticEvent.TICK)
+                                        onSetPinned(selectedSessionIds, !allPinned)
+                                        selectedSessionIds = emptySet()
+                                    },
                                     onArchive = {
                                         onBatchArchive(selectedSessionIds)
                                         selectedSessionIds = emptySet()
@@ -208,44 +313,21 @@ fun AppDrawerContent(
                                     onDelete = { showDeleteConfirm = true },
                                 )
                             }
-                            // Grouped by project, always. The project/status switch that used to sit
-                            // here made the drawer ask a question before it answered one, and the
-                            // status a chat is in already shows on its own row.
-                            val grouped =
-                                recentSessions
-                                    .groupBy { it.projectKey() }
-                                    .toList()
-                                    .sortedByDescending { (_, sessions) ->
-                                        sessions.firstOrNull()?.let { recentSessions.indexOf(it) } ?: Int.MAX_VALUE
-                                    }
-                            grouped.forEach { (key, sessions) ->
-                                val sectionKey = "project_$key"
-                                val sorted = sessions.sortedByDescending { it.hasAttention }
-                                DrawerRecentProjectHeader(
-                                    label = sessions.first().projectLabel(defaultLabel),
-                                    collapsed = collapsedSections.contains(sectionKey),
-                                    onToggle = { onToggleSection(sectionKey) },
-                                )
-                                AnimatedVisibility(visible = !collapsedSections.contains(sectionKey)) {
-                                    Column {
-                                        sorted.forEach { session ->
-                                            DrawerChatRow(
-                                                title = session.title.ifBlank { session.id },
-                                                status = session.status,
-                                                hasAttention = session.hasAttention,
-                                                isActive = session.isActive,
-                                                hasUnread = session.hasUnread,
-                                                isSelected = session.id in selectedSessionIds,
-                                                selectionMode = selectionMode,
-                                                indented = true,
-                                                agent = session.agent,
-                                                onClick = { onOpenSession(session.id, session.title, session.runtimeId) },
-                                                onLongClick = { enterSelectionMode(session.id) },
-                                                onToggleSelection = { toggleSelection(session.id) },
-                                            )
-                                        }
-                                    }
+                            val pinned = recentSessions.filter { it.id in pinnedSessionIds }
+                            if (searchQuery.isNotBlank()) {
+                                val matches = filterDrawerSessions(recentSessions, searchQuery)
+                                if (matches.isEmpty()) {
+                                    Text(
+                                        text = stringResource(R.string.drawer_search_no_results),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                                    )
                                 }
+                                matches.forEach { session -> ChatRow(session, indented = false) }
+                            }
+                            if (searchQuery.isBlank()) {
+                                PinnedAndGroupedChats(pinned)
                             }
                         }
                     }
@@ -295,9 +377,53 @@ fun AppDrawerContent(
 }
 
 @Composable
+private fun DrawerSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+        placeholder = { Text(stringResource(R.string.drawer_search_hint), style = MaterialTheme.typography.bodyMedium) },
+        leadingIcon = {
+            Icon(
+                Icons.Default.Search,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(
+                        Icons.Default.Clear,
+                        contentDescription = stringResource(R.string.drawer_search_clear),
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        },
+        singleLine = true,
+        textStyle = MaterialTheme.typography.bodyMedium,
+        shape = RoundedCornerShape(12.dp),
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.42f),
+            ),
+    )
+}
+
+@Composable
 private fun SelectionActionBar(
     selectedCount: Int,
+    allPinned: Boolean,
     onCancel: () -> Unit,
+    onTogglePin: () -> Unit,
     onArchive: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -318,6 +444,15 @@ private fun SelectionActionBar(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
+        IconButton(onClick = onTogglePin) {
+            Icon(
+                if (allPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,
+                contentDescription =
+                    stringResource(if (allPinned) R.string.drawer_unpin_chats else R.string.drawer_pin_chats),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        }
         IconButton(onClick = onArchive) {
             Icon(
                 Icons.Default.Archive,

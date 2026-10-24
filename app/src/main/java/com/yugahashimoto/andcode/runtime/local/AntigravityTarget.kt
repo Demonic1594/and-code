@@ -101,9 +101,9 @@ class AntigravityTarget(internal val runtime: AntigravityRuntime) : RuntimeTarge
         val id = UUID.randomUUID().toString()
         // Same as ClaudeCodeTarget: the mode settings shows is what a new chat runs in. Leaving the
         // record's own default here is what made a full-access setting start chats in accept-edits.
-        // persist() serializes the whole message store to disk, so this must stay off the caller's
-        // (usually main) thread - left inline it blocked the UI long enough for Crashlytics to see
-        // it as an ANR once the store grew.
+        // Creating the record writes the session list to disk, so this stays off the caller's
+        // (usually main) thread - left inline the write blocked the UI long enough for Crashlytics
+        // to see it as an ANR once the list grew.
         withContext(kotlinx.coroutines.Dispatchers.IO) {
             runtime.create(id, directory ?: "/workspace", title, mutableDefaultPermissionMode.value)
         }
@@ -131,14 +131,19 @@ class AntigravityTarget(internal val runtime: AntigravityRuntime) : RuntimeTarge
 
     /** Same as [ClaudeCodeTarget.listMessages]: names the model for chats held before it was stored. */
     override suspend fun listMessages(sessionId: String): List<OpenCodeMessage> {
-        val messages = runtime.listMessages(sessionId)
-        val model = runtime.findSession(sessionId)?.model ?: return messages
-        val reference = OpenCodeModelReference(AntigravityModels.PROVIDER_ID, model)
-        return messages.map { message ->
-            if (message.info.role == "assistant" && message.info.model == null) {
-                message.copy(info = message.info.copy(model = reference))
-            } else {
-                message
+        // The store's lock is held while the whole history is flushed, so reading (and remapping a
+        // long transcript) on the chat's dispatcher (main) could block the UI for the length of a
+        // write.
+        return withContext(Dispatchers.IO) {
+            val messages = runtime.listMessages(sessionId)
+            val model = runtime.findSession(sessionId)?.model ?: return@withContext messages
+            val reference = OpenCodeModelReference(AntigravityModels.PROVIDER_ID, model)
+            messages.map { message ->
+                if (message.info.role == "assistant" && message.info.model == null) {
+                    message.copy(info = message.info.copy(model = reference))
+                } else {
+                    message
+                }
             }
         }
     }
@@ -192,7 +197,8 @@ class AntigravityTarget(internal val runtime: AntigravityRuntime) : RuntimeTarge
         // Claude Code summarises while its answer is still streaming; here it has to wait for the
         // send to finish, because two concurrent `agy` processes hang each other. Failure is silent:
         // the prompt-derived name set above is already in the drawer and simply stays.
-        if (needsTitle) {
+        // A short opening line is already the title; a full `agy` run just to restate it is skipped.
+        if (needsTitle && needsSummarizedTitle(request.text)) {
             titleScope.launch {
                 val summary = withContext(kotlinx.coroutines.Dispatchers.IO) { runtime.summarizeTitle(request.text) }
                 if (summary != null) runtime.setSessionTitle(sessionId, summary)

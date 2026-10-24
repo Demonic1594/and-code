@@ -11,6 +11,7 @@ import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.feature.browser.GuestBrowserScreen
 import com.yugahashimoto.andcode.feature.workspace.CodeViewerScreen
 import com.yugahashimoto.andcode.feature.workspace.CodeViewerViewModel
+import com.yugahashimoto.andcode.feature.workspace.GitActions
 import com.yugahashimoto.andcode.feature.workspace.LocalRuntimeManagementScreen
 import com.yugahashimoto.andcode.feature.workspace.LocalRuntimeManagementViewModel
 import com.yugahashimoto.andcode.feature.workspace.RemoteConnectionScreen
@@ -18,10 +19,12 @@ import com.yugahashimoto.andcode.feature.workspace.TerminalScreen
 import com.yugahashimoto.andcode.feature.workspace.TerminalViewModel
 import com.yugahashimoto.andcode.feature.workspace.WorkspaceExplorerScreen
 import com.yugahashimoto.andcode.feature.workspace.WorkspaceExplorerViewModel
+import com.yugahashimoto.andcode.feature.workspace.WorkspaceShell
 import com.yugahashimoto.andcode.feature.workspace.WorkspaceViewModel
 import com.yugahashimoto.andcode.feature.workspace.WorkspacesScreen
 import com.yugahashimoto.andcode.feature.workspace.isOpenable
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
+import com.yugahashimoto.andcode.runtime.RuntimeType
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
 import com.yugahashimoto.andcode.ui.ViewModelFactory
 import kotlinx.coroutines.Dispatchers
@@ -149,7 +152,7 @@ fun NavGraphBuilder.workspaceNavGraph(
                     key = "workspace-explorer-${runtime.id}-${workspace.id}",
                     factory =
                         ViewModelFactory {
-                            WorkspaceExplorerViewModel(runtime, workspace)
+                            WorkspaceExplorerViewModel(runtime, workspace, localWorkspaceShell(app, runtime))
                         },
                 )
             val explorerState by explorerViewModel.state.collectAsState()
@@ -176,6 +179,17 @@ fun NavGraphBuilder.workspaceNavGraph(
                         navController.navigate(codeViewerRoute(runtime.id, workspace.path, change.displayPath))
                     }
                 },
+                onSwitchBranch = explorerViewModel::checkout,
+                onCreateBranch = explorerViewModel::createBranch,
+                gitActions =
+                    GitActions(
+                        onCommit = explorerViewModel::commit,
+                        onPush = explorerViewModel::push,
+                        onPull = explorerViewModel::pull,
+                        onStash = explorerViewModel::stash,
+                        onDiscard = explorerViewModel::discard,
+                        onConsumeResult = explorerViewModel::consumeActionResult,
+                    ),
             )
         }
     }
@@ -225,7 +239,10 @@ fun NavGraphBuilder.workspaceNavGraph(
             val viewerViewModel: CodeViewerViewModel =
                 viewModel(
                     key = "code-viewer-${backStack.id}",
-                    factory = ViewModelFactory { CodeViewerViewModel(runtime, arguments.second, arguments.third) },
+                    factory =
+                        ViewModelFactory {
+                            CodeViewerViewModel(runtime, arguments.second, arguments.third, localWorkspaceShell(app, runtime))
+                        },
                 )
             val viewerState by viewerViewModel.state.collectAsState()
             val preferences by app.preferences.state.collectAsState()
@@ -233,7 +250,28 @@ fun NavGraphBuilder.workspaceNavGraph(
                 state = viewerState,
                 syntaxThemeKey = preferences.syntaxTheme,
                 onBack = { navController.popBackStack() },
+                onStartEditing = viewerViewModel::startEditing,
+                onEditChange = viewerViewModel::updateDraft,
+                onSave = viewerViewModel::save,
+                onCancelEditing = viewerViewModel::cancelEditing,
+                onUndo = viewerViewModel::undo,
+                onRedo = viewerViewModel::redo,
+                onReplaceAll = viewerViewModel::replaceAll,
             )
         }
     }
 }
+
+/**
+ * A shell for git and file writes, only for a runtime on this device: its commands run in the same
+ * PRoot environment as the agents. A remote runtime's files are on another machine, out of reach.
+ */
+private fun localWorkspaceShell(
+    app: AndCodeApplication,
+    runtime: RuntimeTarget,
+): WorkspaceShell? =
+    if (runtime.type == RuntimeType.LOCAL) {
+        WorkspaceShell { command, timeout -> app.commandRunner.runShell(command, timeout) }
+    } else {
+        null
+    }

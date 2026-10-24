@@ -49,8 +49,17 @@ class ClaudeStreamJsonParser(
     var turnFinished: Boolean = false
         private set
 
+    /** Set once the app asked the CLI to stop the running turn, so its result is not an error. */
+    @Volatile
+    private var interruptRequested: Boolean = false
+
     fun beginTurn() {
         turnFinished = false
+        interruptRequested = false
+    }
+
+    fun requestInterrupt() {
+        interruptRequested = true
     }
 
     /** Tool calls that have not received a matching tool_result from Claude Code yet. */
@@ -167,6 +176,19 @@ class ClaudeStreamJsonParser(
     private fun parseResult(root: JsonObject): Parsed {
         turnFinished = true
         val claudeSessionId = root.string("session_id")
+        // A turn the user stopped ends with an error-shaped result ("error_during_execution"), but
+        // stopping is a decision, not a failure: settle what was running and go idle quietly.
+        if (interruptRequested) {
+            interruptRequested = false
+            val settled = settleOpenTools(INTERRUPTED_BY_USER)
+            currentMessageId = null
+            return Parsed(
+                events = settled.events + OpenCodeEvent.SessionIdle(sessionId),
+                messages = settled.messages,
+                claudeSessionId = claudeSessionId,
+                turnFinished = true,
+            )
+        }
         val isError = root["is_error"]?.jsonPrimitive?.contentOrNull == "true"
         val subtype = root.string("subtype")
         if (isError || (subtype != null && subtype != "success")) {
@@ -329,3 +351,5 @@ class ClaudeStreamJsonParser(
             }
     }
 }
+
+internal const val INTERRUPTED_BY_USER = "Stopped"

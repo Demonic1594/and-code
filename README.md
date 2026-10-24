@@ -253,6 +253,10 @@ adb install -r app/build/outputs/apk/github/debug/app-github-debug.apk
 - [Release Guide](docs/RELEASE.md)
 - [Translation Guide](docs/TRANSLATION.md)
 - [Device Validation Matrix](docs/device-matrix.md)
+- [Fork Notes (debug build, upstream sync)](docs/FORK.md)
+- [Fork Features](docs/FEATURES.md)
+- [Token Efficiency](docs/TOKEN_EFFICIENCY.md)
+- [Agentic Coding Landscape (25 tools surveyed)](docs/AGENTIC_CODING_LANDSCAPE.md)
 
 ## Contributing
 

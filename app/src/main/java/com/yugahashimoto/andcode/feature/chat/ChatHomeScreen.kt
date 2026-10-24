@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,6 +42,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -53,17 +55,22 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DataUsage
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Tune
@@ -79,6 +86,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -112,6 +120,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -130,15 +139,18 @@ import androidx.core.content.ContextCompat
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.api.OpenCodeAgent
 import com.yugahashimoto.andcode.core.api.OpenCodeCommand
+import com.yugahashimoto.andcode.core.api.OpenCodeModel
 import com.yugahashimoto.andcode.core.api.OpenCodeProvider
 import com.yugahashimoto.andcode.core.api.OpenCodeSkill
 import com.yugahashimoto.andcode.core.api.PromptAttachment
+import com.yugahashimoto.andcode.core.api.RunRetry
 import com.yugahashimoto.andcode.core.api.defaultAgentName
 import com.yugahashimoto.andcode.core.api.selectablePrimaryAgents
 import com.yugahashimoto.andcode.core.diagnostics.StallDiagnosis
 import com.yugahashimoto.andcode.core.diagnostics.StallReason
 import com.yugahashimoto.andcode.core.diagnostics.explain
 import com.yugahashimoto.andcode.core.diagnostics.supportingDetail
+import com.yugahashimoto.andcode.data.settings.SavedPrompt
 import com.yugahashimoto.andcode.feature.workspace.GitHubAutoAttachChips
 import com.yugahashimoto.andcode.feature.workspace.GitHubReference
 import com.yugahashimoto.andcode.runtime.PermissionResponse
@@ -146,14 +158,17 @@ import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import com.yugahashimoto.andcode.runtime.local.AntigravityPermissionMode
 import com.yugahashimoto.andcode.runtime.local.ClaudePermissionMode
 import com.yugahashimoto.andcode.runtime.local.SystemPromptPreset
+import com.yugahashimoto.andcode.ui.components.HapticEvent
 import com.yugahashimoto.andcode.ui.components.StatusChip
 import com.yugahashimoto.andcode.ui.components.VolumeMeter
+import com.yugahashimoto.andcode.ui.components.rememberHaptics
 import com.yugahashimoto.andcode.ui.components.systemPromptPresetLabel
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonPrimitive
 
 /** What the long-press action sheet offers for one message: its id, its text to copy, and whether "Edit & resend" applies. */
 private data class MessageActionTarget(
@@ -183,6 +198,11 @@ fun ChatHomeScreen(
     agentsLoading: Boolean = false,
     selectedVariant: String? = null,
     onSelectVariant: (String?) -> Unit = {},
+    /**
+     * Turns Codex's fast service tier on or off. The chip for it shows only while
+     * [ChatUiState.fastModeAvailable], i.e. for a Codex model that lists the tier.
+     */
+    onToggleFastMode: (Boolean) -> Unit = {},
     attachments: List<PromptAttachment> = emptyList(),
     onAttach: () -> Unit = {},
     onRemoveAttachment: (Int) -> Unit = {},
@@ -257,6 +277,8 @@ fun ChatHomeScreen(
     onLoadDraft: (String) -> String? = { null },
     /** Keeps the composer's unsent text for a session; blank text clears it. */
     onSaveDraft: (String, String) -> Unit = { _, _ -> },
+    /** The user's saved prompts, offered in the slash popup next to the built-in commands. */
+    savedPrompts: List<SavedPrompt> = emptyList(),
 ) {
     // Saved state, not plain remember: the Activity is recreated on rotation and other
     // configuration changes, and a remembered field would come back empty. The TextFieldValue
@@ -279,6 +301,8 @@ fun ChatHomeScreen(
     val coroutineScope = rememberCoroutineScope()
     var showSlashCommands by remember { mutableStateOf(false) }
     var showSidePanel by remember { mutableStateOf(false) }
+    var showChatMenu by remember { mutableStateOf(false) }
+    val haptics = rememberHaptics()
     val context = androidx.compose.ui.platform.LocalContext.current
     val imageSaveLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/*")) { uri ->
@@ -455,6 +479,58 @@ fun ChatHomeScreen(
                     IconButton(onClick = onNewChat) {
                         Icon(Icons.Default.Add, contentDescription = stringResource(R.string.new_chat))
                     }
+                    if (state.messages.isNotEmpty()) {
+                        Box {
+                            IconButton(onClick = { showChatMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.chat_menu_more))
+                            }
+                            ChatOverflowMenu(
+                                expanded = showChatMenu,
+                                onDismiss = { showChatMenu = false },
+                                usage = state.sessionUsage,
+                                onShare = {
+                                    showChatMenu = false
+                                    val title = state.sessionTitle.ifBlank { context.getString(R.string.chat_home_title) }
+                                    val labels =
+                                        TranscriptLabels(
+                                            user = context.getString(R.string.transcript_user),
+                                            assistant = context.getString(R.string.transcript_assistant),
+                                            tool = context.getString(R.string.transcript_tool),
+                                            error = context.getString(R.string.transcript_error),
+                                        )
+                                    shareChatTranscript(
+                                        context = context,
+                                        title = title,
+                                        markdown = chatTranscriptMarkdown(title, state.messages, labels),
+                                        chooserTitle = context.getString(R.string.chat_menu_share),
+                                    )
+                                },
+                                onCopy = {
+                                    showChatMenu = false
+                                    val title = state.sessionTitle.ifBlank { context.getString(R.string.chat_home_title) }
+                                    val labels =
+                                        TranscriptLabels(
+                                            user = context.getString(R.string.transcript_user),
+                                            assistant = context.getString(R.string.transcript_assistant),
+                                            tool = context.getString(R.string.transcript_tool),
+                                            error = context.getString(R.string.transcript_error),
+                                        )
+                                    val markdown = chatTranscriptMarkdown(title, state.messages, labels)
+                                    val copied =
+                                        markdown.length <= MAX_CLIPBOARD_TRANSCRIPT_CHARS &&
+                                            runCatching { clipboardManager.setText(AnnotatedString(markdown)) }.isSuccess
+                                    if (copied) {
+                                        haptics.perform(HapticEvent.CONFIRM)
+                                    } else {
+                                        // Too big for the clipboard: hand it over as a file instead.
+                                        haptics.perform(HapticEvent.REJECT)
+                                        Toast.makeText(context, R.string.chat_copy_too_long, Toast.LENGTH_LONG).show()
+                                        shareChatTranscript(context, title, markdown, context.getString(R.string.chat_menu_share))
+                                    }
+                                },
+                            )
+                        }
+                    }
                 },
                 colors =
                     TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -540,6 +616,10 @@ fun ChatHomeScreen(
                                         onStop = onAbort,
                                     )
                                 }
+                            } else if (state.isRunning && state.retry != null) {
+                                // The runtime is waiting out a provider failure. Saying so beats a
+                                // "Processing" label that reads the same as a model that is just slow.
+                                item(key = "retry") { ChatRetryCard(retry = state.retry) }
                             } else if (state.isRunning && timelineEntries.isNotEmpty()) {
                                 item(key = "processing") {
                                     Text(
@@ -550,7 +630,12 @@ fun ChatHomeScreen(
                                 }
                             }
                             items(state.permissions, key = { "permission-${it.id}" }) { permission ->
-                                PermissionCard(permission, onPermission)
+                                PermissionCard(permission) { id, response, always ->
+                                    haptics.perform(
+                                        if (response == PermissionResponse.REJECT) HapticEvent.REJECT else HapticEvent.CONFIRM,
+                                    )
+                                    onPermission(id, response, always)
+                                }
                             }
                             items(state.pendingQuestions, key = { "question-${it.request.id}" }) { question ->
                                 QuestionCard(
@@ -564,7 +649,7 @@ fun ChatHomeScreen(
                             // Not while a stall is up: a turn that has produced nothing never
                             // cleared this flag, so the warning would sit directly above a chip
                             // cheerfully reporting that the same turn is thinking.
-                            if (state.isThinking && state.stall == null) {
+                            if (state.isThinking && state.stall == null && state.retry == null) {
                                 item { StatusChip(text = stringResource(R.string.thinking), active = true) }
                             }
                             state.error?.let { error ->
@@ -626,7 +711,8 @@ fun ChatHomeScreen(
                     isRunning = state.isRunning,
                     onSend = {
                         if (input.isNotBlank() || state.attachments.isNotEmpty()) {
-                            onSendMessage(input)
+                            haptics.perform(HapticEvent.CONFIRM)
+                            onSendMessage(SlashCommandRegistry.expandSavedPrompt(input, savedPrompts))
                             inputValue = TextFieldValue("")
                             showSlashCommands = false
                         }
@@ -658,6 +744,10 @@ fun ChatHomeScreen(
                             ?.variants?.keys?.toList() ?: emptyList(),
                     selectedVariant = state.selectedVariant,
                     onSelectVariant = onSelectVariant,
+                    fastModeAvailable = state.fastModeAvailable,
+                    fastModeEnabled = state.fastModeEnabled,
+                    fastModeDescription = state.fastModeDescription,
+                    onToggleFastMode = onToggleFastMode,
                     attachments = state.attachments,
                     onAttach = onAttach,
                     onRemoveAttachment = onRemoveAttachment,
@@ -683,8 +773,18 @@ fun ChatHomeScreen(
                     showSlashCommands = showSlashCommands,
                     slashCommands = state.slashCommands,
                     slashSkills = state.slashSkills,
+                    savedPrompts = savedPrompts,
                     onSlashCommandSelect = { suggestion ->
-                        val completed = suggestion.name + " "
+                        // A saved prompt expands to its text, left in the composer to send or tweak.
+                        // One that takes arguments ($ARGUMENTS, $1...) completes to its command instead,
+                        // so the user types the arguments and sending fills them in. Everything else
+                        // completes to its command name for the send path to route.
+                        val completed =
+                            when {
+                                suggestion is SlashSuggestion.Saved && !SlashCommandRegistry.hasPlaceholders(suggestion.prompt.text) ->
+                                    suggestion.prompt.text
+                                else -> suggestion.name + " "
+                            }
                         inputValue = TextFieldValue(completed, TextRange(completed.length))
                         showSlashCommands = false
                     },
@@ -1201,10 +1301,13 @@ private fun ChatStallCard(
             Text(text = stall.explain(context))
             stall.supportingDetail()?.let { detail ->
                 Spacer(Modifier.height(4.dp))
+                // Capped: a provider failure can arrive as a whole JSON error body.
                 Text(
                     text = detail,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Spacer(Modifier.height(12.dp))
@@ -1230,6 +1333,56 @@ private fun ChatStallCard(
     }
 }
 
+/**
+ * Tells the user why a run that is still going is not producing anything: the provider failed and
+ * the runtime is trying again by itself. A rate-limited or overloaded model can keep this up for a
+ * long time, and without the card it is indistinguishable from one that is thinking slowly.
+ */
+@Composable
+private fun ChatRetryCard(retry: RunRetry) {
+    Surface(
+        modifier = Modifier.testTag("chat-retry-card"),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WarningAmber,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = stringResource(R.string.chat_retry_title),
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.chat_retry_attempt, retry.attempt),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            retry.message?.let { message ->
+                Spacer(Modifier.height(6.dp))
+                // The provider's own words, capped: some return a whole JSON error body.
+                Text(text = message, maxLines = 4, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.chat_retry_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @Composable
 private fun ChatComposer(
     inputValue: TextFieldValue,
@@ -1250,6 +1403,10 @@ private fun ChatComposer(
     thinkingOptions: List<String>,
     selectedVariant: String?,
     onSelectVariant: (String?) -> Unit,
+    fastModeAvailable: Boolean,
+    fastModeEnabled: Boolean,
+    fastModeDescription: String?,
+    onToggleFastMode: (Boolean) -> Unit,
     attachments: List<PromptAttachment>,
     onAttach: () -> Unit,
     onRemoveAttachment: (Int) -> Unit,
@@ -1271,6 +1428,7 @@ private fun ChatComposer(
     showSlashCommands: Boolean,
     slashCommands: List<OpenCodeCommand>,
     slashSkills: List<OpenCodeSkill>,
+    savedPrompts: List<SavedPrompt>,
     onSlashCommandSelect: (SlashSuggestion) -> Unit,
     githubRefs: List<GitHubReference>,
     pullRequests: List<ChatPullRequest>,
@@ -1294,7 +1452,7 @@ private fun ChatComposer(
                 .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
         if (showSlashCommands) {
-            val filtered = SlashCommandRegistry.suggestions(input, slashCommands, slashSkills)
+            val filtered = SlashCommandRegistry.suggestions(input, slashCommands, slashSkills, savedPrompts)
             if (filtered.isNotEmpty()) {
                 Card(
                     modifier =
@@ -1630,6 +1788,15 @@ private fun ChatComposer(
                     onSelect = onSelectVariant,
                 )
             }
+            // Right after the effort chip: both decide how the model runs the next turn, so they
+            // read as a pair. Only a Codex model with a fast tier offers it.
+            if (fastModeAvailable) {
+                FastModeChip(
+                    enabled = fastModeEnabled,
+                    description = fastModeDescription,
+                    onToggle = onToggleFastMode,
+                )
+            }
             if (systemPromptPresets.isNotEmpty()) {
                 SystemPromptChip(
                     presets = systemPromptPresets,
@@ -1734,6 +1901,66 @@ private fun ThinkingChip(
 }
 
 /**
+ * Turns Codex's fast service tier on or off for the turns that follow.
+ *
+ * A plain on/off pill in the same tokens as the thinking and auto-accept chips, so it reads as one
+ * more setting on the row rather than a new kind of control. It carries switch semantics rather
+ * than a click, so a screen reader also says whether it is on. The server's own wording for the
+ * tier ("1.5x speed, increased usage") goes to the screen reader: a phone-width row has no room
+ * for it.
+ */
+@Composable
+private fun FastModeChip(
+    enabled: Boolean,
+    description: String?,
+    onToggle: (Boolean) -> Unit,
+) {
+    val containerColor =
+        if (enabled) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        }
+    val contentColor =
+        if (enabled) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+    Surface(
+        modifier =
+            Modifier
+                .clip(RoundedCornerShape(100.dp))
+                .toggleable(value = enabled, role = Role.Switch, onValueChange = onToggle)
+                .testTag("chat-fast-mode"),
+        shape = RoundedCornerShape(100.dp),
+        color = containerColor,
+        contentColor = contentColor,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Icon(
+                Icons.Default.Bolt,
+                contentDescription =
+                    description
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { stringResource(R.string.cd_fast_mode_with_description, it) }
+                        ?: stringResource(R.string.cd_fast_mode),
+                modifier = Modifier.size(14.dp),
+            )
+            Text(
+                stringResource(R.string.chat_fast_mode),
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/**
  * Switches the system-prompt preset this chat sends with, without leaving it.
  *
  * Per chat, not per turn: [com.yugahashimoto.andcode.runtime.local.ClaudeCodeTarget] keeps one
@@ -1811,20 +2038,26 @@ private fun SystemPromptChip(
 /**
  * A model variant's display label for the thinking chip.
  *
- * Claude Code and Antigravity both offer reasoning-effort slugs ("low", "medium", "high", plus
- * Claude Code's own "xhigh" and "max"); those get their proper names ("Extra High", "Max") instead
- * of the raw slug, which used to make the CLI's highest level ("max") look like just another word
- * next to "xhigh" rather than the new top tier it is. Any other provider's variant id - OpenCode's
- * own models offer different ones - falls back to capitalizing the raw value, as before.
+ * Claude Code, Antigravity and Codex all offer reasoning-effort slugs ("low", "medium", "high",
+ * plus Claude Code's and Codex's "xhigh" and "max"); those get their proper names ("Extra High",
+ * "Max") instead of the raw slug, which used to make the CLI's highest level ("max") look like just
+ * another word next to "xhigh" rather than the new top tier it is. Codex adds "ultra" above "max"
+ * and "minimal" and "none" below "low"; "none" reads "Off", since the chip then names thinking
+ * that is switched off, and a bare "None" would look like no choice was made. Any other provider's
+ * variant id - OpenCode's own models offer different ones - falls back to capitalizing the raw
+ * value, as before.
  */
 @Composable
 private fun thinkingLevelLabel(level: String): String =
     when (level.lowercase()) {
+        "none" -> stringResource(R.string.chat_thinking_level_none)
+        "minimal" -> stringResource(R.string.chat_thinking_level_minimal)
         "low" -> stringResource(R.string.chat_thinking_level_low)
         "medium" -> stringResource(R.string.chat_thinking_level_medium)
         "high" -> stringResource(R.string.chat_thinking_level_high)
         "xhigh" -> stringResource(R.string.chat_thinking_level_xhigh)
         "max" -> stringResource(R.string.chat_thinking_level_max)
+        "ultra" -> stringResource(R.string.chat_thinking_level_ultra)
         else -> level.replaceFirstChar { it.uppercase() }
     }
 
@@ -2254,6 +2487,120 @@ private fun ChatHomeScreenEmptyPreview() {
             onOpenLocalSetup = {},
             onOpenRemoteSetup = {},
             onOpenDrawer = {},
+        )
+    }
+}
+
+/**
+ * A Codex model with the full effort range and its fast tier switched on, at phone width, to check
+ * that the effort and Fast chips sit side by side and the row still fits.
+ */
+@Preview(showBackground = true, widthDp = 360)
+@Composable
+private fun ChatHomeScreenCodexFastPreview() {
+    val efforts = listOf("none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra")
+    AndCodeTheme {
+        ChatHomeScreen(
+            state =
+                ChatUiState(
+                    backendName = "Codex",
+                    isConnected = true,
+                    selectedVariant = "ultra",
+                    fastModeAvailable = true,
+                    fastModeEnabled = true,
+                    fastModeDescription = "1.5x speed, increased usage",
+                ),
+            providers =
+                listOf(
+                    OpenCodeProvider(
+                        id = "openai",
+                        name = "OpenAI (Codex)",
+                        models =
+                            mapOf(
+                                "gpt-6-astra" to
+                                    OpenCodeModel(
+                                        id = "gpt-6-astra",
+                                        providerId = "openai",
+                                        name = "GPT-6-Astra",
+                                        variants = efforts.associateWith { JsonPrimitive(it) },
+                                    ),
+                            ),
+                    ),
+                ),
+            agents = emptyList(),
+            selectedProviderId = "openai",
+            selectedModelId = "gpt-6-astra",
+            selectedAgentId = null,
+            runtimeTargets = emptyList(),
+            selectedRuntimeId = null,
+            onSelectRuntime = {},
+            onSelectModel = { _, _ -> },
+            onSelectAgent = {},
+            onSelectQuestionAnswer = { _, _, _ -> },
+            onSubmitQuestion = {},
+            onSendMessage = {},
+            onPermission = { _, _, _ -> },
+            onAbort = {},
+            onMic = {},
+            onNewChat = {},
+            onOpenLocalSetup = {},
+            onOpenRemoteSetup = {},
+            onOpenDrawer = {},
+        )
+    }
+}
+
+@Composable
+private fun ChatOverflowMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    usage: SessionUsage?,
+    onShare: () -> Unit,
+    onCopy: () -> Unit,
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        usage?.let {
+            val tokens =
+                stringResource(
+                    R.string.chat_usage_tokens,
+                    formatUsageTokens(it.inputTokens + it.cacheReadTokens),
+                    formatUsageTokens(it.outputTokens + it.reasoningTokens),
+                )
+            DropdownMenuItem(
+                text = {
+                    Column {
+                        Text(stringResource(R.string.chat_usage_title), style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            text = it.costUsd?.let { cost -> "$tokens · ${formatUsd(cost)}" } ?: tokens,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        // Cache reads are billed at a fraction of fresh input, so seeing them apart
+                        // tells whether a long chat is actually expensive or mostly served from cache.
+                        if (it.cacheReadTokens > 0) {
+                            Text(
+                                text = stringResource(R.string.chat_usage_cached, formatUsageTokens(it.cacheReadTokens)),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                },
+                leadingIcon = { Icon(Icons.Default.DataUsage, contentDescription = null) },
+                onClick = {},
+                enabled = false,
+            )
+            HorizontalDivider()
+        }
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.chat_menu_share)) },
+            leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
+            onClick = onShare,
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.chat_menu_copy_markdown)) },
+            leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+            onClick = onCopy,
         )
     }
 }

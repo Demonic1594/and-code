@@ -55,7 +55,7 @@ class AntigravityRuntime(
     private val recordsFile = File(runtimeDirectory, "antigravity-sessions.json")
     private val messagesFile = File(runtimeDirectory, "antigravity-messages.json")
     private val records = linkedMapOf<String, AntigravitySessionRecord>()
-    private val messages = linkedMapOf<String, MutableList<OpenCodeMessage>>()
+    private val messageStore = AntigravityMessageStore(messagesFile, json)
     private val processes = linkedMapOf<String, Process>()
 
     /** See [AntigravityAbortTracker] for why an intentional kill must not be reported as a crash. */
@@ -244,7 +244,8 @@ class AntigravityRuntime(
                     // bubble is replaced by that snapshot - so a user turn that only lands at the
                     // end of the send would vanish from the screen (and never reappear on a failed
                     // result, which persisted nothing for it).
-                    messages.getOrPut(sessionId) { mutableListOf() }.add(
+                    messageStore.append(
+                        sessionId,
                         OpenCodeMessage(
                             OpenCodeMessageInfo(userId, sessionId, "user", OpenCodeTime(turnNow, turnNow, turnNow)),
                             // A part without an id is dropped when the chat maps the transcript for
@@ -267,7 +268,7 @@ class AntigravityRuntime(
                             },
                         ),
                     )
-                    persist()
+                    persistMessages()
                     var discoveredConversationId: String? = null
                     var turnFinished = false
                     var turnError: String? = null
@@ -283,7 +284,8 @@ class AntigravityRuntime(
                         // one-turn lag seen on device. Claude Code avoids this by upserting before
                         // it emits, so the assistant reply (and its tool parts) land first here too.
                         parsed.messages.forEach { assistant ->
-                            messages.getOrPut(sessionId) { mutableListOf() }.add(
+                            messageStore.append(
+                                sessionId,
                                 assistant.copy(
                                     info =
                                         assistant.info.copy(
@@ -291,7 +293,7 @@ class AntigravityRuntime(
                                         ),
                                 ),
                             )
-                            persist()
+                            persistMessages()
                         }
                         parsed.events.forEach(events::tryEmit)
                         if (parsed.turnFinished) {
@@ -317,7 +319,7 @@ class AntigravityRuntime(
                             updatedAt = System.currentTimeMillis(),
                             lastStep = record0.lastStep + 1,
                         )
-                    persist()
+                    persistRecords()
                     if (turnFinished) {
                         // On a failed result the parser already emitted SessionError then SessionIdle;
                         // the user turn is persisted above, and there is no assistant reply to add.
@@ -375,19 +377,20 @@ class AntigravityRuntime(
         if (record.archived) return record
         val archived = record.copy(archived = true)
         records[sessionId] = archived
-        persist()
+        persistRecords()
         return archived
     }
 
-    fun listMessages(sessionId: String): List<OpenCodeMessage> = messages[sessionId].orEmpty().toList()
+    fun listMessages(sessionId: String): List<OpenCodeMessage> = messageStore.list(sessionId)
 
     fun remove(sessionId: String): Boolean {
         abort(sessionId)
         val removed = records.remove(sessionId) != null
-        messages.remove(sessionId)
+        messageStore.remove(sessionId)
         val safeSession = sessionId.replace(Regex("[^A-Za-z0-9._-]"), "_")
         File(runtimeDirectory, "workspace/$ATTACHMENT_DIRECTORY/$safeSession").deleteRecursively()
-        persist()
+        persistRecords()
+        persistMessages()
         return removed
     }
 
@@ -399,7 +402,7 @@ class AntigravityRuntime(
     ) {
         records[sessionId] =
             AntigravitySessionRecord(sessionId, null, workspace, title = title, permissionMode = permissionMode.cliValue)
-        persist()
+        persistRecords()
     }
 
     /** Remembers the model/variant a session's next message should use. */
@@ -410,7 +413,7 @@ class AntigravityRuntime(
     ) {
         val record = records[sessionId] ?: return
         records[sessionId] = record.copy(model = model, variant = variant)
-        persist()
+        persistRecords()
     }
 
     /** Renames a session; see [AntigravitySessionRecord.title]. */
@@ -420,7 +423,7 @@ class AntigravityRuntime(
     ) {
         val record = records[sessionId] ?: return
         records[sessionId] = record.copy(title = title, updatedAt = System.currentTimeMillis())
-        persist()
+        persistRecords()
     }
 
     /**
@@ -497,7 +500,7 @@ class AntigravityRuntime(
     ) {
         val record = records[sessionId] ?: return
         records[sessionId] = record.copy(permissionMode = mode.cliValue)
-        persist()
+        persistRecords()
     }
 
     fun abortAll() {
@@ -535,19 +538,17 @@ class AntigravityRuntime(
                 recordsFile.readText(),
             ).forEach { records[it.appSessionId] = it }
         }
-        runCatching {
-            json.decodeFromString<Map<String, List<OpenCodeMessage>>>(
-                messagesFile.readText(),
-            ).forEach { messages[it.key] = it.value.toMutableList() }
-        }
     }
 
-    private fun persist() {
+    private fun persistRecords() {
         runCatching {
             recordsFile.parentFile?.mkdirs()
             writeAtomically(recordsFile, json.encodeToString(records.values.toList()))
-            writeAtomically(messagesFile, json.encodeToString(messages.mapValues { it.value.toList() }))
         }
+    }
+
+    private fun persistMessages() {
+        messageStore.flush()
     }
 }
 

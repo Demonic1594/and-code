@@ -121,6 +121,7 @@ val appModule =
                 installedRuntimeProvider = installer::installedRuntime,
                 accessCoordinator = get(),
                 messages = get(),
+                workspaceDirectory = File(runtimeDirectory, "workspace"),
             )
         }
 

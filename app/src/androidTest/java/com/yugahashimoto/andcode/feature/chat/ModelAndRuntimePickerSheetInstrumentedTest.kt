@@ -9,13 +9,18 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.api.OpenCodeModel
 import com.yugahashimoto.andcode.core.api.OpenCodeProvider
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -38,6 +43,8 @@ class ModelAndRuntimePickerSheetInstrumentedTest {
                 selectedProviderId = testProvider.id,
                 selectedModelId = null,
                 onSelectModel = { _, _ -> },
+                favoriteModelKeys = emptySet(),
+                onToggleFavorite = { _, _ -> },
                 onDismiss = { dismissed = true },
             )
         }
@@ -51,6 +58,35 @@ class ModelAndRuntimePickerSheetInstrumentedTest {
 
         composeRule.waitForIdle()
         composeRule.runOnIdle { assertFalse(dismissed) }
+    }
+
+    @Test
+    fun tappingStarTogglesFavoriteWithoutSelectingModel() {
+        val toggled = mutableListOf<Pair<String, String>>()
+        val selected = mutableListOf<Pair<String, String>>()
+
+        composeRule.setContent {
+            ModelAndRuntimePickerSheet(
+                runtimeTargets = emptyList(),
+                selectedRuntimeId = null,
+                onSelectRuntime = {},
+                providers = listOf(testProvider),
+                selectedProviderId = testProvider.id,
+                selectedModelId = null,
+                onSelectModel = { providerId, modelId -> selected += providerId to modelId },
+                favoriteModelKeys = emptySet(),
+                onToggleFavorite = { providerId, modelId -> toggled += providerId to modelId },
+                onDismiss = {},
+            )
+        }
+
+        val star = composeRule.activity.getString(R.string.cd_favorite)
+        composeRule.onAllNodesWithContentDescription(star)[0].performClick()
+
+        composeRule.runOnIdle {
+            assertEquals(1, toggled.size)
+            assertTrue(selected.isEmpty())
+        }
     }
 
     private companion object {

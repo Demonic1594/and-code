@@ -46,7 +46,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,6 +55,7 @@ import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.runtime.RuntimeRegistry
 import com.yugahashimoto.andcode.ui.ViewModelFactory
 import com.yugahashimoto.andcode.ui.components.StatusChip
+import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -199,7 +199,7 @@ private fun ConfigTab(
                     value = state.configEditDraft.orEmpty(),
                     onValueChange = viewModel::updateConfigDraft,
                     modifier = Modifier.fillMaxWidth().height(400.dp),
-                    textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp),
+                    textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = CodeFontFamily, fontSize = 11.sp),
                 )
             } else {
                 Surface(
@@ -213,7 +213,7 @@ private fun ConfigTab(
                             Modifier
                                 .padding(12.dp)
                                 .horizontalScroll(rememberScrollState()),
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp),
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = CodeFontFamily, fontSize = 11.sp),
                     )
                 }
             }

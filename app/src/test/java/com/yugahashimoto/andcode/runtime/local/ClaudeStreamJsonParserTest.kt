@@ -122,6 +122,32 @@ class ClaudeStreamJsonParserTest {
     }
 
     @Test
+    fun `a result after a requested interrupt idles quietly instead of reporting an error`() {
+        val parser = parser()
+        parser.beginTurn()
+        parser.parse("""{"type":"assistant","message":{"id":"m9","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{}}]}}""")
+        parser.requestInterrupt()
+
+        val parsed = parser.parse("""{"type":"result","subtype":"error_during_execution","is_error":true}""")
+
+        assertTrue(parser.turnFinished)
+        assertNull(parsed.errorMessage)
+        assertTrue(parsed.events.none { it is OpenCodeEvent.SessionError })
+        assertTrue(parsed.events.last() is OpenCodeEvent.SessionIdle)
+    }
+
+    @Test
+    fun `an interrupt request does not leak into the next turn`() {
+        val parser = parser()
+        parser.requestInterrupt()
+        parser.beginTurn()
+
+        val parsed = parser.parse("""{"type":"result","subtype":"error_during_execution","result":"boom"}""")
+
+        assertEquals("boom", parsed.errorMessage)
+    }
+
+    @Test
     fun `merges the final assistant message onto the streamed text instead of duplicating it`() {
         val parser = parser()
         parser.parse("""{"type":"assistant","message":{"id":"m5","content":[{"type":"text","text":""}]}}""")

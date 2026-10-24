@@ -44,7 +44,11 @@ class SessionAutoArchiver(
         // for - the latter avoids resubmitting the same id every time the list recomputes before the
         // runtime's own listSessions() catches up and drops it.
         val active = activeSessionIds()
-        val candidates = sessions.filterNot { it.session.id in active || it.session.id in alreadyArchived }
+        // Pinned chats are the ones the user asked to keep at hand, so neither rule touches them,
+        // the way Cline protects starred tasks from bulk deletion.
+        val pinned = sessions.map { it.session.id }.filter { it in prefs.pinnedSessionIds && it !in active }.toSet()
+        val candidates =
+            sessions.filterNot { it.session.id in active || it.session.id in pinned || it.session.id in alreadyArchived }
 
         val stale =
             if (prefs.autoArchiveStaleEnabled) {
@@ -59,7 +63,7 @@ class SessionAutoArchiver(
                 // A running session still occupies one of the allowed slots - it is just never the
                 // one archived to make room, so the cap is honored by keeping fewer of the
                 // archivable candidates rather than by ignoring active sessions altogether.
-                val toKeep = (prefs.autoArchiveMaxSessions - active.size).coerceAtLeast(0)
+                val toKeep = (prefs.autoArchiveMaxSessions - active.size - pinned.size).coerceAtLeast(0)
                 candidates.sortedByDescending(::updatedAt).drop(toKeep)
             } else {
                 emptyList()

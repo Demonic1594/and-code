@@ -27,10 +27,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 
 private val TerminalBackground = Color(0xFF1A1A2E)
 private val InputColor = Color(0xFF4EC9B0)
@@ -88,7 +88,7 @@ fun TerminalScreen(
             items(state.lines) { line ->
                 Text(
                     text = line.text,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = CodeFontFamily,
                     fontSize = 12.sp,
                     color =
                         when (line.type) {
@@ -111,7 +111,7 @@ fun TerminalScreen(
         ) {
             Text(
                 text = "${state.workingDirectory} $",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = CodeFontFamily,
                 fontSize = 13.sp,
                 color = InputColor,
             )
@@ -119,7 +119,7 @@ fun TerminalScreen(
                 value = state.currentInput,
                 onValueChange = onInputChange,
                 modifier = Modifier.weight(1f),
-                textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace),
+                textStyle = LocalTextStyle.current.copy(fontFamily = CodeFontFamily),
                 singleLine = true,
                 colors =
                     TextFieldDefaults.colors(

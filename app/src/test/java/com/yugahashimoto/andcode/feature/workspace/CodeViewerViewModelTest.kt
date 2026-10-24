@@ -79,6 +79,182 @@ class CodeViewerViewModelTest {
             assertFalse(viewModel.state.value.isLoading)
         }
 
+    private class RecordingShell {
+        val commands = mutableListOf<String>()
+        var exitCode = 0
+
+        fun shell(dispatcher: kotlinx.coroutines.CoroutineDispatcher) =
+            WorkspaceShell(dispatcher) { command, _ ->
+                commands += command
+                com.yugahashimoto.andcode.runtime.local.LocalRuntimeCommandResult(exitCode, if (exitCode == 0) "" else "permission denied")
+            }
+    }
+
+    @Test
+    fun `read-only without a shell, editable with one`() =
+        runTest(dispatcher) {
+            val remote = CodeViewerViewModel(FakeBackend(OpenCodeFileContent("text", "a")), "/repo", "a.kt")
+            val local =
+                CodeViewerViewModel(FakeBackend(OpenCodeFileContent("text", "a")), "/repo", "a.kt", RecordingShell().shell(dispatcher))
+            advanceUntilIdle()
+
+            assertFalse(remote.state.value.canEdit)
+            remote.startEditing()
+            assertFalse(remote.state.value.isEditing)
+            assertTrue(local.state.value.canEdit)
+        }
+
+    @Test
+    fun `binary files cannot be edited`() =
+        runTest(dispatcher) {
+            val viewModel =
+                CodeViewerViewModel(
+                    FakeBackend(OpenCodeFileContent("text", "AAEC", encoding = "base64")),
+                    "/repo",
+                    "image.png",
+                    RecordingShell().shell(dispatcher),
+                )
+            advanceUntilIdle()
+
+            assertFalse(viewModel.state.value.canEdit)
+        }
+
+    @Test
+    fun `save writes the draft to the joined guest path and leaves edit mode`() =
+        runTest(dispatcher) {
+            val recorder = RecordingShell()
+            val viewModel =
+                CodeViewerViewModel(
+                    FakeBackend(OpenCodeFileContent("text", "old")),
+                    "/workspace/app",
+                    "src/a.kt",
+                    recorder.shell(dispatcher),
+                )
+            advanceUntilIdle()
+
+            viewModel.startEditing()
+            viewModel.updateDraft("new")
+            assertTrue(viewModel.state.value.hasUnsavedChanges)
+            viewModel.save()
+            advanceUntilIdle()
+
+            assertTrue(recorder.commands.last().contains("'/workspace/app/src/a.kt'"))
+            assertEquals("new", viewModel.state.value.content)
+            assertFalse(viewModel.state.value.isEditing)
+            assertEquals(1, viewModel.state.value.savedCount)
+        }
+
+    @Test
+    fun `a failed save keeps the draft and shows the shell's error`() =
+        runTest(dispatcher) {
+            val recorder = RecordingShell().apply { exitCode = 1 }
+            val viewModel =
+                CodeViewerViewModel(FakeBackend(OpenCodeFileContent("text", "old")), "/repo", "a.kt", recorder.shell(dispatcher))
+            advanceUntilIdle()
+
+            viewModel.startEditing()
+            viewModel.updateDraft("new")
+            viewModel.save()
+            advanceUntilIdle()
+
+            assertEquals("new", viewModel.state.value.draft)
+            assertEquals("permission denied", viewModel.state.value.saveError)
+            viewModel.cancelEditing()
+            assertEquals("old", viewModel.state.value.content)
+            assertFalse(viewModel.state.value.isEditing)
+        }
+
+    @Test
+    fun `typing bursts undo as one step and redo restores them`() =
+        runTest(dispatcher) {
+            var now = 0L
+            val viewModel =
+                CodeViewerViewModel(
+                    FakeBackend(OpenCodeFileContent("text", "a")),
+                    "/repo",
+                    "a.kt",
+                    RecordingShell().shell(dispatcher),
+                    clock = { now },
+                )
+            advanceUntilIdle()
+            viewModel.startEditing()
+
+            now = 1_000
+            viewModel.updateDraft("ab")
+            now = 1_100
+            viewModel.updateDraft("abc") // same burst
+            now = 5_000
+            viewModel.updateDraft("abcd") // new step
+
+            viewModel.undo()
+            assertEquals("abc", viewModel.state.value.draft)
+            viewModel.undo()
+            assertEquals("a", viewModel.state.value.draft)
+            assertFalse(viewModel.state.value.canUndo)
+            viewModel.redo()
+            assertEquals("abc", viewModel.state.value.draft)
+            assertTrue(viewModel.state.value.canRedo)
+
+            viewModel.updateDraft("abcX")
+            assertFalse(viewModel.state.value.canRedo)
+        }
+
+    @Test
+    fun `undo history is bounded by total size`() =
+        runTest(dispatcher) {
+            var now = 0L
+            // Under the 1 MB edit limit, so the file can be edited at all.
+            val big = "x".repeat(900_000)
+            val viewModel =
+                CodeViewerViewModel(
+                    FakeBackend(OpenCodeFileContent("text", big)),
+                    "/repo",
+                    "a.kt",
+                    RecordingShell().shell(dispatcher),
+                    clock = { now },
+                )
+            advanceUntilIdle()
+            viewModel.startEditing()
+            repeat(12) { step ->
+                now += 10_000
+                viewModel.updateDraft(big + step)
+            }
+
+            // ~0.9M chars per snapshot against an 8M cap: only the newest eight survive.
+            var undone = 0
+            while (viewModel.state.value.canUndo) {
+                viewModel.undo()
+                undone++
+            }
+            assertEquals(8, undone)
+        }
+
+    @Test
+    fun `replace all counts matches, honours case and undoes in one step`() =
+        runTest(dispatcher) {
+            val viewModel =
+                CodeViewerViewModel(
+                    FakeBackend(OpenCodeFileContent("text", "val foo = Foo(foo)")),
+                    "/repo",
+                    "a.kt",
+                    RecordingShell().shell(dispatcher),
+                )
+            advanceUntilIdle()
+            viewModel.startEditing()
+
+            assertEquals(2, viewModel.replaceAll("foo", "bar", ignoreCase = false))
+            assertEquals("val bar = Foo(bar)", viewModel.state.value.draft)
+            assertEquals(1, viewModel.replaceAll("FOO", "Baz", ignoreCase = true))
+            assertEquals("val bar = Baz(bar)", viewModel.state.value.draft)
+            // Literal text, not a regex: "(" is just a parenthesis.
+            assertEquals(1, viewModel.replaceAll("(", "[", ignoreCase = false))
+            assertEquals("val bar = Baz[bar)", viewModel.state.value.draft)
+            assertEquals(0, viewModel.replaceAll("missing", "x", ignoreCase = false))
+
+            repeat(3) { viewModel.undo() }
+            assertEquals("val foo = Foo(foo)", viewModel.state.value.draft)
+        }
+
     private class FakeBackend(
         private val file: OpenCodeFileContent?,
     ) : OpenCodeBackend {
