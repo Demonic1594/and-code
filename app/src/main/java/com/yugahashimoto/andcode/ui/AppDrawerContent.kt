@@ -64,6 +64,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -601,7 +603,11 @@ private fun DrawerAgentSwitcher(
                 onClick = { onSelectAgent(agent) },
                 // The chosen agent spells out its name; the others stay icons, so four agents fit
                 // a phone-width drawer without truncating any of them.
-                modifier = Modifier.height(38.dp).then(if (selected) Modifier.weight(1f) else Modifier.width(44.dp)),
+                modifier =
+                    Modifier
+                        .height(38.dp)
+                        .then(if (selected) Modifier.weight(1f) else Modifier.width(44.dp))
+                        .semantics { this.selected = selected },
                 shape = AppShapes.md,
                 color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -650,6 +656,7 @@ private fun DrawerProjectChips(
             val selected = workspace.path == selectedWorkspacePath
             Surface(
                 onClick = { onSelectProject(workspace) },
+                modifier = Modifier.semantics { this.selected = selected },
                 shape = AppShapes.pill,
                 color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
                 contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
@@ -794,7 +801,8 @@ private fun DrawerChatRow(
                     if (agent != null) {
                         Icon(
                             painter = painterResource(agent.iconRes),
-                            contentDescription = stringResource(agent.displayNameRes),
+                            // The name is written right beside it.
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(12.dp),
                         )

@@ -742,7 +742,6 @@
     <string name="cd_permission">権限</string>
     <string name="cd_runtime_type">ランタイムタイプ</string>
     <string name="cd_new_chat">新しいチャット</string>
-    <string name="cd_setting">設定</string>
     <string name="cd_server_url">サーバーURL</string>
     <string name="cd_password">パスワード</string>
     <string name="cd_test_connection">接続テスト</string>
@@ -1195,6 +1194,7 @@
 
     <string name="schedule_timing_daily_label">毎日 %1$s</string>
     <string name="schedule_timing_weekly_label">毎週%1$s %2$s</string>
+    <string name="schedule_weekday_separator">、</string>
     <string name="schedule_timing_monthly_label">毎月%1$d日 %2$s</string>
 
     <string name="schedule_auto_accept_default">アプリの設定に従う</string>

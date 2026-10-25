@@ -46,6 +46,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -381,7 +382,7 @@ private fun PickerRowSurface(
     content: @Composable RowScope.() -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth().selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clip(AppShapes.md).selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
         shape = AppShapes.md,
         color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,

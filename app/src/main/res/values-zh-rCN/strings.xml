@@ -729,7 +729,6 @@
     <string name="cd_permission">Permission</string>
     <string name="cd_runtime_type">Runtime type</string>
     <string name="cd_new_chat">New chat</string>
-    <string name="cd_setting">Setting</string>
     <string name="cd_server_url">Server URL</string>
     <string name="cd_password">Password</string>
     <string name="cd_test_connection">Test connection</string>
@@ -1141,6 +1140,7 @@
     <string name="schedule_auto_accept_default">默认</string>
     <string name="schedule_timing_daily_label">每天 %1$s</string>
     <string name="schedule_timing_weekly_label">每周%1$s %2$s</string>
+    <string name="schedule_weekday_separator">、</string>
     <string name="schedule_timing_monthly_label">每月%1$d日 %2$s</string>
 
     <string name="pr_diff_label">差异</string>

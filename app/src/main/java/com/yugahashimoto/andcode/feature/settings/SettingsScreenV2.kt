@@ -780,7 +780,7 @@ internal fun SettingsRow(
     SettingsRowLayout(
         leading = {
             SettingsIconTile {
-                Icon(painter = painter, contentDescription = stringResource(R.string.cd_setting), modifier = Modifier.size(18.dp))
+                Icon(painter = painter, contentDescription = null, modifier = Modifier.size(18.dp))
             }
         },
         title = title,
@@ -832,7 +832,7 @@ internal fun SettingsRow(
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         SettingsIconTile {
-            Icon(icon, contentDescription = stringResource(R.string.cd_setting), modifier = Modifier.size(18.dp))
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
         }
         Text(
             title,
@@ -875,7 +875,7 @@ private fun SettingsToggleRow(
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         SettingsIconTile {
-            Icon(icon, contentDescription = stringResource(R.string.cd_setting), modifier = Modifier.size(18.dp))
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
