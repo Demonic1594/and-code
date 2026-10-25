@@ -9,39 +9,16 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -52,18 +29,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
@@ -80,8 +51,6 @@ import com.yugahashimoto.andcode.BuildConfig
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.UrlLauncher
 import com.yugahashimoto.andcode.core.diagnostics.CrashLog
-import com.yugahashimoto.andcode.data.repository.ChatAction
-import com.yugahashimoto.andcode.data.repository.ChatActionReport
 import com.yugahashimoto.andcode.data.repository.ChatLifecycleRepository
 import com.yugahashimoto.andcode.data.repository.RuntimeSessionRef
 import com.yugahashimoto.andcode.data.settings.DraftRepository
@@ -109,14 +78,12 @@ import com.yugahashimoto.andcode.feature.search.MessageSearchViewModel
 import com.yugahashimoto.andcode.feature.settings.CodexSignInActions
 import com.yugahashimoto.andcode.feature.settings.CodexSignInViewModel
 import com.yugahashimoto.andcode.feature.settings.DiagnosticsSheet
-import com.yugahashimoto.andcode.feature.settings.GitHubRepo
 import com.yugahashimoto.andcode.feature.settings.SettingsViewModel
 import com.yugahashimoto.andcode.feature.wakeword.WakeWordService
 import com.yugahashimoto.andcode.feature.wakeword.WakeWordSettingsPolicy
 import com.yugahashimoto.andcode.feature.workspace.WorkspaceViewModel
 import com.yugahashimoto.andcode.runtime.RuntimeState
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
-import com.yugahashimoto.andcode.runtime.local.GitCloneResult
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeOperationResult
 import com.yugahashimoto.andcode.ui.components.LocalHapticsEnabled
 import com.yugahashimoto.andcode.ui.components.SessionStatus
@@ -145,7 +112,6 @@ import com.yugahashimoto.andcode.ui.navigation.settingsNavGraph
 import com.yugahashimoto.andcode.ui.navigation.workspaceNavGraph
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 import com.yugahashimoto.andcode.ui.theme.AppTheme
-import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -163,62 +129,6 @@ import java.util.UUID
 private const val PULL_REQUEST_REFRESH_INTERVAL_MS = 30_000L
 private const val VOICE_RESTART_DELAY_MS = 200L
 private const val NAV_FADE_MS = 180
-
-private fun speechLocaleTag(context: android.content.Context): String {
-    val locale =
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-            context.resources.configuration.locales[0]
-        } else {
-            @Suppress("DEPRECATION")
-            context.resources.configuration.locale
-        }
-    return locale?.toLanguageTag()?.takeIf { it.isNotBlank() } ?: "en-US"
-}
-
-/** The snackbar text for a finished chat action, or null when it needs none. */
-private fun chatActionMessage(
-    context: android.content.Context,
-    report: ChatActionReport,
-): String? {
-    val (action, result) = report
-    if (result.failed.isNotEmpty()) {
-        val reason =
-            when (val raw = result.failed.values.first()) {
-                ChatLifecycleRepository.UNSUPPORTED -> context.getString(R.string.chat_action_reason_unsupported)
-                ChatLifecycleRepository.NOT_FOUND -> context.getString(R.string.chat_action_reason_not_found)
-                else -> raw
-            }
-        val format =
-            when (action) {
-                ChatAction.DELETE -> R.string.chat_delete_failed_snackbar
-                ChatAction.ARCHIVE -> R.string.chat_archive_failed_snackbar
-                ChatAction.RESTORE -> R.string.chat_restore_failed_snackbar
-            }
-        return context.getString(format, result.failed.size, reason)
-    }
-    if (action != ChatAction.RESTORE || result.succeeded.isEmpty()) return null
-    return if (result.succeeded.size == 1) {
-        context.getString(R.string.chat_restored_snackbar)
-    } else {
-        context.getString(R.string.chats_restored_snackbar, result.succeeded.size)
-    }
-}
-
-private fun relativeTimeLabel(
-    context: android.content.Context,
-    epochMillis: Long,
-): String {
-    val diffMillis = (System.currentTimeMillis() - epochMillis).coerceAtLeast(0L)
-    val minutes = diffMillis / 60_000L
-    val hours = minutes / 60L
-    val days = hours / 24L
-    return when {
-        minutes < 1L -> context.getString(R.string.drawer_time_just_now)
-        hours < 1L -> context.getString(R.string.drawer_time_minutes_ago, minutes)
-        days < 1L -> context.getString(R.string.drawer_time_hours_ago, hours)
-        else -> context.getString(R.string.drawer_time_days_ago, days)
-    }
-}
 
 @Composable
 fun AndCodeApp(
@@ -1664,254 +1574,6 @@ fun AndCodeApp(
                         },
                 )
             }
-        }
-    }
-}
-
-private enum class CloneSource { REPOS, URL }
-
-@Composable
-private fun GithubCloneDialog(
-    githubConfigured: Boolean,
-    onClone: suspend (String) -> GitCloneResult,
-    onListRepos: suspend () -> List<GitHubRepo>,
-    onCloned: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var source by rememberSaveable { mutableStateOf(if (githubConfigured) CloneSource.REPOS else CloneSource.URL) }
-    var url by rememberSaveable { mutableStateOf("") }
-    var repos by remember { mutableStateOf<List<GitHubRepo>>(emptyList()) }
-    var isLoadingRepos by remember { mutableStateOf(false) }
-    var search by rememberSaveable { mutableStateOf("") }
-    var isCloning by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
-    val cloneFailedMessage = stringResource(R.string.workspace_clone_failed)
-
-    LaunchedEffect(githubConfigured) {
-        if (githubConfigured) {
-            isLoadingRepos = true
-            repos = onListRepos()
-            isLoadingRepos = false
-        }
-    }
-
-    fun startClone(cloneUrl: String) {
-        isCloning = true
-        error = null
-        scope.launch {
-            val result = onClone(cloneUrl)
-            if (result.exitCode == 0) {
-                onCloned(result.serverPath)
-                onDismiss()
-            } else {
-                error = result.output.lineSequence().lastOrNull { it.isNotBlank() }
-                    ?: cloneFailedMessage.format(result.exitCode)
-                isCloning = false
-            }
-        }
-    }
-
-    val filteredRepos =
-        remember(repos, search) {
-            if (search.isBlank()) {
-                repos
-            } else {
-                repos.filter {
-                    it.fullName.contains(search, ignoreCase = true)
-                }
-            }
-        }
-
-    AlertDialog(
-        onDismissRequest = { if (!isCloning) onDismiss() },
-        title = { Text(stringResource(R.string.workspace_clone_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (!githubConfigured) {
-                    Text(
-                        text = stringResource(R.string.workspace_clone_requires_auth),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary,
-                    )
-                } else {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = source == CloneSource.REPOS,
-                            onClick = { source = CloneSource.REPOS },
-                            label = { Text(stringResource(R.string.workspace_clone_my_repos)) },
-                        )
-                        FilterChip(
-                            selected = source == CloneSource.URL,
-                            onClick = { source = CloneSource.URL },
-                            label = { Text(stringResource(R.string.workspace_clone_url_tab)) },
-                        )
-                    }
-                }
-
-                if (source == CloneSource.REPOS && githubConfigured) {
-                    OutlinedTextField(
-                        value = search,
-                        onValueChange = { search = it },
-                        placeholder = { Text(stringResource(R.string.workspace_clone_search)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (isLoadingRepos) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.padding(vertical = 8.dp),
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                            Text(stringResource(R.string.workspace_clone_loading_repos), style = MaterialTheme.typography.bodySmall)
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 280.dp),
-                        ) {
-                            items(filteredRepos, key = { it.fullName }) { repo ->
-                                RepoRow(
-                                    repo = repo,
-                                    enabled = !isCloning,
-                                    onClick = { startClone(repo.cloneUrl) },
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    OutlinedTextField(
-                        value = url,
-                        onValueChange = {
-                            url = it
-                            error = null
-                        },
-                        label = { Text(stringResource(R.string.workspace_clone_url_label)) },
-                        placeholder = { Text(stringResource(R.string.workspace_clone_url_placeholder)) },
-                        singleLine = true,
-                        enabled = !isCloning,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-
-                error?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                if (isCloning) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        Text(
-                            stringResource(R.string.workspace_clone_running),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            if (source == CloneSource.URL || !githubConfigured) {
-                Button(
-                    enabled = url.isNotBlank() && !isCloning,
-                    onClick = { startClone(url.trim()) },
-                ) {
-                    Text(stringResource(R.string.workspace_clone_action))
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isCloning) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-    )
-}
-
-/** Shows the stack trace of the crash the app came back from, so it can be reported by hand. */
-@Composable
-private fun CrashReportDialog(
-    report: String,
-    onCopied: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val clipboard = LocalClipboardManager.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.crash_report_title)) },
-        text = {
-            Column(
-                modifier = Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.crash_report_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = report,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = CodeFontFamily,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                clipboard.setText(AnnotatedString(report))
-                onCopied()
-            }) {
-                Text(stringResource(R.string.crash_report_copy))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.crash_report_dismiss))
-            }
-        },
-    )
-}
-
-@Composable
-private fun RepoRow(
-    repo: GitHubRepo,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable(enabled = enabled, onClick = onClick),
-        shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icon(
-                if (repo.isPrivate) Icons.Default.Lock else Icons.Default.Folder,
-                contentDescription = stringResource(R.string.cd_repository),
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                repo.fullName,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
         }
     }
 }

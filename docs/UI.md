@@ -21,4 +21,5 @@ screen is redesigned, not as a drive-by change, because it shifts the layout.
 Keep a screen file to the screen's own layout and state wiring. Composer, banners, status cards and
 menus that only one screen uses go in sibling files in the same package (see `feature/chat/`:
 `ChatComposer.kt`, `ChatComposerControls.kt`, `ChatBanners.kt`, `ChatStatusCards.kt`,
-`ChatOverflowMenu.kt`), marked `internal` only where another file needs them.
+`ChatOverflowMenu.kt`; `ui/`: `GithubCloneDialog.kt`, `CrashReportDialog.kt`, `AppLabels.kt` next to
+`AndCodeApp.kt`), marked `internal` only where another file needs them.
