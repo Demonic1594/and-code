@@ -6,7 +6,8 @@ import androidx.compose.ui.unit.dp
 /**
  * Shared spacing scale. Screens used to pick paddings and gaps one literal at a time (2, 4, 5, 6,
  * 8, 10, 12, 14, 16, 20, 24 dp all appear), which is why sibling screens never quite lined up.
- * New and touched UI takes its gaps from here; the steps follow a 4 dp grid with a 2 dp hairline.
+ * New UI takes its gaps from here; the steps follow a 4 dp grid with a 2 dp hairline. Existing
+ * off-scale values move onto it when their screen is redesigned (see docs/UI.md).
  */
 object Spacing {
     val hairline = 2.dp

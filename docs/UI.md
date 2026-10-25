@@ -12,7 +12,7 @@ Spacing, corner radii and shapes live in `app/src/main/java/com/yugahashimoto/an
 
 Colors come from `LocalThemeColors` and `MaterialTheme.colorScheme`, type from `MaterialTheme.typography`.
 
-New or touched UI takes its paddings, gaps and corners from these tokens instead of `N.dp` literals.
+New UI takes its paddings, gaps and corners from these tokens instead of `N.dp` literals.
 Older screens still carry off-scale values (5, 6, 10, 14, 18 dp); move them onto the scale when a
 screen is redesigned, not as a drive-by change, because it shifts the layout.
 
