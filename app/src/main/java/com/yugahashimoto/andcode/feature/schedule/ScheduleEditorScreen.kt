@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.ModelTraining
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
@@ -43,6 +42,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
@@ -227,7 +227,7 @@ fun ScheduleEditorScreen(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 title = {
                     Text(
                         text =
@@ -274,7 +274,7 @@ fun ScheduleEditorScreen(
                     }
                 },
                 colors =
-                    TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background,
                         titleContentColor = MaterialTheme.colorScheme.onBackground,
                         navigationIconContentColor = MaterialTheme.colorScheme.onBackground,

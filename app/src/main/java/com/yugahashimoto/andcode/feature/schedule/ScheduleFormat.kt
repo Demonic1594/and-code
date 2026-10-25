@@ -25,20 +25,41 @@ fun scheduleTimingLabel(
     if (cron.hours.size == 1 && cron.minutes.size == 1) {
         val time = TIME_FORMAT.format(LocalTime.of(cron.hours.first(), cron.minutes.first()))
         val daily = cron.daysOfMonth == (1..31).toList() && cron.daysOfWeek == (0..6).toList()
-        val weekly = cron.daysOfMonth == (1..31).toList() && cron.daysOfWeek.size == 1
+        val weekly = cron.daysOfMonth == (1..31).toList() && cron.daysOfWeek.size in 1..6
         val monthly = cron.daysOfMonth.size == 1 && cron.daysOfWeek == (0..6).toList()
         return when {
             daily -> context.getString(R.string.schedule_timing_daily_label, time)
             weekly -> {
-                val day = DayOfWeek.of(if (cron.daysOfWeek.first() == 0) 7 else cron.daysOfWeek.first())
-                val dayName = day.getDisplayName(TextStyle.SHORT, Locale.getDefault())
-                context.getString(R.string.schedule_timing_weekly_label, dayName, time)
+                // The app language can differ from the system's; name the days in the one the
+                // surrounding template is in.
+                val locale = context.resources.configuration.locales[0]
+                val days = weekdaysLabel(cron.daysOfWeek, locale, context.getString(R.string.schedule_weekday_separator))
+                context.getString(R.string.schedule_timing_weekly_label, days, time)
             }
             monthly -> context.getString(R.string.schedule_timing_monthly_label, cron.daysOfMonth.first(), time)
             else -> schedule.cron
         }
     }
     return schedule.cron.orEmpty()
+}
+
+/**
+ * Short day names for a cron day-of-week list (0 = Sunday), read Monday first: one day ("Fri"),
+ * a run of three or more consecutive days as a range ("Mon–Fri", "Fri–Sun"), otherwise a list in
+ * the locale's own separator ("Mon, Wed, Fri"; "月、水、金"). Weekday schedules used to fall
+ * through to the raw cron text.
+ */
+internal fun weekdaysLabel(
+    days: List<Int>,
+    locale: Locale,
+    separator: String = ", ",
+): String {
+    // Monday-first, so a weekend reads "Sat, Sun" and Friday to Sunday is still a range.
+    val ordered = days.map { if (it == 0) 7 else it }.distinct().sorted()
+
+    fun name(day: Int) = DayOfWeek.of(day).getDisplayName(TextStyle.SHORT, locale)
+    val consecutive = ordered.size >= 3 && ordered.zipWithNext().all { (a, b) -> b == a + 1 }
+    return if (consecutive) "${name(ordered.first())}–${name(ordered.last())}" else ordered.joinToString(separator) { name(it) }
 }
 
 /** One-time or next-fire timestamp, localized. */

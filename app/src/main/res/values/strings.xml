@@ -459,7 +459,6 @@
     <string name="chat_message_placeholder">Message…</string>
     <string name="chat_attach">Attach file</string>
     <string name="chat_remove_attachment">Remove attachment</string>
-    <string name="chat_thinking_default">Thinking</string>
     <string name="chat_thinking_level_low">Low</string>
     <string name="chat_thinking_level_medium">Medium</string>
     <string name="chat_thinking_level_high">High</string>
@@ -469,13 +468,23 @@
     <string name="chat_thinking_level_minimal">Minimal</string>
     <string name="chat_thinking_level_ultra">Ultra</string>
     <string name="chat_fast_mode">Fast</string>
-    <string name="chat_system_prompt_default">Prompt</string>
     <string name="chat_mode_build">Build</string>
     <string name="chat_mode_plan">Plan</string>
     <string name="chat_agents_loading">Loading agents…</string>
     <string name="chat_agents_load_failed">Couldn\'t load agents. Tap to retry.</string>
     <string name="chat_mode_auto_accept">Auto accept</string>
-    <string name="chat_auto_accept_short">Auto</string>
+    <string name="run_settings_title">Run settings</string>
+    <string name="cd_run_settings">Open run settings</string>
+    <string name="run_settings_auto_accept_caption">Approve permission prompts without asking</string>
+    <string name="run_settings_model_default">Model default</string>
+    <string name="run_settings_section_agent">Agent</string>
+    <string name="run_settings_section_thinking">Thinking level</string>
+    <string name="chat_welcome_title">What should we work on?</string>
+    <string name="chat_welcome_subtitle">Ask about the code, fix a bug, or start something new.</string>
+    <string name="chat_suggest_explain">Explain how this project is structured</string>
+    <string name="chat_suggest_fix">Find and fix a bug</string>
+    <string name="chat_suggest_tests">Write tests for the code I changed</string>
+    <string name="chat_suggest_review">Review my uncommitted changes</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">GitHub Git operations</string>
     <string name="github_not_connected">Not connected</string>
@@ -724,7 +733,6 @@
     <string name="cd_permission">Permission</string>
     <string name="cd_runtime_type">Runtime type</string>
     <string name="cd_new_chat">New chat</string>
-    <string name="cd_setting">Setting</string>
     <string name="cd_server_url">Server URL</string>
     <string name="cd_password">Password</string>
     <string name="cd_test_connection">Test connection</string>
@@ -759,7 +767,6 @@
     <string name="cd_gallery">Gallery</string>
     <string name="cd_thinking">Thinking</string>
     <string name="cd_fast_mode">Fast mode</string>
-    <string name="cd_fast_mode_with_description">Fast mode: %1$s</string>
     <string name="cd_system_prompt">System prompt</string>
     <string name="cd_agent_mode">Agent mode</string>
     <string name="cd_updating">Updating</string>
@@ -1192,6 +1199,7 @@
 
     <string name="schedule_timing_daily_label">Daily %1$s</string>
     <string name="schedule_timing_weekly_label">Weekly %1$s %2$s</string>
+    <string name="schedule_weekday_separator">", "</string>
     <string name="schedule_timing_monthly_label">Monthly on day %1$d at %2$s</string>
 
     <string name="schedule_auto_accept_default">App default</string>

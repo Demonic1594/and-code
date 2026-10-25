@@ -2,8 +2,10 @@ package com.yugahashimoto.andcode.feature.schedule
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,18 +25,19 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -55,6 +58,8 @@ import com.yugahashimoto.andcode.data.schedule.ScheduleRun
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import com.yugahashimoto.andcode.ui.runtimeAgentIcon
 import com.yugahashimoto.andcode.ui.runtimeTargetLabel
+import com.yugahashimoto.andcode.ui.theme.AppShapes
+import com.yugahashimoto.andcode.ui.theme.LocalThemeColors
 import java.time.Instant
 
 @Composable
@@ -85,7 +90,7 @@ fun ScheduleListScreen(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 title = {
                     Text(
                         text = stringResource(R.string.nav_schedules),
@@ -99,7 +104,7 @@ fun ScheduleListScreen(
                     }
                 },
                 colors =
-                    TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background,
                         titleContentColor = MaterialTheme.colorScheme.onBackground,
                         navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
@@ -107,9 +112,11 @@ fun ScheduleListScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onNewSchedule) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.schedule_new))
-            }
+            ExtendedFloatingActionButton(
+                onClick = onNewSchedule,
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text(stringResource(R.string.schedule_new)) },
+            )
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
@@ -150,8 +157,15 @@ fun ScheduleListScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().weight(1f),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    // Bottom padding clears the extended button, so the last card can be reached.
+                    contentPadding =
+                        androidx.compose.foundation.layout.PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 8.dp,
+                            bottom = 96.dp,
+                        ),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     items(schedules, key = { it.id }) { schedule ->
                         ScheduleRow(
@@ -255,27 +269,43 @@ private fun ScheduleRow(
     val target = runtimeTargets.firstOrNull { it.id == schedule.runtimeId }
     val context = androidx.compose.ui.platform.LocalContext.current
 
+    val running = lastRun?.isActive == true
+    val project = schedule.workspacePath.trimEnd('/').substringAfterLast('/').takeIf { it.isNotBlank() }
+    // A card per schedule: the agent's mark in a tile, the name, where and when it runs, and a
+    // status line coloured by what happens next (running now, next run, or last result).
     Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        onClick = onOpen,
+        modifier = Modifier.fillMaxWidth(),
+        shape = AppShapes.lg,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
     ) {
         Row(
-            modifier = Modifier.padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
+            modifier = Modifier.padding(start = 14.dp, top = 14.dp, bottom = 14.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                painter = painterResource(runtimeAgentIcon(target?.agent)),
-                contentDescription = target?.let { runtimeTargetLabel(it) },
-                tint = if (schedule.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(40.dp)
+                        .background(
+                            if (schedule.enabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                            AppShapes.md,
+                        ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(runtimeAgentIcon(target?.agent)),
+                    contentDescription = target?.let { runtimeTargetLabel(it) },
+                    tint = if (schedule.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = schedule.displayName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color =
@@ -286,7 +316,7 @@ private fun ScheduleRow(
                         },
                 )
                 Text(
-                    text = scheduleTimingLabel(context, schedule),
+                    text = listOfNotNull(project, scheduleTimingLabel(context, schedule)).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -294,24 +324,37 @@ private fun ScheduleRow(
                 )
                 val statusLine =
                     when {
-                        lastRun?.isActive == true -> stringResource(R.string.schedule_status_running)
+                        running -> stringResource(R.string.schedule_status_running)
                         nextFireAt != null && schedule.enabled ->
                             stringResource(R.string.schedule_next_run, dateTimeLabel(context, nextFireAt.toEpochMilli()))
                         lastRun != null ->
                             stringResource(R.string.schedule_last_run, scheduleRunStatusLabel(context, lastRun.status))
                         else -> stringResource(R.string.schedule_never_ran)
                     }
-                Text(
-                    text = statusLine,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(
+                        Icons.Default.Schedule,
+                        contentDescription = null,
+                        tint = if (running) LocalThemeColors.current.statusRunning else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(12.dp),
+                    )
+                    Text(
+                        text = statusLine,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (running) LocalThemeColors.current.statusRunning else MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             Switch(
                 checked = schedule.enabled,
                 onCheckedChange = onToggleEnabled,
+                colors =
+                    SwitchDefaults.colors(
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    ),
             )
             ScheduleMoreMenu(
                 expanded = menuExpanded,

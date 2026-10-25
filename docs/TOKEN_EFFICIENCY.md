@@ -64,5 +64,5 @@ Nothing is lost for Claude: 1568 px is its own resize target.
 
 - **Start a new chat for a new task.** Every turn re-sends the whole history (mostly from cache), so
   one long chat that wanders across tasks costs more than several focused ones.
-- **Pick the effort level per turn.** The thinking chip's `low`/`medium` levels cut
+- **Pick the effort level per turn.** The Run settings sheet's `low`/`medium` thinking levels cut
   thinking-token output a lot for routine edits.

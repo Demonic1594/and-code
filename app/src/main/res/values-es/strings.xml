@@ -473,7 +473,6 @@
     <string name="chat_message_placeholder">Enviar un mensaje…</string>
     <string name="chat_attach">Adjuntar archivo</string>
     <string name="chat_remove_attachment">Quitar adjunto</string>
-    <string name="chat_thinking_default">Pensando</string>
     <string name="chat_thinking_level_low">Bajo</string>
     <string name="chat_thinking_level_medium">Medio</string>
     <string name="chat_thinking_level_high">Alto</string>
@@ -483,13 +482,23 @@
     <string name="chat_thinking_level_minimal">Mínimo</string>
     <string name="chat_thinking_level_ultra">Ultra</string>
     <string name="chat_fast_mode">Rápido</string>
-    <string name="chat_system_prompt_default">Prompt</string>
     <string name="chat_mode_build">Construir</string>
     <string name="chat_mode_plan">Planificar</string>
     <string name="chat_agents_loading">Cargando agentes…</string>
     <string name="chat_agents_load_failed">No se pudieron cargar los agentes. Toca para reintentar.</string>
     <string name="chat_mode_auto_accept">Aceptación automática</string>
-    <string name="chat_auto_accept_short">Auto</string>
+    <string name="run_settings_title">Ajustes de ejecución</string>
+    <string name="cd_run_settings">Abrir ajustes de ejecución</string>
+    <string name="run_settings_auto_accept_caption">Aprueba las solicitudes de permiso sin preguntar</string>
+    <string name="run_settings_model_default">Predeterminado del modelo</string>
+    <string name="run_settings_section_agent">Agente</string>
+    <string name="run_settings_section_thinking">Nivel de razonamiento</string>
+    <string name="chat_welcome_title">¿En qué trabajamos?</string>
+    <string name="chat_welcome_subtitle">Pregunta sobre el código, corrige un error o empieza algo nuevo.</string>
+    <string name="chat_suggest_explain">Explica cómo está estructurado este proyecto</string>
+    <string name="chat_suggest_fix">Encuentra y corrige un error</string>
+    <string name="chat_suggest_tests">Escribe pruebas para el código que cambié</string>
+    <string name="chat_suggest_review">Revisa mis cambios sin confirmar</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">Operaciones Git de GitHub</string>
     <string name="github_not_connected">No conectado</string>
@@ -726,7 +735,6 @@
     <string name="cd_permission">Permission</string>
     <string name="cd_runtime_type">Runtime type</string>
     <string name="cd_new_chat">New chat</string>
-    <string name="cd_setting">Setting</string>
     <string name="cd_server_url">Server URL</string>
     <string name="cd_password">Password</string>
     <string name="cd_test_connection">Test connection</string>
@@ -761,7 +769,6 @@
     <string name="cd_gallery">Gallery</string>
     <string name="cd_thinking">Thinking</string>
     <string name="cd_fast_mode">Modo rápido</string>
-    <string name="cd_fast_mode_with_description">Modo rápido: %1$s</string>
     <string name="cd_system_prompt">Prompt del sistema</string>
     <string name="cd_agent_mode">Agent mode</string>
     <string name="cd_updating">Updating</string>
@@ -1139,6 +1146,7 @@
     <string name="schedule_auto_accept_default">Por defecto</string>
     <string name="schedule_timing_daily_label">Diario %1$s</string>
     <string name="schedule_timing_weekly_label">Semanal %1$s %2$s</string>
+    <string name="schedule_weekday_separator">", "</string>
     <string name="schedule_timing_monthly_label">Mensual el día %1$d a las %2$s</string>
 
     <string name="pr_diff_label">Diff</string>

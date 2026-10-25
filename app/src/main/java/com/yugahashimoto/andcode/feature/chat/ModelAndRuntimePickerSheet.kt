@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,11 +14,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,8 +31,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -40,8 +46,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -51,6 +60,10 @@ import com.yugahashimoto.andcode.core.api.OpenCodeProvider
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import com.yugahashimoto.andcode.ui.runtimeAgentIcon
 import com.yugahashimoto.andcode.ui.runtimeTargetLabel
+import com.yugahashimoto.andcode.ui.theme.AppShapes
+import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
+import com.yugahashimoto.andcode.ui.theme.LocalThemeColors
+import com.yugahashimoto.andcode.ui.theme.Spacing
 
 private const val MAX_RECENT_MODELS = 3
 
@@ -128,9 +141,17 @@ fun ModelAndRuntimePickerSheet(
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(top = Spacing.md),
                     singleLine = true,
-                    label = { Text(stringResource(R.string.picker_search)) },
+                    placeholder = { Text(stringResource(R.string.picker_search)) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    shape = AppShapes.pill,
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            unfocusedBorderColor = Color.Transparent,
+                        ),
                 )
             }
 
@@ -329,19 +350,12 @@ private fun RuntimeRow(
     onClick: () -> Unit,
 ) {
     val agent = target.agent
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
+    PickerRowSurface(selected = selected, onClick = onClick) {
         Icon(
             painter = painterResource(runtimeAgentIcon(target.agent)),
             contentDescription = stringResource(R.string.cd_runtime_type),
             tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp),
         )
         Text(
             text =
@@ -353,7 +367,41 @@ private fun RuntimeRow(
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium,
         )
-        RadioButton(selected = selected, onClick = onClick)
+        SelectedCheck(selected)
+    }
+}
+
+/**
+ * The selected row is tinted and ticked rather than marked by one filled radio among many: in a
+ * list of thirty models the current one should be findable at a glance.
+ */
+@Composable
+private fun PickerRowSurface(
+    selected: Boolean,
+    onClick: () -> Unit,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().clip(AppShapes.md).selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
+        shape = AppShapes.md,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = Spacing.md, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun SelectedCheck(selected: Boolean) {
+    if (selected) {
+        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+    } else {
+        Spacer(Modifier.size(20.dp))
     }
 }
 
@@ -365,44 +413,25 @@ private fun ModelRow(
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        IconButton(onClick = onToggleFavorite, modifier = Modifier.size(32.dp)) {
-            Icon(
-                imageVector = if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
-                contentDescription = stringResource(R.string.cd_favorite),
-                tint =
-                    if (isFavorite) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                modifier = Modifier.size(18.dp),
-            )
-        }
+    PickerRowSurface(selected = selected, onClick = onClick) {
+        SelectedCheck(selected)
         Column(modifier = Modifier.weight(1f)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(
                     model.name,
                     style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 // Flags a model whose `variants` map is non-empty, i.e. one that exposes
-                // reasoning-effort variants. The actual control lives in the composer's thinking
-                // chip, which appears under the exact same condition, so this icon is just a
-                // secondary hint for models the chip already surfaces.
+                // reasoning-effort variants. The actual control lives in the composer's Run
+                // settings sheet, which offers it under the exact same condition, so this icon is
+                // just a hint for models the sheet already surfaces.
                 if (model.variants.isNotEmpty()) {
                     Icon(
                         imageVector = Icons.Default.Psychology,
@@ -411,8 +440,8 @@ private fun ModelRow(
                         modifier = Modifier.size(14.dp),
                     )
                 }
-                // The same kind of hint for a Codex model with a fast tier, so the composer's Fast
-                // chip is not a surprise that only shows up after the model is picked.
+                // The same kind of hint for a Codex model with a fast tier, so the sheet's fast
+                // switch is not a surprise that only shows up after the model is picked.
                 if (model.codexFastServiceTier != null) {
                     Icon(
                         imageVector = Icons.Default.Bolt,
@@ -425,10 +454,18 @@ private fun ModelRow(
             Text(
                 model.id,
                 style = MaterialTheme.typography.labelSmall,
+                fontFamily = CodeFontFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
             )
         }
-        RadioButton(selected = selected, onClick = onClick)
+        IconButton(onClick = onToggleFavorite, modifier = Modifier.size(36.dp)) {
+            Icon(
+                imageVector = if (isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                contentDescription = stringResource(R.string.cd_favorite),
+                tint = if (isFavorite) LocalThemeColors.current.warning else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }

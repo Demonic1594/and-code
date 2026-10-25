@@ -9,13 +9,17 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,7 +31,6 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
@@ -35,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -54,6 +58,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,8 +69,10 @@ import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.ProvideSafeUriHandler
 import com.yugahashimoto.andcode.core.api.PermissionRequest
 import com.yugahashimoto.andcode.runtime.PermissionResponse
+import com.yugahashimoto.andcode.ui.theme.AppShapes
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 import com.yugahashimoto.andcode.ui.theme.LocalThemeColors
+import com.yugahashimoto.andcode.ui.theme.Spacing
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -83,81 +90,79 @@ fun MessageBubble(
     onImageClick: (ChatImageSource) -> Unit = {},
 ) {
     val displayText = remember(message.text) { message.text.hideToolCallEcho() }
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.CenterEnd,
+    // Your own messages sit on a quiet tonal surface rather than the accent colour: in a coding
+    // chat the agent's answer is what you read, so the prompt should frame it, not shout over it.
+    // The time moves under the bubble, where it no longer pushes long prompts narrower.
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(start = 48.dp),
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
     ) {
-        Row(
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        Surface(
+            shape = RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ) {
-            Text(
-                text = formatClockTime(message.timestamp),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 4.dp),
-            )
-            Surface(
-                modifier = Modifier.widthIn(max = 340.dp),
-                shape = RoundedCornerShape(20.dp, 20.dp, 5.dp, 20.dp),
-                color = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    // Images persist in the transcript as base64 data-URL file parts, so once the
-                    // message is recorded they render straight from the attachment and survive the
-                    // reload that follows a completed send. The transient imagePreviews bitmaps only
-                    // stand in for the optimistic echo before the message reaches the transcript, or
-                    // for runtimes whose attachment URLs are not inlineable data URLs.
-                    val imageAttachments = message.attachments.filter { it.mime.startsWith("image/") }
-                    imageAttachments.forEachIndexed { index, attachment ->
+            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = Spacing.md)) {
+                // Images persist in the transcript as base64 data-URL file parts, so once the
+                // message is recorded they render straight from the attachment and survive the
+                // reload that follows a completed send. The transient imagePreviews bitmaps only
+                // stand in for the optimistic echo before the message reaches the transcript, or
+                // for runtimes whose attachment URLs are not inlineable data URLs.
+                val imageAttachments = message.attachments.filter { it.mime.startsWith("image/") }
+                imageAttachments.forEachIndexed { index, attachment ->
+                    ChatImageThumbnail(
+                        source =
+                            ChatImageSource(
+                                attachment.url,
+                                attachment.mime,
+                                attachment.filename,
+                                message.imagePreviews.getOrNull(index),
+                            ),
+                        modifier = Modifier.widthIn(max = 280.dp).heightIn(max = 220.dp).padding(bottom = 8.dp),
+                        onImageClick = onImageClick,
+                    )
+                }
+                if (imageAttachments.isEmpty()) {
+                    message.imagePreviews.forEachIndexed { index, bitmap ->
+                        val source = ChatImageSource("preview:${message.id}:$index", "image/jpeg", preview = bitmap)
                         ChatImageThumbnail(
-                            source =
-                                ChatImageSource(
-                                    attachment.url,
-                                    attachment.mime,
-                                    attachment.filename,
-                                    message.imagePreviews.getOrNull(index),
-                                ),
+                            source = source,
                             modifier = Modifier.widthIn(max = 280.dp).heightIn(max = 220.dp).padding(bottom = 8.dp),
                             onImageClick = onImageClick,
                         )
                     }
-                    if (imageAttachments.isEmpty()) {
-                        message.imagePreviews.forEachIndexed { index, bitmap ->
-                            val source = ChatImageSource("preview:${message.id}:$index", "image/jpeg", preview = bitmap)
-                            ChatImageThumbnail(
-                                source = source,
-                                modifier = Modifier.widthIn(max = 280.dp).heightIn(max = 220.dp).padding(bottom = 8.dp),
-                                onImageClick = onImageClick,
-                            )
-                        }
-                    }
-                    message.attachments.forEach { attachment ->
-                        if (attachment.mime.startsWith("image/")) return@forEach
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.padding(bottom = 8.dp),
-                        ) {
-                            Icon(Icons.Default.Description, contentDescription = stringResource(R.string.cd_attachment))
-                            Text(
-                                text = attachment.filename,
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                    if (displayText.isNotBlank()) {
-                        LinkedText(
-                            text = displayText,
-                            linkColor = MaterialTheme.colorScheme.onPrimary,
+                }
+                message.attachments.forEach { attachment ->
+                    if (attachment.mime.startsWith("image/")) return@forEach
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    ) {
+                        Icon(Icons.Default.Description, contentDescription = stringResource(R.string.cd_attachment))
+                        Text(
+                            text = attachment.filename,
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
+                if (displayText.isNotBlank()) {
+                    LinkedText(
+                        text = displayText,
+                        linkColor = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
         }
+        Text(
+            text = formatClockTime(message.timestamp),
+            style = MaterialTheme.typography.labelSmall,
+            color = LocalThemeColors.current.foregroundExtraMuted,
+            modifier = Modifier.padding(end = Spacing.xs),
+        )
     }
 }
 
@@ -245,59 +250,94 @@ fun PermissionCard(
     permission: PermissionRequest,
     onPermission: (String, PermissionResponse, Boolean) -> Unit,
 ) {
+    // One glance, one thumb: what the agent wants to run, in a code block, then the two answers
+    // you give most often side by side. "Always allow" is the rarer, broader grant, so it steps
+    // down to a text button instead of being the biggest, brightest target on the card.
     val warningColor = LocalThemeColors.current.warning
-    Card(
-        colors = CardDefaults.cardColors(containerColor = warningColor.copy(alpha = 0.10f)),
-        shape = RoundedCornerShape(18.dp),
+    Surface(
+        shape = AppShapes.lg,
+        color = warningColor.copy(alpha = 0.07f),
+        border = BorderStroke(1.dp, warningColor.copy(alpha = 0.35f)),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Security, contentDescription = stringResource(R.string.cd_permission), tint = warningColor)
-                Spacer(Modifier.padding(horizontal = 5.dp))
-                Text(stringResource(R.string.permission_required), fontWeight = FontWeight.SemiBold)
-            }
-            Text(
-                text = stringResource(R.string.permission_chat_confirmation),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = permission.permission,
-                fontFamily = CodeFontFamily,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            permission.patterns.forEach { pattern ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Icon(
+                    Icons.Default.Security,
+                    contentDescription = stringResource(R.string.cd_permission),
+                    tint = warningColor,
+                    modifier = Modifier.size(20.dp),
+                )
                 Text(
-                    text = pattern,
-                    fontFamily = CodeFontFamily,
-                    style = MaterialTheme.typography.bodySmall,
+                    stringResource(R.string.permission_required),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                Surface(shape = AppShapes.pill, color = warningColor.copy(alpha = 0.16f), contentColor = warningColor) {
+                    Text(
+                        text = permission.permission,
+                        fontFamily = CodeFontFamily,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
+                    )
+                }
+            }
+            if (permission.patterns.isNotEmpty()) {
+                Surface(
+                    shape = AppShapes.sm,
+                    color = MaterialTheme.colorScheme.background.copy(alpha = 0.6f),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    ) {
+                        permission.patterns.forEach { pattern ->
+                            Text(
+                                text = pattern,
+                                fontFamily = CodeFontFamily,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
+            } else {
+                Text(
+                    text = stringResource(R.string.permission_chat_confirmation),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+            // Side by side, but free to wrap: "Allow once" runs long in Russian, French or Arabic,
+            // and a clipped label on the button you press most is worse than a two-line one.
+            Row(
+                modifier = Modifier.height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
                 OutlinedButton(
                     onClick = { onPermission(permission.id, PermissionResponse.REJECT, false) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
                 ) {
-                    Text(stringResource(R.string.reject))
-                }
-                FilledTonalButton(
-                    onClick = { onPermission(permission.id, PermissionResponse.ONCE, false) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.allow_once))
+                    Text(stringResource(R.string.reject), textAlign = TextAlign.Center, maxLines = 2)
                 }
                 Button(
-                    onClick = { onPermission(permission.id, PermissionResponse.ALWAYS, true) },
-                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { onPermission(permission.id, PermissionResponse.ONCE, false) },
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
                 ) {
-                    Text(stringResource(R.string.always_allow))
+                    Text(stringResource(R.string.allow_once), textAlign = TextAlign.Center, maxLines = 2)
                 }
+            }
+            TextButton(
+                onClick = { onPermission(permission.id, PermissionResponse.ALWAYS, true) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.always_allow))
             }
         }
     }

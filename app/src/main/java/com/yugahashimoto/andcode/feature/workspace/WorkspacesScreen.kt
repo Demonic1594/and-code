@@ -5,19 +5,21 @@ import android.net.nsd.NsdManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -46,11 +48,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -77,9 +79,13 @@ import com.yugahashimoto.andcode.runtime.LocalRuntimeStatus
 import com.yugahashimoto.andcode.runtime.RuntimeState
 import com.yugahashimoto.andcode.runtime.RuntimeType
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
+import com.yugahashimoto.andcode.ui.components.ActionTile
 import com.yugahashimoto.andcode.ui.components.SectionCard
 import com.yugahashimoto.andcode.ui.components.StatusChip
 import com.yugahashimoto.andcode.ui.runtimeAgentIcon
+import com.yugahashimoto.andcode.ui.theme.AppShapes
+import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
+import com.yugahashimoto.andcode.ui.theme.Spacing
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -173,6 +179,12 @@ fun WorkspacesScreen(
                         )
                     }
                 },
+                actions = {
+                    IconButton(onClick = onRefresh, enabled = !state.isRefreshing) {
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
         floatingActionButton = {
@@ -186,68 +198,19 @@ fun WorkspacesScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.workspaces_title),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = stringResource(R.string.workspaces_subtitle),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    IconButton(onClick = onRefresh, enabled = !state.isRefreshing) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
-                    }
-                }
-            }
-
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            qrScanLauncher.launch(
-                                ScanOptions()
-                                    .setBeepEnabled(false)
-                                    .setOrientationLocked(false),
-                            )
-                        },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Icon(Icons.Default.QrCodeScanner, contentDescription = stringResource(R.string.cd_scan_qr))
-                        Spacer(Modifier.padding(horizontal = 4.dp))
-                        Text(stringResource(R.string.add_via_qr))
-                    }
-                    OutlinedButton(
-                        onClick = { startLanDiscovery() },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Icon(Icons.Default.WifiFind, contentDescription = stringResource(R.string.cd_lan_discovery))
-                        Spacer(Modifier.padding(horizontal = 4.dp))
-                        Text(stringResource(R.string.discover_on_lan))
-                    }
-                }
-            }
-
+            // The top bar already names the screen; the caption says what it is for.
             item {
                 Text(
-                    stringResource(R.string.runtime_targets_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    text = stringResource(R.string.workspaces_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+
+            item { WorkspaceSectionHeader(stringResource(R.string.runtime_targets_title)) }
 
             items(state.targets, key = { it.id }) { target ->
                 val remoteProfile = state.connections.firstOrNull { it.id == target.id }
@@ -329,69 +292,67 @@ fun WorkspacesScreen(
                 }
             }
 
+            // Ways to add another runtime, after the runtimes they would join.
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                 ) {
-                    Text(
-                        text = stringResource(R.string.workspace_folders_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f),
+                    ActionTile(
+                        icon = Icons.Default.QrCodeScanner,
+                        label = stringResource(R.string.add_via_qr),
+                        onClick = {
+                            qrScanLauncher.launch(
+                                ScanOptions()
+                                    .setBeepEnabled(false)
+                                    .setOrientationLocked(false),
+                            )
+                        },
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
-                    Text(stringResource(R.string.item_count, state.workspaces.size), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    ActionTile(
+                        icon = Icons.Default.WifiFind,
+                        label = stringResource(R.string.discover_on_lan),
+                        onClick = { startLanDiscovery() },
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                    )
                 }
+            }
+
+            item {
+                WorkspaceSectionHeader(
+                    stringResource(R.string.workspace_folders_title),
+                    trailing = stringResource(R.string.item_count, state.workspaces.size),
+                )
                 // Importing a folder and cloning a repository both write into the Android runtime's
                 // filesystem, so they only produce a usable working folder while that runtime is the
                 // active one. Offering them for a PC connection would register a path that does not
-                // exist on that machine.
+                // exist on that machine. Choosing an existing folder reaches what neither of those
+                // can - one cloned from the terminal, or anything outside /workspace.
                 if (localRuntimeActive) {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(Spacing.sm))
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                     ) {
-                        OutlinedButton(
+                        ActionTile(
+                            icon = Icons.Default.DriveFolderUpload,
+                            label = stringResource(R.string.workspace_import_folder),
                             onClick = onImportFolder,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Icon(
-                                Icons.Default.DriveFolderUpload,
-                                contentDescription = stringResource(R.string.cd_import_folder),
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.workspace_import_folder))
-                        }
-                        OutlinedButton(
-                            onClick = onCloneGithub,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Icon(
-                                Icons.Default.CloudDownload,
-                                contentDescription = stringResource(R.string.cd_clone_github),
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.workspace_clone_github))
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    // Neither of the two above reaches a folder the environment already has — one
-                    // cloned from the terminal, or anything outside /workspace — so those could not
-                    // be made a working folder at all.
-                    OutlinedButton(
-                        onClick = onChooseFolder,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Icon(
-                            Icons.Default.FolderOpen,
-                            contentDescription = stringResource(R.string.cd_choose_folder),
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.workspace_choose_folder))
+                        ActionTile(
+                            icon = Icons.Default.CloudDownload,
+                            label = stringResource(R.string.workspace_clone_github),
+                            onClick = onCloneGithub,
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                        )
+                        ActionTile(
+                            icon = Icons.Default.FolderOpen,
+                            label = stringResource(R.string.workspace_choose_folder),
+                            onClick = onChooseFolder,
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                        )
                     }
                 }
             }
@@ -698,6 +659,27 @@ private fun FolderPickerRow(
 }
 
 @Composable
+private fun WorkspaceSectionHeader(
+    text: String,
+    trailing: String? = null,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = Spacing.md, start = Spacing.xs, end = Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        trailing?.let {
+            Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
 private fun WorkspaceProjectRow(
     workspace: WorkspaceRef,
     isDeleting: Boolean,
@@ -722,12 +704,23 @@ private fun WorkspaceProjectRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Icon(Icons.Default.Folder, contentDescription = stringResource(R.string.cd_folder), tint = MaterialTheme.colorScheme.primary)
+            Box(
+                modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.primaryContainer, AppShapes.md),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Default.Folder,
+                    contentDescription = stringResource(R.string.cd_folder),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
             Column(modifier = Modifier.weight(1f)) {
-                Text(workspace.name, fontWeight = FontWeight.Medium)
+                Text(workspace.name, style = MaterialTheme.typography.titleSmall)
                 Text(
                     workspace.path,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontFamily = CodeFontFamily,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                 )

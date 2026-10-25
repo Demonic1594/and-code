@@ -215,11 +215,11 @@ Both come from `model/list` (verified live against `codex-cli 0.163.0`; a Codex 
 omit these fields simply shows no effort or fast control for them):
 
 - **Reasoning effort**: each entry of `supportedReasoningEfforts` becomes a model variant, in the
-  server's order, so the chat's thinking chip lists them. Efforts seen so far: `low`, `medium`, `high`,
-  `xhigh`, `max`, `ultra`, plus `none` and `minimal` documented by the protocol. Each has a chip label
+  server's order, so the Thinking section of the chat's Run settings sheet lists them. Efforts seen so far: `low`, `medium`, `high`,
+  `xhigh`, `max`, `ultra`, plus `none` and `minimal` documented by the protocol. Each has a label
   (`none` reads "Off"); an effort the app does not know yet shows its raw id capitalized. Fast mode is
-  the bolt "Fast" chip beside it, shown only for a model with a fast tier; the tier's server description
-  is its screen-reader text.
+  the switch right below it, shown only for a model with a fast tier, with the tier's server description
+  as its caption.
 - **Fast mode**: a model whose `serviceTiers` lists the tier named "Fast" (id `priority`), or the
   deprecated `additionalSpeedTiers: ["fast"]`, gets `codexFastServiceTier`. The user's global choice
   (`codexFastMode`, persisted; unset follows the model) maps to a tier as `codexServiceTier`: unset

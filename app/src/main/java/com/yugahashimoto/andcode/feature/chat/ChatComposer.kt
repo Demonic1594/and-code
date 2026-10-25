@@ -67,6 +67,7 @@ import com.yugahashimoto.andcode.core.api.OpenCodeAgent
 import com.yugahashimoto.andcode.core.api.OpenCodeCommand
 import com.yugahashimoto.andcode.core.api.OpenCodeSkill
 import com.yugahashimoto.andcode.core.api.PromptAttachment
+import com.yugahashimoto.andcode.core.api.selectablePrimaryAgents
 import com.yugahashimoto.andcode.data.settings.SavedPrompt
 import com.yugahashimoto.andcode.feature.workspace.GitHubAutoAttachChips
 import com.yugahashimoto.andcode.feature.workspace.GitHubReference
@@ -136,6 +137,7 @@ internal fun ChatComposer(
     val input = inputValue.text
     val voiceActive = isListening || isSpeechProcessing
     var showAttachMenu by remember { mutableStateOf(false) }
+    var showRunSettings by remember { mutableStateOf(false) }
 
     Column(
         modifier =
@@ -427,10 +429,60 @@ internal fun ChatComposer(
             }
         }
         Spacer(Modifier.height(6.dp))
+        val runSettings =
+            RunSettings(
+                agents = agents,
+                selectedAgentId = selectedAgentId,
+                agentsLoading = agentsLoading,
+                permissionMode =
+                    when {
+                        claudePermissionMode != null ->
+                            PermissionModeSelection(
+                                selectedId = claudePermissionMode.cliValue,
+                                selectedLabelRes = claudePermissionMode.labelRes,
+                                options = ClaudePermissionMode.entries.map { PermissionModeOption(it.cliValue, it.labelRes) },
+                                onSelect = { id -> onSelectClaudePermissionMode(ClaudePermissionMode.fromCliValue(id)) },
+                            )
+                        // Antigravity's modes were once offered through the agent chip, where the
+                        // globally remembered agent id overrode the mode settings chose; the choice
+                        // now comes from - and goes back to - that same setting.
+                        antigravityPermissionMode != null ->
+                            PermissionModeSelection(
+                                selectedId = antigravityPermissionMode.cliValue,
+                                selectedLabelRes = antigravityPermissionMode.labelRes,
+                                options = AntigravityPermissionMode.entries.map { PermissionModeOption(it.cliValue, it.labelRes) },
+                                onSelect = { id -> onSelectAntigravityPermissionMode(AntigravityPermissionMode.fromCliValue(id)) },
+                            )
+                        else -> null
+                    },
+                supportsAutoAccept = supportsPermissions,
+                autoAccept = autoAcceptPermissions,
+                thinkingOptions = thinkingOptions,
+                selectedThinking = selectedVariant,
+                fastModeAvailable = fastModeAvailable,
+                fastModeEnabled = fastModeEnabled,
+                fastModeDescription = fastModeDescription,
+                systemPromptPresets = systemPromptPresets,
+                selectedSystemPromptId = selectedSystemPromptId,
+            )
+        if (showRunSettings) {
+            RunSettingsSheet(
+                settings = runSettings,
+                actions =
+                    RunSettingsActions(
+                        onSelectAgent = onSelectAgent,
+                        onRefreshAgents = onRefreshAgents,
+                        onToggleAutoAccept = onToggleAutoAccept,
+                        onSelectThinking = onSelectVariant,
+                        onToggleFastMode = onToggleFastMode,
+                        onSelectSystemPrompt = onSelectSystemPrompt,
+                    ),
+                onDismiss = { showRunSettings = false },
+            )
+        }
         Row(
-            // Scrollable because the chips vary with the runtime: Claude Code shows permission,
-            // thinking and system-prompt chips plus the context meter, which no longer fits a narrow
-            // phone. None of the chips take a weight, so scrolling only affects overflow.
+            // Still scrollable: the run-settings chip names the mode and thinking level, and with
+            // the context meter and token speed beside it a narrow phone can run out of width.
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -439,65 +491,15 @@ internal fun ChatComposer(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            if (claudePermissionMode != null) {
-                // Claude Code has a single agent and decides permissions per session, so the mode
-                // chip selects the permission mode. Auto-accept is an OpenCode concept and has no
-                // meaning here, so it is left out rather than shown as a dead toggle.
-                PermissionModeChip(
-                    selectedLabel = claudePermissionMode.labelRes,
-                    options = ClaudePermissionMode.entries.map { PermissionModeOption(it.cliValue, it.labelRes) },
-                    onSelect = { id -> onSelectClaudePermissionMode(ClaudePermissionMode.fromCliValue(id)) },
-                )
-            } else if (antigravityPermissionMode != null) {
-                // Antigravity decides the same way. Its modes were once offered through the agent
-                // chip below, where the globally remembered agent id overrode the mode settings
-                // chose; the choice now comes from - and goes back to - that same setting.
-                PermissionModeChip(
-                    selectedLabel = antigravityPermissionMode.labelRes,
-                    options = AntigravityPermissionMode.entries.map { PermissionModeOption(it.cliValue, it.labelRes) },
-                    onSelect = { id -> onSelectAntigravityPermissionMode(AntigravityPermissionMode.fromCliValue(id)) },
-                )
-            } else {
-                ModeChip(
-                    agents = agents,
-                    selectedAgentId = selectedAgentId,
-                    onSelect = onSelectAgent,
-                    onRefresh = onRefreshAgents,
-                    loading = agentsLoading,
-                )
-                // Auto-accept answers permission prompts, so it only means something on a runtime
-                // that asks for permission. Antigravity decides permissions per invocation from its
-                // mode flag and never raises a prompt, which made this a switch that did nothing.
-                if (supportsPermissions) {
-                    AutoAcceptChip(
-                        enabled = autoAcceptPermissions,
-                        onToggle = onToggleAutoAccept,
-                    )
-                }
-            }
-            if (thinkingOptions.isNotEmpty()) {
-                ThinkingChip(
-                    options = thinkingOptions,
-                    selected = selectedVariant,
-                    onSelect = onSelectVariant,
-                )
-            }
-            // Right after the effort chip: both decide how the model runs the next turn, so they
-            // read as a pair. Only a Codex model with a fast tier offers it.
-            if (fastModeAvailable) {
-                FastModeChip(
-                    enabled = fastModeEnabled,
-                    description = fastModeDescription,
-                    onToggle = onToggleFastMode,
-                )
-            }
-            if (systemPromptPresets.isNotEmpty()) {
-                SystemPromptChip(
-                    presets = systemPromptPresets,
-                    selectedId = selectedSystemPromptId,
-                    onSelect = onSelectSystemPrompt,
-                )
-            }
+            RunSettingsChip(
+                settings = runSettings,
+                onClick = {
+                    showRunSettings = true
+                    // Opening the sheet on an OpenCode runtime whose agents never loaded retries
+                    // the load, as tapping the old mode chip did.
+                    if (runSettings.permissionMode == null && agents.selectablePrimaryAgents().isEmpty() && !agentsLoading) onRefreshAgents()
+                },
+            )
             if (contextLimit > 0L) {
                 CompactContextMeter(
                     tokensUsed = contextTokensUsed,

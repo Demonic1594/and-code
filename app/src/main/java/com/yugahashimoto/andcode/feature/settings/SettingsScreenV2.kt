@@ -1,7 +1,10 @@
 package com.yugahashimoto.andcode.feature.settings
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -12,43 +15,58 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.DataObject
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FormatSize
+import androidx.compose.material.icons.filled.HistoryToggleOff
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Numbers
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Policy
+import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Router
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -59,11 +77,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
+import com.yugahashimoto.andcode.ui.theme.AppShapes
+import com.yugahashimoto.andcode.ui.theme.Spacing
 
 /** Compact settings landing screen backed only by real destinations and state. */
 @Composable
@@ -133,8 +154,8 @@ fun SettingsScreenV2(
     var showAutoArchiveStaleDaysDialog by remember { mutableStateOf(false) }
     var showAutoArchiveMaxSessionsDialog by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        CenterAlignedTopAppBar(
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        TopAppBar(
             title = {
                 Text(
                     stringResource(R.string.nav_settings),
@@ -148,7 +169,7 @@ fun SettingsScreenV2(
                 }
             },
             colors =
-                TopAppBarDefaults.centerAlignedTopAppBarColors(
+                TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
                     navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
@@ -198,14 +219,14 @@ fun SettingsScreenV2(
                 )
                 SettingsDivider()
                 SettingsRow(
-                    icon = Icons.Default.Palette,
+                    icon = Icons.Default.FormatSize,
                     title = stringResource(R.string.ui_font_size_row),
                     value = "${uiFontSize}sp",
                     onClick = { showUiFontDialog = true },
                 )
                 SettingsDivider()
                 SettingsRow(
-                    icon = Icons.Default.Palette,
+                    icon = Icons.Default.DataObject,
                     title = stringResource(R.string.code_font_size_row),
                     value = "${codeFontSize}sp",
                     onClick = { showCodeFontDialog = true },
@@ -229,7 +250,7 @@ fun SettingsScreenV2(
 
             SettingsSection(title = stringResource(R.string.section_chat_settings)) {
                 SettingsRow(
-                    icon = Icons.Default.Chat,
+                    icon = Icons.Default.Tune,
                     title = stringResource(R.string.tool_call_detail_row),
                     value =
                         if (toolCallDetailLevel == "detailed") {
@@ -245,14 +266,14 @@ fun SettingsScreenV2(
                 )
                 SettingsDivider()
                 SettingsToggleRow(
-                    icon = Icons.Default.Chat,
+                    icon = Icons.Default.Psychology,
                     title = stringResource(R.string.auto_expand_reasoning_row),
                     checked = autoExpandReasoning,
                     onCheckedChange = onAutoExpandReasoningChange,
                 )
                 SettingsDivider()
                 SettingsRow(
-                    icon = Icons.Default.Chat,
+                    icon = Icons.AutoMirrored.Filled.Send,
                     title = stringResource(R.string.send_behavior_row),
                     value =
                         if (sendBehavior == "interrupt") {
@@ -268,7 +289,7 @@ fun SettingsScreenV2(
                 )
                 SettingsDivider()
                 SettingsToggleRow(
-                    icon = Icons.Default.Chat,
+                    icon = Icons.AutoMirrored.Filled.KeyboardReturn,
                     title = stringResource(R.string.enter_to_send_row),
                     checked = enterToSend,
                     onCheckedChange = onEnterToSendChange,
@@ -284,7 +305,7 @@ fun SettingsScreenV2(
 
             SettingsSection(title = stringResource(R.string.section_sessions_settings)) {
                 SettingsToggleRow(
-                    icon = Icons.Default.Chat,
+                    icon = Icons.Default.HistoryToggleOff,
                     title = stringResource(R.string.auto_archive_stale_row),
                     subtitle = stringResource(R.string.auto_archive_stale_row_description),
                     checked = autoArchiveStaleEnabled,
@@ -292,14 +313,14 @@ fun SettingsScreenV2(
                 )
                 SettingsDivider()
                 SettingsRow(
-                    icon = Icons.Default.Chat,
+                    icon = Icons.Default.Event,
                     title = stringResource(R.string.auto_archive_stale_days_row),
                     value = pluralStringResource(R.plurals.auto_archive_stale_days_value, autoArchiveStaleDays, autoArchiveStaleDays),
                     onClick = { showAutoArchiveStaleDaysDialog = true },
                 )
                 SettingsDivider()
                 SettingsToggleRow(
-                    icon = Icons.Default.Chat,
+                    icon = Icons.Default.FilterList,
                     title = stringResource(R.string.auto_archive_max_sessions_row),
                     subtitle = stringResource(R.string.auto_archive_max_sessions_row_description),
                     checked = autoArchiveMaxSessionsEnabled,
@@ -307,7 +328,7 @@ fun SettingsScreenV2(
                 )
                 SettingsDivider()
                 SettingsRow(
-                    icon = Icons.Default.Chat,
+                    icon = Icons.Default.Numbers,
                     title = stringResource(R.string.auto_archive_max_sessions_value_row),
                     value = autoArchiveMaxSessions.toString(),
                     onClick = { showAutoArchiveMaxSessionsDialog = true },
@@ -373,14 +394,14 @@ fun SettingsScreenV2(
                 )
                 SettingsDivider()
                 SettingsToggleRow(
-                    icon = Icons.Default.BugReport,
+                    icon = Icons.Default.Insights,
                     title = stringResource(R.string.analytics_row),
                     checked = analyticsEnabled,
                     onCheckedChange = onToggleAnalytics,
                 )
                 SettingsDivider()
                 SettingsToggleRow(
-                    icon = Icons.Default.Terminal,
+                    icon = Icons.Default.PowerSettingsNew,
                     title = stringResource(R.string.local_runtime_idle_stop_row),
                     subtitle = stringResource(R.string.local_runtime_idle_stop_row_description),
                     checked = localRuntimeIdleStopEnabled,
@@ -708,20 +729,45 @@ internal fun languageDisplayName(language: String): String =
         else -> stringResource(R.string.language_system)
     }
 
+/**
+ * A titled group of settings drawn as one rounded card, rows separated by hairlines - the grouped
+ * list of iOS Settings and of most desktop agent apps' preferences. Flat rows straight on the
+ * background made long settings pages read as one undifferentiated list.
+ */
 @Composable
 internal fun SettingsSection(
     title: String,
     content: @Composable () -> Unit,
 ) {
-    Column {
+    Column(modifier = Modifier.padding(top = Spacing.lg)) {
         Text(
             text = title,
             style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
+            modifier = Modifier.padding(start = Spacing.xs, bottom = Spacing.sm),
         )
-        Column { content() }
+        Surface(
+            shape = AppShapes.lg,
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(modifier = Modifier.padding(vertical = Spacing.xs)) { content() }
+        }
+    }
+}
+
+/** The tinted square every settings row leads with, so each row has a recognisable glyph. */
+@Composable
+internal fun SettingsIconTile(content: @Composable () -> Unit) {
+    Box(
+        modifier =
+            Modifier
+                .size(32.dp)
+                .background(MaterialTheme.colorScheme.primaryContainer, AppShapes.sm),
+        contentAlignment = Alignment.Center,
+    ) {
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.primary) { content() }
     }
 }
 
@@ -733,12 +779,9 @@ internal fun SettingsRow(
 ) {
     SettingsRowLayout(
         leading = {
-            Icon(
-                painter = painter,
-                contentDescription = stringResource(R.string.cd_setting),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
-            )
+            SettingsIconTile {
+                Icon(painter = painter, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
         },
         title = title,
         onClick = onClick,
@@ -756,9 +799,9 @@ private fun SettingsRowLayout(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(horizontal = 4.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         leading()
         Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
@@ -784,16 +827,13 @@ internal fun SettingsRow(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(horizontal = 4.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        Icon(
-            icon,
-            contentDescription = stringResource(R.string.cd_setting),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
-        )
+        SettingsIconTile {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
         Text(
             title,
             modifier = Modifier.weight(1f),
@@ -802,8 +842,9 @@ internal fun SettingsRow(
         value?.let {
             Text(
                 text = it,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
             )
         }
         trailing?.invoke()
@@ -828,35 +869,44 @@ private fun SettingsToggleRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 9.dp),
+                .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        Icon(
-            icon,
-            contentDescription = stringResource(R.string.cd_setting),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
-        )
+        SettingsIconTile {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             subtitle?.let {
                 Text(
                     text = it,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            // Material's unchecked track is a near-black on a near-black card; an outlined thumb
+            // and border keep an "off" switch visible as a switch.
+            colors =
+                SwitchDefaults.colors(
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                ),
+        )
     }
 }
 
 @Composable
 internal fun SettingsDivider() {
+    // Starts after the icon tile, so the hairline separates the text, not the glyphs.
     HorizontalDivider(
-        modifier = Modifier.padding(start = 36.dp),
-        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f),
+        modifier = Modifier.padding(start = 58.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
     )
 }
 

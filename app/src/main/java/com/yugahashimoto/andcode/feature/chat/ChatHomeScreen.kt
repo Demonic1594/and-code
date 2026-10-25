@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -39,7 +40,6 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -49,6 +49,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -83,13 +84,16 @@ import com.yugahashimoto.andcode.core.api.OpenCodeProvider
 import com.yugahashimoto.andcode.core.api.PromptAttachment
 import com.yugahashimoto.andcode.data.settings.SavedPrompt
 import com.yugahashimoto.andcode.feature.workspace.GitHubReference
+import com.yugahashimoto.andcode.runtime.LocalAgent
 import com.yugahashimoto.andcode.runtime.PermissionResponse
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import com.yugahashimoto.andcode.runtime.local.AntigravityPermissionMode
 import com.yugahashimoto.andcode.runtime.local.ClaudePermissionMode
 import com.yugahashimoto.andcode.runtime.local.SystemPromptPreset
 import com.yugahashimoto.andcode.ui.components.HapticEvent
+import com.yugahashimoto.andcode.ui.components.SessionStatus
 import com.yugahashimoto.andcode.ui.components.StatusChip
+import com.yugahashimoto.andcode.ui.components.StatusDot
 import com.yugahashimoto.andcode.ui.components.rememberHaptics
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 import kotlinx.coroutines.Dispatchers
@@ -446,15 +450,44 @@ fun ChatHomeScreen(
                     onClose = { findActive = false },
                 )
             } else {
-                CenterAlignedTopAppBar(
+                TopAppBar(
+                    // Title over a quiet status line, the way desktop agent apps head a session: what
+                    // this chat is about, then which agent runs it and whether it is working right
+                    // now - so a glance at the top says if the run you left is still going.
                     title = {
-                        Text(
-                            text = state.sessionTitle.ifBlank { stringResource(R.string.chat_home_title) },
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        Column {
+                            Text(
+                                text = state.sessionTitle.ifBlank { stringResource(R.string.chat_home_title) },
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            if (state.backendName.isNotBlank()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    StatusDot(
+                                        status =
+                                            when {
+                                                state.permissions.isNotEmpty() -> SessionStatus.PERMISSION
+                                                state.isRunning -> SessionStatus.RUNNING
+                                                state.isConnected -> SessionStatus.WAITING
+                                                else -> SessionStatus.IDLE
+                                            },
+                                        size = 6.dp,
+                                    )
+                                    Text(
+                                        text = state.backendName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
                     },
                     navigationIcon = {
                         IconButton(onClick = onOpenDrawer) {
@@ -526,7 +559,7 @@ fun ChatHomeScreen(
                         }
                     },
                     colors =
-                        TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.background,
                             titleContentColor = MaterialTheme.colorScheme.onBackground,
                             navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
@@ -549,6 +582,12 @@ fun ChatHomeScreen(
                         RuntimeSetupRequiredState(
                             onOpenLocalSetup = onOpenLocalSetup,
                             onOpenRemoteSetup = onOpenRemoteSetup,
+                        )
+                    state.messages.isEmpty() && !state.isRunning && state.error == null &&
+                        state.permissions.isEmpty() && state.pendingQuestions.isEmpty() ->
+                        ChatWelcome(
+                            agent = LocalAgent.entries.firstOrNull { it.targetId == selectedRuntimeId },
+                            onSuggestion = { prompt -> inputValue = TextFieldValue(prompt, TextRange(prompt.length)) },
                         )
                     else -> {
                         LazyColumn(
