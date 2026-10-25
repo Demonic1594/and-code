@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VoiceChat
 import androidx.compose.material3.Button
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,6 +43,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -155,7 +155,7 @@ fun VoiceSettingsScreen(
     val appliedIsUsable = unknownAppliedWords.isEmpty()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        CenterAlignedTopAppBar(
+        TopAppBar(
             title = {
                 Text(
                     stringResource(R.string.voice_settings_row),
@@ -171,7 +171,7 @@ fun VoiceSettingsScreen(
                 }
             },
             colors =
-                TopAppBarDefaults.centerAlignedTopAppBarColors(
+                TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
                     navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
