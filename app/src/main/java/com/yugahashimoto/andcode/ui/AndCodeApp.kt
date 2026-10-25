@@ -10,7 +10,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet

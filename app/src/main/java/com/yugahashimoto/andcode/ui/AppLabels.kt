@@ -1,13 +1,9 @@
 package com.yugahashimoto.andcode.ui
 
-import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.data.repository.ChatAction
 import com.yugahashimoto.andcode.data.repository.ChatActionReport
 import com.yugahashimoto.andcode.data.repository.ChatLifecycleRepository
-import kotlinx.coroutines.flow.first
 
 internal fun speechLocaleTag(context: android.content.Context): String {
     val locale =
