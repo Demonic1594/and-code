@@ -493,6 +493,8 @@
     <string name="cd_run_settings">Открыть параметры запуска</string>
     <string name="run_settings_auto_accept_caption">Одобрять запросы разрешений без вопросов</string>
     <string name="run_settings_model_default">По умолчанию для модели</string>
+    <string name="run_settings_section_agent">Агент</string>
+    <string name="run_settings_section_thinking">Уровень размышлений</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">Операции GitHub Git</string>
     <string name="github_not_connected">Не подключено</string>

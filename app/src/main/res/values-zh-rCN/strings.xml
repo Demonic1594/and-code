@@ -486,7 +486,9 @@
     <string name="run_settings_title">运行设置</string>
     <string name="cd_run_settings">打开运行设置</string>
     <string name="run_settings_auto_accept_caption">无需询问即批准权限请求</string>
-    <string name="run_settings_model_default">模型默认</string>
+    <string name="run_settings_model_default">模型默认值</string>
+    <string name="run_settings_section_agent">智能体</string>
+    <string name="run_settings_section_thinking">思考级别</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">GitHub Git 操作</string>
     <string name="github_not_connected">未连接</string>

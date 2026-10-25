@@ -38,6 +38,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -84,7 +87,7 @@ internal class RunSettings(
     /** True when anything differs from what a fresh chat would run with, so the chip can say so. */
     val hasOverrides: Boolean
         get() =
-            selectedThinking != null ||
+            (thinkingOptions.isNotEmpty() && selectedThinking != null) ||
                 (fastModeAvailable && fastModeEnabled) ||
                 (supportsAutoAccept && permissionMode == null && autoAccept) ||
                 systemPromptPresets.any { it.id == selectedSystemPromptId }
@@ -127,7 +130,9 @@ internal fun RunSettingsChip(
     val summary =
         buildList {
             add(modeLabel)
-            settings.selectedThinking?.let { add(thinkingLevelLabel(it)) }
+            // Only while the model offers levels: a choice left over from another model would
+            // otherwise name a level the sheet has no section to change back.
+            settings.selectedThinking?.takeIf { settings.thinkingOptions.isNotEmpty() }?.let { add(thinkingLevelLabel(it)) }
             if (settings.fastModeAvailable && settings.fastModeEnabled) add(stringResource(R.string.chat_fast_mode))
         }.joinToString(" · ")
     val highlighted = settings.hasOverrides
@@ -147,8 +152,9 @@ internal fun RunSettingsChip(
             horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
             if (settings.agentsLoading && settings.permissionMode == null && settings.agents.selectablePrimaryAgents().isEmpty()) {
+                val loadingDescription = stringResource(R.string.chat_agents_loading)
                 CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
+                    modifier = Modifier.size(14.dp).semantics { contentDescription = loadingDescription },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     strokeWidth = 1.5.dp,
                 )
@@ -232,7 +238,7 @@ internal fun RunSettingsSheet(
 
             if (settings.thinkingOptions.isNotEmpty()) {
                 SectionDivider()
-                SectionHeader(stringResource(R.string.cd_thinking))
+                SectionHeader(stringResource(R.string.run_settings_section_thinking))
                 Column(Modifier.selectableGroup()) {
                     ChoiceRow(
                         label = stringResource(R.string.run_settings_model_default),
@@ -299,7 +305,7 @@ private fun AgentSection(
     // subagents and OpenCode's internal compaction/title/summary agents out even if a caller
     // passes the raw list.
     val selectableAgents = settings.agents.selectablePrimaryAgents()
-    SectionHeader(stringResource(R.string.cd_agent_mode))
+    SectionHeader(stringResource(R.string.run_settings_section_agent))
     if (selectableAgents.isEmpty()) {
         if (settings.agentsLoading) {
             Row(
@@ -334,7 +340,7 @@ private fun AgentSection(
 private fun SectionHeader(text: String) {
     Text(
         text,
-        modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs),
+        modifier = Modifier.padding(top = Spacing.sm, bottom = Spacing.xs).semantics { heading() },
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )

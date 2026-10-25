@@ -497,6 +497,8 @@
     <string name="cd_run_settings">فتح إعدادات التشغيل</string>
     <string name="run_settings_auto_accept_caption">الموافقة على طلبات الإذن دون سؤال</string>
     <string name="run_settings_model_default">الافتراضي للنموذج</string>
+    <string name="run_settings_section_agent">الوكيل</string>
+    <string name="run_settings_section_thinking">مستوى التفكير</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">عمليات GitHub Git</string>
     <string name="github_not_connected">غير متصل</string>

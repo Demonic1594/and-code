@@ -12,6 +12,7 @@ class RunSettingsTest {
         permissionMode: PermissionModeSelection? = null,
         supportsAutoAccept: Boolean = true,
         autoAccept: Boolean = false,
+        thinkingOptions: List<String> = listOf("low", "high"),
         selectedThinking: String? = null,
         fastModeAvailable: Boolean = false,
         fastModeEnabled: Boolean = false,
@@ -24,7 +25,7 @@ class RunSettingsTest {
         permissionMode = permissionMode,
         supportsAutoAccept = supportsAutoAccept,
         autoAccept = autoAccept,
-        thinkingOptions = listOf("low", "high"),
+        thinkingOptions = thinkingOptions,
         selectedThinking = selectedThinking,
         fastModeAvailable = fastModeAvailable,
         fastModeEnabled = fastModeEnabled,
@@ -57,6 +58,8 @@ class RunSettingsTest {
         assertFalse(settings(supportsAutoAccept = false, autoAccept = true).hasOverrides)
         // Claude Code decides permissions by mode, so the OpenCode auto-accept switch is not shown.
         assertFalse(settings(permissionMode = claudeMode, autoAccept = true).hasOverrides)
+        // A thinking level left over from a model that offers none has no section to undo it.
+        assertFalse(settings(thinkingOptions = emptyList(), selectedThinking = "high").hasOverrides)
         // A preset id that was deleted in Settings falls back to no preset.
         assertFalse(settings(selectedSystemPromptId = "gone").hasOverrides)
     }

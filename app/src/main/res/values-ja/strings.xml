@@ -487,8 +487,10 @@
     <string name="chat_mode_auto_accept">自動承認</string>
     <string name="run_settings_title">実行設定</string>
     <string name="cd_run_settings">実行設定を開く</string>
-    <string name="run_settings_auto_accept_caption">権限の確認を求めずに承認します</string>
+    <string name="run_settings_auto_accept_caption">権限リクエストを確認なしで承認します</string>
     <string name="run_settings_model_default">モデルの既定値</string>
+    <string name="run_settings_section_agent">エージェント</string>
+    <string name="run_settings_section_thinking">思考レベル</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">GitHub Git 操作</string>
     <string name="github_not_connected">未接続</string>

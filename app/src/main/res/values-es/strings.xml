@@ -491,6 +491,8 @@
     <string name="cd_run_settings">Abrir ajustes de ejecución</string>
     <string name="run_settings_auto_accept_caption">Aprueba las solicitudes de permiso sin preguntar</string>
     <string name="run_settings_model_default">Predeterminado del modelo</string>
+    <string name="run_settings_section_agent">Agente</string>
+    <string name="run_settings_section_thinking">Nivel de razonamiento</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">Operaciones Git de GitHub</string>
     <string name="github_not_connected">No conectado</string>
