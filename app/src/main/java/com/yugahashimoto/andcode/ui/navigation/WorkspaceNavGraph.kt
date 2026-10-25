@@ -9,6 +9,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.feature.browser.GuestBrowserScreen
+import com.yugahashimoto.andcode.feature.workspace.AndroidCodeViewerMessages
 import com.yugahashimoto.andcode.feature.workspace.CodeViewerScreen
 import com.yugahashimoto.andcode.feature.workspace.CodeViewerViewModel
 import com.yugahashimoto.andcode.feature.workspace.LocalRuntimeManagementScreen
@@ -225,7 +226,19 @@ fun NavGraphBuilder.workspaceNavGraph(
             val viewerViewModel: CodeViewerViewModel =
                 viewModel(
                     key = "code-viewer-${backStack.id}",
-                    factory = ViewModelFactory { CodeViewerViewModel(runtime, arguments.second, arguments.third) },
+                    factory =
+                        ViewModelFactory {
+                            CodeViewerViewModel(
+                                backend = runtime,
+                                workspacePath = arguments.second,
+                                filePath = arguments.third,
+                                // Only a runtime whose workspace is a folder on this device can write a file; a
+                                // remote OpenCode server has no write endpoint, so its viewer stays read-only.
+                                // The selected workspace, not the folder being browsed, bounds what is editable.
+                                editableRoot = if (runtime.capabilities.fileEditing) selectedWorkspace()?.path else null,
+                                messages = AndroidCodeViewerMessages(app),
+                            )
+                        },
                 )
             val viewerState by viewerViewModel.state.collectAsState()
             val preferences by app.preferences.state.collectAsState()
@@ -233,6 +246,10 @@ fun NavGraphBuilder.workspaceNavGraph(
                 state = viewerState,
                 syntaxThemeKey = preferences.syntaxTheme,
                 onBack = { navController.popBackStack() },
+                onStartEditing = viewerViewModel::startEditing,
+                onDraftChange = viewerViewModel::updateDraft,
+                onSave = viewerViewModel::save,
+                onStopEditing = viewerViewModel::stopEditing,
             )
         }
     }

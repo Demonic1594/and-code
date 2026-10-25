@@ -112,6 +112,38 @@ interface OpenCodeBackend {
         path: String,
     ): OpenCodeFileContent = unsupported("file read")
 
+    /**
+     * The exact text of the file at [path] under [directory], as the editor should start from it.
+     *
+     * Unlike [readFile] this never trims or re-encodes anything, and it refuses what [writeFile]
+     * could not save back (binary, not UTF-8, too large, read-only) by throwing [FileEditException].
+     * Only backends with [RuntimeCapabilities.fileEditing] implement it.
+     */
+    suspend fun readFileForEditing(
+        directory: String,
+        path: String,
+    ): String = unsupported("file edit")
+
+    /**
+     * Replaces the existing text file at [path] under [directory] with [content].
+     *
+     * OpenCode's server has no write endpoint, so this exists only for backends whose workspace is a
+     * plain directory on this device - see [RuntimeCapabilities.fileEditing]; every other backend
+     * falls through to [unsupported]. [directory] is the root the write must stay inside.
+     *
+     * [expectedContent] is what [readFileForEditing] returned. When it is given and the file no
+     * longer holds exactly that, nothing is written. Refusals throw [FileEditException] carrying a
+     * [FileEditFailure].
+     */
+    suspend fun writeFile(
+        directory: String,
+        path: String,
+        content: String,
+        expectedContent: String? = null,
+    ) {
+        unsupported("file write")
+    }
+
     suspend fun fileStatus(directory: String): List<OpenCodeFileChange> = unsupported("file status")
 
     suspend fun searchText(

@@ -1228,4 +1228,19 @@
     <string name="full_development_tools_installed">Complete development tools are installed</string>
     <string name="install_full_development_tools_button">Install complete toolchain</string>
     <string name="runtime_full_development_tools_start_failed">Could not start development tool installation</string>
+    <string name="file_edit_action">Edit file</string>
+    <string name="file_edit_save">Save</string>
+    <string name="file_edit_stop">Stop editing</string>
+    <string name="file_edit_discard_title">Discard changes?</string>
+    <string name="file_edit_discard_message">Your edits to this file have not been saved.</string>
+    <string name="file_edit_discard_confirm">Discard</string>
+    <string name="file_edit_keep_editing">Keep editing</string>
+    <string name="file_edit_error_outside_workspace">This file is outside the workspace and cannot be edited.</string>
+    <string name="file_edit_error_not_found">The file no longer exists.</string>
+    <string name="file_edit_error_not_text">Only UTF-8 text files can be edited.</string>
+    <string name="file_edit_error_too_large">This file is too large to edit (limit: %1$d KB).</string>
+    <string name="file_edit_error_read_only">This file is read-only.</string>
+    <string name="file_edit_error_changed_on_disk">The file was changed by something else since you opened it, so your edits were not saved. Copy your text, close the editor, and open the file again.</string>
+    <string name="file_edit_error_write_failed">Could not save the file.</string>
+    <string name="file_edit_error_generic">Could not edit the file.</string>
 </resources>

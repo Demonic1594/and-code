@@ -1218,4 +1218,19 @@
     <string name="full_development_tools_installed">تم تثبيت أدوات التطوير الكاملة</string>
     <string name="install_full_development_tools_button">تثبيت مجموعة الأدوات الكاملة</string>
     <string name="runtime_full_development_tools_start_failed">تعذر بدء تثبيت أدوات التطوير</string>
+    <string name="file_edit_action">تحرير الملف</string>
+    <string name="file_edit_save">حفظ</string>
+    <string name="file_edit_stop">إيقاف التحرير</string>
+    <string name="file_edit_discard_title">تجاهل التغييرات؟</string>
+    <string name="file_edit_discard_message">لم يتم حفظ تعديلاتك على هذا الملف.</string>
+    <string name="file_edit_discard_confirm">تجاهل</string>
+    <string name="file_edit_keep_editing">متابعة التحرير</string>
+    <string name="file_edit_error_outside_workspace">هذا الملف خارج مساحة العمل ولا يمكن تحريره.</string>
+    <string name="file_edit_error_not_found">لم يعد الملف موجودًا.</string>
+    <string name="file_edit_error_not_text">يمكن تحرير ملفات النص بترميز UTF-8 فقط.</string>
+    <string name="file_edit_error_too_large">هذا الملف كبير جدًا بحيث لا يمكن تحريره (الحد الأقصى: %1$d كيلوبايت).</string>
+    <string name="file_edit_error_read_only">هذا الملف للقراءة فقط.</string>
+    <string name="file_edit_error_changed_on_disk">تم تغيير الملف بواسطة عملية أخرى منذ فتحته، لذلك لم يتم حفظ تعديلاتك. انسخ نصك، وأغلق المحرر، ثم افتح الملف مرة أخرى.</string>
+    <string name="file_edit_error_write_failed">تعذر حفظ الملف.</string>
+    <string name="file_edit_error_generic">تعذر تحرير الملف.</string>
 </resources>

@@ -33,7 +33,7 @@ class AntigravityTarget(internal val runtime: AntigravityRuntime) : RuntimeTarge
         // each turn is a fresh one-shot `agy` process (see AntigravityRuntime.send): sending while one
         // is still running would "interrupt" it by killing that process outright, which surfaced to
         // the user as "agy exited with 137" instead of a clean cancellation.
-        RuntimeCapabilities(toolEvents = true, forcesQueue = true)
+        RuntimeCapabilities(toolEvents = true, forcesQueue = true, fileEditing = true)
     private val mutableState = MutableStateFlow<RuntimeState>(RuntimeState.Disconnected)
     override val state: StateFlow<RuntimeState> = mutableState.asStateFlow()
     private val files =
@@ -281,6 +281,18 @@ class AntigravityTarget(internal val runtime: AntigravityRuntime) : RuntimeTarge
         directory: String,
         path: String,
     ): OpenCodeFileContent = withContext(kotlinx.coroutines.Dispatchers.IO) { files.read(directory, path) }
+
+    override suspend fun readFileForEditing(
+        directory: String,
+        path: String,
+    ): String = withContext(kotlinx.coroutines.Dispatchers.IO) { files.readForEditing(directory, path) }
+
+    override suspend fun writeFile(
+        directory: String,
+        path: String,
+        content: String,
+        expectedContent: String?,
+    ) = withContext(kotlinx.coroutines.Dispatchers.IO) { files.write(directory, path, content, expectedContent) }
 
     override suspend fun findFiles(
         directory: String,

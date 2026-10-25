@@ -1209,4 +1209,19 @@
     <string name="full_development_tools_installed">Todas las herramientas de desarrollo están instaladas</string>
     <string name="install_full_development_tools_button">Instalar cadena completa</string>
     <string name="runtime_full_development_tools_start_failed">No se pudo iniciar la instalación de herramientas</string>
+    <string name="file_edit_action">Editar archivo</string>
+    <string name="file_edit_save">Guardar</string>
+    <string name="file_edit_stop">Dejar de editar</string>
+    <string name="file_edit_discard_title">¿Descartar los cambios?</string>
+    <string name="file_edit_discard_message">Tus cambios en este archivo no se han guardado.</string>
+    <string name="file_edit_discard_confirm">Descartar</string>
+    <string name="file_edit_keep_editing">Seguir editando</string>
+    <string name="file_edit_error_outside_workspace">Este archivo está fuera del espacio de trabajo y no se puede editar.</string>
+    <string name="file_edit_error_not_found">El archivo ya no existe.</string>
+    <string name="file_edit_error_not_text">Solo se pueden editar archivos de texto UTF-8.</string>
+    <string name="file_edit_error_too_large">Este archivo es demasiado grande para editarlo (límite: %1$d KB).</string>
+    <string name="file_edit_error_read_only">Este archivo es de solo lectura.</string>
+    <string name="file_edit_error_changed_on_disk">Otro proceso modificó el archivo desde que lo abriste, así que tus cambios no se guardaron. Copia tu texto, cierra el editor y vuelve a abrir el archivo.</string>
+    <string name="file_edit_error_write_failed">No se pudo guardar el archivo.</string>
+    <string name="file_edit_error_generic">No se pudo editar el archivo.</string>
 </resources>
