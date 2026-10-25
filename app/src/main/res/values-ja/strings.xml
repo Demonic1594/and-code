@@ -1223,4 +1223,19 @@
     <string name="full_development_tools_installed">完全な開発ツールをインストール済み</string>
     <string name="install_full_development_tools_button">完全なツールチェーンをインストール</string>
     <string name="runtime_full_development_tools_start_failed">開発ツールのインストールを開始できません</string>
+    <string name="file_edit_action">ファイルを編集</string>
+    <string name="file_edit_save">保存</string>
+    <string name="file_edit_stop">編集を終了</string>
+    <string name="file_edit_discard_title">変更を破棄しますか？</string>
+    <string name="file_edit_discard_message">このファイルへの編集は保存されていません。</string>
+    <string name="file_edit_discard_confirm">破棄</string>
+    <string name="file_edit_keep_editing">編集を続ける</string>
+    <string name="file_edit_error_outside_workspace">このファイルはワークスペースの外にあるため、編集できません。</string>
+    <string name="file_edit_error_not_found">ファイルが存在しません。</string>
+    <string name="file_edit_error_not_text">編集できるのは UTF-8 のテキストファイルのみです。</string>
+    <string name="file_edit_error_too_large">このファイルは大きすぎて編集できません（上限: %1$d KB）。</string>
+    <string name="file_edit_error_read_only">このファイルは読み取り専用です。</string>
+    <string name="file_edit_error_changed_on_disk">ファイルを開いた後に他の処理によって変更されたため、編集内容は保存されませんでした。テキストをコピーし、エディターを閉じてからファイルを開き直してください。</string>
+    <string name="file_edit_error_write_failed">ファイルを保存できませんでした。</string>
+    <string name="file_edit_error_generic">ファイルを編集できませんでした。</string>
 </resources>

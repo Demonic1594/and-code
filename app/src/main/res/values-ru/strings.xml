@@ -1212,4 +1212,19 @@
     <string name="full_development_tools_installed">Полный набор инструментов установлен</string>
     <string name="install_full_development_tools_button">Установить полный набор</string>
     <string name="runtime_full_development_tools_start_failed">Не удалось начать установку инструментов разработки</string>
+    <string name="file_edit_action">Редактировать файл</string>
+    <string name="file_edit_save">Сохранить</string>
+    <string name="file_edit_stop">Завершить редактирование</string>
+    <string name="file_edit_discard_title">Отбросить изменения?</string>
+    <string name="file_edit_discard_message">Изменения в этом файле не сохранены.</string>
+    <string name="file_edit_discard_confirm">Отбросить</string>
+    <string name="file_edit_keep_editing">Продолжить редактирование</string>
+    <string name="file_edit_error_outside_workspace">Этот файл находится вне рабочей области, его нельзя редактировать.</string>
+    <string name="file_edit_error_not_found">Файл больше не существует.</string>
+    <string name="file_edit_error_not_text">Можно редактировать только текстовые файлы в кодировке UTF-8.</string>
+    <string name="file_edit_error_too_large">Файл слишком большой для редактирования (лимит: %1$d КБ).</string>
+    <string name="file_edit_error_read_only">Файл доступен только для чтения.</string>
+    <string name="file_edit_error_changed_on_disk">Файл был изменён другим процессом после того, как вы его открыли, поэтому ваши правки не сохранены. Скопируйте текст, закройте редактор и откройте файл снова.</string>
+    <string name="file_edit_error_write_failed">Не удалось сохранить файл.</string>
+    <string name="file_edit_error_generic">Не удалось отредактировать файл.</string>
 </resources>

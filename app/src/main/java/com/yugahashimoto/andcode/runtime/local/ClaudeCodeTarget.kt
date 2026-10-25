@@ -85,6 +85,7 @@ class ClaudeCodeTarget(
                 toolEvents = true,
                 resume = true,
                 diffCapable = true,
+                fileEditing = true,
             )
         }
 
@@ -503,6 +504,18 @@ class ClaudeCodeTarget(
         directory: String,
         path: String,
     ): OpenCodeFileContent = withContext(Dispatchers.IO) { files.read(directory, path) }
+
+    override suspend fun readFileForEditing(
+        directory: String,
+        path: String,
+    ): String = withContext(Dispatchers.IO) { files.readForEditing(directory, path) }
+
+    override suspend fun writeFile(
+        directory: String,
+        path: String,
+        content: String,
+        expectedContent: String?,
+    ) = withContext(Dispatchers.IO) { files.write(directory, path, content, expectedContent) }
 
     override suspend fun findFiles(
         directory: String,

@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.feature.workspace
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
@@ -7,16 +8,23 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.WrapText
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -26,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,11 +48,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -71,12 +84,22 @@ private val TOKEN_REGEX =
             "|\\b(\\d+(?:\\.\\d+)?[fFL]?)\\b",
     )
 
+/** What to do once the user has agreed to throw away unsaved edits. */
+private enum class DiscardThen {
+    LEAVE_SCREEN,
+    LEAVE_EDITOR,
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CodeViewerScreen(
     state: CodeViewerUiState,
     onBack: () -> Unit,
     syntaxThemeKey: String? = null,
+    onStartEditing: () -> Unit = {},
+    onDraftChange: (String) -> Unit = {},
+    onSave: () -> Unit = {},
+    onStopEditing: () -> Unit = {},
 ) {
     val theme = remember(syntaxThemeKey) { syntaxThemeFor(syntaxThemeKey) }
     val lines = remember(state.content) { state.content.split("\n") }
@@ -85,6 +108,9 @@ fun CodeViewerScreen(
     var showSearch by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var currentMatch by rememberSaveable { mutableIntStateOf(-1) }
+    // Not saveable: the draft it asks about lives in the view model, which does not survive the
+    // process being killed, so a restored dialog would ask about changes that no longer exist.
+    var pendingDiscard by remember { mutableStateOf<DiscardThen?>(null) }
 
     val codeListState = rememberLazyListState()
     val numbersListState = rememberLazyListState()
@@ -111,21 +137,59 @@ fun CodeViewerScreen(
 
     LaunchedEffect(searchQuery) { currentMatch = -1 }
 
+    // Leaving with edits that were never saved would lose them without a word, so both the system
+    // back gesture and the toolbar's back arrow stop for a confirmation first. While the save is in
+    // flight neither does anything: the write cannot be taken back, so offering to "discard" then
+    // would claim the opposite of what happens.
+    BackHandler(enabled = state.hasUnsavedChanges || state.isSaving) {
+        if (!state.isSaving) pendingDiscard = DiscardThen.LEAVE_SCREEN
+    }
+    val leaveScreen: () -> Unit = {
+        if (!state.isSaving) {
+            if (state.hasUnsavedChanges) {
+                pendingDiscard = DiscardThen.LEAVE_SCREEN
+            } else {
+                onBack()
+            }
+        }
+    }
+    val leaveEditor: () -> Unit = {
+        if (state.hasUnsavedChanges) {
+            pendingDiscard = DiscardThen.LEAVE_EDITOR
+        } else {
+            onStopEditing()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(state.filePath.substringAfterLast('/')) },
+                title = { Text(state.filePath.substringAfterLast('/') + if (state.hasUnsavedChanges) UNSAVED_MARK else "") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = leaveScreen) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showSearch = !showSearch }) {
-                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.cd_search))
-                    }
-                    IconButton(onClick = { wrap = !wrap }) {
-                        Icon(Icons.AutoMirrored.Filled.WrapText, contentDescription = stringResource(R.string.cd_toggle_wrap))
+                    if (state.isEditing) {
+                        IconButton(onClick = onSave, enabled = state.hasUnsavedChanges && !state.isSaving) {
+                            Icon(Icons.Default.Check, contentDescription = stringResource(R.string.file_edit_save))
+                        }
+                        IconButton(onClick = leaveEditor, enabled = !state.isSaving) {
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.file_edit_stop))
+                        }
+                    } else {
+                        if (state.canEdit && !state.isLoading) {
+                            IconButton(onClick = onStartEditing, enabled = !state.isPreparingEdit) {
+                                Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.file_edit_action))
+                            }
+                        }
+                        IconButton(onClick = { showSearch = !showSearch }) {
+                            Icon(Icons.Default.Search, contentDescription = stringResource(R.string.cd_search))
+                        }
+                        IconButton(onClick = { wrap = !wrap }) {
+                            Icon(Icons.AutoMirrored.Filled.WrapText, contentDescription = stringResource(R.string.cd_toggle_wrap))
+                        }
                     }
                 },
             )
@@ -156,103 +220,200 @@ fun CodeViewerScreen(
                         .padding(padding)
                         .background(CodeBackground),
             ) {
-                if (showSearch) {
-                    Row(
+                state.editError?.let { EditErrorBanner(it) }
+                if (state.isEditing) {
+                    CodeEditor(
+                        text = state.draft,
+                        readOnly = state.isSaving,
+                        onTextChange = onDraftChange,
                         modifier =
                             Modifier
-                                .fillMaxWidth()
+                                .fillMaxSize()
+                                .imePadding()
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
-                    ) {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            label = { Text(stringResource(R.string.search_label)) },
-                            colors =
-                                OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = CodeForeground,
-                                    unfocusedTextColor = CodeForeground,
-                                    cursorColor = CodeForeground,
-                                    focusedLabelColor = LineNumberColor,
-                                    unfocusedLabelColor = LineNumberColor,
-                                    focusedBorderColor = LineNumberColor,
-                                    unfocusedBorderColor = LineNumberColor,
-                                ),
-                        )
-                        IconButton(
-                            onClick = {
-                                if (matchLines.isNotEmpty()) {
-                                    currentMatch = (currentMatch + 1) % matchLines.size
-                                    val target = matchLines[currentMatch]
-                                    scope.launch { codeListState.animateScrollToItem(target) }
-                                }
-                            },
+                    )
+                } else {
+                    if (showSearch) {
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
                         ) {
-                            Icon(
-                                Icons.Default.KeyboardArrowDown,
-                                contentDescription = stringResource(R.string.cd_next_match),
-                                tint = CodeForeground,
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                label = { Text(stringResource(R.string.search_label)) },
+                                colors =
+                                    OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = CodeForeground,
+                                        unfocusedTextColor = CodeForeground,
+                                        cursorColor = CodeForeground,
+                                        focusedLabelColor = LineNumberColor,
+                                        unfocusedLabelColor = LineNumberColor,
+                                        focusedBorderColor = LineNumberColor,
+                                        unfocusedBorderColor = LineNumberColor,
+                                    ),
                             )
-                        }
-                    }
-                    if (searchQuery.isNotEmpty()) {
-                        Text(
-                            text =
-                                if (matchLines.isEmpty()) {
-                                    stringResource(
-                                        R.string.code_no_matches,
-                                    )
-                                } else {
-                                    stringResource(R.string.code_match_counter, currentMatch + 1, matchLines.size)
+                            IconButton(
+                                onClick = {
+                                    if (matchLines.isNotEmpty()) {
+                                        currentMatch = (currentMatch + 1) % matchLines.size
+                                        val target = matchLines[currentMatch]
+                                        scope.launch { codeListState.animateScrollToItem(target) }
+                                    }
                                 },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = LineNumberColor,
-                            modifier = Modifier.padding(start = 16.dp, bottom = 4.dp),
-                        )
-                    }
-                }
-                Row(modifier = Modifier.fillMaxSize()) {
-                    LazyColumn(
-                        state = numbersListState,
-                        userScrollEnabled = false,
-                        modifier = Modifier.padding(start = 8.dp, end = 8.dp),
-                    ) {
-                        items(lines.size) { index ->
+                            ) {
+                                Icon(
+                                    Icons.Default.KeyboardArrowDown,
+                                    contentDescription = stringResource(R.string.cd_next_match),
+                                    tint = CodeForeground,
+                                )
+                            }
+                        }
+                        if (searchQuery.isNotEmpty()) {
                             Text(
-                                text = (index + 1).toString(),
+                                text =
+                                    if (matchLines.isEmpty()) {
+                                        stringResource(
+                                            R.string.code_no_matches,
+                                        )
+                                    } else {
+                                        stringResource(R.string.code_match_counter, currentMatch + 1, matchLines.size)
+                                    },
+                                style = MaterialTheme.typography.labelSmall,
                                 color = LineNumberColor,
-                                fontSize = 12.sp,
-                                lineHeight = 18.sp,
-                                fontFamily = FontFamily.Monospace,
-                                textAlign = TextAlign.End,
-                                modifier = Modifier.width(40.dp),
+                                modifier = Modifier.padding(start = 16.dp, bottom = 4.dp),
                             )
                         }
                     }
-                    LazyColumn(
-                        state = codeListState,
-                        modifier =
-                            Modifier
-                                .weight(1f)
-                                .then(if (wrap) Modifier else Modifier.horizontalScroll(hScrollState)),
-                    ) {
-                        items(lines.size) { index ->
-                            Text(
-                                text = highlightLine(lines[index], theme, searchQuery),
-                                color = CodeForeground,
-                                fontSize = 12.sp,
-                                lineHeight = 18.sp,
-                                fontFamily = FontFamily.Monospace,
-                                softWrap = wrap,
-                                maxLines = if (wrap) Int.MAX_VALUE else 1,
-                            )
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            state = numbersListState,
+                            userScrollEnabled = false,
+                            modifier = Modifier.padding(start = 8.dp, end = 8.dp),
+                        ) {
+                            items(lines.size) { index ->
+                                Text(
+                                    text = (index + 1).toString(),
+                                    color = LineNumberColor,
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.width(40.dp),
+                                )
+                            }
+                        }
+                        LazyColumn(
+                            state = codeListState,
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .then(if (wrap) Modifier else Modifier.horizontalScroll(hScrollState)),
+                        ) {
+                            items(lines.size) { index ->
+                                Text(
+                                    text = highlightLine(lines[index], theme, searchQuery),
+                                    color = CodeForeground,
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    softWrap = wrap,
+                                    maxLines = if (wrap) Int.MAX_VALUE else 1,
+                                )
+                            }
                         }
                     }
                 }
             }
         }
     }
+
+    pendingDiscard?.let { action ->
+        DiscardChangesDialog(
+            onKeepEditing = { pendingDiscard = null },
+            onDiscard = {
+                pendingDiscard = null
+                onStopEditing()
+                if (action == DiscardThen.LEAVE_SCREEN) onBack()
+            },
+        )
+    }
+}
+
+/**
+ * The editing surface: one text field over the whole file.
+ *
+ * It holds its own [TextFieldValue] and only reports the text upward. Handing the field a plain
+ * string from state that arrives a frame late loses the cursor and any IME composition in progress
+ * (Japanese input, for one), so selection and composition stay local and the view model sees text.
+ * Wrapping is always on: the text field has no unwrapped multi-line mode.
+ */
+@Composable
+private fun CodeEditor(
+    text: String,
+    readOnly: Boolean,
+    onTextChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var field by remember { mutableStateOf(TextFieldValue(text)) }
+    BasicTextField(
+        value = field,
+        onValueChange = { next ->
+            // Against what this field showed a moment ago, not the view model's copy: that one is a
+            // frame behind, and an edit that happens to restore it would never be reported.
+            val changed = next.text != field.text
+            field = next
+            if (changed) onTextChange(next.text)
+        },
+        modifier = modifier,
+        readOnly = readOnly,
+        // Code, paths and secrets: autocorrect and auto-capitalisation would quietly rewrite them.
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false),
+        textStyle =
+            TextStyle(
+                color = CodeForeground,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+            ),
+        cursorBrush = SolidColor(CodeForeground),
+    )
+}
+
+@Composable
+private fun EditErrorBanner(message: String) {
+    Text(
+        text = message,
+        color = MaterialTheme.colorScheme.onErrorContainer,
+        style = MaterialTheme.typography.bodySmall,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.errorContainer)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+}
+
+@Composable
+private fun DiscardChangesDialog(
+    onKeepEditing: () -> Unit,
+    onDiscard: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onKeepEditing,
+        title = { Text(stringResource(R.string.file_edit_discard_title)) },
+        text = { Text(stringResource(R.string.file_edit_discard_message)) },
+        confirmButton = {
+            TextButton(onClick = onDiscard) { Text(stringResource(R.string.file_edit_discard_confirm)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onKeepEditing) { Text(stringResource(R.string.file_edit_keep_editing)) }
+        },
+    )
 }
 
 private fun highlightLine(
@@ -287,3 +448,6 @@ private fun highlightLine(
             }
         }
     }
+
+/** Appended to the file name while there are edits that have not been saved. */
+private const val UNSAVED_MARK = " •"

@@ -53,6 +53,7 @@ import com.yugahashimoto.andcode.runtime.local.AntigravityTarget
 import com.yugahashimoto.andcode.runtime.local.ClaudeCodeController
 import com.yugahashimoto.andcode.runtime.local.ClaudeCodeRuntime
 import com.yugahashimoto.andcode.runtime.local.ClaudeCodeTarget
+import com.yugahashimoto.andcode.runtime.local.ClaudeWorkspaceFiles
 import com.yugahashimoto.andcode.runtime.local.CodexController
 import com.yugahashimoto.andcode.runtime.local.CodexKeepAliveService
 import com.yugahashimoto.andcode.runtime.local.CodexRuntime
@@ -467,7 +468,19 @@ class AndCodeApplication : Application() {
         runtimeRegistry =
             RuntimeRegistry(
                 store = settings,
-                localTarget = LocalRuntimeTarget(localRuntimeManager, messages = runtimeMessages),
+                localTarget =
+                    LocalRuntimeTarget(
+                        localRuntimeManager,
+                        messages = runtimeMessages,
+                        // Same folders the other on-device agents browse, so an edit lands in the
+                        // directory the OpenCode server in the guest is working in.
+                        files =
+                            ClaudeWorkspaceFiles(
+                                workspaceHostDir = File(runtimeDirectory, "workspace"),
+                                rootfsHostDir = File(runtimeDirectory, "environment/rootfs"),
+                                deviceStorage = DeviceStorage::mounts,
+                            ),
+                    ),
                 additionalTargets = listOf(claudeCodeTarget, antigravityTarget, codexTarget),
             )
         // Surface the installed/version state to the workspace picker without waiting for the

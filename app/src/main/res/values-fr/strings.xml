@@ -1209,4 +1209,19 @@
     <string name="full_development_tools_installed">Tous les outils de développement sont installés</string>
     <string name="install_full_development_tools_button">Installer la chaîne complète</string>
     <string name="runtime_full_development_tools_start_failed">Impossible de démarrer l’installation des outils</string>
+    <string name="file_edit_action">Modifier le fichier</string>
+    <string name="file_edit_save">Enregistrer</string>
+    <string name="file_edit_stop">Arrêter la modification</string>
+    <string name="file_edit_discard_title">Abandonner les modifications ?</string>
+    <string name="file_edit_discard_message">Vos modifications de ce fichier n’ont pas été enregistrées.</string>
+    <string name="file_edit_discard_confirm">Abandonner</string>
+    <string name="file_edit_keep_editing">Continuer à modifier</string>
+    <string name="file_edit_error_outside_workspace">Ce fichier est en dehors de l’espace de travail et ne peut pas être modifié.</string>
+    <string name="file_edit_error_not_found">Le fichier n’existe plus.</string>
+    <string name="file_edit_error_not_text">Seuls les fichiers texte UTF-8 peuvent être modifiés.</string>
+    <string name="file_edit_error_too_large">Ce fichier est trop volumineux pour être modifié (limite : %1$d Ko).</string>
+    <string name="file_edit_error_read_only">Ce fichier est en lecture seule.</string>
+    <string name="file_edit_error_changed_on_disk">Le fichier a été modifié par autre chose depuis son ouverture ; vos modifications n’ont donc pas été enregistrées. Copiez votre texte, fermez l’éditeur, puis rouvrez le fichier.</string>
+    <string name="file_edit_error_write_failed">Impossible d’enregistrer le fichier.</string>
+    <string name="file_edit_error_generic">Impossible de modifier le fichier.</string>
 </resources>
