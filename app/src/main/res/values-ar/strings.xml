@@ -499,6 +499,12 @@
     <string name="run_settings_model_default">الافتراضي للنموذج</string>
     <string name="run_settings_section_agent">الوكيل</string>
     <string name="run_settings_section_thinking">مستوى التفكير</string>
+    <string name="chat_welcome_title">على ماذا نعمل؟</string>
+    <string name="chat_welcome_subtitle">اسأل عن الشيفرة، أو أصلح خطأً، أو ابدأ شيئًا جديدًا.</string>
+    <string name="chat_suggest_explain">اشرح هيكلة هذا المشروع</string>
+    <string name="chat_suggest_fix">ابحث عن خطأ وأصلحه</string>
+    <string name="chat_suggest_tests">اكتب اختبارات للشيفرة التي غيّرتها</string>
+    <string name="chat_suggest_review">راجع تغييراتي غير المحفوظة</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">عمليات GitHub Git</string>
     <string name="github_not_connected">غير متصل</string>

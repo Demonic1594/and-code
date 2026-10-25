@@ -489,6 +489,12 @@
     <string name="run_settings_model_default">模型默认值</string>
     <string name="run_settings_section_agent">智能体</string>
     <string name="run_settings_section_thinking">思考级别</string>
+    <string name="chat_welcome_title">我们要做什么？</string>
+    <string name="chat_welcome_subtitle">询问代码、修复错误，或开始新的工作。</string>
+    <string name="chat_suggest_explain">解释这个项目的结构</string>
+    <string name="chat_suggest_fix">找到并修复一个错误</string>
+    <string name="chat_suggest_tests">为我修改的代码编写测试</string>
+    <string name="chat_suggest_review">审查我未提交的更改</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">GitHub Git 操作</string>
     <string name="github_not_connected">未连接</string>

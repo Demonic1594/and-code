@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.feature.chat
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -50,16 +51,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.ui.theme.AppShapes
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 import com.yugahashimoto.andcode.ui.theme.LocalThemeColors
+import com.yugahashimoto.andcode.ui.theme.Spacing
 
 /**
  * One collapsed line standing in for a whole run of reasoning/tool calls.
@@ -88,11 +94,12 @@ fun AssistantActivityRow(
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = AppShapes.md,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = Spacing.md, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -123,14 +130,21 @@ fun AssistantActivityRow(
                 )
                 ToolStatusChip(running.status)
             } else {
-                Text(
-                    text = activitySummaryText(summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = accent,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
+                // Settled runs read as icon + count pills ("⌘ 2  👁 3  ✎ 1"): scannable at a glance
+                // and free of the "(s)" plurals the sentence form needed. The sentence stays as the
+                // row's spoken description.
+                val description = activitySummaryText(summary)
+                Row(
+                    modifier = Modifier.weight(1f).semantics(mergeDescendants = true) { contentDescription = description },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    ToolCategory.entries.forEach { category ->
+                        val count = summary.counts[category] ?: return@forEach
+                        ActivityCount(toolCategoryIcon(category), count, accent)
+                    }
+                    if (summary.reasoningCount > 0) ActivityCount(Icons.Default.Psychology, summary.reasoningCount, accent)
+                }
             }
             Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -193,6 +207,23 @@ fun AssistantActivitySheet(
             }
             item { Column(modifier = Modifier.padding(bottom = 32.dp)) {} }
         }
+    }
+}
+
+@Composable
+private fun ActivityCount(
+    icon: ImageVector,
+    count: Int,
+    tint: Color,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(15.dp))
+        Text(
+            text = count.toString(),
+            style = MaterialTheme.typography.labelMedium,
+            fontFamily = CodeFontFamily,
+            color = tint,
+        )
     }
 }
 

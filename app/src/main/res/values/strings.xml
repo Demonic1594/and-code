@@ -479,6 +479,12 @@
     <string name="run_settings_model_default">Model default</string>
     <string name="run_settings_section_agent">Agent</string>
     <string name="run_settings_section_thinking">Thinking level</string>
+    <string name="chat_welcome_title">What should we work on?</string>
+    <string name="chat_welcome_subtitle">Ask about the code, fix a bug, or start something new.</string>
+    <string name="chat_suggest_explain">Explain how this project is structured</string>
+    <string name="chat_suggest_fix">Find and fix a bug</string>
+    <string name="chat_suggest_tests">Write tests for the code I changed</string>
+    <string name="chat_suggest_review">Review my uncommitted changes</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">GitHub Git operations</string>
     <string name="github_not_connected">Not connected</string>

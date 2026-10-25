@@ -18,6 +18,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 
@@ -175,22 +177,39 @@ fun buildTypography(
     codeFontSize: Int = 12,
 ): Typography {
     val scale = uiFontSize / 16f
+    val base = Typography()
+
+    // Material's default tracking (0.5sp on body and label text) was tuned for sparse consumer
+    // screens; in a dense developer tool it makes paragraphs look loose and labels look shouty.
+    // Tighter tracking, slightly taller body lines and heavier titles give the calmer, denser read
+    // of desktop agent apps without shrinking anything.
+    fun TextStyle.sized(
+        size: Float,
+        line: Float,
+        tracking: Float,
+        weight: FontWeight? = null,
+    ) = copy(
+        fontSize = (size * scale).sp,
+        lineHeight = (line * scale).sp,
+        letterSpacing = tracking.sp,
+        fontWeight = weight ?: fontWeight,
+    )
     return Typography(
-        displayLarge = Typography().displayLarge.copy(fontSize = (57 * scale).sp),
-        displayMedium = Typography().displayMedium.copy(fontSize = (45 * scale).sp),
-        displaySmall = Typography().displaySmall.copy(fontSize = (36 * scale).sp),
-        headlineLarge = Typography().headlineLarge.copy(fontSize = (32 * scale).sp),
-        headlineMedium = Typography().headlineMedium.copy(fontSize = (28 * scale).sp),
-        headlineSmall = Typography().headlineSmall.copy(fontSize = (24 * scale).sp),
-        titleLarge = Typography().titleLarge.copy(fontSize = (22 * scale).sp),
-        titleMedium = Typography().titleMedium.copy(fontSize = (16 * scale).sp),
-        titleSmall = Typography().titleSmall.copy(fontSize = (14 * scale).sp),
-        bodyLarge = Typography().bodyLarge.copy(fontSize = (16 * scale).sp),
-        bodyMedium = Typography().bodyMedium.copy(fontSize = (14 * scale).sp),
-        bodySmall = Typography().bodySmall.copy(fontSize = (12 * scale).sp),
-        labelLarge = Typography().labelLarge.copy(fontSize = (14 * scale).sp),
-        labelMedium = Typography().labelMedium.copy(fontSize = (12 * scale).sp),
-        labelSmall = Typography().labelSmall.copy(fontSize = (11 * scale).sp),
+        displayLarge = base.displayLarge.sized(57f, 64f, -0.25f),
+        displayMedium = base.displayMedium.sized(45f, 52f, 0f),
+        displaySmall = base.displaySmall.sized(36f, 44f, 0f),
+        headlineLarge = base.headlineLarge.sized(30f, 38f, -0.2f, FontWeight.SemiBold),
+        headlineMedium = base.headlineMedium.sized(26f, 34f, -0.2f, FontWeight.SemiBold),
+        headlineSmall = base.headlineSmall.sized(22f, 30f, -0.1f, FontWeight.SemiBold),
+        titleLarge = base.titleLarge.sized(20f, 28f, -0.1f, FontWeight.SemiBold),
+        titleMedium = base.titleMedium.sized(16f, 22f, 0f, FontWeight.SemiBold),
+        titleSmall = base.titleSmall.sized(14f, 20f, 0f, FontWeight.SemiBold),
+        bodyLarge = base.bodyLarge.sized(16f, 25f, 0.1f),
+        bodyMedium = base.bodyMedium.sized(14f, 21f, 0.1f),
+        bodySmall = base.bodySmall.sized(12f, 17f, 0.15f),
+        labelLarge = base.labelLarge.sized(14f, 20f, 0.05f, FontWeight.Medium),
+        labelMedium = base.labelMedium.sized(12f, 16f, 0.2f, FontWeight.Medium),
+        labelSmall = base.labelSmall.sized(11f, 16f, 0.25f, FontWeight.Medium),
     )
 }
 

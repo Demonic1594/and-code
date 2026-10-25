@@ -495,6 +495,12 @@
     <string name="run_settings_model_default">По умолчанию для модели</string>
     <string name="run_settings_section_agent">Агент</string>
     <string name="run_settings_section_thinking">Уровень размышлений</string>
+    <string name="chat_welcome_title">Над чем поработаем?</string>
+    <string name="chat_welcome_subtitle">Спросите о коде, исправьте ошибку или начните что-то новое.</string>
+    <string name="chat_suggest_explain">Объясни, как устроен этот проект</string>
+    <string name="chat_suggest_fix">Найди и исправь ошибку</string>
+    <string name="chat_suggest_tests">Напиши тесты для кода, который я изменил</string>
+    <string name="chat_suggest_review">Проверь мои незафиксированные изменения</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">Операции GitHub Git</string>
     <string name="github_not_connected">Не подключено</string>

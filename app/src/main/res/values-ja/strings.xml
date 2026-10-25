@@ -491,6 +491,12 @@
     <string name="run_settings_model_default">モデルの既定値</string>
     <string name="run_settings_section_agent">エージェント</string>
     <string name="run_settings_section_thinking">思考レベル</string>
+    <string name="chat_welcome_title">何に取り組みますか？</string>
+    <string name="chat_welcome_subtitle">コードについて質問したり、バグを直したり、新しいことを始めたりできます。</string>
+    <string name="chat_suggest_explain">このプロジェクトの構成を説明して</string>
+    <string name="chat_suggest_fix">バグを見つけて直して</string>
+    <string name="chat_suggest_tests">変更したコードのテストを書いて</string>
+    <string name="chat_suggest_review">コミットしていない変更をレビューして</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">GitHub Git 操作</string>
     <string name="github_not_connected">未接続</string>

@@ -1,27 +1,31 @@
 package com.yugahashimoto.andcode.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.ManageSearch
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
@@ -30,6 +34,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Schedule
@@ -37,13 +42,12 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -57,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -72,6 +77,10 @@ import com.yugahashimoto.andcode.ui.components.StatusDot
 import com.yugahashimoto.andcode.ui.components.rememberHaptics
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ARCHIVE
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
+import com.yugahashimoto.andcode.ui.theme.AppShapes
+import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
+import com.yugahashimoto.andcode.ui.theme.LocalThemeColors
+import com.yugahashimoto.andcode.ui.theme.Spacing
 
 data class DrawerRecentSession(
     val id: String,
@@ -177,6 +186,7 @@ fun AppDrawerContent(
             selectionMode = selectionMode,
             indented = indented,
             agent = session.agent,
+            relativeTime = session.relativeTime,
             onClick = { onOpenSession(session.id, session.title, session.runtimeId) },
             onLongClick = { enterSelectionMode(session.id) },
             onToggleSelection = { toggleSelection(session.id) },
@@ -207,7 +217,10 @@ fun AppDrawerContent(
                 .filterNot { it.id in pinnedSessionIds }
                 .groupBy { it.projectKey() }
                 .toList()
-                .sortedByDescending { (_, sessions) ->
+                // recentSessions is newest first, so the project whose newest chat comes earliest
+                // in it is the one worked on last; it leads. (Sorting descending used to put the
+                // project you touched longest ago at the top.)
+                .sortedBy { (_, sessions) ->
                     sessions.firstOrNull()?.let { recentSessions.indexOf(it) } ?: Int.MAX_VALUE
                 }
         grouped.forEach { (key, sessions) ->
@@ -249,46 +262,22 @@ fun AppDrawerContent(
                     DrawerSearchField(query = searchQuery, onQueryChange = { searchQuery = it })
                 }
 
-                // Only worth a switcher when there is something to switch between.
+                // Only worth a switcher when there is something to switch between. A row of agent
+                // chips rather than a list: four full-width rows used to push the chats themselves
+                // below the fold, and the agent is a setting you glance at, not a list you read.
                 if (agents.size > 1) {
-                    DrawerSectionHeader(
-                        text = stringResource(R.string.drawer_agents_title),
-                        collapsed = collapsedSections.contains("agents"),
-                        onToggle = { onToggleSection("agents") },
-                    )
-                    AnimatedVisibility(visible = !collapsedSections.contains("agents")) {
-                        Column {
-                            agents.forEach { agent ->
-                                DrawerAgentRow(
-                                    agent = agent,
-                                    selected = agent.runtimeId == selectedRuntimeId,
-                                    onClick = { onSelectAgent(agent) },
-                                )
-                            }
-                        }
-                    }
+                    DrawerSectionHeader(text = stringResource(R.string.drawer_agents_title), collapsible = false)
+                    DrawerAgentSwitcher(agents = agents, selectedRuntimeId = selectedRuntimeId, onSelectAgent = onSelectAgent)
                 }
 
-                // Collapsible like every other section: this header took the same composable but was
-                // never given the parameters, so it alone could not be folded away.
-                DrawerSectionHeader(
-                    text = stringResource(R.string.drawer_projects_title),
-                    collapsed = collapsedSections.contains("projects"),
-                    onToggle = { onToggleSection("projects") },
+                // Projects as chips for the same reason; the full path is one tap away in Workspaces.
+                DrawerSectionHeader(text = stringResource(R.string.drawer_projects_title), collapsible = false)
+                DrawerProjectChips(
+                    workspaces = workspaces,
+                    selectedWorkspacePath = selectedWorkspacePath,
+                    onSelectProject = onSelectProject,
+                    onAddProject = { onNavigate("workspaces") },
                 )
-                AnimatedVisibility(visible = !collapsedSections.contains("projects")) {
-                    Column {
-                        workspaces.forEach { workspace ->
-                            DrawerProjectRow(
-                                label = workspace.name,
-                                path = workspace.path,
-                                selected = workspace.path == selectedWorkspacePath,
-                                onClick = { onSelectProject(workspace) },
-                            )
-                        }
-                        DrawerAddProjectRow(onClick = { onNavigate("workspaces") })
-                    }
-                }
 
                 if (recentSessions.isNotEmpty()) {
                     DrawerSectionHeader(
@@ -349,22 +338,15 @@ fun AppDrawerContent(
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.42f))
-            DrawerDestinationRow(
-                icon = Icons.Default.Inventory2,
-                label = stringResource(R.string.archive_title),
-                onClick = { onNavigate(ROUTE_ARCHIVE) },
-            )
-            DrawerDestinationRow(
-                icon = Icons.Default.Schedule,
-                label = stringResource(R.string.nav_schedules),
-                onClick = { onNavigate("schedules") },
-            )
-            DrawerDestinationRow(
-                icon = Icons.Default.Settings,
-                label = stringResource(R.string.nav_settings),
-                onClick = { onNavigate("settings") },
-            )
-            Spacer(Modifier.padding(bottom = 3.dp))
+            // The three places you go less often share one row, so the chat list keeps the height.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.sm, vertical = Spacing.xs),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                DrawerDestinationRow(Icons.Default.Inventory2, stringResource(R.string.archive_title)) { onNavigate(ROUTE_ARCHIVE) }
+                DrawerDestinationRow(Icons.Default.Schedule, stringResource(R.string.nav_schedules)) { onNavigate("schedules") }
+                DrawerDestinationRow(Icons.Default.Settings, stringResource(R.string.nav_settings)) { onNavigate("settings") }
+            }
         }
     }
 
@@ -430,25 +412,41 @@ private fun DrawerSearchField(
     query: String,
     onQueryChange: (String) -> Unit,
 ) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-        placeholder = { Text(stringResource(R.string.drawer_search_hint), style = MaterialTheme.typography.bodyMedium) },
-        leadingIcon = {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.xs),
+        shape = AppShapes.pill,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 14.dp, end = Spacing.xs).height(42.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
             Icon(
                 Icons.Default.Search,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        },
-        trailingIcon = {
+            Box(modifier = Modifier.weight(1f)) {
+                if (query.isEmpty()) {
+                    Text(
+                        stringResource(R.string.drawer_search_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             if (query.isNotEmpty()) {
-                IconButton(onClick = { onQueryChange("") }) {
+                IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(34.dp)) {
                     Icon(
                         Icons.Default.Clear,
                         contentDescription = stringResource(R.string.drawer_search_clear),
@@ -456,15 +454,8 @@ private fun DrawerSearchField(
                     )
                 }
             }
-        },
-        singleLine = true,
-        textStyle = MaterialTheme.typography.bodyMedium,
-        shape = RoundedCornerShape(12.dp),
-        colors =
-            OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.42f),
-            ),
-    )
+        }
+    }
 }
 
 @Composable
@@ -548,32 +539,16 @@ private fun DrawerHeader() {
 
 @Composable
 private fun NewChatRow(onClick: () -> Unit) {
-    Surface(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 3.dp)
-                .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
+    // The one thing the drawer exists to start, so it is the one filled, accent-coloured control.
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.xs).height(44.dp),
+        shape = AppShapes.pill,
+        contentPadding = PaddingValues(horizontal = Spacing.lg),
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icon(
-                Icons.AutoMirrored.Filled.Chat,
-                contentDescription = stringResource(R.string.cd_new_chat),
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp),
-            )
-            Text(
-                text = stringResource(R.string.new_chat),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-            )
-        }
+        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(Spacing.sm))
+        Text(text = stringResource(R.string.new_chat), style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -582,131 +557,74 @@ private fun DrawerSectionHeader(
     text: String,
     collapsed: Boolean = false,
     onToggle: () -> Unit = {},
+    collapsible: Boolean = true,
 ) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onToggle)
-                .padding(start = 16.dp, end = 16.dp, top = 17.dp, bottom = 5.dp),
+                .then(if (collapsible) Modifier.clickable(onClick = onToggle) else Modifier)
+                .padding(start = 18.dp, end = Spacing.lg, top = 18.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = if (collapsed) Icons.Default.ChevronRight else Icons.Default.ExpandMore,
-            contentDescription = stringResource(R.string.cd_expand_collapse),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(16.dp),
-        )
-        Spacer(Modifier.width(4.dp))
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f),
         )
-    }
-}
-
-@Composable
-private fun DrawerAgentRow(
-    agent: DrawerAgent,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 2.dp)
-                .clickable(onClick = onClick),
-        shape = RoundedCornerShape(10.dp),
-        color =
-            if (selected) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-            } else {
-                Color.Transparent
-            },
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
+        if (collapsible) {
             Icon(
-                painter = painterResource(agent.agent.iconRes),
-                contentDescription = null,
-                tint =
-                    if (selected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                modifier = Modifier.size(18.dp),
-            )
-            Text(
-                text = stringResource(agent.agent.displayNameRes),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                imageVector = if (collapsed) Icons.Default.ChevronRight else Icons.Default.ExpandMore,
+                contentDescription = stringResource(R.string.cd_expand_collapse),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp),
             )
         }
     }
 }
 
 @Composable
-private fun DrawerProjectRow(
-    label: String,
-    path: String?,
-    selected: Boolean,
-    onClick: () -> Unit,
+private fun DrawerAgentSwitcher(
+    agents: List<DrawerAgent>,
+    selectedRuntimeId: String?,
+    onSelectAgent: (DrawerAgent) -> Unit,
 ) {
-    Surface(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 2.dp)
-                .clickable(onClick = onClick),
-        shape = RoundedCornerShape(10.dp),
-        color =
-            if (selected) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-            } else {
-                Color.Transparent
-            },
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icon(
-                Icons.Default.Folder,
-                contentDescription = stringResource(R.string.cd_folder),
-                tint =
-                    if (selected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                modifier = Modifier.size(18.dp),
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (path != null) {
-                    Text(
-                        text = path,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+        agents.forEach { agent ->
+            val selected = agent.runtimeId == selectedRuntimeId
+            val name = stringResource(agent.agent.displayNameRes)
+            Surface(
+                onClick = { onSelectAgent(agent) },
+                // The chosen agent spells out its name; the others stay icons, so four agents fit
+                // a phone-width drawer without truncating any of them.
+                modifier = Modifier.height(38.dp).then(if (selected) Modifier.weight(1f) else Modifier.width(44.dp)),
+                shape = AppShapes.md,
+                color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)) else null,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm, Alignment.CenterHorizontally),
+                ) {
+                    Icon(
+                        painter = painterResource(agent.agent.iconRes),
+                        contentDescription = if (selected) null else name,
+                        modifier = Modifier.size(18.dp),
                     )
+                    if (selected) {
+                        Text(
+                            text = name,
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
@@ -714,28 +632,64 @@ private fun DrawerProjectRow(
 }
 
 @Composable
-private fun DrawerAddProjectRow(onClick: () -> Unit) {
+private fun DrawerProjectChips(
+    workspaces: List<WorkspaceRef>,
+    selectedWorkspacePath: String?,
+    onSelectProject: (WorkspaceRef) -> Unit,
+    onAddProject: () -> Unit,
+) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = Spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(
-            Icons.Default.Add,
-            contentDescription = stringResource(R.string.cd_add_project),
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(18.dp),
-        )
-        Text(
-            text = stringResource(R.string.drawer_add_project),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Medium,
-        )
+        workspaces.forEach { workspace ->
+            val selected = workspace.path == selectedWorkspacePath
+            Surface(
+                onClick = { onSelectProject(workspace) },
+                shape = AppShapes.pill,
+                color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                border =
+                    BorderStroke(
+                        1.dp,
+                        if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f) else MaterialTheme.colorScheme.outline,
+                    ),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        if (selected) Icons.Default.FolderOpen else Icons.Default.Folder,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(workspace.name, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                }
+            }
+        }
+        Surface(
+            onClick = onAddProject,
+            shape = AppShapes.pill,
+            color = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.primary,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = Spacing.md, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                Text(stringResource(R.string.drawer_add_project), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+            }
+        }
     }
 }
 
@@ -750,29 +704,30 @@ private fun DrawerRecentProjectHeader(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onToggle)
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 3.dp),
+                .padding(start = 18.dp, end = Spacing.lg, top = 14.dp, bottom = Spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(7.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(
-            imageVector = if (collapsed) Icons.Default.ChevronRight else Icons.Default.ExpandMore,
-            contentDescription = stringResource(R.string.cd_expand_collapse),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(14.dp),
-        )
         Icon(
             Icons.Default.Folder,
             contentDescription = stringResource(R.string.cd_folder),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp),
+            tint = LocalThemeColors.current.foregroundExtraMuted,
+            modifier = Modifier.size(14.dp),
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.labelMedium,
+            fontFamily = CodeFontFamily,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            imageVector = if (collapsed) Icons.Default.ChevronRight else Icons.Default.ExpandMore,
+            contentDescription = stringResource(R.string.cd_expand_collapse),
+            tint = LocalThemeColors.current.foregroundExtraMuted,
+            modifier = Modifier.size(14.dp),
         )
     }
 }
@@ -790,59 +745,90 @@ private fun DrawerChatRow(
     indented: Boolean = false,
     /** Null for a remote runtime; the list now spans every agent, so rows have to say which. */
     agent: LocalAgent? = null,
+    relativeTime: String = "",
     onClick: () -> Unit,
     onLongClick: () -> Unit = {},
     onToggleSelection: () -> Unit = {},
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .combinedClickable(
-                    onClick = if (selectionMode) onToggleSelection else onClick,
-                    onLongClick = if (selectionMode) null else onLongClick,
-                )
-                .padding(
-                    start = if (indented) 48.dp else 16.dp,
-                    end = 16.dp,
-                    top = 8.dp,
-                    bottom = 8.dp,
-                ),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    // Two lines per chat, like the session lists of mobile agent clients: the title, then which
+    // agent ran it and when. The open chat gets a soft highlight instead of nothing at all.
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.sm, vertical = 1.dp),
+        shape = AppShapes.md,
+        color = if (isActive || isSelected) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
-        if (selectionMode) {
-            Checkbox(
-                checked = isSelected,
-                onCheckedChange = { onToggleSelection() },
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-        }
-        StatusDot(status = status)
-        Text(
-            text = title,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (hasAttention) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.error),
-            )
-        }
-        if (agent != null) {
-            Icon(
-                painter = painterResource(agent.iconRes),
-                contentDescription = stringResource(agent.displayNameRes),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(14.dp),
-            )
+        Row(
+            modifier =
+                Modifier
+                    .combinedClickable(
+                        onClick = if (selectionMode) onToggleSelection else onClick,
+                        onLongClick = if (selectionMode) null else onLongClick,
+                    )
+                    .padding(start = if (indented) 14.dp else 10.dp, end = Spacing.md, top = Spacing.sm, bottom = Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (selectionMode) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { onToggleSelection() },
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Box(modifier = Modifier.width(16.dp), contentAlignment = Alignment.Center) {
+                StatusDot(status = status, size = 7.dp)
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (hasUnread || isActive) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    if (agent != null) {
+                        Icon(
+                            painter = painterResource(agent.iconRes),
+                            contentDescription = stringResource(agent.displayNameRes),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(12.dp),
+                        )
+                        Text(
+                            text = stringResource(agent.displayNameRes),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                    if (relativeTime.isNotBlank()) {
+                        if (agent != null) {
+                            Text("·", style = MaterialTheme.typography.labelSmall, color = LocalThemeColors.current.foregroundExtraMuted)
+                        }
+                        Text(
+                            text = relativeTime,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = LocalThemeColors.current.foregroundExtraMuted,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+            // The status dot already turns amber for an approval; the extra marker is for attention
+            // the status does not show.
+            if (hasAttention && status != SessionStatus.PERMISSION) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(LocalThemeColors.current.statusPermission),
+                )
+            }
         }
     }
 }
@@ -853,22 +839,22 @@ private fun DrawerDestinationRow(
     label: String,
     onClick: () -> Unit,
 ) {
-    Row(
+    Column(
         modifier =
             Modifier
-                .fillMaxWidth()
+                .clip(AppShapes.md)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(11.dp),
+                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         Icon(
             icon,
-            contentDescription = stringResource(R.string.cd_nav_item),
+            contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(19.dp),
+            modifier = Modifier.size(20.dp),
         )
-        Text(label, style = MaterialTheme.typography.bodyMedium)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
     }
 }
 
