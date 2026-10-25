@@ -331,16 +331,23 @@ fun ChatHomeScreen(
                 cameraLauncher.launch(null)
             }
         }
-    val attachImageUris: (List<Uri>) -> Unit = { uris ->
-        coroutineScope.launch {
-            uris.forEach { uri -> decodeImageUri(context, uri)?.let(onImageAttachment) }
+    val showAttachFailure = {
+        android.widget.Toast.makeText(
+            context,
+            R.string.attachment_load_failed,
+            android.widget.Toast.LENGTH_SHORT,
+        ).show()
+    }
+    val attachImageUris: suspend (List<Uri>) -> Unit = { uris ->
+        uris.forEach { uri ->
+            val bitmap = decodeImageUri(context, uri)
+            if (bitmap != null) onImageAttachment(bitmap) else showAttachFailure()
         }
     }
     val galleryLauncher =
         rememberLauncherForActivityResult(
             ActivityResultContracts.PickMultipleVisualMedia(),
-            onResult = attachImageUris,
-        )
+        ) { uris -> coroutineScope.launch { attachImageUris(uris) } }
 
     LaunchedEffect(listState) {
         snapshotFlow {
@@ -731,7 +738,13 @@ fun ChatHomeScreen(
                             ),
                         )
                     },
-                    onPasteImage = { attachImageUris(context.clipboardImageUris()) },
+                    onPasteImage = {
+                        val clip = context.primaryClipOrNull()
+                        coroutineScope.launch {
+                            val uris = clip?.imageUris(context.contentResolver).orEmpty()
+                            if (uris.isEmpty()) showAttachFailure() else attachImageUris(uris)
+                        }
+                    },
                 )
             }
         }
@@ -1503,6 +1516,8 @@ private fun ChatComposer(
                                     .onPreviewKeyEvent { event ->
                                         val pasteImage =
                                             event.type == KeyEventType.KeyDown &&
+                                                // Holding the keys repeats KeyDown, which would attach the image again.
+                                                event.nativeKeyEvent.repeatCount == 0 &&
                                                 isPasteShortcut(event.key, event.isCtrlPressed, event.isShiftPressed) &&
                                                 shouldPasteImage(clipboardManager.hasText(), context.clipboardHasImage())
                                         if (pasteImage) currentOnPasteImage()

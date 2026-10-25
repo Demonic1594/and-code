@@ -167,6 +167,24 @@ fun decodeSampledBitmap(
     return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
 }
 
+/**
+ * Decodes the image at [uri] into a composer-sized thumbnail, or returns null when it cannot be
+ * read, is over [MAX_IMAGE_BYTES], or is not an image. Shared by the gallery picker and clipboard paste.
+ */
+suspend fun decodeImageUri(
+    context: Context,
+    uri: Uri,
+): Bitmap? =
+    withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.openInputStream(uri)?.use(::readLimited)
+                ?.let { bytes -> decodeSampledBitmap(bytes, COMPOSER_PREVIEW_MAX_DIMENSION) }
+        } catch (e: Exception) {
+            android.util.Log.w("ChatImage", "Failed to load image", e)
+            null
+        }
+    }
+
 suspend fun loadChatImageBytes(
     context: Context,
     source: ChatImageSource,

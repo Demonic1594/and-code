@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ContentResolver
 import android.content.Context
-import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.key.Key
@@ -76,33 +75,22 @@ internal fun Context.clipboardHasImage(): Boolean =
     runCatching { clipboard()?.primaryClipDescription?.hasMimeType(IMAGE_MIME_PATTERN) == true }
         .getOrDefault(false)
 
-/** The image URIs on the primary clip; an empty list when it holds none or cannot be read. */
-internal fun Context.clipboardImageUris(): List<Uri> {
-    val clip = runCatching { clipboard()?.primaryClip }.getOrNull() ?: return emptyList()
-    return clip.imageUris(contentResolver)
-}
-
-internal fun ClipData.imageUris(resolver: ContentResolver): List<Uri> =
-    (0 until itemCount)
-        .mapNotNull { getItemAt(it).uri }
-        .filter { uri ->
-            runCatching { resolver.getType(uri)?.startsWith(IMAGE_MIME_PREFIX) == true }.getOrDefault(false)
-        }
+/** The primary clip, or null when the clipboard is empty or cannot be read. */
+internal fun Context.primaryClipOrNull(): ClipData? = runCatching { clipboard()?.primaryClip }.getOrNull()
 
 /**
- * Decodes the image at [uri] into a composer-sized thumbnail, or returns null when it cannot be
- * read, is too large, or is not an image. Shared by the gallery picker and clipboard paste.
+ * The content URIs on this clip that hold an image; empty when there are none.
+ *
+ * Asking a URI for its type calls into the app that copied it, which may be slow to answer, so
+ * this runs off the main thread. Only `content://` URIs count: the clip's owner chooses the URI,
+ * and a `file://` one could point at this app's own files.
  */
-internal suspend fun decodeImageUri(
-    context: Context,
-    uri: Uri,
-): Bitmap? =
+internal suspend fun ClipData.imageUris(resolver: ContentResolver): List<Uri> =
     withContext(Dispatchers.IO) {
-        try {
-            context.contentResolver.openInputStream(uri)?.use(::readLimited)
-                ?.let { bytes -> decodeSampledBitmap(bytes, COMPOSER_PREVIEW_MAX_DIMENSION) }
-        } catch (e: Exception) {
-            android.util.Log.w("ClipboardImagePaste", "Failed to load image", e)
-            null
-        }
+        (0 until itemCount)
+            .mapNotNull { getItemAt(it).uri }
+            .filter { uri -> uri.scheme == ContentResolver.SCHEME_CONTENT && resolver.isImage(uri) }
     }
+
+private fun ContentResolver.isImage(uri: Uri): Boolean =
+    runCatching { getType(uri)?.startsWith(IMAGE_MIME_PREFIX) == true }.getOrDefault(false)
