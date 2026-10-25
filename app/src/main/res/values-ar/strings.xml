@@ -479,7 +479,6 @@
     <string name="chat_message_placeholder">أرسل رسالة…</string>
     <string name="chat_attach">إرفاق ملف</string>
     <string name="chat_remove_attachment">إزالة المرفق</string>
-    <string name="chat_thinking_default">جارٍ التفكير</string>
     <string name="chat_thinking_level_low">منخفض</string>
     <string name="chat_thinking_level_medium">متوسط</string>
     <string name="chat_thinking_level_high">مرتفع</string>
@@ -489,13 +488,15 @@
     <string name="chat_thinking_level_minimal">الحد الأدنى</string>
     <string name="chat_thinking_level_ultra">فائق</string>
     <string name="chat_fast_mode">سريع</string>
-    <string name="chat_system_prompt_default">الموجّه</string>
     <string name="chat_mode_build">بناء</string>
     <string name="chat_mode_plan">تخطيط</string>
     <string name="chat_agents_loading">جارٍ تحميل الوكلاء…</string>
     <string name="chat_agents_load_failed">تعذّر تحميل الوكلاء. انقر لإعادة المحاولة.</string>
     <string name="chat_mode_auto_accept">قبول تلقائي</string>
-    <string name="chat_auto_accept_short">تلقائي</string>
+    <string name="run_settings_title">إعدادات التشغيل</string>
+    <string name="cd_run_settings">فتح إعدادات التشغيل</string>
+    <string name="run_settings_auto_accept_caption">الموافقة على طلبات الإذن دون سؤال</string>
+    <string name="run_settings_model_default">الافتراضي للنموذج</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">عمليات GitHub Git</string>
     <string name="github_not_connected">غير متصل</string>
@@ -770,7 +771,6 @@
     <string name="cd_gallery">Gallery</string>
     <string name="cd_thinking">Thinking</string>
     <string name="cd_fast_mode">الوضع السريع</string>
-    <string name="cd_fast_mode_with_description">الوضع السريع: %1$s</string>
     <string name="cd_system_prompt">موجّه النظام</string>
     <string name="cd_agent_mode">Agent mode</string>
     <string name="cd_updating">Updating</string>

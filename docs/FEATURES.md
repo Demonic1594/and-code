@@ -26,6 +26,7 @@ page: [`TOKEN_EFFICIENCY.md`](TOKEN_EFFICIENCY.md).
 | Archive | Drawer → **Archive**, or Settings → Sessions → **Archived chats** | Every agent's archived chats in one list, newest first, with search. Tap to read one; ⋮ or long-press to **Restore** or **Delete forever** (several at once too), or ⋮ → **Delete all archived**. Archiving from the drawer has Undo. A restored chat counts as fresh for auto-archive, so the next pass does not archive it again. The legacy OpenCode API cannot un-archive, so there a chat can only be deleted. |
 | Share or copy a chat | Chat → ⋮ → **Share chat** / **Copy as Markdown** | Markdown with one heading per turn, tool calls summarised and reasoning left out. Shared as a `.md` file, so long chats don't hit Android's intent size limit. |
 | Usage readout | Chat → ⋮ | Tokens in and out for the whole chat, plus cost when the runtime reports one (OpenCode does). Cache reads appear on their own line, since they cost a fraction of fresh input. |
+| Run settings | Chat → the tune pill under the message box | One sheet for everything that decides how the next turn runs: agent or permission mode, auto-accept, thinking level, fast mode and the system prompt preset. Each section shows only when the runtime offers it, and changes apply at once. The pill names the mode, thinking level and fast mode, and turns accented when anything differs from a fresh chat. |
 
 ## Workspace (on-device runtime)
 

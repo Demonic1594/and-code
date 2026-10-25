@@ -469,7 +469,6 @@
     <string name="chat_message_placeholder">发送消息…</string>
     <string name="chat_attach">附加文件</string>
     <string name="chat_remove_attachment">移除附件</string>
-    <string name="chat_thinking_default">思考中</string>
     <string name="chat_thinking_level_low">低</string>
     <string name="chat_thinking_level_medium">中</string>
     <string name="chat_thinking_level_high">高</string>
@@ -479,13 +478,15 @@
     <string name="chat_thinking_level_minimal">极低</string>
     <string name="chat_thinking_level_ultra">极致</string>
     <string name="chat_fast_mode">快速</string>
-    <string name="chat_system_prompt_default">提示词</string>
     <string name="chat_mode_build">构建</string>
     <string name="chat_mode_plan">计划</string>
     <string name="chat_agents_loading">正在加载智能体…</string>
     <string name="chat_agents_load_failed">无法加载智能体，点按重试。</string>
     <string name="chat_mode_auto_accept">自动接受</string>
-    <string name="chat_auto_accept_short">自动</string>
+    <string name="run_settings_title">运行设置</string>
+    <string name="cd_run_settings">打开运行设置</string>
+    <string name="run_settings_auto_accept_caption">无需询问即批准权限请求</string>
+    <string name="run_settings_model_default">模型默认</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">GitHub Git 操作</string>
     <string name="github_not_connected">未连接</string>
@@ -755,7 +756,6 @@
     <string name="cd_gallery">Gallery</string>
     <string name="cd_thinking">Thinking</string>
     <string name="cd_fast_mode">快速模式</string>
-    <string name="cd_fast_mode_with_description">快速模式：%1$s</string>
     <string name="cd_system_prompt">系统提示词</string>
     <string name="cd_agent_mode">Agent mode</string>
     <string name="cd_updating">Updating</string>

@@ -475,7 +475,6 @@
     <string name="chat_message_placeholder">Написать сообщение…</string>
     <string name="chat_attach">Прикрепить файл</string>
     <string name="chat_remove_attachment">Удалить вложение</string>
-    <string name="chat_thinking_default">Размышление</string>
     <string name="chat_thinking_level_low">Низкий</string>
     <string name="chat_thinking_level_medium">Средний</string>
     <string name="chat_thinking_level_high">Высокий</string>
@@ -485,13 +484,15 @@
     <string name="chat_thinking_level_minimal">Минимум</string>
     <string name="chat_thinking_level_ultra">Ультра</string>
     <string name="chat_fast_mode">Быстрый</string>
-    <string name="chat_system_prompt_default">Промпт</string>
     <string name="chat_mode_build">Сборка</string>
     <string name="chat_mode_plan">План</string>
     <string name="chat_agents_loading">Загрузка агентов…</string>
     <string name="chat_agents_load_failed">Не удалось загрузить агентов. Нажмите, чтобы повторить.</string>
     <string name="chat_mode_auto_accept">Автоприём</string>
-    <string name="chat_auto_accept_short">Авто</string>
+    <string name="run_settings_title">Параметры запуска</string>
+    <string name="cd_run_settings">Открыть параметры запуска</string>
+    <string name="run_settings_auto_accept_caption">Одобрять запросы разрешений без вопросов</string>
+    <string name="run_settings_model_default">По умолчанию для модели</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">Операции GitHub Git</string>
     <string name="github_not_connected">Не подключено</string>
@@ -764,7 +765,6 @@
     <string name="cd_gallery">Gallery</string>
     <string name="cd_thinking">Thinking</string>
     <string name="cd_fast_mode">Быстрый режим</string>
-    <string name="cd_fast_mode_with_description">Быстрый режим: %1$s</string>
     <string name="cd_system_prompt">Системный промпт</string>
     <string name="cd_agent_mode">Agent mode</string>
     <string name="cd_updating">Updating</string>

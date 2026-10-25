@@ -473,7 +473,6 @@
     <string name="chat_message_placeholder">Envoyer un message…</string>
     <string name="chat_attach">Joindre un fichier</string>
     <string name="chat_remove_attachment">Retirer la pièce jointe</string>
-    <string name="chat_thinking_default">Réflexion</string>
     <string name="chat_thinking_level_low">Faible</string>
     <string name="chat_thinking_level_medium">Moyen</string>
     <string name="chat_thinking_level_high">Élevé</string>
@@ -483,13 +482,15 @@
     <string name="chat_thinking_level_minimal">Minimum</string>
     <string name="chat_thinking_level_ultra">Ultra</string>
     <string name="chat_fast_mode">Rapide</string>
-    <string name="chat_system_prompt_default">Invite</string>
     <string name="chat_mode_build">Construire</string>
     <string name="chat_mode_plan">Planifier</string>
     <string name="chat_agents_loading">Chargement des agents…</string>
     <string name="chat_agents_load_failed">Impossible de charger les agents. Touchez pour réessayer.</string>
     <string name="chat_mode_auto_accept">Acceptation automatique</string>
-    <string name="chat_auto_accept_short">Auto</string>
+    <string name="run_settings_title">Réglages d\'exécution</string>
+    <string name="cd_run_settings">Ouvrir les réglages d\'exécution</string>
+    <string name="run_settings_auto_accept_caption">Approuve les demandes d\'autorisation sans demander</string>
+    <string name="run_settings_model_default">Valeur par défaut du modèle</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">Opérations Git GitHub</string>
     <string name="github_not_connected">Non connecté</string>
@@ -761,7 +762,6 @@
     <string name="cd_gallery">Gallery</string>
     <string name="cd_thinking">Thinking</string>
     <string name="cd_fast_mode">Mode rapide</string>
-    <string name="cd_fast_mode_with_description">Mode rapide : %1$s</string>
     <string name="cd_system_prompt">Invite système</string>
     <string name="cd_agent_mode">Agent mode</string>
     <string name="cd_updating">Updating</string>
