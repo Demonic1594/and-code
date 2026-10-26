@@ -72,6 +72,16 @@ class ClaudeWorkspaceFiles(
         require(file != null && file.isFile) { "File not found: $path" }
         require(file.length() <= MAX_READ_BYTES) { "File is too large to open" }
         val bytes = file.readBytes()
+        // A picture comes back as base64, the way OpenCode's file read sends one, so it can be
+        // shown rather than only reported as binary.
+        IMAGE_MIME_TYPES[file.extension.lowercase()]?.let { mime ->
+            return OpenCodeFileContent(
+                type = "binary",
+                content = java.util.Base64.getEncoder().encodeToString(bytes),
+                encoding = "base64",
+                mimeType = mime,
+            )
+        }
         // A NUL byte in the first block is the usual signal that this is not text.
         val binary = bytes.take(BINARY_SNIFF_BYTES).any { it == 0.toByte() }
         return OpenCodeFileContent(
@@ -184,3 +194,12 @@ class ClaudeWorkspaceFiles(
         const val MAX_LINE_CHARS = 400
     }
 }
+
+private val IMAGE_MIME_TYPES =
+    mapOf(
+        "png" to "image/png",
+        "jpg" to "image/jpeg",
+        "jpeg" to "image/jpeg",
+        "gif" to "image/gif",
+        "webp" to "image/webp",
+    )

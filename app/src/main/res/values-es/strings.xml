@@ -1385,4 +1385,11 @@
     <string name="rewind_banner_body">Los archivos cambiados volvieron atrás donde había una instantánea.</string>
     <string name="rewind_nothing">No había nada a lo que retroceder en ese mensaje.</string>
     <string name="rewind_hidden_count">Ocultos: %1$d</string>
+    <string name="artifacts_title">Artefactos</string>
+    <string name="artifacts_menu">Artefactos (%1$d)</string>
+    <string name="artifacts_local_server">Servidor local en este dispositivo</string>
+    <string name="artifact_preview">Vista previa</string>
+    <string name="artifact_source">Código</string>
+    <string name="artifact_unavailable">No se pudo mostrar este archivo.</string>
+    <string name="artifact_share">Compartir archivo</string>
 </resources>

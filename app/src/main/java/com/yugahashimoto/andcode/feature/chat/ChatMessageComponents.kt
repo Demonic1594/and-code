@@ -173,6 +173,7 @@ fun TimelineEntryRow(
     onImageClick: (ChatImageSource) -> Unit = {},
     onOpenProviderSettings: (() -> Unit)? = null,
     onOpenChanges: (ChatPart.Patch) -> Unit = {},
+    onPreviewArtifact: (Artifact.File) -> Unit = {},
 ) {
     when (entry) {
         is TimelineEntry.UserMessage -> MessageBubble(entry.message, onImageClick)
@@ -185,7 +186,7 @@ fun TimelineEntryRow(
                 onClick = { onOpenActivity(entry.id) },
             )
         is TimelineEntry.Todo -> TodoTimelineCard(entry.todos)
-        is TimelineEntry.Changes -> ChangesCard(entry, onReview = { onOpenChanges(entry.patch) })
+        is TimelineEntry.Changes -> ChangesCard(entry, onReview = { onOpenChanges(entry.patch) }, onPreview = onPreviewArtifact)
         is TimelineEntry.Footer -> MessageFooter(entry)
     }
 }
@@ -426,7 +427,7 @@ private fun LinkedText(
 }
 
 @Composable
-private fun MarkdownText(
+internal fun MarkdownText(
     text: String,
     onImageClick: (ChatImageSource) -> Unit = {},
 ) {

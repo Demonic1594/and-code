@@ -567,6 +567,8 @@ data class ChatUiState(
     val editDraft: String? = null,
     /** The diff dialog open on a tapped [ChatPart.Patch] card, or null when none is open. */
     val patchDiff: PatchDiffState? = null,
+    /** The artifact open in the preview, or null when none is. */
+    val artifactPreview: ArtifactPreviewState? = null,
     /**
      * The message the chat is rewound to, set by [ChatViewModel.rewindTo]: that message and every
      * later one are hidden, and the files are as they were before it, until [ChatViewModel.undoRewind]
@@ -1500,6 +1502,45 @@ class ChatViewModel(
                 )
             }
         }
+    }
+
+    /**
+     * Opens [artifact] in the preview: reads the file from the chat's workspace and shows it as
+     * what it is - a page, a drawing, a document, a picture. See [collectArtifacts].
+     */
+    fun openArtifact(artifact: Artifact.File) {
+        _uiState.update { it.copy(artifactPreview = ArtifactPreviewState.Loading(artifact)) }
+        val currentBackend = backend
+        val directory = _uiState.value.sessionDirectory ?: _uiState.value.selectedWorkspacePath
+        if (currentBackend == null || directory == null) {
+            _uiState.update { it.copy(artifactPreview = ArtifactPreviewState.Failed(artifact, null)) }
+            return
+        }
+        viewModelScope.launch {
+            val result = runCatching { currentBackend.readFile(directory, workspaceRelativePath(artifact.path, directory)) }
+            _uiState.update {
+                // Dismissed, or another artifact opened, while the file was on its way.
+                if (it.artifactPreview?.artifact != artifact) return@update it
+                it.copy(
+                    artifactPreview =
+                        result.fold(
+                            onSuccess = { file ->
+                                ArtifactPreviewState.Loaded(
+                                    artifact = artifact,
+                                    content = file.content,
+                                    base64 = file.encoding == "base64" || file.type == "binary",
+                                )
+                            },
+                            // The runtime's own words when it has some; otherwise the screen says it.
+                            onFailure = { error -> ArtifactPreviewState.Failed(artifact, error.message?.takeIf { it.isNotBlank() }) },
+                        ),
+                )
+            }
+        }
+    }
+
+    fun dismissArtifact() {
+        _uiState.update { it.copy(artifactPreview = null) }
     }
 
     fun dismissPatchDiff() {

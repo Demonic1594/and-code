@@ -1385,4 +1385,11 @@
     <string name="rewind_banner_body">Les fichiers modifiés sont revenus en arrière là où un instantané existait.</string>
     <string name="rewind_nothing">Il n\'y avait rien vers quoi revenir à ce message.</string>
     <string name="rewind_hidden_count">Masqués : %1$d</string>
+    <string name="artifacts_title">Artefacts</string>
+    <string name="artifacts_menu">Artefacts (%1$d)</string>
+    <string name="artifacts_local_server">Serveur local sur cet appareil</string>
+    <string name="artifact_preview">Aperçu</string>
+    <string name="artifact_source">Source</string>
+    <string name="artifact_unavailable">Impossible d\'afficher ce fichier.</string>
+    <string name="artifact_share">Partager le fichier</string>
 </resources>

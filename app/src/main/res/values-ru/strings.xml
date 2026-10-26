@@ -1388,4 +1388,11 @@
     <string name="rewind_banner_body">Изменённые файлы возвращены там, где был снимок.</string>
     <string name="rewind_nothing">К этому сообщению откатиться было нечего.</string>
     <string name="rewind_hidden_count">Скрыто: %1$d</string>
+    <string name="artifacts_title">Артефакты</string>
+    <string name="artifacts_menu">Артефакты (%1$d)</string>
+    <string name="artifacts_local_server">Локальный сервер на этом устройстве</string>
+    <string name="artifact_preview">Просмотр</string>
+    <string name="artifact_source">Исходник</string>
+    <string name="artifact_unavailable">Не удалось показать этот файл.</string>
+    <string name="artifact_share">Поделиться файлом</string>
 </resources>

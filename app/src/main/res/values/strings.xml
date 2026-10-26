@@ -1404,4 +1404,11 @@
     <string name="rewind_banner_body">Changed files are back where a snapshot existed.</string>
     <string name="rewind_nothing">There was nothing to rewind to at that message.</string>
     <string name="rewind_hidden_count">Hidden: %1$d</string>
+    <string name="artifacts_title">Artifacts</string>
+    <string name="artifacts_menu">Artifacts (%1$d)</string>
+    <string name="artifacts_local_server">Local server on this device</string>
+    <string name="artifact_preview">Preview</string>
+    <string name="artifact_source">Source</string>
+    <string name="artifact_unavailable">This file could not be shown.</string>
+    <string name="artifact_share">Share file</string>
 </resources>

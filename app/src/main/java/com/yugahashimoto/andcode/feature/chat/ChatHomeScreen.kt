@@ -216,6 +216,11 @@ fun ChatHomeScreen(
     /** Fetches and opens the diff dialog for a tapped [ChatPart.Patch] card. */
     onOpenPatchDiff: (ChatPart.Patch) -> Unit = {},
     onDismissPatchDiff: () -> Unit = {},
+    /** Opens a page, drawing, document or picture the agent wrote in the artifact preview. */
+    onOpenArtifact: (Artifact.File) -> Unit = {},
+    onDismissArtifact: () -> Unit = {},
+    /** Opens a server on this device (a dev server the agent started) in the in-app browser. */
+    onOpenLocalUrl: ((String) -> Unit)? = null,
     /** Reads the unsent text kept for a session, for restoring after the app was closed. */
     onLoadDraft: (String) -> String? = { null },
     /** Keeps the composer's unsent text for a session; blank text clears it. */
@@ -243,6 +248,7 @@ fun ChatHomeScreen(
     val isAtBottom = remember { mutableStateOf(true) }
     var showActionSheet by remember { mutableStateOf<MessageActionTarget?>(null) }
     var rewindTarget by remember { mutableStateOf<MessageActionTarget?>(null) }
+    var showArtifacts by remember { mutableStateOf(false) }
     var activityGroupId by remember { mutableStateOf<String?>(null) }
     var selectedImage by remember { mutableStateOf<ChatImageSource?>(null) }
     var legacyDownload by remember { mutableStateOf<ChatImageSource?>(null) }
@@ -269,6 +275,11 @@ fun ChatHomeScreen(
     var showSlashCommands by remember { mutableStateOf(false) }
     var showSidePanel by remember { mutableStateOf(false) }
     var showChatMenu by remember { mutableStateOf(false) }
+    // Scanned only while the menu or the sheet is open, not on every streamed token.
+    val artifacts =
+        remember(shownMessages, showChatMenu || showArtifacts) {
+            if (showChatMenu || showArtifacts) collectArtifacts(shownMessages) else emptyList()
+        }
     val haptics = rememberHaptics()
     val context = androidx.compose.ui.platform.LocalContext.current
     val imageSaveLauncher =
@@ -532,6 +543,11 @@ fun ChatHomeScreen(
                                     expanded = showChatMenu,
                                     onDismiss = { showChatMenu = false },
                                     usage = state.sessionUsage,
+                                    artifactCount = artifacts.size,
+                                    onArtifacts = {
+                                        showChatMenu = false
+                                        showArtifacts = true
+                                    },
                                     onShare = {
                                         showChatMenu = false
                                         val title = state.sessionTitle.ifBlank { context.getString(R.string.chat_home_title) }
@@ -667,6 +683,7 @@ fun ChatHomeScreen(
                                         onImageClick = { selectedImage = it },
                                         onOpenProviderSettings = onOpenProviderSettings,
                                         onOpenChanges = onOpenPatchDiff,
+                                        onPreviewArtifact = onOpenArtifact,
                                     )
                                 }
                             }
@@ -970,6 +987,25 @@ fun ChatHomeScreen(
 
     state.patchDiff?.let { patchDiff ->
         ChatDiffDialog(state = patchDiff, onDismiss = onDismissPatchDiff, onSendReview = onSendReview)
+    }
+
+    if (showArtifacts) {
+        ArtifactsSheet(
+            artifacts = artifacts,
+            onOpenFile = { artifact ->
+                showArtifacts = false
+                onOpenArtifact(artifact)
+            },
+            onOpenServer = { url ->
+                showArtifacts = false
+                onOpenLocalUrl?.invoke(url)
+            },
+            onDismiss = { showArtifacts = false },
+        )
+    }
+
+    state.artifactPreview?.let { preview ->
+        ArtifactPreviewDialog(state = preview, onDismiss = onDismissArtifact)
     }
 
     rewindTarget?.let { target ->

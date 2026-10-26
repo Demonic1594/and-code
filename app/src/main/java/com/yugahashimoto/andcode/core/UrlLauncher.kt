@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
@@ -78,11 +79,45 @@ object UrlLauncher {
  */
 private class SafeUriHandler(
     private val context: Context,
+    private val openLocal: ((String) -> Unit)?,
 ) : UriHandler {
     override fun openUri(uri: String) {
-        UrlLauncher.openUrl(context, uri)
+        // A server on this device (a dev server the agent started) opens in the app's own browser,
+        // which can reach it; another app's browser usually cannot.
+        if (openLocal != null && isLocalServerUrl(uri)) openLocal(uri) else UrlLauncher.openUrl(context, uri)
     }
 }
+
+/** Where links to a server on this device open, when something on screen can show them. */
+val LocalServerUrlOpener = staticCompositionLocalOf<((String) -> Unit)?> { null }
+
+// The host must end where the URL's host ends: "localhost.example.com" and "127.0.0.1.nip.io" are
+// sites on the internet, and a six-digit "port" is no port. A full stop ending the sentence is not
+// part of the host.
+private val LOCAL_SERVER_URL =
+    Regex(
+        """https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1])(?::\d{2,5})?(?![\w\-@\\]|[.:]\w)(?:[/?#][^\s)\]>"'`]*)?""",
+        RegexOption.IGNORE_CASE,
+    )
+
+/** True for a URL that points at a server on this device rather than the internet. */
+fun isLocalServerUrl(url: String): Boolean = LOCAL_SERVER_URL.matchEntire(url.trim()) != null
+
+/** The local server URLs in [text], each once, with trailing sentence punctuation dropped. */
+fun localServerUrls(text: String): List<String> =
+    LOCAL_SERVER_URL.findAll(text)
+        .map { match ->
+            val url = match.value.trimEnd('.', ',', ';', ':', '!', '?')
+            // 0.0.0.0 is where a server listens, not an address to open: it is on 127.0.0.1.
+            val host = match.groups[1]!!.range
+            if (match.groupValues[1] == "0.0.0.0") {
+                url.replaceRange(host.first - match.range.first, host.last - match.range.first + 1, "127.0.0.1")
+            } else {
+                url
+            }
+        }
+        .distinct()
+        .toList()
 
 /**
  * Wraps [content] so that Markdown link clicks anywhere below only ever open
@@ -91,6 +126,7 @@ private class SafeUriHandler(
 @Composable
 fun ProvideSafeUriHandler(content: @Composable () -> Unit) {
     val context = LocalContext.current
-    val handler = remember(context) { SafeUriHandler(context) }
+    val openLocal = LocalServerUrlOpener.current
+    val handler = remember(context, openLocal) { SafeUriHandler(context, openLocal) }
     CompositionLocalProvider(LocalUriHandler provides handler, content = content)
 }
