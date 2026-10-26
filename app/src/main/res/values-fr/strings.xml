@@ -1262,6 +1262,19 @@
     <string name="guest_browser_retry">Réessayer</string>
     <string name="guest_browser_empty_title">Ouvrir une page</string>
     <string name="guest_browser_empty_body">Saisissez une adresse ci-dessus, ou ouvrez un serveur de développement qui tourne sur cet appareil.</string>
+    <string name="devtools_navigated_to">Navigation vers %1$s</string>
+    <string name="devtools_console_cleared">La console a été effacée</string>
+    <string name="devtools_cannot_run">La page ne peut pas exécuter de code pour le moment.</string>
+    <plurals name="devtools_requests">
+        <item quantity="one">%1$d requête</item>
+        <item quantity="many">%1$d requêtes</item>
+        <item quantity="other">%1$d requêtes</item>
+    </plurals>
+    <plurals name="devtools_failed">
+        <item quantity="one">%1$d en échec</item>
+        <item quantity="many">%1$d en échec</item>
+        <item quantity="other">%1$d en échec</item>
+    </plurals>
     <string name="devtools_tab_console">Console</string>
     <string name="devtools_tab_elements">Éléments</string>
     <string name="devtools_tab_network">Réseau</string>
@@ -1309,7 +1322,6 @@
     <string name="devtools_network_img">Img</string>
     <string name="devtools_network_font">Police</string>
     <string name="devtools_network_other">Autre</string>
-    <string name="devtools_network_summary">%1$d requêtes · %2$s · %3$d en échec</string>
     <string name="devtools_only_failed">Échecs seulement</string>
     <string name="devtools_network_empty">Aucune requête pour l’instant. Rechargez la page pour enregistrer tout ce qu’elle charge.</string>
     <string name="devtools_headers">En-têtes</string>

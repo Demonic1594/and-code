@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -149,7 +150,11 @@ internal fun NetworkTab(
             val failedCount = entries.count { it.failed }
             val bytes = entries.sumOf { it.size ?: 0L }
             Text(
-                stringResource(R.string.devtools_network_summary, entries.size, formatBytes(bytes), failedCount),
+                listOfNotNull(
+                    pluralStringResource(R.plurals.devtools_requests, entries.size, entries.size),
+                    formatBytes(bytes),
+                    if (failedCount > 0) pluralStringResource(R.plurals.devtools_failed, failedCount, failedCount) else null,
+                ).joinToString(" · "),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),

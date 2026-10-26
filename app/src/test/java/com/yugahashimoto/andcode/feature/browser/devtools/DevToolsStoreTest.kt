@@ -165,4 +165,53 @@ class DevToolsStoreTest {
         assertEquals(listOf("Console was cleared"), store.console.value.map { it.text })
         assertNotNull(store.console.value.single())
     }
+
+    @Test
+    fun `a batch is applied at once, and the frame comes from the WebView, not the page`() {
+        val store = DevToolsStore()
+        store.handle(event("""{"t":"console","level":"log","args":["top"]}"""))
+        val raw =
+            """{"t":"batch","items":[{"t":"ready","url":"http://evil/","frame":""},""" +
+                """{"t":"console","level":"error","args":["from the ad"],"frame":""}]}"""
+
+        store.handleAll(DevToolsProtocol.parseEvents(raw, fromMainFrame = false, origin = "https://ads.example"))
+
+        // An iframe claiming to be the top page cannot reset the top page's log.
+        assertEquals(listOf("top", "from the ad"), store.console.value.map { it.text })
+        assertEquals("https://ads.example", store.console.value.last().frame)
+        assertEquals(0, store.page.value)
+    }
+
+    @Test
+    fun `different objects that abbreviate the same stay separate lines`() {
+        val store = DevToolsStore()
+        store.handle(event("""{"t":"console","level":"log","args":[{"a":{"b":1}}]}"""))
+        store.handle(event("""{"t":"console","level":"log","args":[{"a":{"b":2}}]}"""))
+
+        assertEquals(listOf(1, 1), store.console.value.map { it.repeat })
+    }
+
+    @Test
+    fun `a resource with no status is finished but not called a success`() {
+        val store = DevToolsStore()
+        store.handle(
+            event(
+                """{"t":"resources","entries":[{"url":"https://cdn.example/a.js","initiator":"script","start":1700000000000.5,"status":0}]}""",
+            ),
+        )
+
+        val entry = store.network.value.single()
+        assertNull(entry.status)
+        assertTrue(entry.finished)
+        assertEquals(1_700_000_000_000L, entry.startedAt)
+    }
+
+    @Test
+    fun `each new top page bumps the page counter for the on-demand tools`() {
+        val store = DevToolsStore()
+        store.handle(event("""{"t":"ready","url":"http://localhost/a","frame":""}"""))
+        store.handle(event("""{"t":"ready","url":"http://localhost/b","frame":""}"""))
+
+        assertEquals(2, store.page.value)
+    }
 }

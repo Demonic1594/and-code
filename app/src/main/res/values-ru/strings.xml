@@ -1265,6 +1265,21 @@
     <string name="guest_browser_retry">Повторить</string>
     <string name="guest_browser_empty_title">Откройте страницу</string>
     <string name="guest_browser_empty_body">Введите адрес выше или откройте сервер разработки, запущенный на этом устройстве.</string>
+    <string name="devtools_navigated_to">Переход на %1$s</string>
+    <string name="devtools_console_cleared">Консоль очищена</string>
+    <string name="devtools_cannot_run">Страница сейчас не может выполнить код.</string>
+    <plurals name="devtools_requests">
+        <item quantity="one">%1$d запрос</item>
+        <item quantity="few">%1$d запроса</item>
+        <item quantity="many">%1$d запросов</item>
+        <item quantity="other">%1$d запроса</item>
+    </plurals>
+    <plurals name="devtools_failed">
+        <item quantity="one">%1$d с ошибкой</item>
+        <item quantity="few">%1$d с ошибкой</item>
+        <item quantity="many">%1$d с ошибкой</item>
+        <item quantity="other">%1$d с ошибкой</item>
+    </plurals>
     <string name="devtools_tab_console">Консоль</string>
     <string name="devtools_tab_elements">Элементы</string>
     <string name="devtools_tab_network">Сеть</string>
@@ -1312,7 +1327,6 @@
     <string name="devtools_network_img">Изобр.</string>
     <string name="devtools_network_font">Шрифт</string>
     <string name="devtools_network_other">Прочее</string>
-    <string name="devtools_network_summary">Запросов: %1$d · %2$s · с ошибкой: %3$d</string>
     <string name="devtools_only_failed">Только ошибки</string>
     <string name="devtools_network_empty">Запросов пока нет. Перезагрузите страницу, чтобы записать всё, что она загружает.</string>
     <string name="devtools_headers">Заголовки</string>

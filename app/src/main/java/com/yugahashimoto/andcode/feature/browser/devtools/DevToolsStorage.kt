@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,7 +68,8 @@ internal fun StorageTab(
     var confirmClear by remember { mutableStateOf(false) }
 
     fun refresh() = bridge.call("storage") { snapshot = DevToolsProtocol.parseStorage(it) }
-    LaunchedEffect(Unit) { refresh() }
+    val page by bridge.store.page.collectAsState()
+    LaunchedEffect(page) { refresh() }
 
     val entries =
         when (kind) {

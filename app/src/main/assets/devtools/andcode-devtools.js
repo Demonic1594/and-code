@@ -26,14 +26,43 @@
     return Date.now();
   }
 
+  // Messages go out in batches: a page logging in a tight loop would otherwise wake the app's UI
+  // thread once per line. Each batch is capped, and what does not fit waits for the next flush.
+  var queue = [];
+  var flushing = false;
+  var MAX_BATCH = 200;
+  var MAX_QUEUE = 2000;
+
+  function flush() {
+    flushing = false;
+    if (!queue.length) return;
+    var batch = queue.splice(0, MAX_BATCH);
+    try {
+      bridge.postMessage(JSON.stringify({ t: 'batch', items: batch }));
+    } catch (e) {
+      // A batch that cannot be serialized is dropped rather than breaking the page.
+    }
+    if (queue.length) schedule();
+  }
+
+  function schedule() {
+    if (flushing) return;
+    flushing = true;
+    setTimeout(flush, 50);
+  }
+
   function post(message) {
     if (!bridge) return;
-    try {
-      message.frame = frame;
-      bridge.postMessage(JSON.stringify(message));
-    } catch (e) {
-      // A message that cannot be serialized is dropped rather than breaking the page.
+    // The first message of a document goes at once, so the app resets its log before anything else.
+    if (message.t === 'ready') {
+      try {
+        bridge.postMessage(JSON.stringify(message));
+      } catch (e) {}
+      return;
     }
+    if (queue.length >= MAX_QUEUE) return;
+    queue.push(message);
+    schedule();
   }
 
   function clip(text, max) {
@@ -113,13 +142,14 @@
       var keys = Object.keys(value);
       for (var k = 0; k < Math.min(keys.length, MAX_KEYS); k++) {
         var key = keys[k];
-        var child;
-        try {
-          child = value[key];
-        } catch (e) {
-          child = { __t: 'error', v: 'getter threw' };
+        // Accessors are not run, as a console does not run them until asked: a getter can have side
+        // effects (a framework's dependency tracking, a lazy fetch).
+        var descriptor = Object.getOwnPropertyDescriptor(value, key);
+        if (descriptor && descriptor.get) {
+          obj[key] = { __t: 'getter', v: '(...)' };
+          continue;
         }
-        obj[key] = serialize(child, depth + 1, seen);
+        obj[key] = serialize(descriptor ? descriptor.value : undefined, depth + 1, seen);
       }
       if (keys.length > MAX_KEYS) obj['…'] = { __t: 'more', v: (keys.length - MAX_KEYS) + ' more keys' };
       var ctor = value.constructor && value.constructor.name;
@@ -152,6 +182,7 @@
     if (typeof original !== 'function') return;
     console[method] = function () {
       var args = Array.prototype.slice.call(arguments);
+      if (!bridge) return original.apply(console, args);
       try {
         var level = method;
         var payload = args;
@@ -267,6 +298,48 @@
     }
   }
 
+  // Server-sent events and line-delimited streams never end; reading them would never finish.
+  function isStream(mime) {
+    return /event-stream|ndjson|x-ndjson|stream\+json/i.test(mime || '');
+  }
+
+  /*
+   * Reads at most MAX_BODY bytes of a cloned response, then cancels the clone, so DevTools never
+   * makes the page download more than a preview for it, and a body the page abandons is abandoned.
+   */
+  function readPreview(clone, done) {
+    var reader;
+    try {
+      reader = clone.body.getReader();
+    } catch (e) {
+      done('', null, false);
+      return;
+    }
+    var decoder = new TextDecoder();
+    var text = '';
+    var bytes = 0;
+    function step() {
+      reader.read().then(function (chunk) {
+        if (chunk.done) {
+          text += decoder.decode();
+          done(text, bytes, true);
+          return;
+        }
+        bytes += chunk.value.byteLength;
+        text += decoder.decode(chunk.value, { stream: true });
+        if (bytes >= MAX_BODY) {
+          try { reader.cancel(); } catch (e) {}
+          done(clip(text, MAX_BODY), bytes, false);
+          return;
+        }
+        step();
+      }, function () {
+        done(text, bytes, false);
+      });
+    }
+    step();
+  }
+
   function isTextual(mime) {
     return !mime || /json|text|xml|javascript|html|css|svg|x-www-form-urlencoded|graphql/i.test(mime);
   }
@@ -297,13 +370,10 @@
             resHeaders: headersToList(response.headers), mime: mime, type: response.type,
             redirected: response.redirected, finalUrl: response.url,
           };
-          if (isTextual(mime) && response.type !== 'opaque') {
-            response.clone().text().then(function (text) {
-              base.size = text.length;
-              base.resBody = clip(text, MAX_BODY);
-              base.duration = performance.now() - started;
-              post(base);
-            }, function () {
+          if (isTextual(mime) && !isStream(mime) && response.type !== 'opaque' && response.body && response.body.getReader) {
+            readPreview(response.clone(), function (text, size, complete) {
+              base.size = size;
+              base.resBody = complete ? text : text + '\u2026 (body truncated)';
               base.duration = performance.now() - started;
               post(base);
             });
@@ -376,30 +446,36 @@
     };
   }
 
-  if (typeof WebSocket !== 'undefined') {
-    var NativeWebSocket = WebSocket;
-    var PatchedWebSocket = function (url, protocols) {
-      var socket = protocols === undefined ? new NativeWebSocket(url) : new NativeWebSocket(url, protocols);
+  if (typeof WebSocket !== 'undefined' && typeof Proxy !== 'undefined' && typeof Reflect !== 'undefined') {
+    // A Proxy, not a replacement function: `new`, subclasses (`class X extends WebSocket`),
+    // `instanceof`, `constructor` and the static constants all behave exactly as before.
+    var socketIds = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
+    window.WebSocket = new Proxy(WebSocket, {
+      construct: function (target, args, newTarget) {
+        var socket = Reflect.construct(target, args, newTarget);
+        try {
+          var id = nextRequestId();
+          if (socketIds) socketIds.set(socket, id);
+          var resolved = String(args[0]);
+          try { resolved = new URL(resolved, location.href).href; } catch (e) {}
+          post({ t: 'net', phase: 'start', id: id, kind: 'websocket', method: 'WS', url: resolved, reqHeaders: [], ts: now() });
+          var opened = performance.now();
+          socket.addEventListener('open', function () { post({ t: 'net', phase: 'end', id: id, status: 101, statusText: 'Switching Protocols', duration: performance.now() - opened, mime: 'websocket' }); });
+          socket.addEventListener('message', function (event) { post({ t: 'ws', id: id, dir: 'in', data: typeof event.data === 'string' ? clip(event.data, MAX_STRING) : '[binary]', ts: now() }); });
+          socket.addEventListener('close', function (event) { post({ t: 'ws', id: id, dir: 'close', data: 'closed ' + event.code + (event.reason ? ' ' + event.reason : ''), ts: now() }); });
+        } catch (e) {}
+        return socket;
+      },
+    });
+    // Outgoing frames are seen on the prototype, so a page that patches send later still works.
+    var nativeSend = WebSocket.prototype.send;
+    WebSocket.prototype.send = function (data) {
       try {
-        var id = nextRequestId();
-        var resolved = String(url);
-        try { resolved = new URL(resolved, location.href).href; } catch (e) {}
-        post({ t: 'net', phase: 'start', id: id, kind: 'websocket', method: 'WS', url: resolved, reqHeaders: [], ts: now() });
-        var opened = performance.now();
-        socket.addEventListener('open', function () { post({ t: 'net', phase: 'end', id: id, status: 101, statusText: 'Switching Protocols', duration: performance.now() - opened, mime: 'websocket' }); });
-        socket.addEventListener('message', function (event) { post({ t: 'ws', id: id, dir: 'in', data: typeof event.data === 'string' ? clip(event.data, MAX_STRING) : '[binary]', ts: now() }); });
-        socket.addEventListener('close', function (event) { post({ t: 'ws', id: id, dir: 'close', data: 'closed ' + event.code + (event.reason ? ' ' + event.reason : ''), ts: now() }); });
-        var send = socket.send;
-        socket.send = function (data) {
-          try { post({ t: 'ws', id: id, dir: 'out', data: typeof data === 'string' ? clip(data, MAX_STRING) : '[binary]', ts: now() }); } catch (e) {}
-          return send.apply(socket, arguments);
-        };
+        var id = socketIds && socketIds.get(this);
+        if (id) post({ t: 'ws', id: id, dir: 'out', data: typeof data === 'string' ? clip(data, MAX_STRING) : '[binary]', ts: now() });
       } catch (e) {}
-      return socket;
+      return nativeSend.apply(this, arguments);
     };
-    PatchedWebSocket.prototype = NativeWebSocket.prototype;
-    ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'].forEach(function (key) { PatchedWebSocket[key] = NativeWebSocket[key]; });
-    window.WebSocket = PatchedWebSocket;
   }
 
   // Everything else the page loads (scripts, styles, images, fonts, the document itself) is reported
@@ -409,9 +485,10 @@
       url: entry.name,
       initiator: entry.initiatorType || 'other',
       duration: entry.duration,
-      start: entry.startTime,
+      start: (performance.timeOrigin || 0) + entry.startTime,
       transfer: entry.transferSize || 0,
       decoded: entry.decodedBodySize || 0,
+      // 0 means unknown (no Timing-Allow-Origin, or a browser too old to say), not "failed".
       status: entry.responseStatus || 0,
     };
   }
@@ -577,7 +654,6 @@
           });
           return JSON.stringify({ ok: true, pending: true, token: token, value: { __t: 'promise', v: 'Promise {<pending>}' } });
         }
-        try { window.$_ = result; } catch (e) {}
         return JSON.stringify({ ok: true, value: serialize(result) });
       } catch (error) {
         return JSON.stringify({ ok: false, value: serialize(error) });

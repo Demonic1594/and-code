@@ -77,8 +77,10 @@ data class NetworkEntry(
     val durationMs: Double? = null,
     val error: String? = null,
     val frames: List<WebSocketFrame> = emptyList(),
+    /** Set for what resource timing reports: it has finished even when its status is unknown. */
+    val completed: Boolean = false,
 ) {
-    val finished: Boolean get() = status != null || error != null
+    val finished: Boolean get() = completed || status != null || error != null
     val failed: Boolean get() = error != null || (status != null && status >= 400)
 
     /** The last path segment, as the request list labels it. */
@@ -269,8 +271,38 @@ internal val devToolsJson = Json { ignoreUnknownKeys = true }
 
 /** Parses everything the page agent sends or returns. Each reader returns null for what it cannot read. */
 object DevToolsProtocol {
-    fun parseEvent(raw: String): DevToolsEvent? {
-        val message = parseObject(raw) ?: return null
+    /**
+     * Everything in one message from the page agent: a single event, or a batch of them. The frame
+     * each came from is decided here, from what the WebView says sent it, never from the message: a
+     * page could otherwise claim to be the top page and reset its parent's log.
+     */
+    fun parseEvents(
+        raw: String,
+        fromMainFrame: Boolean,
+        origin: String,
+    ): List<DevToolsEvent> {
+        val message = parseObject(raw) ?: return emptyList()
+        val items =
+            if ((message["t"] as? JsonPrimitive)?.contentOrNull == "batch") {
+                (message["items"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
+            } else {
+                listOf(message)
+            }
+        val frame = if (fromMainFrame) "" else origin.ifEmpty { "iframe" }
+        return items.mapNotNull { item -> parseEvent(item)?.inFrame(frame) }
+    }
+
+    private fun DevToolsEvent.inFrame(frame: String): DevToolsEvent =
+        when (this) {
+            is DevToolsEvent.Console -> copy(frame = frame)
+            is DevToolsEvent.PageError -> copy(frame = frame)
+            is DevToolsEvent.Ready -> copy(frame = frame)
+            else -> this
+        }
+
+    fun parseEvent(raw: String): DevToolsEvent? = parseObject(raw)?.let(::parseEvent)
+
+    private fun parseEvent(message: JsonObject): DevToolsEvent? {
         val frame = message.string("frame")
         val timestamp = message.long("ts") ?: 0L
         return when (message.string("t")) {
@@ -351,14 +383,17 @@ object DevToolsProtocol {
 
     private fun resourceEntry(entry: JsonObject): NetworkEntry? {
         val url = entry.string("url").ifEmpty { return null }
-        val status = entry.int("status")?.takeIf { it > 0 }
+        val start = entry.double("start") ?: 0.0
         return NetworkEntry(
-            id = "res:$url:${entry.double("start")}",
+            id = "res:$url:$start",
             kind = entry.string("initiator").ifEmpty { "other" },
             method = "GET",
             url = url,
-            // Resource timing has no status before Chrome 109; a resource that loaded is shown as 200.
-            status = status ?: 200,
+            startedAt = start.toLong(),
+            // 0 means the browser does not know (cross-origin without Timing-Allow-Origin, or too old
+            // to report it): shown as unknown, never as a success it may not have been.
+            status = entry.int("status")?.takeIf { it > 0 },
+            completed = true,
             size = (entry.long("transfer")?.takeIf { it > 0 } ?: entry.long("decoded"))?.takeIf { it > 0 },
             durationMs = entry.double("duration"),
         )

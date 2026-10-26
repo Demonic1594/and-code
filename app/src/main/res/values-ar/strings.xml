@@ -1271,6 +1271,25 @@
     <string name="guest_browser_retry">إعادة المحاولة</string>
     <string name="guest_browser_empty_title">افتح صفحة</string>
     <string name="guest_browser_empty_body">اكتب عنوانًا في الأعلى، أو افتح خادم تطوير يعمل على هذا الجهاز.</string>
+    <string name="devtools_navigated_to">تم الانتقال إلى %1$s</string>
+    <string name="devtools_console_cleared">تم مسح وحدة التحكم</string>
+    <string name="devtools_cannot_run">لا يمكن للصفحة تشغيل التعليمات البرمجية الآن.</string>
+    <plurals name="devtools_requests">
+        <item quantity="zero">%1$d طلب</item>
+        <item quantity="one">طلب واحد</item>
+        <item quantity="two">طلبان</item>
+        <item quantity="few">%1$d طلبات</item>
+        <item quantity="many">%1$d طلبًا</item>
+        <item quantity="other">%1$d طلب</item>
+    </plurals>
+    <plurals name="devtools_failed">
+        <item quantity="zero">%1$d فاشل</item>
+        <item quantity="one">%1$d فاشل</item>
+        <item quantity="two">%1$d فاشلان</item>
+        <item quantity="few">%1$d فاشلة</item>
+        <item quantity="many">%1$d فاشلًا</item>
+        <item quantity="other">%1$d فاشل</item>
+    </plurals>
     <string name="devtools_tab_console">وحدة التحكم</string>
     <string name="devtools_tab_elements">العناصر</string>
     <string name="devtools_tab_network">الشبكة</string>
@@ -1318,7 +1337,6 @@
     <string name="devtools_network_img">صور</string>
     <string name="devtools_network_font">خطوط</string>
     <string name="devtools_network_other">أخرى</string>
-    <string name="devtools_network_summary">%1$d طلبات · %2$s · %3$d فشلت</string>
     <string name="devtools_only_failed">الفاشلة فقط</string>
     <string name="devtools_network_empty">لا توجد طلبات بعد. أعد تحميل الصفحة لتسجيل كل ما تحمّله.</string>
     <string name="devtools_headers">الترويسات</string>

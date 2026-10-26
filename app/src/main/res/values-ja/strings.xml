@@ -1276,6 +1276,15 @@
     <string name="guest_browser_retry">再試行</string>
     <string name="guest_browser_empty_title">ページを開く</string>
     <string name="guest_browser_empty_body">上にアドレスを入力するか、この端末で動いている開発サーバーを開いてください。</string>
+    <string name="devtools_navigated_to">%1$s に移動しました</string>
+    <string name="devtools_console_cleared">コンソールがクリアされました</string>
+    <string name="devtools_cannot_run">このページでは今コードを実行できません。</string>
+    <plurals name="devtools_requests">
+        <item quantity="other">%1$d 件のリクエスト</item>
+    </plurals>
+    <plurals name="devtools_failed">
+        <item quantity="other">失敗 %1$d 件</item>
+    </plurals>
     <string name="devtools_tab_console">コンソール</string>
     <string name="devtools_tab_elements">要素</string>
     <string name="devtools_tab_network">ネットワーク</string>
@@ -1323,7 +1332,6 @@
     <string name="devtools_network_img">画像</string>
     <string name="devtools_network_font">フォント</string>
     <string name="devtools_network_other">その他</string>
-    <string name="devtools_network_summary">%1$d 件のリクエスト · %2$s · 失敗 %3$d 件</string>
     <string name="devtools_only_failed">失敗のみ</string>
     <string name="devtools_network_empty">まだリクエストはありません。ページを再読み込みすると、読み込むものをすべて記録します。</string>
     <string name="devtools_headers">ヘッダー</string>

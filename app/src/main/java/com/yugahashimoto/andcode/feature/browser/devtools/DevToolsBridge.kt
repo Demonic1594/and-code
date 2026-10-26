@@ -38,12 +38,14 @@ class DevToolsBridge(
         receivesEvents = WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
         if (receivesEvents) {
             // Called on the UI thread, which is where the store expects every event.
-            WebViewCompat.addWebMessageListener(view, BRIDGE_NAME, ALL_ORIGINS) { _, message, _, _, _ ->
-                when (val event = message.data?.let(DevToolsProtocol::parseEvent)) {
-                    null -> Unit
-                    is DevToolsEvent.Text -> textRequests.remove(event.token)?.invoke(event.ok, event.text)
-                    else -> store.handle(event)
+            WebViewCompat.addWebMessageListener(view, BRIDGE_NAME, ALL_ORIGINS) { _, message, sourceOrigin, isMainFrame, _ ->
+                val raw = message.data ?: return@addWebMessageListener
+                val events = DevToolsProtocol.parseEvents(raw, isMainFrame, sourceOrigin.toString())
+                // A file read answers only the request that asked, and only from the top page.
+                events.filterIsInstance<DevToolsEvent.Text>().forEach { text ->
+                    if (isMainFrame) textRequests.remove(text.token)?.invoke(text.ok, text.text)
                 }
+                store.handleAll(events.filterNot { it is DevToolsEvent.Text })
             }
         }
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
@@ -101,11 +103,23 @@ class DevToolsBridge(
         call("evaluate", code) { raw ->
             val result = DevToolsProtocol.parseEvaluation(raw)
             when {
-                result == null -> store.appendResult(false, JsonPrimitive("The page cannot run code right now."))
+                result == null -> store.appendResult(false, JsonPrimitive(store.messages.cannotRunCode))
+                // A Content-Security-Policy without 'unsafe-eval' stops the agent's eval; the
+                // WebView's own evaluation is not subject to it, so the code runs that way instead,
+                // with its result as plain JSON rather than the agent's richer form.
+                !result.ok && previewOf(result.value).startsWith("EvalError") -> evaluateDirectly(code)
                 // A promise's outcome arrives as its own event once it settles.
                 result.pendingToken != null -> store.appendResult(true, result.value)
                 else -> store.appendResult(result.ok, result.value)
             }
+        }
+    }
+
+    private fun evaluateDirectly(code: String) {
+        val view = webView ?: return store.appendResult(false, JsonPrimitive(store.messages.cannotRunCode))
+        view.evaluateJavascript(code) { raw ->
+            val value = raw?.let { runCatching { devToolsJson.parseToJsonElement(it) }.getOrNull() } ?: JsonPrimitive(raw.orEmpty())
+            store.appendResult(true, value)
         }
     }
 

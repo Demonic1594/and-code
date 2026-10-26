@@ -28,7 +28,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -54,11 +56,16 @@ internal fun SourcesTab(
     var sources by remember { mutableStateOf<List<PageSource>?>(null) }
     var open by remember { mutableStateOf<Pair<String, String?>?>(null) }
     var query by remember { mutableStateOf("") }
+    var requests by remember { mutableIntStateOf(0) }
     val inlineScript = stringResource(R.string.devtools_inline_script)
     val inlineStyle = stringResource(R.string.devtools_inline_style)
 
     fun refresh() = bridge.call("sources") { sources = DevToolsProtocol.parseSources(it) }
-    LaunchedEffect(Unit) { refresh() }
+    val page by bridge.store.page.collectAsState()
+    LaunchedEffect(page) {
+        open = null
+        refresh()
+    }
 
     open?.let { (title, text) ->
         SourceViewer(title = title, text = text, onBack = { open = null }, modifier = modifier)
@@ -106,7 +113,11 @@ internal fun SourcesTab(
                                             open = title to source.inline
                                         } else {
                                             open = title to null
-                                            bridge.fetchText(source.url) { ok, text -> open = title to (if (ok) text else "") }
+                                            val request = ++requests
+                                            bridge.fetchText(source.url) { ok, text ->
+                                                // A late answer for a file the user already left is dropped.
+                                                if (request == requests && open?.first == title) open = title to (if (ok) text else "")
+                                            }
                                         }
                                     }.padding(horizontal = Spacing.md, vertical = Spacing.sm),
                             verticalAlignment = Alignment.CenterVertically,

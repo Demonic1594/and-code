@@ -50,6 +50,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.yugahashimoto.andcode.BuildConfig
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.UrlLauncher
+import com.yugahashimoto.andcode.feature.browser.devtools.AndroidDevToolsMessages
 import com.yugahashimoto.andcode.feature.browser.devtools.DevToolsBridge
 import com.yugahashimoto.andcode.feature.browser.devtools.DevToolsPanel
 import com.yugahashimoto.andcode.feature.browser.devtools.DevToolsStore
@@ -76,7 +77,7 @@ fun GuestBrowserScreen(
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val linkCopied = stringResource(R.string.guest_browser_link_copied)
-    val bridge = remember { DevToolsBridge(DevToolsStore(), DevToolsBridge.loadScript(context)) }
+    val bridge = remember { DevToolsBridge(DevToolsStore(AndroidDevToolsMessages(context)), DevToolsBridge.loadScript(context)) }
     val problems by bridge.store.problems.collectAsState()
 
     var currentUrl by rememberSaveable { mutableStateOf(initialUrl) }
@@ -196,6 +197,9 @@ fun GuestBrowserScreen(
                                             onTitle = { title = it },
                                             onPageStarted = { url ->
                                                 loadError = null
+                                                // The first page, if the agent opened it while the empty address
+                                                // field was waiting for input, takes over from the field.
+                                                if (!pageStarted && currentUrl.isBlank()) editingAddress = false
                                                 pageStarted = true
                                                 if (!editingAddress) currentUrl = url
                                                 bridge.onPageStarted()

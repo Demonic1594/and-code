@@ -87,9 +87,24 @@ import com.yugahashimoto.andcode.ui.theme.Spacing
 /** What kind of address the bar shows, for its icon. */
 internal enum class AddressKind { LOCAL, SECURE, INSECURE, NONE }
 
+/**
+ * The host and port of [url], without any `user:password@` in front: an address like
+ * `https://bank.example:x@evil.example/` must show, and be judged as, evil.example.
+ */
+internal fun authorityOf(url: String): Pair<String, String?> {
+    val authority =
+        url.substringAfter("://", "").substringBefore('/').substringBefore('?').substringBefore('#').substringAfterLast('@')
+    return if (authority.startsWith("[")) {
+        val host = authority.substringBefore(']') + "]"
+        host.lowercase() to authority.substringAfter("]:", "").ifEmpty { null }
+    } else {
+        authority.substringBefore(':').lowercase() to authority.substringAfter(':', "").ifEmpty { null }
+    }
+}
+
 internal fun addressKindOf(url: String): AddressKind {
     if (url.isBlank()) return AddressKind.NONE
-    val host = url.substringAfter("://", "").substringBefore('/').substringBefore(':').lowercase()
+    val host = authorityOf(url).first
     return when {
         host == "localhost" || host == "127.0.0.1" || host == "0.0.0.0" || host == "[::1]" ||
             host.endsWith(
@@ -103,8 +118,9 @@ internal fun addressKindOf(url: String): AddressKind {
 
 /** The host, plus the port for a local server, as the address bar shows a page it is not editing. */
 internal fun displayHost(url: String): String {
-    val authority = url.substringAfter("://", url).substringBefore('/').substringBefore('?')
-    return if (addressKindOf(url) == AddressKind.LOCAL) authority else authority.substringBefore(':').removePrefix("www.")
+    if (!url.contains("://")) return url
+    val (host, port) = authorityOf(url)
+    return if (addressKindOf(url) == AddressKind.LOCAL && port != null) "$host:$port" else host.removePrefix("www.")
 }
 
 /**

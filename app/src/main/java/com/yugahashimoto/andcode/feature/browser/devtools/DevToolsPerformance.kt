@@ -26,6 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,7 +67,9 @@ internal fun PerformanceTab(
             snapshot = DevToolsProtocol.parsePerformance(it)
             loaded = true
         }
-    LaunchedEffect(Unit) { refresh() }
+    // Read again for every new page.
+    val page by bridge.store.page.collectAsState()
+    LaunchedEffect(page) { refresh() }
 
     val perf = snapshot
     Column(modifier = modifier) {

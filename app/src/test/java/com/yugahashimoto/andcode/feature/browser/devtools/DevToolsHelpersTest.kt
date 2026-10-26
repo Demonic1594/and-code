@@ -111,6 +111,10 @@ class DevToolsHelpersTest {
         assertEquals(AddressKind.NONE, addressKindOf(""))
         assertEquals("localhost:5173", displayHost("http://localhost:5173/app?x=1"))
         assertEquals("example.com", displayHost("https://www.example.com:443/a"))
+        // Credentials in front of the host do not get to impersonate it.
+        assertEquals(AddressKind.INSECURE, addressKindOf("http://localhost:1@evil.example/"))
+        assertEquals("evil.example", displayHost("https://accounts.google.com:x@evil.example/login"))
+        assertEquals("localhost:5173", displayHost("http://user:pw@localhost:5173/"))
     }
 
     @Test

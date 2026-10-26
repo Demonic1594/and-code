@@ -1262,6 +1262,19 @@
     <string name="guest_browser_retry">Reintentar</string>
     <string name="guest_browser_empty_title">Abre una página</string>
     <string name="guest_browser_empty_body">Escribe una dirección arriba o abre un servidor de desarrollo que se esté ejecutando en este dispositivo.</string>
+    <string name="devtools_navigated_to">Navegó a %1$s</string>
+    <string name="devtools_console_cleared">Se borró la consola</string>
+    <string name="devtools_cannot_run">La página no puede ejecutar código en este momento.</string>
+    <plurals name="devtools_requests">
+        <item quantity="one">%1$d solicitud</item>
+        <item quantity="many">%1$d solicitudes</item>
+        <item quantity="other">%1$d solicitudes</item>
+    </plurals>
+    <plurals name="devtools_failed">
+        <item quantity="one">%1$d fallida</item>
+        <item quantity="many">%1$d fallidas</item>
+        <item quantity="other">%1$d fallidas</item>
+    </plurals>
     <string name="devtools_tab_console">Consola</string>
     <string name="devtools_tab_elements">Elementos</string>
     <string name="devtools_tab_network">Red</string>
@@ -1309,7 +1322,6 @@
     <string name="devtools_network_img">Img</string>
     <string name="devtools_network_font">Fuente</string>
     <string name="devtools_network_other">Otros</string>
-    <string name="devtools_network_summary">%1$d solicitudes · %2$s · %3$d fallidas</string>
     <string name="devtools_only_failed">Solo fallidas</string>
     <string name="devtools_network_empty">Aún no hay solicitudes. Recarga la página para registrar todo lo que carga.</string>
     <string name="devtools_headers">Encabezados</string>

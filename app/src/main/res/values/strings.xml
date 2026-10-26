@@ -1281,6 +1281,17 @@
     <string name="guest_browser_retry">Try again</string>
     <string name="guest_browser_empty_title">Open a page</string>
     <string name="guest_browser_empty_body">Type an address above, or open a dev server running on this device.</string>
+    <string name="devtools_navigated_to">Navigated to %1$s</string>
+    <string name="devtools_console_cleared">Console was cleared</string>
+    <string name="devtools_cannot_run">The page cannot run code right now.</string>
+    <plurals name="devtools_requests">
+        <item quantity="one">%1$d request</item>
+        <item quantity="other">%1$d requests</item>
+    </plurals>
+    <plurals name="devtools_failed">
+        <item quantity="one">%1$d failed</item>
+        <item quantity="other">%1$d failed</item>
+    </plurals>
     <string name="devtools_tab_console">Console</string>
     <string name="devtools_tab_elements">Elements</string>
     <string name="devtools_tab_network">Network</string>
@@ -1333,7 +1344,6 @@
     <string name="devtools_network_font">Font</string>
     <string name="devtools_network_ws" translatable="false">WS</string>
     <string name="devtools_network_other">Other</string>
-    <string name="devtools_network_summary">%1$d requests · %2$s · %3$d failed</string>
     <string name="devtools_only_failed">Failed only</string>
     <string name="devtools_network_empty">No requests yet. Reload the page to record everything it loads.</string>
     <string name="devtools_headers">Headers</string>

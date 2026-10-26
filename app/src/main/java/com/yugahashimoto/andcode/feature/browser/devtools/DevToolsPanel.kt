@@ -35,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -84,7 +85,7 @@ fun DevToolsPanel(
     val network by bridge.store.network.collectAsState()
     val inspected by bridge.store.inspected.collectAsState()
     // A pick on the page jumps straight to the element.
-    if (inspected != null && tab != DevToolsTab.ELEMENTS) tab = DevToolsTab.ELEMENTS
+    LaunchedEffect(inspected) { if (inspected != null) tab = DevToolsTab.ELEMENTS }
     val density = LocalDensity.current
     Surface(
         modifier = modifier.fillMaxWidth().height(height),

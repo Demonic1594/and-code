@@ -153,7 +153,13 @@ internal fun ElementsTab(
         }
     }
 
-    LaunchedEffect(Unit) { reload() }
+    // A new page has a new document, and the agent in it has never seen the old node ids.
+    val page by bridge.store.page.collectAsState()
+    LaunchedEffect(page) {
+        selectedId = null
+        details = null
+        reload()
+    }
     // An element picked on the page: open the tree down to it, one level at a time, then select it.
     LaunchedEffect(inspected) {
         val pick = inspected ?: return@LaunchedEffect
@@ -168,7 +174,8 @@ internal fun ElementsTab(
             }
             val id = pick.path[index]
             expanded = expanded + id
-            if (children[id] == null) loadChildren(id) { openPath(index + 1) } else openPath(index + 1)
+            // Read again even when cached: the picked element may have been added since.
+            loadChildren(id) { openPath(index + 1) }
         }
         openPath(0)
     }

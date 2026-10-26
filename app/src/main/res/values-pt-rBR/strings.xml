@@ -1262,6 +1262,19 @@
     <string name="guest_browser_retry">Tentar de novo</string>
     <string name="guest_browser_empty_title">Abra uma página</string>
     <string name="guest_browser_empty_body">Digite um endereço acima ou abra um servidor de desenvolvimento em execução neste dispositivo.</string>
+    <string name="devtools_navigated_to">Navegou para %1$s</string>
+    <string name="devtools_console_cleared">O console foi limpo</string>
+    <string name="devtools_cannot_run">A página não pode executar código agora.</string>
+    <plurals name="devtools_requests">
+        <item quantity="one">%1$d solicitação</item>
+        <item quantity="many">%1$d solicitações</item>
+        <item quantity="other">%1$d solicitações</item>
+    </plurals>
+    <plurals name="devtools_failed">
+        <item quantity="one">%1$d com falha</item>
+        <item quantity="many">%1$d com falha</item>
+        <item quantity="other">%1$d com falha</item>
+    </plurals>
     <string name="devtools_tab_console">Console</string>
     <string name="devtools_tab_elements">Elementos</string>
     <string name="devtools_tab_network">Rede</string>
@@ -1309,7 +1322,6 @@
     <string name="devtools_network_img">Img</string>
     <string name="devtools_network_font">Fonte</string>
     <string name="devtools_network_other">Outros</string>
-    <string name="devtools_network_summary">%1$d solicitações · %2$s · %3$d com falha</string>
     <string name="devtools_only_failed">Só com falha</string>
     <string name="devtools_network_empty">Nenhuma solicitação ainda. Recarregue a página para registrar tudo o que ela carrega.</string>
     <string name="devtools_headers">Cabeçalhos</string>
