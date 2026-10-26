@@ -142,7 +142,7 @@ fun AppDrawerContent(
     /** Session id, title, and the runtime that owns it. */
     onOpenSession: (String, String, String?) -> Unit,
     onNavigate: (String) -> Unit,
-    /** Chats across every agent waiting on an answer or finished unread; see the inbox. */
+    /** Chats waiting on an answer or finished unread, and chats running, as the inbox counts them. */
     inboxWaiting: Int = 0,
     inboxRunning: Int = 0,
     /** Installed agents, offered as a switcher only when there is more than one. */
@@ -574,7 +574,7 @@ private fun InboxRow(
 ) {
     val tc = LocalThemeColors.current
     val label = stringResource(R.string.inbox_title)
-    val waitingLabel = stringResource(R.string.inbox_waiting_count, waiting)
+    val description = stringResource(R.string.inbox_row_description, waiting, running)
     Row(
         modifier =
             Modifier
@@ -582,7 +582,7 @@ private fun InboxRow(
                 .padding(horizontal = Spacing.sm)
                 .clip(AppShapes.md)
                 .clickable(onClick = onClick)
-                .semantics(mergeDescendants = true) { contentDescription = if (waiting > 0) "$label, $waitingLabel" else label }
+                .semantics(mergeDescendants = true) { contentDescription = description }
                 .padding(horizontal = Spacing.md, vertical = 10.dp)
                 .testTag("drawer-inbox"),
         verticalAlignment = Alignment.CenterVertically,

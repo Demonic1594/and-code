@@ -1374,5 +1374,6 @@
     <string name="inbox_failed_approval">تعذّر إرسال إجابتك. حاول مرة أخرى من المحادثة.</string>
     <string name="inbox_failed_stop">تعذّر إيقاف التشغيل.</string>
     <string name="inbox_failed_reply">تعذّر إرسال الرد.</string>
-    <string name="inbox_waiting_count">بانتظارك: %1$d</string>
+    <string name="inbox_row_description">البريد الوارد. بانتظارك: %1$d. قيد التشغيل: %2$d.</string>
+    <string name="inbox_sending">جارٍ الإرسال…</string>
 </resources>

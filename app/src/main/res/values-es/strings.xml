@@ -1365,5 +1365,6 @@
     <string name="inbox_failed_approval">No se pudo enviar tu respuesta. Inténtalo de nuevo desde el chat.</string>
     <string name="inbox_failed_stop">No se pudo detener la ejecución.</string>
     <string name="inbox_failed_reply">No se pudo enviar la respuesta.</string>
-    <string name="inbox_waiting_count">Esperándote: %1$d</string>
+    <string name="inbox_row_description">Bandeja. Esperándote: %1$d. En curso: %2$d.</string>
+    <string name="inbox_sending">Enviando…</string>
 </resources>

@@ -1359,5 +1359,6 @@
     <string name="inbox_failed_approval">无法发送你的回答。请在聊天中重试。</string>
     <string name="inbox_failed_stop">无法停止运行。</string>
     <string name="inbox_failed_reply">无法发送回复。</string>
-    <string name="inbox_waiting_count">等待你处理：%1$d</string>
+    <string name="inbox_row_description">收件箱。等待你处理：%1$d。运行中：%2$d。</string>
+    <string name="inbox_sending">正在发送…</string>
 </resources>

@@ -1379,5 +1379,6 @@
     <string name="inbox_failed_approval">回答を送信できませんでした。チャットからもう一度お試しください。</string>
     <string name="inbox_failed_stop">実行を停止できませんでした。</string>
     <string name="inbox_failed_reply">返信を送信できませんでした。</string>
-    <string name="inbox_waiting_count">対応待ち: %1$d</string>
+    <string name="inbox_row_description">受信箱。対応待ち: %1$d。実行中: %2$d。</string>
+    <string name="inbox_sending">送信中…</string>
 </resources>

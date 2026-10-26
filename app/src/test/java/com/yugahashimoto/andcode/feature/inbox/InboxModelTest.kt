@@ -45,6 +45,30 @@ class InboxModelTest {
         assertEquals(listOf("e", "d"), inbox.finished.map { it.sessionId })
         assertEquals("claude", inbox.finished.first().runtimeId)
         assertEquals(3, inbox.needsYou)
+        // Only the selected runtime's chats can be answered in place.
+        assertEquals(listOf(false, true), inbox.finished.map { it.canReply })
+    }
+
+    @Test
+    fun `an approval from a subagent the catalog has not seen yet is filed under its parent`() {
+        val inbox =
+            buildInbox(
+                sessions = listOf(ref("parent")),
+                activity =
+                    RuntimeActivityState(
+                        activeSessionIds = setOf("parent", "new-child"),
+                        permissions =
+                            listOf(PermissionRequest("p1", "new-child", "bash"), PermissionRequest("p2", "new-child", "edit")),
+                    ),
+                selectedRuntimeId = "opencode",
+                parentOf = { if (it == "new-child") "parent" else null },
+            )
+
+        assertEquals(listOf("parent", "parent"), inbox.approvals.map { it.chat.sessionId })
+        assertEquals("Chat parent", inbox.approvals.first().chat.title)
+        // Waiting on its subagent's approval, the parent is not running as well, and counts once.
+        assertTrue(inbox.running.isEmpty())
+        assertEquals(1, inbox.needsYou)
     }
 
     @Test
@@ -59,7 +83,7 @@ class InboxModelTest {
                         permissions = listOf(PermissionRequest("p1", "grandchild", "edit")),
                     ),
                 selectedRuntimeId = "opencode",
-                isSubagent = { it == "stream-only-child" },
+                parentOf = { if (it == "stream-only-child") "parent" else null },
             )
 
         assertEquals("parent", inbox.approvals.single().chat.sessionId)

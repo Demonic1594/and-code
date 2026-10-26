@@ -428,7 +428,10 @@ class RuntimeActivityRepository(
      * runtime's own session events - known as soon as the child appears, unlike the catalog's
      * session list, which only refreshes now and then.
      */
-    fun isSubagentSession(sessionId: String): Boolean = synchronized(parentLock) { parentIds[sessionId] != null }
+    fun isSubagentSession(sessionId: String): Boolean = parentOf(sessionId) != null
+
+    /** The session that spawned [sessionId], when its events said so; see [isSubagentSession]. */
+    fun parentOf(sessionId: String): String? = synchronized(parentLock) { parentIds[sessionId] }
 
     fun resolvePermission(permissionId: String) {
         mutableState.update { current ->

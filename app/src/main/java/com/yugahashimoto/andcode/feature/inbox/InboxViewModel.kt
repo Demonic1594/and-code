@@ -56,7 +56,7 @@ class InboxViewModel(
                         sessions = sessions,
                         activity = events,
                         selectedRuntimeId = selected?.id,
-                        isSubagent = activity::isSubagentSession,
+                        parentOf = activity::parentOf,
                         hidden = hidden,
                     ),
             )
@@ -84,7 +84,8 @@ class InboxViewModel(
         text: String,
     ) {
         val message = text.trim()
-        if (message.isEmpty()) return
+        // The screen opens such a chat instead; see InboxChat.canReply.
+        if (message.isEmpty() || !chat.canReply) return
         act(chat.sessionId, InboxFailure.REPLY, chat.runtimeId) { backend ->
             backend.sendMessage(chat.sessionId, followUpPrompt(backend, chat.sessionId, message))
             activity.markSessionRunning(chat.sessionId)
@@ -108,7 +109,13 @@ class InboxViewModel(
         viewModelScope.launch {
             val result =
                 runCatching {
-                    val backend = runtimeId?.let(registry::target) ?: registry.selected.value ?: error("No runtime is selected")
+                    // A chat whose runtime has gone must not be sent to whichever one is selected now.
+                    val backend =
+                        if (runtimeId != null) {
+                            registry.target(runtimeId) ?: error("Runtime $runtimeId is gone")
+                        } else {
+                            registry.selected.value ?: error("No runtime is selected")
+                        }
                     block(backend)
                 }
             actions.update { current ->

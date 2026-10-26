@@ -13,6 +13,11 @@ data class InboxChat(
     val runtimeId: String?,
     val agent: LocalAgent?,
     val updatedAt: Long,
+    /**
+     * Whether a reply can go out from the inbox. Only the selected runtime's events are followed, so
+     * a reply to another agent's chat could never be seen to finish; that chat opens instead.
+     */
+    val canReply: Boolean = true,
 )
 
 data class InboxApproval(
@@ -38,16 +43,17 @@ data class InboxContent(
     val isEmpty: Boolean
         get() = approvals.isEmpty() && running.isEmpty() && finished.isEmpty()
 
-    /** Chats that cannot move on without the user: the drawer's badge. */
+    /** Chats that cannot move on without the user - one per chat, however many approvals it holds. */
     val needsYou: Int
-        get() = approvals.size + finished.size
+        get() = approvals.distinctBy { it.chat.sessionId }.size + finished.size
 }
 
 /**
  * Builds the inbox from every runtime's chats and the activity the event stream has seen.
  *
  * A subagent is not a chat of its own: its approval is filed under the chat that started it (that
- * is where the user answers it), and its run is part of that chat's run. A chat waiting on an
+ * is where the user answers it), and its run is part of that chat's run. Its parent comes from the
+ * catalog or, for one spawned since the catalog last refreshed, from the event stream ([parentOf]). A chat waiting on an
  * approval is listed once, under approvals, not again as running. Finished chats the catalog no
  * longer has (deleted, or [hidden] while a delete can still be undone) are left out; the unread
  * set outlives them.
@@ -56,7 +62,7 @@ fun buildInbox(
     sessions: List<RuntimeSessionRef>,
     activity: RuntimeActivityState,
     selectedRuntimeId: String?,
-    isSubagent: (String) -> Boolean = { false },
+    parentOf: (String) -> String? = { null },
     hidden: Set<String> = emptySet(),
 ): InboxContent {
     val byId = sessions.associateBy { it.session.id }
@@ -65,7 +71,7 @@ fun buildInbox(
         var id = sessionId
         // Bounded: a malformed parent chain must not spin forever.
         repeat(MAX_PARENT_DEPTH) {
-            val parent = byId[id]?.session?.parentId ?: return id
+            val parent = byId[id]?.session?.parentId ?: parentOf(id) ?: return id
             id = parent
         }
         return id
@@ -82,10 +88,10 @@ fun buildInbox(
             runtimeId = ref?.runtimeId ?: fallbackRuntimeId,
             agent = ref?.agent,
             updatedAt = ref?.session?.time?.let { it.updated ?: it.created } ?: 0L,
-        )
+        ).let { it.copy(canReply = it.runtimeId == null || it.runtimeId == selectedRuntimeId) }
     }
 
-    fun isRoot(sessionId: String): Boolean = byId[sessionId]?.session?.parentId == null && !isSubagent(sessionId)
+    fun isRoot(sessionId: String): Boolean = rootOf(sessionId) == sessionId
 
     // Permissions only ever come from the selected runtime's stream.
     val approvals =

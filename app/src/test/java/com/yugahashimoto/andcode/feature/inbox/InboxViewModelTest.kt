@@ -124,6 +124,24 @@ class InboxViewModelTest {
             assertEquals(listOf("s1"), f.stopped)
         }
 
+    @Test
+    fun `another agent's chat is not replied to from the inbox, and a vanished runtime is not stood in for`() =
+        runTest(dispatcher) {
+            val f = fixture(TestScope(dispatcher))
+            advanceUntilIdle()
+            val elsewhere = InboxChat("s9", "Elsewhere", runtimeId = "gone", agent = null, updatedAt = 0L, canReply = false)
+
+            f.viewModel.reply(elsewhere, "hello")
+            advanceUntilIdle()
+            assertTrue(f.target.prompts.isEmpty())
+            assertTrue(f.viewModel.state.value.content.running.isEmpty())
+
+            f.viewModel.stop(elsewhere)
+            advanceUntilIdle()
+            assertTrue(f.target.aborted.isEmpty())
+            assertEquals(InboxFailure.STOP, f.viewModel.state.value.failure)
+        }
+
     private class FakeStore(
         override var selectedRuntimeId: String?,
     ) : RuntimeConnectionStore {
