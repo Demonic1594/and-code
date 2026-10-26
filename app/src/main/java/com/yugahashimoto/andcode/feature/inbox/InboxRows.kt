@@ -33,7 +33,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -189,18 +188,25 @@ internal fun FinishedRow(
 ) {
     var replying by rememberSaveable(chat.sessionId) { mutableStateOf(false) }
     var draft by rememberSaveable(chat.sessionId) { mutableStateOf("") }
+    // The draft leaves the row as it is sent: a reply that went out moves the chat to Running in
+    // the same frame, so the row is gone before it could see the send finish, and the same chat
+    // finishing again later must not reopen with the old text. A failed reply gets it back.
+    var inFlight by rememberSaveable(chat.sessionId) { mutableStateOf("") }
     val send = {
-        if (draft.isNotBlank() && !sending) onReply(draft)
-    }
-    // A reply that went out leaves nothing to keep: the same chat finishing again later must not
-    // reopen with it. One that failed stays, so it can be sent again.
-    var wasSending by remember { mutableStateOf(false) }
-    LaunchedEffect(sending) {
-        if (wasSending && !sending && !replyFailed) {
+        if (draft.isNotBlank() && !sending) {
+            inFlight = draft
             draft = ""
             replying = false
+            onReply(inFlight)
         }
-        wasSending = sending
+    }
+    LaunchedEffect(sending, replyFailed) {
+        if (sending || inFlight.isEmpty()) return@LaunchedEffect
+        if (replyFailed) {
+            draft = inFlight
+            replying = true
+        }
+        inFlight = ""
     }
     InboxCard(onClick = onOpen, modifier = modifier.animateContentSize()) {
         Column {
@@ -230,7 +236,10 @@ internal fun FinishedRow(
                 // Another agent's chat opens instead: its events are not followed here, so a reply
                 // sent from the inbox could never be seen to finish.
                 IconButton(onClick = { if (chat.canReply) replying = !replying else onOpen() }) {
-                    Icon(Icons.AutoMirrored.Filled.Reply, contentDescription = stringResource(R.string.inbox_reply))
+                    Icon(
+                        Icons.AutoMirrored.Filled.Reply,
+                        contentDescription = stringResource(if (chat.canReply) R.string.inbox_reply else R.string.inbox_open_to_reply),
+                    )
                 }
                 IconButton(onClick = onMarkRead) {
                     Icon(Icons.Default.Check, contentDescription = stringResource(R.string.inbox_mark_read))

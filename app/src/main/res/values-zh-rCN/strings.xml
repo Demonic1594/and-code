@@ -1352,6 +1352,7 @@
     <string name="inbox_working">处理中…</string>
     <string name="inbox_reply">回复</string>
     <string name="inbox_reply_hint">回复此聊天</string>
+    <string name="inbox_open_to_reply">打开聊天以回复</string>
     <string name="inbox_mark_read">标记为已读</string>
     <string name="inbox_mark_all_read">全部标记为已读</string>
     <string name="inbox_empty_title">全部处理完毕</string>

@@ -1361,6 +1361,7 @@
     <string name="inbox_working">Работает…</string>
     <string name="inbox_reply">Ответить</string>
     <string name="inbox_reply_hint">Ответить в этот чат</string>
+    <string name="inbox_open_to_reply">Открыть чат, чтобы ответить</string>
     <string name="inbox_mark_read">Отметить прочитанным</string>
     <string name="inbox_mark_all_read">Отметить все прочитанными</string>
     <string name="inbox_empty_title">Всё разобрано</string>

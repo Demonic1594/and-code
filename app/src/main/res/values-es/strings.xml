@@ -1358,6 +1358,7 @@
     <string name="inbox_working">Trabajando…</string>
     <string name="inbox_reply">Responder</string>
     <string name="inbox_reply_hint">Responder a este chat</string>
+    <string name="inbox_open_to_reply">Abrir el chat para responder</string>
     <string name="inbox_mark_read">Marcar como leído</string>
     <string name="inbox_mark_all_read">Marcar todo como leído</string>
     <string name="inbox_empty_title">Todo al día</string>

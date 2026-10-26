@@ -1358,6 +1358,7 @@
     <string name="inbox_working">En cours…</string>
     <string name="inbox_reply">Répondre</string>
     <string name="inbox_reply_hint">Répondre à cette discussion</string>
+    <string name="inbox_open_to_reply">Ouvrir la discussion pour répondre</string>
     <string name="inbox_mark_read">Marquer comme lu</string>
     <string name="inbox_mark_all_read">Tout marquer comme lu</string>
     <string name="inbox_empty_title">Tout est à jour</string>

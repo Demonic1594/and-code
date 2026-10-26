@@ -1367,6 +1367,7 @@
     <string name="inbox_working">جارٍ العمل…</string>
     <string name="inbox_reply">رد</string>
     <string name="inbox_reply_hint">الرد على هذه المحادثة</string>
+    <string name="inbox_open_to_reply">افتح المحادثة للرد</string>
     <string name="inbox_mark_read">تعليم كمقروءة</string>
     <string name="inbox_mark_all_read">تعليم الكل كمقروء</string>
     <string name="inbox_empty_title">لا شيء بانتظارك</string>

@@ -1372,6 +1372,7 @@
     <string name="inbox_working">作業中…</string>
     <string name="inbox_reply">返信</string>
     <string name="inbox_reply_hint">このチャットに返信</string>
+    <string name="inbox_open_to_reply">チャットを開いて返信</string>
     <string name="inbox_mark_read">既読にする</string>
     <string name="inbox_mark_all_read">すべて既読にする</string>
     <string name="inbox_empty_title">すべて対応済み</string>
