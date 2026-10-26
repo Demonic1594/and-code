@@ -24,6 +24,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.atomic.AtomicInteger
 
 class MessageSearchRepositoryTest {
     private val target =
@@ -131,11 +132,14 @@ class MessageSearchRepositoryTest {
         override val displayName: String = id
         override val kind: BackendKind = BackendKind.LOCAL
         override val state = MutableStateFlow<RuntimeState>(RuntimeState.Disconnected)
-        var reads = 0
+
+        // Reads run on several IO threads at once, so a plain counter could lose increments.
+        private val readCount = AtomicInteger()
+        val reads: Int get() = readCount.get()
         var failFor: String? = null
 
         override suspend fun listMessages(sessionId: String): List<OpenCodeMessage> {
-            reads++
+            readCount.incrementAndGet()
             if (sessionId == failFor) error("unreadable")
             return messages[sessionId].orEmpty()
         }
