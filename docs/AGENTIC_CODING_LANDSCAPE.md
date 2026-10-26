@@ -260,7 +260,7 @@ Ranked by value to a phone user against the cost of building it. The **Status** 
 | 8 | Schedule templates | Jules templated tasks | Shipped |
 | 9 | Material You dynamic colour, bundled code font, haptics, motion | Android platform norms | Shipped |
 | 10 | Launcher shortcuts and a Quick Settings tile | GitHub Mobile, Android norms | Shipped |
-| 11 | Checkpoints / rewind via shadow git | Gemini CLI, Cline, Claude Code | Next |
+| 11 | Checkpoints / rewind via shadow git | Gemini CLI, Cline, Claude Code | Shipped for OpenCode chats: Rewind to here (OpenCode revert), Undo until the next message |
 | 12 | Per-workspace rules file (AGENTS.md picker / editor) | Cursor rules, Kiro steering | Next |
 | 13 | AI-written commit message button | Aider | Next |
 | 14 | Ongoing run notification + "needs input" push with reply | Cursor Live Activities, Omnara | Shipped: live run notification with Stop, Reply on finished/failed notices, Allow/Reject on approvals. Reply on question notices: later |

@@ -70,6 +70,14 @@ interface OpenCodeBackend {
         messageId: String,
     ): Boolean = unsupported("message delete")
 
+    /** See [com.yugahashimoto.andcode.core.api.OpenCodeApi.revertSession] and [RuntimeCapabilities.checkpoints]. */
+    suspend fun revertSession(
+        sessionId: String,
+        messageId: String,
+    ): Unit = unsupported("session revert")
+
+    suspend fun unrevertSession(sessionId: String): Unit = unsupported("session unrevert")
+
     suspend fun listProviders(): ProviderCatalog
 
     suspend fun listAgents(): List<OpenCodeAgent>

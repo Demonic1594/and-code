@@ -30,6 +30,7 @@ page: [`TOKEN_EFFICIENCY.md`](TOKEN_EFFICIENCY.md).
 | Starter prompts | A new, empty chat | Shows the agent's mark, "What should we work on?" and four starters (explain the project, fix a bug, write tests, review changes). Tapping one fills the message box without sending, so you can add the file or symptom first. |
 | Changes card and review | Under any answer that edited files → **Review changes** | The card lists the files that answer changed. The review screen shows every file with its +/− counts (tap a file to fold it) and a line-numbered diff. Tap a line to leave a comment; **Send to agent** sends all comments to the chat as one message that names each file, line and the code on it. Needs a runtime that can produce diffs (a Git workspace). |
 | Inbox | Drawer → **Inbox** (the row under New chat counts what waits on you and what is running) | Chats in one list: approvals with Reject / Allow once / Always allow on the card, running chats with their current step and **Stop**, and chats that finished unread with **Reply** and **Mark as read**. Running and finished chats come from every agent; approvals and inline replies are for the selected agent, whose events the app follows (another agent's chat opens instead). A chat waiting on a question shows as running. A reply goes out with the agent and model the chat last used. Tap a chat to open it. |
+| Rewind (checkpoints) | Long-press one of your messages → **Rewind to here** (OpenCode chats) | Puts the files the agent changed from that message on back to how they were, hides that message and the ones after it, and returns its text to the message box to send again as is or changed. A banner offers **Undo** until the next message, which makes the rewind permanent. OpenCode restores from snapshots it keeps apart from the project's own git history; it needs a git project, and outside one only the conversation rewinds. Claude Code, Codex and Antigravity have no rewind. |
 
 ## Workspace (on-device runtime)
 
@@ -60,7 +61,7 @@ it too.
 
 ## Not done yet
 
-Researched and ranked in the landscape doc but not built: checkpoints / rewind, per-workspace
+Researched and ranked in the landscape doc but not built: per-workspace
 rules, an AI-written commit message button, saved prompts stored as files in the repo, an
 interactive PTY terminal, one worktree per chat, best-of-N attempts, E2E
 relay pairing, spec-driven templates, a dev-server preview button and an

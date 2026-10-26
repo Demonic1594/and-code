@@ -40,6 +40,18 @@ data class RuntimeCapabilities(
      */
     val editMessages: Boolean = false,
     /**
+     * True when a chat can be rewound to before one of its messages, files included
+     * ([com.yugahashimoto.andcode.runtime.OpenCodeBackend.revertSession]).
+     *
+     * OpenCode V1 (local and remote) snapshots a git project at every step into a store of its own,
+     * apart from the project's repository, and restores from it - the project's history and index
+     * are never touched. Outside a git project (or with snapshots off in its config) it has nothing
+     * to restore, so only the transcript rewinds. V2 has no revert route, and Claude Code,
+     * Codex and Antigravity expose no checkpoints over the way the app drives them, so those leave
+     * this false and the chat offers no rewind.
+     */
+    val checkpoints: Boolean = false,
+    /**
      * True when [com.yugahashimoto.andcode.runtime.OpenCodeBackend.sessionDiff] can return real diff
      * content for this backend, so the chat UI can fetch and render one when a turn changes files.
      *

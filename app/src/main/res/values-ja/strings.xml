@@ -1382,4 +1382,12 @@
     <string name="inbox_failed_reply">返信を送信できませんでした。</string>
     <string name="inbox_row_description">受信箱。対応待ち: %1$d。実行中: %2$d。</string>
     <string name="inbox_sending">送信中…</string>
+    <string name="action_rewind">ここまで巻き戻す</string>
+    <string name="rewind_confirm_title">このメッセージまで巻き戻しますか？</string>
+    <string name="rewind_confirm_body">このメッセージ以降にエージェントが変更したファイルが元に戻り、このメッセージとそれ以降のメッセージが非表示になります。メッセージの本文は入力欄に戻ります。新しいメッセージを送るまでは元に戻せます。</string>
+    <string name="rewind_confirm">巻き戻す</string>
+    <string name="rewind_banner_title">以前の時点に巻き戻しました</string>
+    <string name="rewind_banner_body">スナップショットがあるファイルは元に戻りました。</string>
+    <string name="rewind_nothing">そのメッセージには巻き戻せる時点がありませんでした。</string>
+    <string name="rewind_hidden_count">非表示: %1$d</string>
 </resources>

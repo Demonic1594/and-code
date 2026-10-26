@@ -1377,4 +1377,12 @@
     <string name="inbox_failed_reply">تعذّر إرسال الرد.</string>
     <string name="inbox_row_description">البريد الوارد. بانتظارك: %1$d. قيد التشغيل: %2$d.</string>
     <string name="inbox_sending">جارٍ الإرسال…</string>
+    <string name="action_rewind">الرجوع إلى هنا</string>
+    <string name="rewind_confirm_title">هل تريد الرجوع إلى هذه الرسالة؟</string>
+    <string name="rewind_confirm_body">تعود الملفات التي غيّرها الوكيل منذ هذه الرسالة إلى ما كانت عليه، وتُخفى هذه الرسالة وما بعدها. ويعود نصها إلى مربع الرسالة. يمكنك التراجع إلى أن ترسل رسالة جديدة.</string>
+    <string name="rewind_confirm">رجوع</string>
+    <string name="rewind_banner_title">تم الرجوع إلى نقطة سابقة</string>
+    <string name="rewind_banner_body">أُعيدت الملفات المعدّلة حيث توجد لقطة.</string>
+    <string name="rewind_nothing">لم يكن هناك ما يمكن الرجوع إليه عند تلك الرسالة.</string>
+    <string name="rewind_hidden_count">مخفية: %1$d</string>
 </resources>

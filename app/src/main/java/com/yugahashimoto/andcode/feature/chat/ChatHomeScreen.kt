@@ -37,9 +37,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -49,6 +51,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -107,6 +110,7 @@ private data class MessageActionTarget(
     val id: String,
     val text: String,
     val canEdit: Boolean,
+    val canRewind: Boolean = false,
 )
 
 private const val DRAFT_SAVE_DEBOUNCE_MS = 400L
@@ -187,6 +191,11 @@ fun ChatHomeScreen(
     /** Removes the last user message (and its reply) and hands its text back via [state]'s edit draft. */
     onEditLastMessage: () -> Unit = {},
     onEditDraftConsumed: () -> Unit = {},
+    /** False for a runtime with no checkpoints, so "Rewind to here" is hidden. */
+    canRewind: Boolean = false,
+    /** Rewinds the chat, files included, to just before the given message of the user's. */
+    onRewind: (String) -> Unit = {},
+    onUndoRewind: () -> Unit = {},
     onPermission: (String, PermissionResponse, Boolean) -> Unit,
     onAbort: () -> Unit,
     /** Probes the quiet run again now, rather than waiting for the next scheduled check. */
@@ -233,10 +242,13 @@ fun ChatHomeScreen(
     val runtimeNotReady = errorKind == ChatErrorKind.RUNTIME_NOT_READY && state.messages.isEmpty()
     val isAtBottom = remember { mutableStateOf(true) }
     var showActionSheet by remember { mutableStateOf<MessageActionTarget?>(null) }
+    var rewindTarget by remember { mutableStateOf<MessageActionTarget?>(null) }
     var activityGroupId by remember { mutableStateOf<String?>(null) }
     var selectedImage by remember { mutableStateOf<ChatImageSource?>(null) }
     var legacyDownload by remember { mutableStateOf<ChatImageSource?>(null) }
-    val timelineEntries = remember(state.messages) { groupConversationTimeline(state.messages) }
+    // A rewound chat shows only what comes before the point it was rewound to.
+    val shownMessages = state.visibleMessages
+    val timelineEntries = remember(shownMessages) { groupConversationTimeline(shownMessages) }
     // Find in chat: which rows match, and which of them is the current one. A new query starts at
     // the newest match, since the chat itself sits at the bottom.
     var findActive by rememberSaveable { mutableStateOf(false) }
@@ -389,7 +401,11 @@ fun ChatHomeScreen(
     // than the user having to retype it.
     LaunchedEffect(state.editDraft) {
         state.editDraft?.let { draft ->
-            inputValue = TextFieldValue(draft, TextRange(draft.length))
+            // A rewind hands its message back as a convenience; it must not overwrite something
+            // the user was already typing. An edit always fills it: its message is gone otherwise.
+            if (state.rewoundFrom == null || inputValue.text.isBlank()) {
+                inputValue = TextFieldValue(draft, TextRange(draft.length))
+            }
             onEditDraftConsumed()
         }
     }
@@ -529,7 +545,7 @@ fun ChatHomeScreen(
                                         shareChatTranscript(
                                             context = context,
                                             title = title,
-                                            markdown = chatTranscriptMarkdown(title, state.messages, labels),
+                                            markdown = chatTranscriptMarkdown(title, shownMessages, labels),
                                             chooserTitle = context.getString(R.string.chat_menu_share),
                                         )
                                     },
@@ -543,7 +559,7 @@ fun ChatHomeScreen(
                                                 tool = context.getString(R.string.transcript_tool),
                                                 error = context.getString(R.string.transcript_error),
                                             )
-                                        val markdown = chatTranscriptMarkdown(title, state.messages, labels)
+                                        val markdown = chatTranscriptMarkdown(title, shownMessages, labels)
                                         val copied =
                                             markdown.length <= MAX_CLIPBOARD_TRANSCRIPT_CHARS &&
                                                 runCatching { clipboardManager.setText(AnnotatedString(markdown)) }.isSuccess
@@ -585,7 +601,7 @@ fun ChatHomeScreen(
                             onOpenLocalSetup = onOpenLocalSetup,
                             onOpenRemoteSetup = onOpenRemoteSetup,
                         )
-                    state.messages.isEmpty() && !state.isRunning && state.error == null &&
+                    shownMessages.isEmpty() && !state.isRunning && state.error == null &&
                         state.permissions.isEmpty() && state.pendingQuestions.isEmpty() ->
                         ChatWelcome(
                             agent = LocalAgent.entries.firstOrNull { it.targetId == selectedRuntimeId },
@@ -602,7 +618,7 @@ fun ChatHomeScreen(
                             // message: editing an earlier one would also discard every turn after
                             // it, which is a bigger, riskier action than this affordance is meant
                             // for (see issue #269).
-                            val lastUserMessageId = state.messages.lastOrNull { it.isUser }?.id
+                            val lastUserMessageId = shownMessages.lastOrNull { it.isUser }?.id
                             itemsIndexed(timelineEntries, key = { _, entry -> entry.id }) { index, entry ->
                                 val copyable =
                                     when (entry) {
@@ -611,8 +627,9 @@ fun ChatHomeScreen(
                                                 id = entry.message.id,
                                                 text = entry.message.text,
                                                 canEdit =
-                                                    canEditMessages && !state.isRunning &&
+                                                    canEditMessages && !state.isRunning && state.rewoundFrom == null &&
                                                         entry.message.id == lastUserMessageId,
+                                                canRewind = canRewind && !state.isRunning && !state.isRewinding,
                                             )
                                         is TimelineEntry.Body ->
                                             MessageActionTarget(entry.messageId, entry.part.text, canEdit = false)
@@ -748,6 +765,15 @@ fun ChatHomeScreen(
                 )
             }
 
+            val hiddenCount = state.messages.size - shownMessages.size
+            if (state.rewoundFrom != null && hiddenCount > 0) {
+                RewindBanner(
+                    hiddenCount = hiddenCount,
+                    busy = state.isRewinding,
+                    onUndo = onUndoRewind,
+                )
+            }
+
             if (!runtimeNotReady) {
                 ChatComposer(
                     inputValue = inputValue,
@@ -757,7 +783,8 @@ fun ChatHomeScreen(
                     },
                     isRunning = state.isRunning,
                     onSend = {
-                        if (input.isNotBlank() || state.attachments.isNotEmpty()) {
+                        // Held while a rewind lands: which messages the new one follows is not settled yet.
+                        if (!state.isRewinding && (input.isNotBlank() || state.attachments.isNotEmpty())) {
                             haptics.perform(HapticEvent.CONFIRM)
                             onSendMessage(SlashCommandRegistry.expandSavedPrompt(input, savedPrompts))
                             inputValue = TextFieldValue("")
@@ -945,6 +972,24 @@ fun ChatHomeScreen(
         ChatDiffDialog(state = patchDiff, onDismiss = onDismissPatchDiff, onSendReview = onSendReview)
     }
 
+    rewindTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { rewindTarget = null },
+            icon = { Icon(Icons.Default.History, contentDescription = null) },
+            title = { Text(stringResource(R.string.rewind_confirm_title)) },
+            text = { Text(stringResource(R.string.rewind_confirm_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onRewind(target.id)
+                    rewindTarget = null
+                }) { Text(stringResource(R.string.rewind_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { rewindTarget = null }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+
     showActionSheet?.let { target ->
         ModalBottomSheet(onDismissRequest = { showActionSheet = null }) {
             Column(modifier = Modifier.padding(bottom = 32.dp)) {
@@ -967,6 +1012,16 @@ fun ChatHomeScreen(
                         text = { Text(stringResource(R.string.action_edit_message)) },
                         onClick = {
                             onEditLastMessage()
+                            showActionSheet = null
+                        },
+                    )
+                }
+                if (target.canRewind) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_rewind)) },
+                        leadingIcon = { Icon(Icons.Default.History, contentDescription = null) },
+                        onClick = {
+                            rewindTarget = target
                             showActionSheet = null
                         },
                     )

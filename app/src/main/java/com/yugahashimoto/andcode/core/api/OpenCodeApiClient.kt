@@ -96,6 +96,16 @@ class OpenCodeApiClient(
         messageId: String,
     ): Boolean = delete("session/${encodePath(sessionId)}/message/${encodePath(messageId)}")
 
+    // The answer (a session, or `true` on older servers) is not read: the caller reloads the
+    // session to see the revert, so either shape works.
+    override suspend fun revertSession(
+        sessionId: String,
+        messageId: String,
+    ) = postWithoutResponse("session/${encodePath(sessionId)}/revert", buildJsonObject { put("messageID", messageId) })
+
+    override suspend fun unrevertSession(sessionId: String) =
+        postWithoutResponse("session/${encodePath(sessionId)}/unrevert", JsonObject(emptyMap()))
+
     override suspend fun providers(): ProviderCatalog = get("provider")
 
     override suspend fun agents(): List<OpenCodeAgent> = getList("agent")

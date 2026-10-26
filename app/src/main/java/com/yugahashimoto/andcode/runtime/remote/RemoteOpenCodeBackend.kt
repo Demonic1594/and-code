@@ -69,6 +69,13 @@ class RemoteOpenCodeBackend(
         messageId: String,
     ): Boolean = client.deleteMessage(sessionId, messageId)
 
+    override suspend fun revertSession(
+        sessionId: String,
+        messageId: String,
+    ) = client.revertSession(sessionId, messageId)
+
+    override suspend fun unrevertSession(sessionId: String) = client.unrevertSession(sessionId)
+
     override suspend fun listProviders(): ProviderCatalog = client.providers()
 
     override suspend fun listAgents(): List<OpenCodeAgent> = client.agents()

@@ -33,6 +33,7 @@ val viewModelModule =
                 // 30-second loops keep polling out of sight.
                 awaitForeground = { app.appForeground.foreground.first { visible -> visible } },
                 videoNotSupportedMessage = androidContext().getString(com.yugahashimoto.andcode.R.string.error_video_not_supported),
+                rewindNothingMessage = androidContext().getString(com.yugahashimoto.andcode.R.string.rewind_nothing),
                 workspaceAttachmentNoteTemplate =
                     androidContext().getString(
                         com.yugahashimoto.andcode.R.string.chat_workspace_attachment_note,

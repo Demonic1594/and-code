@@ -1371,4 +1371,12 @@
     <string name="inbox_failed_reply">Не удалось отправить ответ.</string>
     <string name="inbox_row_description">Входящие. Ждут вас: %1$d. Выполняются: %2$d.</string>
     <string name="inbox_sending">Отправка…</string>
+    <string name="action_rewind">Откатить до этого места</string>
+    <string name="rewind_confirm_title">Откатить к этому сообщению?</string>
+    <string name="rewind_confirm_body">Файлы, которые агент изменил начиная с этого сообщения, вернутся в прежнее состояние, а это и последующие сообщения будут скрыты. Текст сообщения вернётся в поле ввода. Отменить откат можно, пока вы не отправите новое сообщение.</string>
+    <string name="rewind_confirm">Откатить</string>
+    <string name="rewind_banner_title">Чат откачен к более ранней точке</string>
+    <string name="rewind_banner_body">Изменённые файлы возвращены там, где был снимок.</string>
+    <string name="rewind_nothing">К этому сообщению откатиться было нечего.</string>
+    <string name="rewind_hidden_count">Скрыто: %1$d</string>
 </resources>

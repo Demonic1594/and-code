@@ -85,6 +85,13 @@ class ProtocolDetectingOpenCodeApi(
         messageId: String,
     ): Boolean = current().deleteMessage(sessionId, messageId)
 
+    override suspend fun revertSession(
+        sessionId: String,
+        messageId: String,
+    ) = current().revertSession(sessionId, messageId)
+
+    override suspend fun unrevertSession(sessionId: String) = current().unrevertSession(sessionId)
+
     override suspend fun providers(): ProviderCatalog = current().providers()
 
     override suspend fun agents(): List<OpenCodeAgent> = current().agents()

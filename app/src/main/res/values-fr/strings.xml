@@ -1368,4 +1368,12 @@
     <string name="inbox_failed_reply">Impossible d\'envoyer la réponse.</string>
     <string name="inbox_row_description">Boîte de réception. En attente de vous : %1$d. En cours : %2$d.</string>
     <string name="inbox_sending">Envoi…</string>
+    <string name="action_rewind">Revenir ici</string>
+    <string name="rewind_confirm_title">Revenir à ce message ?</string>
+    <string name="rewind_confirm_body">Les fichiers modifiés par l\'agent depuis ce message reviennent à leur état d\'avant, et ce message ainsi que les suivants sont masqués. Son texte revient dans la zone de saisie. Vous pouvez annuler tant que vous n\'avez pas envoyé de nouveau message.</string>
+    <string name="rewind_confirm">Revenir</string>
+    <string name="rewind_banner_title">Retour à un point antérieur</string>
+    <string name="rewind_banner_body">Les fichiers modifiés sont revenus en arrière là où un instantané existait.</string>
+    <string name="rewind_nothing">Il n\'y avait rien vers quoi revenir à ce message.</string>
+    <string name="rewind_hidden_count">Masqués : %1$d</string>
 </resources>

@@ -55,6 +55,7 @@ class RemoteRuntimeTarget(
                 providerModelList = true,
                 abortsBeforeInterrupt = true,
                 editMessages = backend.protocol != OpenCodeProtocol.V2,
+                checkpoints = backend.protocol != OpenCodeProtocol.V2,
                 diffCapable = true,
                 // V1 accepts config patches; V2 does not, so its config entry points stay hidden.
                 configEditing = backend.protocol != OpenCodeProtocol.V2,
@@ -142,6 +143,13 @@ class RemoteRuntimeTarget(
         sessionId: String,
         messageId: String,
     ): Boolean = backend.deleteMessage(sessionId, messageId)
+
+    override suspend fun revertSession(
+        sessionId: String,
+        messageId: String,
+    ) = backend.revertSession(sessionId, messageId)
+
+    override suspend fun unrevertSession(sessionId: String) = backend.unrevertSession(sessionId)
 
     override suspend fun listProviders(): ProviderCatalog = backend.listProviders()
 

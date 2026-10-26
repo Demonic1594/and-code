@@ -63,6 +63,7 @@ class LocalRuntimeTarget(
                 providerModelList = true,
                 abortsBeforeInterrupt = true,
                 editMessages = backend.protocol != OpenCodeProtocol.V2,
+                checkpoints = backend.protocol != OpenCodeProtocol.V2,
                 diffCapable = true,
                 configEditing = backend.protocol != OpenCodeProtocol.V2,
                 mcpOAuth = backend.protocol != OpenCodeProtocol.V2,
@@ -173,6 +174,13 @@ class LocalRuntimeTarget(
         sessionId: String,
         messageId: String,
     ): Boolean = backend.deleteMessage(sessionId, messageId)
+
+    override suspend fun revertSession(
+        sessionId: String,
+        messageId: String,
+    ) = backend.revertSession(sessionId, messageId)
+
+    override suspend fun unrevertSession(sessionId: String) = backend.unrevertSession(sessionId)
 
     override suspend fun listProviders(): ProviderCatalog = backend.listProviders()
 

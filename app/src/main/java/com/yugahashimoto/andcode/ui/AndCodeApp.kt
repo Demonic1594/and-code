@@ -332,6 +332,7 @@ fun AndCodeApp(
                         // foreground again.
                         awaitForeground = { app.appForeground.foreground.first { visible -> visible } },
                         videoNotSupportedMessage = context.getString(R.string.error_video_not_supported),
+                        rewindNothingMessage = context.getString(R.string.rewind_nothing),
                         workspaceAttachmentNoteTemplate = context.getString(R.string.chat_workspace_attachment_note),
                     )
                 },
@@ -1265,6 +1266,9 @@ fun AndCodeApp(
                                 onSendMessage = chatViewModel::sendMessage,
                                 onSendReview = chatViewModel::sendReview,
                                 canEditMessages = selectedRuntime?.capabilities?.editMessages == true,
+                                canRewind = selectedRuntime?.capabilities?.checkpoints == true,
+                                onRewind = chatViewModel::rewindTo,
+                                onUndoRewind = chatViewModel::undoRewind,
                                 onEditLastMessage = chatViewModel::editLastUserMessage,
                                 onEditDraftConsumed = chatViewModel::consumeEditDraft,
                                 onPermission = chatViewModel::respondToPermission,

@@ -1362,4 +1362,12 @@
     <string name="inbox_failed_reply">无法发送回复。</string>
     <string name="inbox_row_description">收件箱。等待你处理：%1$d。运行中：%2$d。</string>
     <string name="inbox_sending">正在发送…</string>
+    <string name="action_rewind">回退到这里</string>
+    <string name="rewind_confirm_title">回退到这条消息？</string>
+    <string name="rewind_confirm_body">代理从这条消息起修改的文件会恢复原状，这条消息及之后的消息会被隐藏。消息内容会回到输入框。在发送新消息之前，你都可以撤销。</string>
+    <string name="rewind_confirm">回退</string>
+    <string name="rewind_banner_title">已回退到之前的位置</string>
+    <string name="rewind_banner_body">有快照的已更改文件已恢复。</string>
+    <string name="rewind_nothing">这条消息处没有可回退的时间点。</string>
+    <string name="rewind_hidden_count">已隐藏：%1$d</string>
 </resources>

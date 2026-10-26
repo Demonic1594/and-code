@@ -1368,4 +1368,12 @@
     <string name="inbox_failed_reply">Não foi possível enviar a resposta.</string>
     <string name="inbox_row_description">Caixa de entrada. Aguardando você: %1$d. Em execução: %2$d.</string>
     <string name="inbox_sending">Enviando…</string>
+    <string name="action_rewind">Voltar até aqui</string>
+    <string name="rewind_confirm_title">Voltar até esta mensagem?</string>
+    <string name="rewind_confirm_body">Os arquivos que o agente alterou a partir desta mensagem voltam a ser como eram, e esta mensagem e as seguintes ficam ocultas. O texto dela volta para a caixa de mensagem. Você pode desfazer até enviar uma nova mensagem.</string>
+    <string name="rewind_confirm">Voltar</string>
+    <string name="rewind_banner_title">Voltou a um ponto anterior</string>
+    <string name="rewind_banner_body">Os arquivos alterados voltaram onde havia um snapshot.</string>
+    <string name="rewind_nothing">Não havia nada para onde voltar nessa mensagem.</string>
+    <string name="rewind_hidden_count">Ocultas: %1$d</string>
 </resources>
