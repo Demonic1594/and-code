@@ -206,7 +206,7 @@ class RuntimeActivityRepository(
                     target.state.collect { runtimeState ->
                         if (runtimeState is RuntimeState.Connected || runtimeState is RuntimeState.Connecting) return@collect
                         mutableState.update {
-                            it.copy(activeSessionIds = emptySet(), permissions = emptyList())
+                            it.copy(activeSessionIds = emptySet(), permissions = emptyList(), currentSteps = emptyMap())
                         }
                     }
                 }
@@ -402,6 +402,7 @@ class RuntimeActivityRepository(
         mutableState.update { current ->
             current.copy(
                 activeSessionIds = current.activeSessionIds - sessionId,
+                currentSteps = current.currentSteps - sessionId,
                 settledSessionIds = current.settledSessionIds + sessionId,
                 mutedSessionIds = current.mutedSessionIds + sessionId,
             )
@@ -421,6 +422,13 @@ class RuntimeActivityRepository(
             stallDetectedAt -= sessionId
         }
     }
+
+    /**
+     * True for a session this repository has seen spawned by another (a subagent's), from the
+     * runtime's own session events - known as soon as the child appears, unlike the catalog's
+     * session list, which only refreshes now and then.
+     */
+    fun isSubagentSession(sessionId: String): Boolean = synchronized(parentLock) { parentIds[sessionId] != null }
 
     fun resolvePermission(permissionId: String) {
         mutableState.update { current ->
@@ -454,6 +462,7 @@ class RuntimeActivityRepository(
                 completedSessionIds = current.completedSessionIds - sessionId,
                 settledSessionIds = current.settledSessionIds - sessionId,
                 mutedSessionIds = current.mutedSessionIds - sessionId,
+                currentSteps = current.currentSteps - sessionId,
             )
         }
         persistUnread()
@@ -464,6 +473,7 @@ class RuntimeActivityRepository(
         mutableState.update { current ->
             current.copy(
                 activeSessionIds = current.activeSessionIds - sessionId,
+                currentSteps = current.currentSteps - sessionId,
                 mutedSessionIds = current.mutedSessionIds + sessionId,
             )
         }
@@ -478,6 +488,7 @@ class RuntimeActivityRepository(
         mutableState.update { current ->
             current.copy(
                 activeSessionIds = current.activeSessionIds - sessionId,
+                currentSteps = current.currentSteps - sessionId,
                 completedSessionIds =
                     if (unread) {
                         current.completedSessionIds + sessionId
@@ -508,8 +519,14 @@ class RuntimeActivityRepository(
                 when (event.part.type) {
                     "tool", "tool-invocation" -> {
                         appendLog(messages.eventTool, event.part.tool, sessionId)
-                        toolStep(event.part)?.let { step ->
-                            mutableState.update { current -> current.copy(currentSteps = current.currentSteps + (sessionId to step)) }
+                        // A finished call clears the step, so the notification stops naming a
+                        // command that is no longer running while the model writes its answer.
+                        val step = toolStep(event.part)
+                        mutableState.update { current ->
+                            current.copy(
+                                currentSteps =
+                                    if (step != null) current.currentSteps + (sessionId to step) else current.currentSteps - sessionId,
+                            )
                         }
                     }
                     "reasoning" -> appendLog(messages.eventReasoning, null, sessionId)
@@ -572,6 +589,7 @@ class RuntimeActivityRepository(
                             } else {
                                 current.activeSessionIds + event.sessionId
                             },
+                        currentSteps = if (event.status == "idle") current.currentSteps - event.sessionId else current.currentSteps,
                         completedSessionIds =
                             if (event.status == "idle") {
                                 current.completedSessionIds + event.sessionId
@@ -599,6 +617,7 @@ class RuntimeActivityRepository(
                     mutableState.update { current ->
                         current.copy(
                             activeSessionIds = current.activeSessionIds - sessionId,
+                            currentSteps = current.currentSteps - sessionId,
                             settledSessionIds = current.settledSessionIds + sessionId,
                             mutedSessionIds = current.mutedSessionIds + sessionId,
                         )

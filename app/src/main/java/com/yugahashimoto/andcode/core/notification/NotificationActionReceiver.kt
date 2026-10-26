@@ -30,32 +30,68 @@ class NotificationActionReceiver : BroadcastReceiver() {
         val runtimeId = intent.getStringExtra(RuntimeNotificationHelper.EXTRA_RUNTIME_ID)
         val app = context.applicationContext as? AndCodeApplication ?: return
         when (intent.action) {
-            ACTION_STOP ->
-                run(app, runtimeId, "stop $sessionId") { backend ->
-                    if (backend.abortSession(sessionId)) app.activityRepository.markSessionAborted(sessionId)
-                }
+            ACTION_STOP -> {
+                // As the chat's own Stop does: the app stops treating the chat as running whatever
+                // the runtime answers, so a runtime with nothing left to stop cannot leave the live
+                // notification stuck.
+                app.activityRepository.markSessionAborted(sessionId)
+                app.notifications.cancelStalled(sessionId)
+                run(app, runtimeId, "stop $sessionId") { backend -> backend.abortSession(sessionId) }
+            }
             ACTION_REPLY -> {
+                val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, 0)
                 val text =
                     RemoteInput.getResultsFromIntent(intent)
                         ?.getCharSequence(KEY_REPLY)
                         ?.toString()
                         ?.trim()
                         .orEmpty()
-                if (text.isEmpty()) return
-                val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, 0)
+                if (text.isEmpty()) {
+                    // Leaving it would keep the system's "sending" spinner on the notice.
+                    app.notifications.cancel(notificationId)
+                    return
+                }
+                var sent = false
                 run(
                     app,
                     runtimeId,
                     "reply $sessionId",
-                    onFailure = { app.notifications.notifyReplyFailed(sessionId, notificationId, runtimeId) },
+                    // A timeout that fires after the message went out is not a failed reply;
+                    // offering Reply again would only send it twice.
+                    onFailure = { if (!sent) app.notifications.notifyReplyFailed(sessionId, notificationId, runtimeId) },
                 ) { backend ->
-                    backend.sendMessage(sessionId, PromptRequest(text = text))
+                    backend.sendMessage(sessionId, replyRequest(backend, sessionId, text))
+                    sent = true
                     app.activityRepository.markSessionRunning(sessionId)
                     // The live notification takes over from here; the answered notice goes.
                     app.notifications.cancel(notificationId)
                 }
             }
         }
+    }
+
+    /**
+     * The reply goes out with the agent and model the chat's last prompt used. Without them
+     * OpenCode falls back to its default agent, so answering a chat that runs the read-only
+     * `plan` agent would run this one turn with a writing agent. Global settings are no stand-in:
+     * they may belong to another runtime and get the prompt rejected outright.
+     */
+    private suspend fun replyRequest(
+        backend: OpenCodeBackend,
+        sessionId: String,
+        text: String,
+    ): PromptRequest {
+        val last =
+            runCatching { backend.listMessages(sessionId) }
+                .getOrNull()
+                ?.lastOrNull { it.info.role == "user" }
+                ?.info
+        return PromptRequest(
+            text = text,
+            providerId = last?.model?.providerId,
+            modelId = last?.model?.modelId,
+            agent = last?.agent,
+        )
     }
 
     private fun run(
@@ -125,7 +161,9 @@ class NotificationActionReceiver : BroadcastReceiver() {
         ): PendingIntent =
             PendingIntent.getBroadcast(
                 context,
-                ("reply:$sessionId").hashCode(),
+                // One per notice, not per chat: a chat's "finished" and "failed" notices can be up
+                // together, and a shared intent would carry whichever was posted last.
+                notificationId,
                 Intent(context, NotificationActionReceiver::class.java).apply {
                     action = ACTION_REPLY
                     putExtra(RuntimeNotificationHelper.EXTRA_SESSION_ID, sessionId)

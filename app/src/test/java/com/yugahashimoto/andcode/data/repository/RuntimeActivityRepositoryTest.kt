@@ -38,6 +38,8 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -524,6 +526,68 @@ class RuntimeActivityRepositoryTest {
 
             assertTrue(completed.isEmpty())
             assertTrue(repository.state.value.activeSessionIds.isEmpty())
+        }
+
+    @Test
+    fun `tracks the running tool as the current step and clears it when it finishes or the chat stops`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val target = FakeTarget(requireConnected = false)
+            val registry =
+                RuntimeRegistry(
+                    store = FakeStore(selectedRuntimeId = target.id),
+                    localTarget = target,
+                    remoteFactory = { error("unused") },
+                )
+            val repository = RuntimeActivityRepository(registry, TestScope(dispatcher))
+            advanceUntilIdle()
+
+            fun tool(status: String) =
+                OpenCodeEvent.MessagePartUpdated(
+                    OpenCodePart(
+                        id = "tool-1",
+                        sessionId = "ses_1",
+                        type = "tool",
+                        tool = "bash",
+                        state = mapOf("status" to JsonPrimitive(status), "title" to JsonPrimitive("./gradlew test")),
+                    ),
+                )
+
+            target.eventFlow.emit(tool("running"))
+            advanceUntilIdle()
+            assertEquals("bash · ./gradlew test", repository.state.value.currentSteps["ses_1"])
+
+            target.eventFlow.emit(tool("completed"))
+            advanceUntilIdle()
+            assertNull(repository.state.value.currentSteps["ses_1"])
+
+            target.eventFlow.emit(tool("running"))
+            advanceUntilIdle()
+            repository.markSessionAborted("ses_1")
+            assertNull(repository.state.value.currentSteps["ses_1"])
+        }
+
+    @Test
+    fun `knows a session is a subagent's as soon as it is created`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val target = FakeTarget(requireConnected = false)
+            val registry =
+                RuntimeRegistry(
+                    store = FakeStore(selectedRuntimeId = target.id),
+                    localTarget = target,
+                    remoteFactory = { error("unused") },
+                )
+            val repository = RuntimeActivityRepository(registry, TestScope(dispatcher))
+            advanceUntilIdle()
+
+            target.eventFlow.emit(OpenCodeEvent.SessionCreated(OpenCodeSession(id = "child_1", parentId = "ses_parent")))
+            target.eventFlow.emit(OpenCodeEvent.SessionCreated(OpenCodeSession(id = "ses_parent")))
+            advanceUntilIdle()
+
+            assertTrue(repository.isSubagentSession("child_1"))
+            assertFalse(repository.isSubagentSession("ses_parent"))
+            assertFalse(repository.isSubagentSession("unknown"))
         }
 
     @Test

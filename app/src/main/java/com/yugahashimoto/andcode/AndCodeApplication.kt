@@ -596,6 +596,7 @@ class AndCodeApplication : Application() {
             activity = activityRepository.state,
             sessions = catalogRepository.allSessions,
             agentName = { ref -> ref?.agent?.let { getString(it.displayNameRes) } },
+            isSubagent = activityRepository::isSubagentSession,
         ).start()
         // A chat or agent run in flight is real work happening on the runtime's proot process,
         // so it holds the device awake until the session settles - wired here rather than inside

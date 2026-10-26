@@ -263,7 +263,7 @@ Ranked by value to a phone user against the cost of building it. The **Status** 
 | 11 | Checkpoints / rewind via shadow git | Gemini CLI, Cline, Claude Code | Next |
 | 12 | Per-workspace rules file (AGENTS.md picker / editor) | Cursor rules, Kiro steering | Next |
 | 13 | AI-written commit message button | Aider | Next |
-| 14 | Ongoing run notification + "needs input" push with reply | Cursor Live Activities, Omnara | Shipped |
+| 14 | Ongoing run notification + "needs input" push with reply | Cursor Live Activities, Omnara | Shipped: live run notification with Stop, Reply on finished/failed notices, Allow/Reject on approvals. Reply on question notices: later |
 | 15 | Interactive PTY terminal with an extra-keys row | Termux, Warp | Later |
 | 16 | Worktree per chat for parallel sessions | Conductor, Codex, Cursor | Later |
 | 17 | Best-of-N attempts with side-by-side diffs | Codex cloud, Cursor | Later |

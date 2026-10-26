@@ -166,12 +166,7 @@
 
         <receiver
             android:name=".core.notification.NotificationActionReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.yugahashimoto.andcode.STOP_RUN" />
-                <action android:name="com.yugahashimoto.andcode.REPLY" />
-            </intent-filter>
-        </receiver>
+            android:exported="false" />
 
         <receiver
             android:name=".feature.schedule.ScheduleAlarmReceiver"

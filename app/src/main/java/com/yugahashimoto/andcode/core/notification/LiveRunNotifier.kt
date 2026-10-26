@@ -90,6 +90,8 @@ class LiveRunNotifier(
     private val activity: StateFlow<RuntimeActivityState>,
     private val sessions: StateFlow<List<RuntimeSessionRef>>,
     private val agentName: (RuntimeSessionRef?) -> String?,
+    /** Whether a session is a subagent's, known from the runtime's events before the catalog refreshes. */
+    private val isSubagent: (String) -> Boolean = { false },
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     private val manager = NotificationManagerCompat.from(context)
@@ -112,7 +114,7 @@ class LiveRunNotifier(
         // A subagent's session is active while its parent works; the parent already stands for it.
         return active.mapNotNull { id ->
             val ref = refs.firstOrNull { it.session.id == id }
-            if (ref?.session?.parentId != null) return@mapNotNull null
+            if (ref?.session?.parentId != null || isSubagent(id)) return@mapNotNull null
             LiveRun(
                 sessionId = id,
                 runtimeId = ref?.runtimeId,
