@@ -235,11 +235,16 @@ internal fun FinishedRow(
                 }
                 // Another agent's chat opens instead: its events are not followed here, so a reply
                 // sent from the inbox could never be seen to finish.
-                IconButton(onClick = { if (chat.canReply) replying = !replying else onOpen() }) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Reply,
-                        contentDescription = stringResource(if (chat.canReply) R.string.inbox_reply else R.string.inbox_open_to_reply),
-                    )
+                if (sending) {
+                    // The reply field has closed by now, so the progress shows where Reply was.
+                    CircularProgressIndicator(modifier = Modifier.padding(Spacing.md).size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    IconButton(onClick = { if (chat.canReply) replying = !replying else onOpen() }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Reply,
+                            contentDescription = stringResource(if (chat.canReply) R.string.inbox_reply else R.string.inbox_open_to_reply),
+                        )
+                    }
                 }
                 IconButton(onClick = onMarkRead) {
                     Icon(Icons.Default.Check, contentDescription = stringResource(R.string.inbox_mark_read))
