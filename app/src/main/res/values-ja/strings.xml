@@ -569,6 +569,9 @@
     <string name="onboarding_remote_title">PC・Macに接続する</string>
     <string name="onboarding_remote_desc">既存のOpenCodeサーバーに接続します。</string>
     <string name="onboarding_switch_note">どちらを選んでも、あとからもう一方を追加して切り替えることができます。</string>
+    <string name="onboarding_feature_agents">Claude Code、Codex、OpenCode、Antigravity をスマホでそのまま実行</string>
+    <string name="onboarding_feature_review">すべての変更を確認し、コメントをエージェントに返せる</string>
+    <string name="onboarding_feature_anywhere">通知から承認・停止・返信ができる</string>
     <string name="onboarding_primary_button_android">Androidでセットアップを開始</string>
     <string name="onboarding_primary_button_remote">PC・Macへ接続する</string>
     <string name="onboarding_skip_link">後でリモート接続を追加</string>
@@ -815,12 +818,10 @@
     <string name="cd_task_status">タスク状態</string>
     <string name="cd_disconnect">切断</string>
     <string name="cd_connect">接続</string>
-    <string name="cd_onboarding_option">セットアップオプション</string>
     <string name="cd_favorite">お気に入り切替</string>
     <string name="cd_microphone">マイク</string>
     <string name="cd_file_type">ファイル</string>
     <string name="cd_repository">リポジトリ</string>
-    <string name="cd_voice_setting">音声設定</string>
     <string name="cd_settings_section">設定セクション</string>
     <string name="cd_subagent_status">サブエージェント状態</string>
     <string name="cd_toggle_password">パスワード表示切替</string>

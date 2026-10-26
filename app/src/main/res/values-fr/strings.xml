@@ -564,6 +564,9 @@
     <string name="onboarding_remote_title">Se connecter à un PC ou un Mac</string>
     <string name="onboarding_remote_desc">Connectez-vous à un serveur OpenCode existant.</string>
     <string name="onboarding_switch_note">Dans les deux cas, vous pouvez ajouter l\'autre option plus tard et changer à tout moment.</string>
+    <string name="onboarding_feature_agents">Lancez Claude Code, Codex, OpenCode ou Antigravity sur votre téléphone</string>
+    <string name="onboarding_feature_review">Relisez chaque modification et renvoyez vos commentaires à l\'agent</string>
+    <string name="onboarding_feature_anywhere">Approuvez, arrêtez ou répondez depuis les notifications</string>
     <string name="onboarding_primary_button_android">Démarrer la configuration sur Android</string>
     <string name="onboarding_primary_button_remote">Se connecter à un PC ou un Mac</string>
     <string name="onboarding_skip_link">Ajouter une connexion distante plus tard</string>
@@ -808,12 +811,10 @@
     <string name="cd_task_status">Task status</string>
     <string name="cd_disconnect">Disconnect</string>
     <string name="cd_connect">Connect</string>
-    <string name="cd_onboarding_option">Setup option</string>
     <string name="cd_favorite">Toggle favorite</string>
     <string name="cd_microphone">Microphone</string>
     <string name="cd_file_type">File</string>
     <string name="cd_repository">Repository</string>
-    <string name="cd_voice_setting">Voice setting</string>
     <string name="cd_settings_section">Settings section</string>
     <string name="cd_subagent_status">Subagent status</string>
     <string name="cd_toggle_password">Toggle password visibility</string>

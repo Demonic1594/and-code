@@ -570,6 +570,9 @@
     <string name="onboarding_remote_title">الاتصال بجهاز كمبيوتر أو Mac</string>
     <string name="onboarding_remote_desc">اتصل بخادم OpenCode موجود.</string>
     <string name="onboarding_switch_note">في كلتا الحالتين، يمكنك إضافة الخيار الآخر لاحقًا والتبديل في أي وقت.</string>
+    <string name="onboarding_feature_agents">شغّل Claude Code أو Codex أو OpenCode أو Antigravity على هاتفك مباشرة</string>
+    <string name="onboarding_feature_review">راجع كل تغيير وأرسل تعليقاتك إلى الوكيل</string>
+    <string name="onboarding_feature_anywhere">وافق أو أوقف أو رد من الإشعارات</string>
     <string name="onboarding_primary_button_android">بدء الإعداد على Android</string>
     <string name="onboarding_primary_button_remote">الاتصال بجهاز كمبيوتر أو Mac</string>
     <string name="onboarding_skip_link">إضافة اتصال عن بُعد لاحقًا</string>
@@ -817,12 +820,10 @@
     <string name="cd_task_status">Task status</string>
     <string name="cd_disconnect">Disconnect</string>
     <string name="cd_connect">Connect</string>
-    <string name="cd_onboarding_option">Setup option</string>
     <string name="cd_favorite">Toggle favorite</string>
     <string name="cd_microphone">Microphone</string>
     <string name="cd_file_type">File</string>
     <string name="cd_repository">Repository</string>
-    <string name="cd_voice_setting">Voice setting</string>
     <string name="cd_settings_section">Settings section</string>
     <string name="cd_subagent_status">Subagent status</string>
     <string name="cd_toggle_password">Toggle password visibility</string>

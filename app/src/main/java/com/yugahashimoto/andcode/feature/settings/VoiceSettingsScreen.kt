@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -30,7 +31,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -41,6 +41,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -56,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -74,6 +76,7 @@ import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
 import com.yugahashimoto.andcode.ui.runtimeAgentIcon
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
+import com.yugahashimoto.andcode.ui.theme.Spacing
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -180,8 +183,8 @@ fun VoiceSettingsScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize().navigationBarsPadding(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            contentPadding = PaddingValues(start = Spacing.screenEdge, end = Spacing.screenEdge, bottom = Spacing.xxl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
             item {
                 Text(
@@ -425,7 +428,7 @@ private fun VoiceSlider(
     range: ClosedFloatingPointRange<Float>,
     onValueChange: (Float) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -470,7 +473,7 @@ private fun TtsPreviewRow(
     onPress: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -516,7 +519,7 @@ private fun ChoiceDropdown(
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
     ) {
         OutlinedTextField(
             value = selectedLabel,
@@ -553,7 +556,7 @@ private fun VoiceTextField(
         onValueChange = onValueChange,
         label = { Text(label) },
         isError = isError,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
         singleLine = true,
     )
 }
@@ -570,7 +573,7 @@ private fun SecretTextField(
         label = { Text(label) },
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
         singleLine = true,
     )
 }
@@ -677,7 +680,7 @@ private fun SelectionRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp)
+                .padding(horizontal = 14.dp, vertical = 4.dp)
                 .clickable(onClick = onClick),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -722,7 +725,7 @@ private fun WorkspaceDropdown(
         workspaces.firstOrNull { it.path == selectedPath }?.name
             ?: selectedPath.takeIf(String::isNotBlank)
             ?: stringResource(R.string.assistant_workspace_auto)
-    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp)) {
         Surface(
             modifier = Modifier.fillMaxWidth().clickable { expanded = true },
             shape = MaterialTheme.shapes.medium,
@@ -908,7 +911,7 @@ private fun WakeWordApplyRow(
     onApply: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -944,7 +947,7 @@ private fun WakeWordModelRow(
     onRemove: () -> Unit,
 ) {
     val megabytes = VoskModelCatalog.forLanguage(language).approximateBytes / (1024 * 1024)
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -1012,22 +1015,12 @@ private fun WakeWordModelRow(
     }
 }
 
+/** A titled card, the same as the main settings screen's, so the two read as one place. */
 @Composable
 private fun SettingsGroup(
     title: String,
     content: @Composable () -> Unit,
-) {
-    Column {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
-        )
-        Column { content() }
-    }
-}
+) = SettingsSection(title = title, content = content)
 
 @Composable
 private fun VoiceToggleRow(
@@ -1038,30 +1031,24 @@ private fun VoiceToggleRow(
     enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit,
 ) {
+    // The whole row toggles, as in the main settings: the switch alone is a small target.
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 11.dp),
+                .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
-        Icon(
-            icon,
-            contentDescription = stringResource(R.string.cd_voice_setting),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
-        )
+        SettingsIconTile {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 title,
                 style = MaterialTheme.typography.bodyLarge,
-                color =
-                    if (enabled) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 description,
@@ -1071,19 +1058,19 @@ private fun VoiceToggleRow(
         }
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             enabled = enabled,
+            colors =
+                SwitchDefaults.colors(
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                ),
         )
     }
 }
 
 @Composable
-private fun VoiceDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(start = 36.dp),
-        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f),
-    )
-}
+private fun VoiceDivider() = SettingsDivider()
 
 @Preview(showBackground = true)
 @Composable
