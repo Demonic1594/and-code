@@ -1290,10 +1290,6 @@
     <string name="transcript_assistant">Asistente</string>
     <string name="transcript_tool">Herramienta</string>
     <string name="transcript_error">Error</string>
-    <string name="code_edit">Editar archivo</string>
-    <string name="code_discard_title">¿Descartar los cambios?</string>
-    <string name="code_discard_body">Los cambios en este archivo no se han guardado.</string>
-    <string name="code_discard_confirm">Descartar</string>
     <string name="git_commit">Commit</string>
     <string name="git_pull">Pull</string>
     <string name="git_push">Push</string>
@@ -1315,7 +1311,6 @@
     <string name="schedule_template_todos">Revisión de TODO</string>
     <string name="schedule_template_security">Revisión mensual de seguridad</string>
     <string name="chat_copy_too_long">Este chat es demasiado largo para el portapapeles, así que se compartirá como archivo.</string>
-    <string name="code_save_too_large">Este archivo es demasiado grande para guardarlo desde aquí (límite de 1 MB).</string>
     <string name="chat_usage_cached">%1$s desde la caché</string>
     <string name="git_discard">Descartar cambios</string>
     <string name="git_discard_title">¿Descartar los cambios?</string>
@@ -1406,4 +1401,19 @@
     <string name="artifact_source">Código</string>
     <string name="artifact_unavailable">No se pudo mostrar este archivo.</string>
     <string name="artifact_share">Compartir archivo</string>
+    <string name="file_edit_action">Editar archivo</string>
+    <string name="file_edit_save">Guardar</string>
+    <string name="file_edit_discard_title">¿Descartar los cambios?</string>
+    <string name="file_edit_discard_message">Tus cambios en este archivo no se han guardado.</string>
+    <string name="file_edit_discard_confirm">Descartar</string>
+    <string name="code_discard_confirm">Descartar</string>
+    <string name="file_edit_keep_editing">Seguir editando</string>
+    <string name="file_edit_error_outside_workspace">Este archivo está fuera del espacio de trabajo y no se puede editar.</string>
+    <string name="file_edit_error_not_found">El archivo ya no existe.</string>
+    <string name="file_edit_error_not_text">Solo se pueden editar archivos de texto UTF-8.</string>
+    <string name="file_edit_error_too_large">Este archivo es demasiado grande para editarlo (límite: %1$d KB).</string>
+    <string name="file_edit_error_read_only">Este archivo es de solo lectura.</string>
+    <string name="file_edit_error_changed_on_disk">Otro proceso modificó el archivo desde que lo abriste, así que tus cambios no se guardaron. Copia tu texto, cierra el editor y vuelve a abrir el archivo.</string>
+    <string name="file_edit_error_write_failed">No se pudo guardar el archivo.</string>
+    <string name="file_edit_error_generic">No se pudo editar el archivo.</string>
 </resources>

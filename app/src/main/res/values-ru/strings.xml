@@ -1293,10 +1293,6 @@
     <string name="transcript_assistant">Ассистент</string>
     <string name="transcript_tool">Инструмент</string>
     <string name="transcript_error">Ошибка</string>
-    <string name="code_edit">Редактировать файл</string>
-    <string name="code_discard_title">Отменить изменения?</string>
-    <string name="code_discard_body">Изменения в этом файле не сохранены.</string>
-    <string name="code_discard_confirm">Отменить</string>
     <string name="git_commit">Commit</string>
     <string name="git_pull">Pull</string>
     <string name="git_push">Push</string>
@@ -1318,7 +1314,6 @@
     <string name="schedule_template_todos">Разбор TODO</string>
     <string name="schedule_template_security">Ежемесячная проверка безопасности</string>
     <string name="chat_copy_too_long">Чат слишком длинный для буфера обмена, поэтому он будет отправлен файлом.</string>
-    <string name="code_save_too_large">Файл слишком большой, чтобы сохранить его отсюда (ограничение — 1 МБ).</string>
     <string name="chat_usage_cached">Из кэша: %1$s</string>
     <string name="git_discard">Отменить изменения</string>
     <string name="git_discard_title">Отменить изменения?</string>
@@ -1409,4 +1404,19 @@
     <string name="artifact_source">Исходник</string>
     <string name="artifact_unavailable">Не удалось показать этот файл.</string>
     <string name="artifact_share">Поделиться файлом</string>
+    <string name="file_edit_action">Редактировать файл</string>
+    <string name="file_edit_save">Сохранить</string>
+    <string name="file_edit_discard_title">Отбросить изменения?</string>
+    <string name="file_edit_discard_message">Изменения в этом файле не сохранены.</string>
+    <string name="file_edit_discard_confirm">Отбросить</string>
+    <string name="code_discard_confirm">Отменить</string>
+    <string name="file_edit_keep_editing">Продолжить редактирование</string>
+    <string name="file_edit_error_outside_workspace">Этот файл находится вне рабочей области, его нельзя редактировать.</string>
+    <string name="file_edit_error_not_found">Файл больше не существует.</string>
+    <string name="file_edit_error_not_text">Можно редактировать только текстовые файлы в кодировке UTF-8.</string>
+    <string name="file_edit_error_too_large">Файл слишком большой для редактирования (лимит: %1$d КБ).</string>
+    <string name="file_edit_error_read_only">Файл доступен только для чтения.</string>
+    <string name="file_edit_error_changed_on_disk">Файл был изменён другим процессом после того, как вы его открыли, поэтому ваши правки не сохранены. Скопируйте текст, закройте редактор и откройте файл снова.</string>
+    <string name="file_edit_error_write_failed">Не удалось сохранить файл.</string>
+    <string name="file_edit_error_generic">Не удалось отредактировать файл.</string>
 </resources>

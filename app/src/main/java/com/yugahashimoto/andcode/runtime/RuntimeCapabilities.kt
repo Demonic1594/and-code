@@ -74,4 +74,14 @@ data class RuntimeCapabilities(
      * per-agent decision the MCP screen already makes.
      */
     val mcpOAuth: Boolean = true,
+    /**
+     * True when [com.yugahashimoto.andcode.runtime.OpenCodeBackend.writeFile] works, so the code
+     * viewer can offer to edit a file.
+     *
+     * Only the targets whose workspace is a directory on this device can: the on-device agents
+     * (OpenCode, Claude Code, Codex, Antigravity) write through the host path of the guest folder.
+     * A remote OpenCode server has no write endpoint, so remote targets leave this false and the
+     * viewer stays read-only rather than offering an edit that could only fail.
+     */
+    val fileEditing: Boolean = false,
 )

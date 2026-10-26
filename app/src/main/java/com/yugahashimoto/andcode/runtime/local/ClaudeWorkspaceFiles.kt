@@ -7,6 +7,8 @@ import com.yugahashimoto.andcode.core.api.OpenCodeSearchSubmatch
 import com.yugahashimoto.andcode.core.api.OpenCodeSearchText
 import com.yugahashimoto.andcode.core.storage.DeviceStorage
 import com.yugahashimoto.andcode.feature.workspace.WorkspaceFolders
+import com.yugahashimoto.andcode.runtime.FileEditException
+import com.yugahashimoto.andcode.runtime.FileEditFailure
 import java.io.File
 
 /**
@@ -89,6 +91,34 @@ class ClaudeWorkspaceFiles(
             content = if (binary) "" else String(bytes),
         )
     }
+
+    /**
+     * The exact text of [path] under [directory], for the editor to start from - unlike [read] it
+     * refuses anything the editor could not save back, and returns the bytes unmodified.
+     */
+    fun readForEditing(
+        directory: String,
+        path: String,
+    ): String = WorkspaceFileWriter.readForEditing(editingRoot(directory), path)
+
+    /**
+     * Saves [content] over the existing text file [path] under [directory].
+     *
+     * [directory] is the editing root, not just wherever the viewer happened to be: callers pass the
+     * workspace folder so the write cannot leave it, and [WorkspaceFileWriter] re-checks that on the
+     * canonical paths so `..` and symlinks cannot either. Nothing is created - only a file that is
+     * already there can be replaced.
+     */
+    fun write(
+        directory: String,
+        path: String,
+        content: String,
+        expectedContent: String?,
+    ) = WorkspaceFileWriter.write(editingRoot(directory), path, content, expectedContent)
+
+    private fun editingRoot(directory: String): File =
+        canonical(resolveRoot(directory))
+            ?: throw FileEditException(FileEditFailure.NOT_FOUND, "Folder not found: $directory")
 
     fun find(
         directory: String,

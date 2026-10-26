@@ -1,6 +1,8 @@
 package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.core.storage.DeviceStorage
+import com.yugahashimoto.andcode.runtime.FileEditException
+import com.yugahashimoto.andcode.runtime.FileEditFailure
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -78,6 +80,44 @@ class ClaudeWorkspaceFilesTest {
     @Test
     fun `lists nothing for a path that escapes the workspace`() {
         assertTrue(files.list("/workspace/project", "../..").isEmpty())
+    }
+
+    @Test
+    fun `saves an edited file under its sandbox path`() {
+        files.write("/workspace/project", "src/App.kt", "fun main() = println()\n", expectedContent = "fun main() = Unit\n")
+
+        assertEquals("fun main() = println()\n", File(workspace, "project/src/App.kt").readText())
+    }
+
+    @Test
+    fun `saves a dotfile that the explorer lists`() {
+        assertTrue(files.list("/workspace/project", ".").any { it.name == ".hidden" })
+
+        files.write("/workspace/project", ".hidden", "SECRET=1\n", expectedContent = "secret")
+
+        assertEquals("SECRET=1\n", File(workspace, "project/.hidden").readText())
+        assertEquals("SECRET=1\n", files.read("/workspace/project", ".hidden").content)
+    }
+
+    @Test
+    fun `refuses to save outside the editing root`() {
+        val failure =
+            assertThrows(FileEditException::class.java) {
+                files.write("/workspace/project", "../outside.txt", "changed", expectedContent = null)
+            }
+
+        assertEquals(FileEditFailure.OUTSIDE_WORKSPACE, failure.failure)
+        assertEquals("not in the project", File(workspace, "outside.txt").readText())
+    }
+
+    @Test
+    fun `refuses to save into a folder that does not exist`() {
+        val failure =
+            assertThrows(FileEditException::class.java) {
+                files.write("/root/missing", "notes.md", "changed", expectedContent = null)
+            }
+
+        assertEquals(FileEditFailure.NOT_FOUND, failure.failure)
     }
 
     @Test
@@ -193,5 +233,21 @@ class ClaudeWorkspaceFilesRootfsTest {
         val files = ClaudeWorkspaceFiles(workspace, rootfsHostDir = null)
 
         assertTrue(files.list("/root/project", ".").isEmpty())
+    }
+
+    @Test
+    fun `saves a file in a rootfs project and keeps the write inside it`() {
+        val files = ClaudeWorkspaceFiles(workspace, rootfsHostDir = rootfs)
+        File(rootfs, "root/other.txt").writeText("elsewhere in the rootfs")
+
+        files.write("/root/project", "notes.md", "done", expectedContent = "todo")
+
+        assertEquals("done", File(rootfs, "root/project/notes.md").readText())
+        val failure =
+            assertThrows(FileEditException::class.java) {
+                files.write("/root/project", "../other.txt", "changed", expectedContent = null)
+            }
+        assertEquals(FileEditFailure.OUTSIDE_WORKSPACE, failure.failure)
+        assertEquals("elsewhere in the rootfs", File(rootfs, "root/other.txt").readText())
     }
 }

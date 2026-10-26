@@ -3,6 +3,7 @@ package com.yugahashimoto.andcode.feature.chat
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -65,7 +66,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -99,10 +102,8 @@ import com.yugahashimoto.andcode.ui.components.StatusChip
 import com.yugahashimoto.andcode.ui.components.StatusDot
 import com.yugahashimoto.andcode.ui.components.rememberHaptics
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonPrimitive
 
 /** What the long-press action sheet offers for one message: its id, its text to copy, and whether "Edit & resend" applies. */
@@ -314,27 +315,23 @@ fun ChatHomeScreen(
                 cameraLauncher.launch(null)
             }
         }
+    val showAttachFailure = {
+        android.widget.Toast.makeText(
+            context,
+            R.string.attachment_load_failed,
+            android.widget.Toast.LENGTH_SHORT,
+        ).show()
+    }
+    val attachImageUris: suspend (List<Uri>) -> Unit = { uris ->
+        uris.forEach { uri ->
+            val bitmap = decodeImageUri(context, uri)
+            if (bitmap != null) onImageAttachment(bitmap) else showAttachFailure()
+        }
+    }
     val galleryLauncher =
         rememberLauncherForActivityResult(
             ActivityResultContracts.PickMultipleVisualMedia(),
-        ) { uris ->
-            coroutineScope.launch {
-                uris.forEach { uri ->
-                    try {
-                        val bitmap =
-                            withContext(Dispatchers.IO) {
-                                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                                    ?.let { bytes -> decodeSampledBitmap(bytes, COMPOSER_PREVIEW_MAX_DIMENSION) }
-                            }
-                        if (bitmap != null) {
-                            onImageAttachment(bitmap)
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.w("ChatHomeScreen", "Failed to load image", e)
-                    }
-                }
-            }
-        }
+        ) { uris -> coroutineScope.launch { attachImageUris(uris) } }
 
     LaunchedEffect(listState) {
         snapshotFlow {
@@ -905,6 +902,13 @@ fun ChatHomeScreen(
                                 ActivityResultContracts.PickVisualMedia.ImageOnly,
                             ),
                         )
+                    },
+                    onPasteImage = {
+                        val clip = context.primaryClipOrNull()
+                        coroutineScope.launch {
+                            val uris = clip?.imageUris(context.contentResolver).orEmpty()
+                            if (uris.isEmpty()) showAttachFailure() else attachImageUris(uris)
+                        }
                     },
                 )
             }

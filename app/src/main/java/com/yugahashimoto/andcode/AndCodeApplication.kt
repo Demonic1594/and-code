@@ -57,6 +57,7 @@ import com.yugahashimoto.andcode.runtime.local.AntigravityTarget
 import com.yugahashimoto.andcode.runtime.local.ClaudeCodeController
 import com.yugahashimoto.andcode.runtime.local.ClaudeCodeRuntime
 import com.yugahashimoto.andcode.runtime.local.ClaudeCodeTarget
+import com.yugahashimoto.andcode.runtime.local.ClaudeWorkspaceFiles
 import com.yugahashimoto.andcode.runtime.local.CodexController
 import com.yugahashimoto.andcode.runtime.local.CodexKeepAliveService
 import com.yugahashimoto.andcode.runtime.local.CodexRuntime
@@ -480,7 +481,19 @@ class AndCodeApplication : Application() {
         runtimeRegistry =
             RuntimeRegistry(
                 store = settings,
-                localTarget = LocalRuntimeTarget(localRuntimeManager, messages = runtimeMessages),
+                localTarget =
+                    LocalRuntimeTarget(
+                        localRuntimeManager,
+                        messages = runtimeMessages,
+                        // Same folders the other on-device agents browse, so an edit lands in the
+                        // directory the OpenCode server in the guest is working in.
+                        files =
+                            ClaudeWorkspaceFiles(
+                                workspaceHostDir = File(runtimeDirectory, "workspace"),
+                                rootfsHostDir = File(runtimeDirectory, "environment/rootfs"),
+                                deviceStorage = DeviceStorage::mounts,
+                            ),
+                    ),
                 additionalTargets = listOf(claudeCodeTarget, antigravityTarget, codexTarget),
             )
         // Surface the installed/version state to the workspace picker without waiting for the
@@ -620,9 +633,15 @@ class AndCodeApplication : Application() {
         // Re-arm alarms for schedules that were saved in a previous process lifetime.
         scheduleManager.rescheduleAll()
         // Let guest agents read and manage schedules through the and-code-schedule MCP server.
-        // The poll loop is a cheap no-op (one directory stat) while no guest has touched the bridge.
+        // The guest can only be asking for something while it can run: the app is on screen, or
+        // something holds runtimeWork (and with it the wake lock). With neither, the device is free
+        // to suspend and the guest freezes with it, so the loop stays parked instead of polling for
+        // the life of the process.
         val scheduleBridge = ScheduleBridge(File(runtimeDirectory, "workspace"), AppScheduleStore(scheduleRepository, scheduleManager))
-        applicationScope.launch { scheduleBridge.run() }
+        val scheduleBridgeActive =
+            combine(appForeground.foreground, runtimeWork.active) { foreground, working -> foreground || working }
+                .distinctUntilChanged()
+        applicationScope.launch { scheduleBridge.run(scheduleBridgeActive) }
         observeForegroundForRuntimeRestart()
         scheduleDeferredInitialization()
     }

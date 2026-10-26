@@ -2,8 +2,10 @@ package com.yugahashimoto.andcode.core.util
 
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -79,3 +81,34 @@ fun Flow<Boolean>.debounceFalseEdge(graceMillis: Long): Flow<Boolean> =
             if (values.isClosedForReceive) break
         }
     }
+
+/**
+ * Runs [action] straight away and then every [intervalMillis], for as long as the latest value of
+ * this flow is `true`; while it is `false` nothing runs and no timer is armed.
+ *
+ * Written for the file polls that sit between the app and the in-guest agent (the permission
+ * bridge, the schedule bridge, the browser command file). Each used to loop for the life of the
+ * process, so an app that had run once kept waking every few hundred milliseconds to stat a
+ * directory nobody could have written to - the guest only runs while the device is awake for it, and
+ * that is exactly when one of these gates is open. Parking the loop on a flow turns "poll forever"
+ * into "poll while something could be there".
+ *
+ * Opening the gate polls at once rather than after a first interval, so whatever arrived while it
+ * was shut - a request written just before the app was backgrounded, say - is picked up on the way
+ * back in instead of a beat later. Closing it cancels the wait in progress, so nothing fires after
+ * the flip. An [action] that never suspends always runs to completion; one that does is cancelled
+ * at its next suspension point, so it should not suspend between taking something and handing it
+ * on. Never returns normally while the flow stays open, so callers launch it in a scope they cancel.
+ */
+suspend fun Flow<Boolean>.pollWhileActive(
+    intervalMillis: Long,
+    action: suspend () -> Unit,
+) {
+    collectLatest { active ->
+        if (!active) return@collectLatest
+        while (true) {
+            action()
+            delay(intervalMillis)
+        }
+    }
+}

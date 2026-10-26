@@ -1,9 +1,12 @@
 package com.yugahashimoto.andcode.feature.workspace
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yugahashimoto.andcode.core.util.safeMessage
+import com.yugahashimoto.andcode.runtime.FileEditException
 import com.yugahashimoto.andcode.runtime.OpenCodeBackend
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,27 +19,67 @@ data class CodeViewerUiState(
     val isLoading: Boolean = true,
     val isBinary: Boolean = false,
     val error: String? = null,
-    /** Editing is offered only for text files on this device's runtime, under the save size cap. */
+    /** True when the file is inside the workspace on a runtime that can write it, so edit is offered. */
     val canEdit: Boolean = false,
-    /** Non-null while the user is editing: the text being edited. */
-    val draft: String? = null,
+    /** Reading the file's exact text for the editor. */
+    val isPreparingEdit: Boolean = false,
+    val isEditing: Boolean = false,
+    /** What the file held when editing began; the save is refused if it no longer does. */
+    val editBase: String = "",
+    val draft: String = "",
     val isSaving: Boolean = false,
-    val saveError: String? = null,
+    /** Why the last attempt to start editing or to save failed. */
+    val editError: String? = null,
     /** Bumped on each successful save so the screen can confirm it once. */
     val savedCount: Int = 0,
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
 ) {
-    val isEditing: Boolean get() = draft != null
-    val hasUnsavedChanges: Boolean get() = draft != null && draft != content
+    /** What the unsaved-changes guard watches: leaving now would throw this away. */
+    val hasUnsavedChanges: Boolean get() = isEditing && draft != editBase
+}
+
+/** The folder a write has to stay in, and the file's path below it. */
+internal data class EditTarget(
+    val root: String,
+    val relativePath: String,
+)
+
+/**
+ * Where [filePath], opened while browsing [directory], sits below [editableRoot] - or null when it
+ * must not be edited: no root was granted, the root is the whole filesystem, or the file is not
+ * under it.
+ *
+ * The explorer lets the user browse above the workspace, so the folder being viewed is not the
+ * boundary; the workspace is. `..` is refused outright because [WorkspaceFolders.normalize] leaves
+ * it in place and a prefix test on such a path proves nothing. This is the lexical answer that
+ * decides whether to offer the edit at all; the host side re-checks the real, symlink-resolved
+ * paths before it writes anything.
+ */
+internal fun editTargetOf(
+    editableRoot: String?,
+    directory: String,
+    filePath: String,
+): EditTarget? {
+    val root =
+        editableRoot?.let(WorkspaceFolders::normalize)?.takeIf { it != WorkspaceFolders.GUEST_ROOT }
+            ?: return null
+    if ((directory.split('/') + filePath.split('/')).any { it == ".." }) return null
+    val file = WorkspaceFolders.childOf(directory, filePath)
+    val prefix = "$root/"
+    return if (file.startsWith(prefix)) EditTarget(root, file.removePrefix(prefix)) else null
 }
 
 class CodeViewerViewModel(
     private val backend: OpenCodeBackend,
     private val workspacePath: String,
     filePath: String,
-    /** Null for a remote runtime, which leaves the viewer read-only. */
-    private val shell: WorkspaceShell? = null,
+    /**
+     * The workspace folder this file may be edited under, or null to keep the viewer read-only.
+     * Callers pass it only for runtimes that can write files - a remote OpenCode server cannot.
+     */
+    editableRoot: String? = null,
+    private val messages: CodeViewerMessages = CodeViewerMessages,
     private val clock: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
     // Edit history for undo/redo. A burst of typing is one step, not one per keystroke: a snapshot is
@@ -50,6 +93,8 @@ class CodeViewerViewModel(
 
     private val mutableState = MutableStateFlow(CodeViewerUiState(filePath = filePath))
     val state: StateFlow<CodeViewerUiState> = mutableState.asStateFlow()
+
+    private val editTarget = editTargetOf(editableRoot, workspacePath, filePath)
 
     init {
         load()
@@ -66,9 +111,7 @@ class CodeViewerViewModel(
                             content = file.content,
                             isLoading = false,
                             isBinary = binary,
-                            canEdit =
-                                shell != null && !binary &&
-                                    file.content.toByteArray(Charsets.UTF_8).size <= WorkspaceShell.MAX_WRITE_BYTES,
+                            canEdit = editTarget != null && !binary,
                         )
                     }
                 }.onFailure { error ->
@@ -82,35 +125,64 @@ class CodeViewerViewModel(
         }
     }
 
+    /**
+     * Switches to the editor, starting from the file's exact text as it is on disk now.
+     *
+     * Read again rather than taken from [CodeViewerUiState.content]: the viewer's copy may have been
+     * trimmed by the server, and the agent may have changed the file since it was opened. A file the
+     * editor cannot safely save back is turned away here, with the reason, before any typing.
+     */
     fun startEditing() {
-        if (!mutableState.value.canEdit) return
-        clearHistory()
-        mutableState.update { it.copy(draft = it.content, saveError = null) }
+        val target = editTarget ?: return
+        val current = mutableState.value
+        if (!current.canEdit || current.isEditing || current.isPreparingEdit) return
+        mutableState.update { it.copy(isPreparingEdit = true, editError = null) }
+        viewModelScope.launch {
+            runCatching { backend.readFileForEditing(target.root, target.relativePath) }
+                .onSuccess { text ->
+                    clearHistory()
+                    mutableState.update {
+                        it.copy(
+                            isPreparingEdit = false,
+                            isEditing = true,
+                            editBase = text,
+                            draft = text,
+                            canUndo = false,
+                            canRedo = false,
+                        )
+                    }
+                }.onFailure { error ->
+                    if (error is CancellationException) throw error
+                    mutableState.update { it.copy(isPreparingEdit = false, editError = failureMessage(error)) }
+                }
+        }
     }
 
     fun updateDraft(text: String) {
-        val current = mutableState.value.draft ?: return
-        if (text == current) return
+        val current = mutableState.value
+        if (!current.isEditing || current.isSaving || text == current.draft) return
         val now = clock()
-        if (undoStack.isEmpty() || now - lastEditAt > UNDO_COALESCE_MS) pushUndo(current)
+        if (undoStack.isEmpty() || now - lastEditAt > UNDO_COALESCE_MS) pushUndo(current.draft)
         lastEditAt = now
         redoStack.clear()
-        mutableState.update { it.copy(draft = text, canUndo = undoStack.isNotEmpty(), canRedo = false) }
+        mutableState.update { it.copy(draft = text, editError = null, canUndo = undoStack.isNotEmpty(), canRedo = false) }
     }
 
     fun undo() {
-        val current = mutableState.value.draft ?: return
+        val current = mutableState.value
+        if (!current.isEditing || current.isSaving) return
         val previous = undoStack.removeLastOrNull()?.also { undoChars -= it.length } ?: return
-        redoStack.addLast(current)
+        redoStack.addLast(current.draft)
         // The next keystroke starts a new step instead of folding into the one just undone.
         lastEditAt = 0L
         mutableState.update { it.copy(draft = previous, canUndo = undoStack.isNotEmpty(), canRedo = true) }
     }
 
     fun redo() {
-        val current = mutableState.value.draft ?: return
+        val current = mutableState.value
+        if (!current.isEditing || current.isSaving) return
         val next = redoStack.removeLastOrNull() ?: return
-        pushUndo(current)
+        pushUndo(current.draft)
         lastEditAt = 0L
         mutableState.update { it.copy(draft = next, canUndo = true, canRedo = redoStack.isNotEmpty()) }
     }
@@ -124,21 +196,26 @@ class CodeViewerViewModel(
         replacement: String,
         ignoreCase: Boolean,
     ): Int {
-        val current = mutableState.value.draft ?: return 0
-        if (find.isEmpty()) return 0
-        val count = Regex(Regex.escape(find), if (ignoreCase) setOf(RegexOption.IGNORE_CASE) else emptySet()).findAll(current).count()
+        val current = mutableState.value
+        if (!current.isEditing || current.isSaving || find.isEmpty()) return 0
+        val draft = current.draft
+        val count = Regex(Regex.escape(find), if (ignoreCase) setOf(RegexOption.IGNORE_CASE) else emptySet()).findAll(draft).count()
         if (count == 0) return 0
-        pushUndo(current)
+        pushUndo(draft)
         lastEditAt = 0L
         redoStack.clear()
-        val updated = current.replace(find, replacement, ignoreCase)
+        val updated = draft.replace(find, replacement, ignoreCase)
         mutableState.update { it.copy(draft = updated, canUndo = true, canRedo = false) }
         return count
     }
 
-    fun cancelEditing() {
+    /** Leaves the editor and drops the draft. The caller confirms first when there are unsaved changes. */
+    fun stopEditing() {
+        if (mutableState.value.isSaving) return
         clearHistory()
-        mutableState.update { it.copy(draft = null, saveError = null, canUndo = false, canRedo = false) }
+        mutableState.update {
+            it.copy(isEditing = false, editBase = "", draft = "", editError = null, canUndo = false, canRedo = false)
+        }
     }
 
     // Each step is a full snapshot, so the history is bounded by total size as well as by count:
@@ -158,42 +235,49 @@ class CodeViewerViewModel(
         lastEditAt = 0L
     }
 
+    /**
+     * Writes the draft. On success the editor closes and the viewer shows what was saved; on failure
+     * the draft is kept, with the reason, so nothing the user typed is lost to a refused save.
+     */
     fun save() {
-        val shell = shell ?: return
-        val current = mutableState.value
-        val draft = current.draft ?: return
-        if (current.isSaving) return
-        mutableState.update { it.copy(isSaving = true, saveError = null) }
+        val target = editTarget ?: return
+        val snapshot = mutableState.value
+        if (!snapshot.hasUnsavedChanges || snapshot.isSaving) return
+        mutableState.update { it.copy(isSaving = true, editError = null) }
         viewModelScope.launch {
-            val result = shell.writeFile(WorkspaceShell.guestPath(workspacePath, current.filePath), draft)
-            mutableState.update {
-                if (result.isSuccess) {
+            runCatching { backend.writeFile(target.root, target.relativePath, snapshot.draft, snapshot.editBase) }
+                .onSuccess {
                     clearHistory()
-                    it.copy(
-                        content = draft,
-                        draft = null,
-                        isSaving = false,
-                        savedCount = it.savedCount + 1,
-                        canUndo = false,
-                        canRedo = false,
-                    )
-                } else {
-                    val error = result.exceptionOrNull()
-                    // Over-size has its own localized message in the screen; git or shell errors are
-                    // shown as the command printed them.
-                    it.copy(
-                        isSaving = false,
-                        saveError = if (error is FileTooLargeException) SAVE_ERROR_TOO_LARGE else error?.safeMessage("Save failed"),
-                    )
+                    mutableState.update { state ->
+                        state.copy(
+                            content = snapshot.draft,
+                            isEditing = false,
+                            editBase = "",
+                            draft = "",
+                            isSaving = false,
+                            savedCount = state.savedCount + 1,
+                            canUndo = false,
+                            canRedo = false,
+                        )
+                    }
+                }.onFailure { error ->
+                    if (error is CancellationException) throw error
+                    mutableState.update { it.copy(isSaving = false, editError = failureMessage(error)) }
                 }
-            }
         }
+    }
+
+    /** The user only gets the reason; the cause (an IOException for a failed write, say) goes to the log. */
+    private fun failureMessage(error: Throwable): String {
+        Log.w(TAG, "File edit failed", error)
+        return (error as? FileEditException)?.let { messages.editFailure(it.failure) } ?: messages.editFailed
+    }
+
+    private companion object {
+        const val TAG = "CodeViewer"
     }
 }
 
 private const val UNDO_COALESCE_MS = 800L
 private const val MAX_UNDO_STEPS = 200
 private const val MAX_UNDO_CHARS = 8_000_000
-
-/** Marker [CodeViewerUiState.saveError] value the screen swaps for its localized "too large" text. */
-internal const val SAVE_ERROR_TOO_LARGE = "\u0000too-large"

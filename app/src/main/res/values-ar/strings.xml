@@ -1299,10 +1299,6 @@
     <string name="transcript_assistant">المساعد</string>
     <string name="transcript_tool">أداة</string>
     <string name="transcript_error">خطأ</string>
-    <string name="code_edit">تعديل الملف</string>
-    <string name="code_discard_title">تجاهل التغييرات؟</string>
-    <string name="code_discard_body">لم يتم حفظ تعديلاتك على هذا الملف.</string>
-    <string name="code_discard_confirm">تجاهل</string>
     <string name="git_commit">التزام</string>
     <string name="git_pull">سحب</string>
     <string name="git_push">دفع</string>
@@ -1324,7 +1320,6 @@
     <string name="schedule_template_todos">مراجعة TODO</string>
     <string name="schedule_template_security">مراجعة الأمان الشهرية</string>
     <string name="chat_copy_too_long">هذه المحادثة أطول من أن تتسع لها الحافظة، لذا تتم مشاركتها كملف بدلاً من ذلك.</string>
-    <string name="code_save_too_large">هذا الملف أكبر من أن يُحفظ من هنا (الحد الأقصى 1 ميغابايت).</string>
     <string name="chat_usage_cached">%1$s من ذاكرة التخزين المؤقت</string>
     <string name="git_discard">تجاهل التغييرات</string>
     <string name="git_discard_title">تجاهل التغييرات؟</string>
@@ -1415,4 +1410,19 @@
     <string name="artifact_source">المصدر</string>
     <string name="artifact_unavailable">تعذّر عرض هذا الملف.</string>
     <string name="artifact_share">مشاركة الملف</string>
+    <string name="file_edit_action">تحرير الملف</string>
+    <string name="file_edit_save">حفظ</string>
+    <string name="file_edit_discard_title">تجاهل التغييرات؟</string>
+    <string name="file_edit_discard_message">لم يتم حفظ تعديلاتك على هذا الملف.</string>
+    <string name="file_edit_discard_confirm">تجاهل</string>
+    <string name="code_discard_confirm">تجاهل</string>
+    <string name="file_edit_keep_editing">متابعة التحرير</string>
+    <string name="file_edit_error_outside_workspace">هذا الملف خارج مساحة العمل ولا يمكن تحريره.</string>
+    <string name="file_edit_error_not_found">لم يعد الملف موجودًا.</string>
+    <string name="file_edit_error_not_text">يمكن تحرير ملفات النص بترميز UTF-8 فقط.</string>
+    <string name="file_edit_error_too_large">هذا الملف كبير جدًا بحيث لا يمكن تحريره (الحد الأقصى: %1$d كيلوبايت).</string>
+    <string name="file_edit_error_read_only">هذا الملف للقراءة فقط.</string>
+    <string name="file_edit_error_changed_on_disk">تم تغيير الملف بواسطة عملية أخرى منذ فتحته، لذلك لم يتم حفظ تعديلاتك. انسخ نصك، وأغلق المحرر، ثم افتح الملف مرة أخرى.</string>
+    <string name="file_edit_error_write_failed">تعذر حفظ الملف.</string>
+    <string name="file_edit_error_generic">تعذر تحرير الملف.</string>
 </resources>
