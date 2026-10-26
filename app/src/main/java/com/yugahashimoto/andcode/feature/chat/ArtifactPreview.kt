@@ -10,7 +10,6 @@ import android.webkit.WebViewClient
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,14 +18,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DesktopWindows
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.Article
 import androidx.compose.material.icons.outlined.Image
@@ -37,6 +38,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +48,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -60,11 +63,17 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -72,6 +81,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.ProvideSafeUriHandler
 import com.yugahashimoto.andcode.core.UrlLauncher
+import com.yugahashimoto.andcode.feature.browser.DESKTOP_VIEWPORT_SCRIPT
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 import com.yugahashimoto.andcode.ui.theme.Spacing
 import kotlinx.coroutines.Dispatchers
@@ -171,6 +181,7 @@ internal fun ArtifactPreviewDialog(
 ) {
     val artifact = state.artifact
     var showSource by rememberSaveable(artifact.path) { mutableStateOf(false) }
+    var desktopLayout by rememberSaveable(artifact.path) { mutableStateOf(false) }
     val loaded = state as? ArtifactPreviewState.Loaded
     val context = LocalContext.current
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -195,6 +206,15 @@ internal fun ArtifactPreviewDialog(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f).padding(start = Spacing.sm),
                 )
+                // A page can be seen the way a laptop would lay it out, zoomed out to fit.
+                if (artifact.kind == ArtifactKind.HTML && !showSource) {
+                    IconToggleButton(checked = desktopLayout, onCheckedChange = { desktopLayout = it }) {
+                        Icon(
+                            if (desktopLayout) Icons.Default.DesktopWindows else Icons.Default.PhoneAndroid,
+                            contentDescription = stringResource(R.string.guest_browser_desktop_site),
+                        )
+                    }
+                }
                 if (loaded != null && !loaded.base64) {
                     IconButton(onClick = {
                         val send =
@@ -239,7 +259,7 @@ internal fun ArtifactPreviewDialog(
                         if (showSource && !state.base64) {
                             SourceView(state.content)
                         } else {
-                            RenderedArtifact(state)
+                            RenderedArtifact(state, desktopLayout)
                         }
                 }
             }
@@ -247,27 +267,62 @@ internal fun ArtifactPreviewDialog(
     }
 }
 
+/**
+ * The file's text, one lazy row per line with its number in a gutter. One `Text` for the whole file
+ * stops at the tallest layout Compose can measure, so a long file was cut off part way down.
+ */
 @Composable
 private fun SourceView(content: String) {
-    SelectionContainer {
-        Text(
-            text = content,
-            fontFamily = CodeFontFamily,
-            style = MaterialTheme.typography.bodySmall,
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .horizontalScroll(rememberScrollState())
-                    .padding(Spacing.lg),
-        )
+    val lines = remember(content) { content.lines() }
+    val numberStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = CodeFontFamily)
+    // Measured, not guessed, so the widest number fits at any font size without wrapping.
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val gutterWidth =
+        remember(lines.size, numberStyle, density) {
+            with(density) { measurer.measure("9".repeat(lines.size.toString().length), numberStyle).size.width.toDp() }
+        }
+    // Code reads left to right, gutter first, whatever the app's language.
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        SelectionContainer {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = Spacing.sm),
+            ) {
+                items(lines.size) { index ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(end = Spacing.md)) {
+                        // Line numbers are not part of the file: a copied selection leaves them out.
+                        DisableSelection {
+                            Text(
+                                text = (index + 1).toString(),
+                                style = numberStyle,
+                                color = MaterialTheme.colorScheme.outline,
+                                textAlign = TextAlign.End,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(horizontal = Spacing.sm).width(gutterWidth),
+                            )
+                        }
+                        Text(
+                            text = lines[index],
+                            fontFamily = CodeFontFamily,
+                            style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr),
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun RenderedArtifact(state: ArtifactPreviewState.Loaded) {
+private fun RenderedArtifact(
+    state: ArtifactPreviewState.Loaded,
+    desktopLayout: Boolean,
+) {
     when (state.artifact.kind) {
-        ArtifactKind.HTML -> ArtifactWebView(html = state.content, path = state.artifact.path)
+        ArtifactKind.HTML -> ArtifactWebView(html = state.content, path = state.artifact.path, desktopLayout = desktopLayout)
         // An SVG on its own page, scaled to fit, on white: most drawings assume a light canvas.
         ArtifactKind.SVG ->
             ArtifactWebView(
@@ -279,9 +334,11 @@ private fun RenderedArtifact(state: ArtifactPreviewState.Loaded) {
             )
         ArtifactKind.MARKDOWN ->
             ProvideSafeUriHandler {
-                Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(Spacing.lg)) {
-                    MarkdownText(state.content)
-                }
+                LazyMarkdownDocument(
+                    text = state.content,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(Spacing.lg),
+                )
             }
         ArtifactKind.IMAGE -> {
             // Decoded off the main thread and scaled to the screen: an agent can write a picture
@@ -320,6 +377,7 @@ private fun RenderedArtifact(state: ArtifactPreviewState.Loaded) {
 private fun ArtifactWebView(
     html: String,
     path: String,
+    desktopLayout: Boolean = false,
 ) {
     val context = LocalContext.current
     // An origin of its own per file: storage a page keeps is not another artifact's to read.
@@ -332,6 +390,10 @@ private fun ArtifactWebView(
                 settings.domStorageEnabled = true
                 settings.allowFileAccess = false
                 settings.allowContentAccess = false
+                // Pinch to zoom, without the legacy on-screen zoom buttons.
+                settings.setSupportZoom(true)
+                settings.builtInZoomControls = true
+                settings.displayZoomControls = false
                 webViewClient =
                     object : WebViewClient() {
                         // The preview shows the agent's page and nothing else: a link or script
@@ -348,10 +410,23 @@ private fun ArtifactWebView(
                             if (request.isForMainFrame && request.hasGesture()) UrlLauncher.openUrl(context, url)
                             return true
                         }
+
+                        override fun onPageFinished(
+                            view: WebView,
+                            url: String?,
+                        ) {
+                            if (view.settings.useWideViewPort) view.evaluateJavascript(DESKTOP_VIEWPORT_SCRIPT, null)
+                        }
                     }
             }
         },
-        update = { view -> view.loadDataWithBaseURL(baseUrl, html, "text/html", "utf-8", null) },
+        update = { view ->
+            // Desktop lays the page out at a laptop's width and zooms out to fit; the flag is read
+            // back from the settings when the page finishes, to widen its viewport tag too.
+            view.settings.useWideViewPort = desktopLayout
+            view.settings.loadWithOverviewMode = desktopLayout
+            view.loadDataWithBaseURL(baseUrl, html, "text/html", "utf-8", null)
+        },
         onRelease = { view -> view.destroy() },
     )
 }
