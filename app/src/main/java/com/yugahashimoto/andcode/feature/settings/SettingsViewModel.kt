@@ -105,6 +105,8 @@ data class SettingsUiState(
     val githubUserCode: String? = null,
     val githubVerificationUrl: String? = null,
     val githubPolling: Boolean = false,
+    /** True while a pasted personal access token is being checked with GitHub. */
+    val githubVerifyingToken: Boolean = false,
 )
 
 class SettingsViewModel(
@@ -116,6 +118,8 @@ class SettingsViewModel(
     private val registry: RuntimeRegistry,
     private val voskModels: VoskModelStore,
     private val providerDisconnectRejectedMessage: String = "Provider disconnect was not accepted",
+    /** Shown when GitHub does not accept a pasted token; localized by the app. */
+    private val githubTokenRejectedMessage: String = "GitHub did not accept that token.",
     private val customProviderInvalidMessage: String = "Enter a provider id, base URL, and at least one model id",
     private val modelFetcher: CustomProviderModelFetcher = CustomProviderModelFetcher(),
     private val customProviderFetchNeedsBaseUrlMessage: String = "Enter a base URL first",
@@ -174,6 +178,7 @@ class SettingsViewModel(
         val deviceCode: GitHubDeviceCode? = null,
         val polling: Boolean = false,
         val message: String? = null,
+        val verifyingToken: Boolean = false,
     )
 
     init {
@@ -264,6 +269,7 @@ class SettingsViewModel(
                 githubUserCode = github.deviceCode?.userCode,
                 githubVerificationUrl = github.deviceCode?.verificationUriComplete ?: github.deviceCode?.verificationUri,
                 githubPolling = github.polling,
+                githubVerifyingToken = github.verifyingToken,
             )
         }.stateIn(viewModelScope, SharingStarted.Eagerly, SettingsUiState())
 
@@ -368,6 +374,29 @@ class SettingsViewModel(
                 onLocalRuntimeRestartNeeded?.invoke()
             }.onFailure { error ->
                 githubState.value = GitHubState(message = error.message ?: "GitHub authorization failed")
+            }
+        }
+    }
+
+    /**
+     * Signs in with a personal access token pasted by the user - the way in that needs no OAuth
+     * app, so it works in every build, including one built without GITHUB_CLIENT_ID. The token is
+     * checked against GitHub before it is kept: a typo must not look like a connected account.
+     */
+    fun signInWithGitHubToken(token: String) {
+        val trimmed = token.trim()
+        if (trimmed.isEmpty() || githubState.value.verifyingToken) return
+        githubState.value = GitHubState(verifyingToken = true)
+        viewModelScope.launch {
+            runCatching {
+                checkNotNull(githubAuth.refreshAccount(trimmed)) { githubTokenRejectedMessage }
+                githubAuth.saveToken(trimmed)
+            }.onSuccess {
+                githubState.value = GitHubState()
+                settingsTick.update { it + 1 }
+                onLocalRuntimeRestartNeeded?.invoke()
+            }.onFailure { error ->
+                githubState.value = GitHubState(message = error.message ?: githubTokenRejectedMessage)
             }
         }
     }

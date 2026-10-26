@@ -64,6 +64,8 @@ val viewModelModule =
                 voskModels = get(),
                 providerDisconnectRejectedMessage =
                     androidContext().getString(com.yugahashimoto.andcode.R.string.provider_disconnect_rejected),
+                githubTokenRejectedMessage =
+                    androidContext().getString(com.yugahashimoto.andcode.R.string.github_token_rejected),
                 customProviderInvalidMessage =
                     androidContext().getString(com.yugahashimoto.andcode.R.string.provider_custom_invalid),
                 modelFetcher = CustomProviderModelFetcher(get()),

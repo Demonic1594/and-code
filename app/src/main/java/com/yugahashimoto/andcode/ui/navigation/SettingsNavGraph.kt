@@ -23,6 +23,7 @@ import com.yugahashimoto.andcode.feature.settings.ClaudeCodeAgentSettingsScreen
 import com.yugahashimoto.andcode.feature.settings.CodexAgentSettingsScreen
 import com.yugahashimoto.andcode.feature.settings.CodexSignInActions
 import com.yugahashimoto.andcode.feature.settings.CodexSignInViewModel
+import com.yugahashimoto.andcode.feature.settings.GITHUB_NEW_TOKEN_URL
 import com.yugahashimoto.andcode.feature.settings.GitHubSettingsScreen
 import com.yugahashimoto.andcode.feature.settings.ModelVisibilityScreen
 import com.yugahashimoto.andcode.feature.settings.OpenCodeAgentSettingsScreen
@@ -486,6 +487,8 @@ fun NavGraphBuilder.settingsNavGraph(
         GitHubSettingsScreen(
             state = settingsState,
             onConnect = settingsViewModel::beginGitHubDeviceFlow,
+            onSignInWithToken = settingsViewModel::signInWithGitHubToken,
+            onCreateToken = { UrlLauncher.openUrl(context, GITHUB_NEW_TOKEN_URL) },
             onDisconnect = settingsViewModel::disconnectGitHub,
             onOpenVerification = { url ->
                 if (!UrlLauncher.openUrl(context, url)) {

@@ -526,7 +526,13 @@
     <string name="github_connect">Conectar GitHub</string>
     <string name="github_screen_title">GitHub / Operaciones de Git</string>
     <string name="github_intro">Conecte GitHub para operaciones de repositorio, Git, pull requests y flujos de trabajo de Actions.</string>
-    <string name="github_client_id_missing">Esta compilación no incluye un ID de cliente de GitHub, así que no puede iniciar sesión. Vuelva a compilar con GITHUB_CLIENT_ID.</string>
+    <string name="github_client_id_missing">Esta versión no tiene configurado el inicio de sesión de GitHub con un toque. Inicia sesión con un token de acceso personal más abajo.</string>
+    <string name="github_token_section">Iniciar sesión con un token de acceso personal</string>
+    <string name="github_token_help">Dale los permisos repo y workflow. Se comprueba con GitHub y solo se guarda en este dispositivo.</string>
+    <string name="github_token_hint">Token de acceso personal</string>
+    <string name="github_token_sign_in">Iniciar sesión con token</string>
+    <string name="github_token_create">Crear un token</string>
+    <string name="github_token_rejected">GitHub no aceptó ese token.</string>
     <string name="github_disconnect">Desconectar GitHub</string>
     <string name="github_verification_code">Introduce el código: %1$s</string>
     <string name="github_waiting_for_authorization">Esperando autorización…</string>
