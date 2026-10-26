@@ -165,6 +165,10 @@
         </receiver>
 
         <receiver
+            android:name=".core.notification.NotificationActionReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".feature.schedule.ScheduleAlarmReceiver"
             android:exported="false">
             <intent-filter>

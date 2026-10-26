@@ -12,6 +12,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.RemoteInput
 import androidx.core.content.ContextCompat
 import com.yugahashimoto.andcode.MainActivity
 import com.yugahashimoto.andcode.R
@@ -152,6 +153,7 @@ class RuntimeNotificationHelper(private val context: Context) {
                     ),
                 )
                 .setContentIntent(intent)
+                .addAction(replyAction(sessionId, runtimeId, statusNotificationId(sessionId, "done")))
                 .setAutoCancel(true)
                 .build()
         safeNotify(statusNotificationId(sessionId, "done"), notification)
@@ -180,6 +182,10 @@ class RuntimeNotificationHelper(private val context: Context) {
                 .setContentTitle(context.getString(R.string.notification_error_title))
                 .setContentText(message ?: context.getString(R.string.notification_error_body))
                 .setContentIntent(intent)
+                .apply {
+                    // A failed turn is often fixed by one more instruction ("try again with X").
+                    if (sessionId != null) addAction(replyAction(sessionId, runtimeId, statusNotificationId(sessionId, "err")))
+                }
                 .setAutoCancel(true)
                 .build()
         safeNotify(statusNotificationId(sessionId ?: "error", "err"), notification)
@@ -272,13 +278,65 @@ class RuntimeNotificationHelper(private val context: Context) {
         manager.cancel(questionNotificationId(questionId))
     }
 
-    private fun canPostNotifications(): Boolean {
-        if (Build.VERSION.SDK_INT < 33) return true
-        return ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS,
-        ) == PackageManager.PERMISSION_GRANTED
+    private fun canPostNotifications(): Boolean = canPost(context)
+
+    fun cancel(notificationId: Int) {
+        manager.cancel(notificationId)
     }
+
+    /** Puts a failed reply back in front of the user, with Reply still on it to try again. */
+    fun notifyReplyFailed(
+        sessionId: String,
+        notificationId: Int,
+        runtimeId: String?,
+    ) {
+        if (!canPostNotifications()) return
+        val notification =
+            NotificationCompat.Builder(context, CHANNEL_STATUS)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(context.getString(R.string.notification_reply_failed))
+                .setContentText(context.getString(R.string.notification_reply_failed_body))
+                .setContentIntent(openChatIntent(sessionId, runtimeId.orEmpty(), "replyfail"))
+                .addAction(replyAction(sessionId, runtimeId, notificationId))
+                .setAutoCancel(true)
+                .build()
+        safeNotify(notificationId, notification)
+    }
+
+    private fun replyAction(
+        sessionId: String,
+        runtimeId: String?,
+        notificationId: Int,
+    ): NotificationCompat.Action {
+        val input =
+            RemoteInput.Builder(NotificationActionReceiver.KEY_REPLY)
+                .setLabel(context.getString(R.string.notification_reply_hint))
+                .build()
+        return NotificationCompat.Action.Builder(
+            0,
+            context.getString(R.string.notification_reply),
+            NotificationActionReceiver.replyIntent(context, sessionId, runtimeId, notificationId),
+        )
+            .addRemoteInput(input)
+            .setAllowGeneratedReplies(false)
+            .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
+            .build()
+    }
+
+    private fun openChatIntent(
+        sessionId: String,
+        runtimeId: String,
+        kind: String,
+    ): PendingIntent =
+        pendingActivityIntent(
+            requestCode = ("$kind:$sessionId").hashCode(),
+            extras =
+                mapOf(
+                    EXTRA_OPEN_CHAT to true,
+                    EXTRA_TARGET_SESSION_ID to sessionId,
+                    EXTRA_RUNTIME_ID to runtimeId,
+                ),
+        )
 
     @SuppressLint("MissingPermission")
     private fun safeNotify(
@@ -353,6 +411,16 @@ class RuntimeNotificationHelper(private val context: Context) {
                 NotificationManager.IMPORTANCE_DEFAULT,
             ),
         )
+        notificationManager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_LIVE,
+                context.getString(R.string.notification_channel_live),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = context.getString(R.string.notification_channel_live_description)
+                setShowBadge(false)
+            },
+        )
     }
 
     // A narrow hash window made unrelated sessions collide onto one notification id, so one chat's
@@ -372,6 +440,16 @@ class RuntimeNotificationHelper(private val context: Context) {
     companion object {
         const val CHANNEL_APPROVALS = "opencode_approvals"
         const val CHANNEL_STATUS = "opencode_status"
+        const val CHANNEL_LIVE = "opencode_live_runs"
+
+        fun canPost(context: Context): Boolean {
+            if (Build.VERSION.SDK_INT < 33) return true
+            return ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+
         const val ACTION_PERMISSION_RESPONSE = "com.yugahashimoto.andcode.PERMISSION_RESPONSE"
 
         private const val NOTIFICATION_ID_MASK = 0x000FFFFF

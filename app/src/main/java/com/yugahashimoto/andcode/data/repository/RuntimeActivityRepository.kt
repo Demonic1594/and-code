@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.data.repository
 
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
+import com.yugahashimoto.andcode.core.api.OpenCodePart
 import com.yugahashimoto.andcode.core.api.PermissionRequest
 import com.yugahashimoto.andcode.core.api.QuestionRequest
 import com.yugahashimoto.andcode.core.api.sessionIdOrNull
@@ -33,6 +34,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 data class RuntimeEventLog(
     val timestamp: Long = System.currentTimeMillis(),
@@ -55,6 +58,11 @@ data class RuntimeActivityState(
     val permissions: List<PermissionRequest> = emptyList(),
     val logs: List<RuntimeEventLog> = emptyList(),
     val streamError: String? = null,
+    /**
+     * What each running chat is doing right now ("bash · ./gradlew test"), from its latest tool
+     * event. Read only for chats in [activeSessionIds]; the live run notification shows it.
+     */
+    val currentSteps: Map<String, String> = emptyMap(),
 )
 
 class RuntimeActivityRepository(
@@ -198,7 +206,7 @@ class RuntimeActivityRepository(
                     target.state.collect { runtimeState ->
                         if (runtimeState is RuntimeState.Connected || runtimeState is RuntimeState.Connecting) return@collect
                         mutableState.update {
-                            it.copy(activeSessionIds = emptySet(), permissions = emptyList())
+                            it.copy(activeSessionIds = emptySet(), permissions = emptyList(), currentSteps = emptyMap())
                         }
                     }
                 }
@@ -394,6 +402,7 @@ class RuntimeActivityRepository(
         mutableState.update { current ->
             current.copy(
                 activeSessionIds = current.activeSessionIds - sessionId,
+                currentSteps = current.currentSteps - sessionId,
                 settledSessionIds = current.settledSessionIds + sessionId,
                 mutedSessionIds = current.mutedSessionIds + sessionId,
             )
@@ -413,6 +422,13 @@ class RuntimeActivityRepository(
             stallDetectedAt -= sessionId
         }
     }
+
+    /**
+     * True for a session this repository has seen spawned by another (a subagent's), from the
+     * runtime's own session events - known as soon as the child appears, unlike the catalog's
+     * session list, which only refreshes now and then.
+     */
+    fun isSubagentSession(sessionId: String): Boolean = synchronized(parentLock) { parentIds[sessionId] != null }
 
     fun resolvePermission(permissionId: String) {
         mutableState.update { current ->
@@ -446,6 +462,7 @@ class RuntimeActivityRepository(
                 completedSessionIds = current.completedSessionIds - sessionId,
                 settledSessionIds = current.settledSessionIds - sessionId,
                 mutedSessionIds = current.mutedSessionIds - sessionId,
+                currentSteps = current.currentSteps - sessionId,
             )
         }
         persistUnread()
@@ -456,6 +473,7 @@ class RuntimeActivityRepository(
         mutableState.update { current ->
             current.copy(
                 activeSessionIds = current.activeSessionIds - sessionId,
+                currentSteps = current.currentSteps - sessionId,
                 mutedSessionIds = current.mutedSessionIds + sessionId,
             )
         }
@@ -470,6 +488,7 @@ class RuntimeActivityRepository(
         mutableState.update { current ->
             current.copy(
                 activeSessionIds = current.activeSessionIds - sessionId,
+                currentSteps = current.currentSteps - sessionId,
                 completedSessionIds =
                     if (unread) {
                         current.completedSessionIds + sessionId
@@ -498,7 +517,18 @@ class RuntimeActivityRepository(
                 val sessionId = event.part.sessionId ?: return
                 activateSession(target, sessionId)
                 when (event.part.type) {
-                    "tool", "tool-invocation" -> appendLog(messages.eventTool, event.part.tool, sessionId)
+                    "tool", "tool-invocation" -> {
+                        appendLog(messages.eventTool, event.part.tool, sessionId)
+                        // A finished call clears the step, so the notification stops naming a
+                        // command that is no longer running while the model writes its answer.
+                        val step = toolStep(event.part)
+                        mutableState.update { current ->
+                            current.copy(
+                                currentSteps =
+                                    if (step != null) current.currentSteps + (sessionId to step) else current.currentSteps - sessionId,
+                            )
+                        }
+                    }
                     "reasoning" -> appendLog(messages.eventReasoning, null, sessionId)
                 }
             }
@@ -526,6 +556,7 @@ class RuntimeActivityRepository(
                         completedSessionIds = current.completedSessionIds + event.sessionId,
                         settledSessionIds = current.settledSessionIds + event.sessionId,
                         mutedSessionIds = current.mutedSessionIds - event.sessionId,
+                        currentSteps = current.currentSteps - event.sessionId,
                     )
                 }
                 appendLog(messages.eventCompleted, null, event.sessionId)
@@ -558,6 +589,7 @@ class RuntimeActivityRepository(
                             } else {
                                 current.activeSessionIds + event.sessionId
                             },
+                        currentSteps = if (event.status == "idle") current.currentSteps - event.sessionId else current.currentSteps,
                         completedSessionIds =
                             if (event.status == "idle") {
                                 current.completedSessionIds + event.sessionId
@@ -585,6 +617,7 @@ class RuntimeActivityRepository(
                     mutableState.update { current ->
                         current.copy(
                             activeSessionIds = current.activeSessionIds - sessionId,
+                            currentSteps = current.currentSteps - sessionId,
                             settledSessionIds = current.settledSessionIds + sessionId,
                             mutedSessionIds = current.mutedSessionIds + sessionId,
                         )
@@ -732,4 +765,18 @@ class RuntimeActivityRepository(
     companion object {
         private const val MAX_LOGS = 100
     }
+}
+
+/**
+ * A one-line description of a tool call for the live run notification: its title when the agent
+ * gave one ("./gradlew test"), led by the tool's name, or just the name. Null for a call that has
+ * already finished, so a completed step does not linger as "what it is doing now".
+ */
+internal fun toolStep(part: OpenCodePart): String? {
+    val tool = part.tool?.takeIf(String::isNotBlank) ?: return null
+    val state = part.state.orEmpty()
+    val status = (state["status"] as? JsonPrimitive)?.contentOrNull
+    if (status == "completed" || status == "error") return null
+    val title = (state["title"] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf(String::isNotBlank)
+    return if (title == null || title == tool) tool else "$tool · $title"
 }

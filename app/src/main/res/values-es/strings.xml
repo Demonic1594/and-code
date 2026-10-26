@@ -499,6 +499,14 @@
     <string name="chat_suggest_fix">Encuentra y corrige un error</string>
     <string name="chat_suggest_tests">Escribe pruebas para el código que cambié</string>
     <string name="chat_suggest_review">Revisa mis cambios sin confirmar</string>
+    <string name="notification_live_working">Trabajando…</string>
+    <string name="notification_live_many">%1$d chats en curso</string>
+    <string name="notification_channel_live">Chats en curso</string>
+    <string name="notification_channel_live_description">Muestra qué chats están en curso, qué hacen y desde cuándo, con un botón para detenerlos.</string>
+    <string name="notification_reply">Responder</string>
+    <string name="notification_reply_hint">Responder al agente</string>
+    <string name="notification_reply_failed">No se pudo enviar tu respuesta</string>
+    <string name="notification_reply_failed_body">Abre el chat o vuelve a intentar responder.</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">Operaciones Git de GitHub</string>
     <string name="github_not_connected">No conectado</string>
