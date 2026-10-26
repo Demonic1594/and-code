@@ -125,6 +125,9 @@ fun groupConversationTimeline(messages: List<ChatMessage>): List<TimelineEntry> 
     // The turn's edits, gathered across all its messages and shown once the turn is over.
     val turnFiles = linkedSetOf<String>()
     var turnPatchMessageId: String? = null
+    // Whether the turn's latest message has finished. The turn's own completion time is the max over
+    // its messages, and OpenCode completes every step message, so that reads as done after step one.
+    var turnLastMessageDone = false
 
     fun flush() {
         if (pending.isEmpty()) return
@@ -155,7 +158,7 @@ fun groupConversationTimeline(messages: List<ChatMessage>): List<TimelineEntry> 
     // A turn the next prompt cut short (no completion time) still shows what it changed.
     fun flushTurnChanges(interrupted: Boolean) {
         val messageId = turnPatchMessageId ?: return
-        if (turnCompletedAt == null && !interrupted) return
+        if (!turnLastMessageDone && !interrupted) return
         entries += TimelineEntry.Changes("changes:$messageId", messageId, turnFiles.toList())
         turnFiles.clear()
         turnPatchMessageId = null
@@ -172,6 +175,7 @@ fun groupConversationTimeline(messages: List<ChatMessage>): List<TimelineEntry> 
         }
         if (turnStartAt == null) turnStartAt = message.timestamp
         turnLastId = message.id
+        turnLastMessageDone = message.completedAt != null
         message.completedAt?.let { completed ->
             turnCompletedAt = maxOf(turnCompletedAt ?: 0L, completed)
         }

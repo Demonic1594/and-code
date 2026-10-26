@@ -512,7 +512,7 @@
     <string name="review_comments_pending">评论：%1$d</string>
     <string name="review_files_changed">已更改文件：%1$d</string>
     <string name="review_discard_title">放弃你的评论？</string>
-    <string name="review_discard_body">你留下的评论尚未发送给智能体。</string>
+    <string name="review_discard_body">你留下的评论尚未发送给代理。</string>
     <string name="review_line_comment">评论此行</string>
     <string name="review_file_expanded">已展开</string>
     <string name="review_file_collapsed">已折叠</string>

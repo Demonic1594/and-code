@@ -503,6 +503,10 @@ class AssistantActivityGroupTest {
                 assistant("a1", tool("e1", "edit"), ChatPart.Patch("p1", listOf("app/Login.kt"), "a1")),
             )
         assertTrue(groupConversationTimeline(running).none { it is TimelineEntry.Changes })
+        // OpenCode completes each step message, so a finished first step does not finish the turn.
+        val nextStepRunning =
+            listOf(running[0], running[1].copy(completedAt = 2_000L), assistant("a2", tool("e2", "edit")))
+        assertTrue(groupConversationTimeline(nextStepRunning).none { it is TimelineEntry.Changes })
 
         // Cut short by the next prompt, it still shows what it changed, above that prompt.
         val interrupted =

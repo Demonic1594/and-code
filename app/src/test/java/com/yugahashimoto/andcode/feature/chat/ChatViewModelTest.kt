@@ -401,10 +401,14 @@ class ChatViewModelTest {
             viewModel.sendReview("review")
             advanceUntilIdle()
             assertEquals(listOf("prompt:first"), backend.calls)
+            // Attached while the review waits: it belongs to the user's next message, not the review.
+            viewModel.addAttachment(PromptAttachment("photo.jpg", "image/jpeg", "data:image/jpeg;base64,/9j/4AAQ"))
 
             backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
             advanceUntilIdle()
             assertEquals(listOf("prompt:first", "prompt:review"), backend.calls)
+            assertTrue(backend.sentPrompts.last().second.attachments.isEmpty())
+            assertEquals(listOf("photo.jpg"), viewModel.uiState.value.attachments.map { it.filename })
         }
 
     @Test

@@ -271,6 +271,8 @@ private data class QueuedPrompt(
     val text: String,
     val attachments: List<PromptAttachment>,
     val imagePreviews: List<Bitmap>,
+    /** False for a review from the diff screen, which must not touch the composer when it goes out. */
+    val fromComposer: Boolean = true,
 )
 
 internal fun OpenCodePart.toChatPart(messageId: String): ChatPart? {
@@ -1471,7 +1473,7 @@ class ChatViewModel(
 
         if (!_uiState.value.isConnected) {
             offlineMessageQueue.update {
-                it + QueuedPrompt(outgoingText, modelAttachments, pendingPreviews)
+                it + QueuedPrompt(outgoingText, modelAttachments, pendingPreviews, fromComposer)
             }
             val userMessage =
                 ChatMessage(
@@ -1498,7 +1500,7 @@ class ChatViewModel(
         val mustQueue = (currentBackend as? RuntimeTarget)?.capabilities?.forcesQueue == true
         if ((_sendBehavior.value == "queue" || mustQueue || !fromComposer) && _uiState.value.isRunning) {
             messageQueue.update {
-                it + QueuedPrompt(outgoingText, modelAttachments, pendingPreviews)
+                it + QueuedPrompt(outgoingText, modelAttachments, pendingPreviews, fromComposer)
             }
             if (fromComposer) _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
             return
@@ -2719,6 +2721,10 @@ class ChatViewModel(
      * just started and take its place. See [interruptRunningTurn].
      */
     private fun sendQueued(queuedPrompt: QueuedPrompt) {
+        if (!queuedPrompt.fromComposer) {
+            send(queuedPrompt.text, fromComposer = false)
+            return
+        }
         _uiState.update {
             it.copy(
                 attachments = queuedPrompt.attachments,
