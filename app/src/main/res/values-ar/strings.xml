@@ -1355,6 +1355,7 @@
     <string name="devtools_request_headers">ترويسات الطلب</string>
     <string name="devtools_headers_not_recorded">تُسجَّل فقط الترويسات التي عيّنتها الصفحة بنفسها.</string>
     <string name="devtools_pending">قيد الانتظار</string>
+    <string name="devtools_status_unknown">غير معروف</string>
     <string name="devtools_no_body">بلا محتوى.</string>
     <string name="devtools_copy_url">نسخ عنوان URL</string>
     <string name="devtools_copy_curl">نسخ كـ cURL</string>

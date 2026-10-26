@@ -198,9 +198,16 @@ private fun statusColor(entry: NetworkEntry): Color =
         entry.error != null || (entry.status ?: 0) >= 500 -> MaterialTheme.colorScheme.error
         (entry.status ?: 0) >= 400 -> Color(0xFFE37400)
         (entry.status ?: 0) in 300..399 -> MaterialTheme.colorScheme.tertiary
-        !entry.finished -> MaterialTheme.colorScheme.onSurfaceVariant
+        !entry.finished || entry.statusUnknown -> MaterialTheme.colorScheme.onSurfaceVariant
         else -> Color(0xFF1E8E3E)
     }
+
+/** The status as a line shows it: the code, the error, or why there is neither. */
+@Composable
+private fun statusText(entry: NetworkEntry): String =
+    entry.status?.let { "$it ${entry.statusText}".trim() }
+        ?: entry.error
+        ?: stringResource(if (entry.statusUnknown) R.string.devtools_status_unknown else R.string.devtools_pending)
 
 @Composable
 private fun RequestRow(
@@ -220,7 +227,13 @@ private fun RequestRow(
             modifier = Modifier.width(44.dp),
         ) {
             Text(
-                text = entry.status?.toString() ?: if (entry.error != null) "✕" else "…",
+                text =
+                    when {
+                        entry.status != null -> entry.status.toString()
+                        entry.error != null -> "✕"
+                        entry.statusUnknown -> "?"
+                        else -> "…"
+                    },
                 color = statusColor(entry),
                 fontFamily = CodeFontFamily,
                 fontSize = 11.sp,
@@ -339,7 +352,7 @@ private fun RequestDetail(
             Column(modifier = Modifier.weight(1f)) {
                 Text(entry.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    "${entry.method} · ${entry.status ?: entry.error ?: "…"} · ${formatMillis(entry.durationMs)}",
+                    "${entry.method} · ${statusText(entry)} · ${formatMillis(entry.durationMs)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = statusColor(entry),
                 )
@@ -402,9 +415,7 @@ private fun RequestDetail(
                         DevToolsKeyValue(stringResource(R.string.devtools_request_method), entry.method)
                         DevToolsKeyValue(
                             stringResource(R.string.devtools_status_code),
-                            entry.status?.let { "$it ${entry.statusText}".trim() } ?: entry.error ?: stringResource(
-                                R.string.devtools_pending,
-                            ),
+                            statusText(entry),
                         )
                         DevToolsKeyValue(
                             stringResource(R.string.devtools_type),

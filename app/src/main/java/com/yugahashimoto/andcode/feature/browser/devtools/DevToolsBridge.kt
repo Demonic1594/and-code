@@ -45,7 +45,9 @@ class DevToolsBridge(
                 events.filterIsInstance<DevToolsEvent.Text>().forEach { text ->
                     if (isMainFrame) textRequests.remove(text.token)?.invoke(text.ok, text.text)
                 }
-                store.handleAll(events.filterNot { it is DevToolsEvent.Text })
+                // An element picked, or a console result, only counts from the top page: a frame (an
+                // ad, say) could otherwise switch tabs or forge an answer.
+                store.handleAll(events.filter { it !is DevToolsEvent.Text && (isMainFrame || !it.mainFrameOnly) })
             }
         }
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
@@ -107,7 +109,7 @@ class DevToolsBridge(
                 // A Content-Security-Policy without 'unsafe-eval' stops the agent's eval; the
                 // WebView's own evaluation is not subject to it, so the code runs that way instead,
                 // with its result as plain JSON rather than the agent's richer form.
-                !result.ok && previewOf(result.value).startsWith("EvalError") -> evaluateDirectly(code)
+                !result.ok && isCspBlock(previewOf(result.value)) -> evaluateDirectly(code)
                 // A promise's outcome arrives as its own event once it settles.
                 result.pendingToken != null -> store.appendResult(true, result.value)
                 else -> store.appendResult(result.ok, result.value)
@@ -118,7 +120,9 @@ class DevToolsBridge(
     private fun evaluateDirectly(code: String) {
         val view = webView ?: return store.appendResult(false, JsonPrimitive(store.messages.cannotRunCode))
         view.evaluateJavascript(code) { raw ->
-            val value = raw?.let { runCatching { devToolsJson.parseToJsonElement(it) }.getOrNull() } ?: JsonPrimitive(raw.orEmpty())
+            // A throw comes back as null, the same as an undefined result; say so rather than "null".
+            if (raw == null) return@evaluateJavascript store.appendResult(false, JsonPrimitive(store.messages.cannotRunCode))
+            val value = runCatching { devToolsJson.parseToJsonElement(raw) }.getOrNull() ?: JsonPrimitive(raw)
             store.appendResult(true, value)
         }
     }
@@ -127,6 +131,10 @@ class DevToolsBridge(
         const val BRIDGE_NAME = "__andcodeDevtoolsBridge"
         private val ALL_ORIGINS = setOf("*")
         private const val SCRIPT_ASSET = "devtools/andcode-devtools.js"
+
+        /** The EvalError a Content-Security-Policy raises, not one the user's own code throws. */
+        internal fun isCspBlock(preview: String): Boolean =
+            preview.startsWith("EvalError") && (preview.contains("unsafe-eval") || preview.contains("Content Security Policy"))
 
         fun loadScript(context: Context): String = context.assets.open(SCRIPT_ASSET).bufferedReader().use { it.readText() }
 

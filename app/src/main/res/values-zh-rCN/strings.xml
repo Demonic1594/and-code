@@ -1330,6 +1330,7 @@
     <string name="devtools_request_headers">请求标头</string>
     <string name="devtools_headers_not_recorded">仅记录页面自身设置的标头。</string>
     <string name="devtools_pending">待处理</string>
+    <string name="devtools_status_unknown">未知</string>
     <string name="devtools_no_body">无正文。</string>
     <string name="devtools_copy_url">复制网址</string>
     <string name="devtools_copy_curl">复制为 cURL</string>

@@ -1340,6 +1340,7 @@
     <string name="devtools_request_headers">En-têtes de requête</string>
     <string name="devtools_headers_not_recorded">Seuls les en-têtes définis par la page elle-même sont enregistrés.</string>
     <string name="devtools_pending">En attente</string>
+    <string name="devtools_status_unknown">Inconnu</string>
     <string name="devtools_no_body">Pas de corps.</string>
     <string name="devtools_copy_url">Copier l’URL</string>
     <string name="devtools_copy_curl">Copier en cURL</string>

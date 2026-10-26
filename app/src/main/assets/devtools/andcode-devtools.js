@@ -45,6 +45,11 @@
     if (queue.length) schedule();
   }
 
+  // Leaving the page would drop what is still queued; send all of it now, as Preserve log keeps it.
+  function flushAll() {
+    while (queue.length) flush();
+  }
+
   function schedule() {
     if (flushing) return;
     flushing = true;
@@ -223,6 +228,8 @@
       return original.apply(console, args);
     };
   });
+
+  window.addEventListener('pagehide', flushAll);
 
   window.addEventListener('error', function (event) {
     try {

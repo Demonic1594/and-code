@@ -1340,6 +1340,7 @@
     <string name="devtools_request_headers">Encabezados de solicitud</string>
     <string name="devtools_headers_not_recorded">Solo se registran los encabezados que la propia página establece.</string>
     <string name="devtools_pending">Pendiente</string>
+    <string name="devtools_status_unknown">Desconocido</string>
     <string name="devtools_no_body">Sin cuerpo.</string>
     <string name="devtools_copy_url">Copiar URL</string>
     <string name="devtools_copy_curl">Copiar como cURL</string>

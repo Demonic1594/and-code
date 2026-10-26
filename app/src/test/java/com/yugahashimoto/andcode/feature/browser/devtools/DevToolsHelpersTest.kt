@@ -5,6 +5,8 @@ import com.yugahashimoto.andcode.feature.browser.addressKindOf
 import com.yugahashimoto.andcode.feature.browser.displayHost
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DevToolsHelpersTest {
@@ -132,5 +134,29 @@ class DevToolsHelpersTest {
         assertEquals("–", formatBytes(null))
         assertEquals("42 ms", formatMillis(42.7))
         assertEquals("1.50 s", formatMillis(1500.0))
+    }
+
+    @Test
+    fun `a finished request without a status is unknown, not pending`() {
+        val opaque = NetworkEntry("res:1", "img", "GET", "https://cdn.example/a.png", completed = true)
+        assertTrue(opaque.finished)
+        assertTrue(opaque.statusUnknown)
+        assertFalse(NetworkEntry("x", "fetch", "GET", "http://h/").statusUnknown)
+        assertFalse(NetworkEntry("y", "fetch", "GET", "http://h/", status = 200, completed = true).statusUnknown)
+        assertFalse(NetworkEntry("z", "fetch", "GET", "http://h/", error = "boom", completed = true).statusUnknown)
+    }
+
+    @Test
+    fun `only an eval error from the page's policy retries outside the agent`() {
+        assertTrue(DevToolsBridge.isCspBlock("EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not allowed"))
+        assertFalse(DevToolsBridge.isCspBlock("EvalError: thrown by my code"))
+        assertFalse(DevToolsBridge.isCspBlock("TypeError: unsafe-eval"))
+    }
+
+    @Test
+    fun `only events that steer DevTools are limited to the top page`() {
+        assertTrue(DevToolsEvent.Inspect(1, listOf(1)).mainFrameOnly)
+        assertTrue(DevToolsEvent.EvalSettled(1, true, JsonPrimitive(1)).mainFrameOnly)
+        assertFalse(DevToolsEvent.Resources(emptyList()).mainFrameOnly)
     }
 }

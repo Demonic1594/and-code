@@ -58,6 +58,9 @@ class GuestBrowserScreenInstrumentedTest {
             loaded
         }
 
+        // Once a page has started the address shows as a summary; tap it to edit, as a user would.
+        val editLabel = InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.guest_browser_edit_address)
+        composeRule.onNodeWithContentDescription(editLabel).performClick()
         val addressBar = composeRule.onNode(hasSetTextAction())
         addressBar.assertIsDisplayed().performClick().performTextReplacement("https://example.com/")
         addressBar.assertIsFocused()

@@ -1350,6 +1350,7 @@
     <string name="devtools_request_headers">リクエストヘッダー</string>
     <string name="devtools_headers_not_recorded">記録されるのは、ページ自身が設定したヘッダーだけです。</string>
     <string name="devtools_pending">保留中</string>
+    <string name="devtools_status_unknown">不明</string>
     <string name="devtools_no_body">本文はありません。</string>
     <string name="devtools_copy_url">URL をコピー</string>
     <string name="devtools_copy_curl">cURL としてコピー</string>

@@ -81,6 +81,9 @@ data class NetworkEntry(
     val completed: Boolean = false,
 ) {
     val finished: Boolean get() = completed || status != null || error != null
+
+    /** Finished, but the browser would not say how: a cross-origin resource without Timing-Allow-Origin. */
+    val statusUnknown: Boolean get() = completed && status == null && error == null
     val failed: Boolean get() = error != null || (status != null && status >= 400)
 
     /** The last path segment, as the request list labels it. */
@@ -199,6 +202,9 @@ data class PageSource(
 
 /** What the page agent posts on its own, as it happens. */
 sealed interface DevToolsEvent {
+    /** Events that act on DevTools itself rather than log something, so only the top page may send them. */
+    val mainFrameOnly: Boolean get() = this is Inspect || this is EvalSettled
+
     data class Console(
         val level: String,
         val args: List<JsonElement>,

@@ -1345,6 +1345,7 @@
     <string name="devtools_request_headers">Заголовки запроса</string>
     <string name="devtools_headers_not_recorded">Записываются только заголовки, заданные самой страницей.</string>
     <string name="devtools_pending">Ожидание</string>
+    <string name="devtools_status_unknown">Неизвестно</string>
     <string name="devtools_no_body">Нет тела.</string>
     <string name="devtools_copy_url">Копировать URL</string>
     <string name="devtools_copy_curl">Копировать как cURL</string>
