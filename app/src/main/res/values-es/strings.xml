@@ -1368,4 +1368,11 @@
     <string name="inbox_failed_reply">No se pudo enviar la respuesta.</string>
     <string name="inbox_row_description">Bandeja. Esperándote: %1$d. En curso: %2$d.</string>
     <string name="inbox_sending">Enviando…</string>
+    <string name="action_rewind">Retroceder hasta aquí</string>
+    <string name="rewind_confirm_title">¿Retroceder hasta este mensaje?</string>
+    <string name="rewind_confirm_body">Los archivos que el agente cambió desde este mensaje vuelven a como estaban, y este mensaje y los siguientes se ocultan. Su texto vuelve al cuadro de mensaje. Puedes deshacerlo hasta que envíes un mensaje nuevo.</string>
+    <string name="rewind_confirm">Retroceder</string>
+    <string name="rewind_banner_title">Se retrocedió a un punto anterior</string>
+    <string name="rewind_banner_body">Los archivos volvieron a como estaban.</string>
+    <string name="rewind_hidden_count">Ocultos: %1$d</string>
 </resources>

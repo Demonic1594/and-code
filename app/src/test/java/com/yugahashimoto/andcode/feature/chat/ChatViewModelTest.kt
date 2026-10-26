@@ -9,6 +9,7 @@ import com.yugahashimoto.andcode.core.api.OpenCodeMessage
 import com.yugahashimoto.andcode.core.api.OpenCodeMessageInfo
 import com.yugahashimoto.andcode.core.api.OpenCodePart
 import com.yugahashimoto.andcode.core.api.OpenCodeSession
+import com.yugahashimoto.andcode.core.api.OpenCodeSessionRevert
 import com.yugahashimoto.andcode.core.api.OpenCodeSkill
 import com.yugahashimoto.andcode.core.api.OpenCodeTime
 import com.yugahashimoto.andcode.core.api.PermissionRequest
@@ -1532,6 +1533,101 @@ class ChatViewModelTest {
             assertNull(viewModel.uiState.value.editDraft)
         }
 
+    @Test
+    fun `rewinding hides the later messages, hands the text back, and can be undone`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(checkpoints = true))
+            backend.transcript =
+                listOf(
+                    sessionUserMessage("s1", "u1", "first", created = 1),
+                    sessionAssistantMessage("s1", "a1", "one"),
+                    sessionUserMessage("s1", "u2", "second", created = 2),
+                    sessionAssistantMessage("s1", "a2", "two"),
+                )
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.openSession("s1")
+            advanceUntilIdle()
+
+            viewModel.rewindTo("u2")
+            advanceUntilIdle()
+
+            val rewound = viewModel.uiState.value
+            assertEquals(listOf("revert:u2"), backend.calls)
+            assertEquals("u2", rewound.rewoundFrom)
+            assertEquals(listOf("u1", "a1"), rewound.visibleMessages.map { it.id })
+            // Nothing is gone yet: undo has everything to bring back.
+            assertEquals(4, rewound.messages.size)
+            assertEquals("second", rewound.editDraft)
+
+            viewModel.undoRewind()
+            advanceUntilIdle()
+            assertEquals(listOf("revert:u2", "unrevert"), backend.calls)
+            assertNull(viewModel.uiState.value.rewoundFrom)
+            assertEquals(4, viewModel.uiState.value.visibleMessages.size)
+        }
+
+    @Test
+    fun `the next message makes a rewind permanent, even while the server still lists what it hid`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(checkpoints = true))
+            backend.transcript =
+                listOf(
+                    sessionUserMessage("s1", "u1", "first", created = 1),
+                    sessionAssistantMessage("s1", "a1", "one"),
+                    sessionUserMessage("s1", "u2", "second", created = 2),
+                    sessionAssistantMessage("s1", "a2", "two"),
+                )
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.openSession("s1")
+            advanceUntilIdle()
+            viewModel.rewindTo("u2")
+            advanceUntilIdle()
+
+            viewModel.sendMessage("second, but better")
+            advanceUntilIdle()
+
+            val ids = viewModel.uiState.value.messages.map { it.id }
+            assertFalse("u2" in ids || "a2" in ids)
+            assertTrue(ids.containsAll(listOf("u1", "a1")))
+            assertNull(viewModel.uiState.value.rewoundFrom)
+            assertEquals("second, but better", backend.sentPrompts.single().second.text)
+        }
+
+    @Test
+    fun `a runtime without checkpoints is not asked to rewind`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(editMessages = true))
+            backend.transcript = listOf(sessionUserMessage("s1", "u1", "first", created = 1))
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.openSession("s1")
+            advanceUntilIdle()
+
+            viewModel.rewindTo("u1")
+            advanceUntilIdle()
+
+            assertTrue(backend.calls.isEmpty())
+            assertNull(viewModel.uiState.value.rewoundFrom)
+        }
+
+    @Test
+    fun `a chat already rewound elsewhere opens rewound`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(checkpoints = true))
+            backend.transcript =
+                listOf(sessionUserMessage("s1", "u1", "first", created = 1), sessionUserMessage("s1", "u2", "second", created = 2))
+            backend.revert = OpenCodeSessionRevert("u2")
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+
+            viewModel.openSession("s1")
+            advanceUntilIdle()
+
+            assertEquals(listOf("u1"), viewModel.uiState.value.visibleMessages.map { it.id })
+        }
+
     /**
      * A refused delete (e.g. OpenCode's `SessionBusyError`) leaves the backend still holding
      * whatever it declined to remove. The messages were already dropped from the screen
@@ -2274,6 +2370,24 @@ class ChatViewModelTest {
             deletedMessageIds += messageId
             calls += "delete:$messageId"
             return deleteResult
+        }
+
+        /** Where the session stands rewound, as the server would report it. */
+        var revert: OpenCodeSessionRevert? = null
+
+        override suspend fun session(sessionId: String): OpenCodeSession = OpenCodeSession(id = sessionId, revert = revert)
+
+        override suspend fun revertSession(
+            sessionId: String,
+            messageId: String,
+        ) {
+            calls += "revert:$messageId"
+            revert = OpenCodeSessionRevert(messageId)
+        }
+
+        override suspend fun unrevertSession(sessionId: String) {
+            calls += "unrevert"
+            revert = null
         }
 
         override suspend fun listProviders(): ProviderCatalog = ProviderCatalog()

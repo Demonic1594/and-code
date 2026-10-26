@@ -189,6 +189,36 @@ class OpenCodeApiClientTest {
         }
 
     @Test
+    fun `rewinds a session to a message and takes it back, whatever the server answers with`() =
+        runBlocking {
+            // Older servers answer `true`, newer ones the session itself; neither is read.
+            server.enqueue(MockResponse().setBody("""{"id":"s1","time":{"created":1},"revert":{"messageID":"m2"}}"""))
+            server.enqueue(MockResponse().setBody("true"))
+            val client = client()
+
+            client.revertSession("s1", "m2")
+            client.unrevertSession("s1")
+
+            val revert = server.takeRequest()
+            assertEquals("/session/s1/revert", revert.path)
+            assertEquals("POST", revert.method)
+            assertEquals("m2", Json.parseToJsonElement(revert.body.readUtf8()).jsonObject["messageID"]!!.jsonPrimitive.content)
+            val unrevert = server.takeRequest()
+            assertEquals("/session/s1/unrevert", unrevert.path)
+            assertEquals("POST", unrevert.method)
+        }
+
+    @Test
+    fun `reads where a rewound session stands`() =
+        runBlocking {
+            server.enqueue(MockResponse().setBody("""{"id":"s1","time":{"created":1},"revert":{"messageID":"m2","partID":"p1"}}"""))
+
+            val session = client().session("s1")
+
+            assertEquals("m2", session.revert?.messageId)
+        }
+
+    @Test
     fun `summarizes a session with the selected model`() =
         runBlocking {
             server.enqueue(MockResponse().setBody("true"))

@@ -567,7 +567,19 @@ data class ChatUiState(
     val editDraft: String? = null,
     /** The diff dialog open on a tapped [ChatPart.Patch] card, or null when none is open. */
     val patchDiff: PatchDiffState? = null,
-)
+    /**
+     * The message the chat is rewound to, set by [ChatViewModel.rewindTo]: that message and every
+     * later one are hidden, and the files are as they were before it, until [ChatViewModel.undoRewind]
+     * or the next message (which makes the rewind permanent).
+     */
+    val rewoundFrom: String? = null,
+    /** True while a rewind or its undo is on its way, so the controls wait for it. */
+    val isRewinding: Boolean = false,
+) {
+    /** The transcript as the chat shows it: everything before [rewoundFrom]. */
+    val visibleMessages: List<ChatMessage>
+        get() = rewoundFrom?.let { id -> messages.takeWhile { it.id != id } } ?: messages
+}
 
 /**
  * The `serviceTier` a prompt carries for a model whose fast tier is [fastTier], given the user's
@@ -1114,6 +1126,7 @@ class ChatViewModel(
                 permissions = emptyList(),
                 pendingQuestions = emptyList(),
                 sessionDirectory = null,
+                rewoundFrom = if (switchingSession) null else it.rewoundFrom,
                 isRunning = if (switchingSession) false else it.isRunning,
                 isThinking = if (switchingSession) false else it.isThinking,
                 dismissedTodoBarId = null,
@@ -1121,6 +1134,7 @@ class ChatViewModel(
             )
         }
         if (parent == null) resolveParentSession(sessionId)
+        refreshRewind(sessionId)
         refreshPendingQuestions(sessionId)
         viewModelScope.launch {
             runCatching { currentBackend.listMessages(sessionId) }
@@ -1252,8 +1266,91 @@ class ChatViewModel(
                 partialText = "",
                 imagePreviews = emptyList(),
                 dismissedTodoBarId = null,
+                rewoundFrom = null,
                 error = null,
             )
+        }
+    }
+
+    /**
+     * Messages a rewind hid when the next message made it permanent. The runtime drops them as it
+     * takes that message, but a transcript fetched in between can still carry them, and they must
+     * not come back.
+     */
+    private val discardedByRewind = mutableSetOf<String>()
+
+    /** The transcript a new message is appended to: a pending rewind becomes permanent here. */
+    private fun keepRewind(state: ChatUiState): List<ChatMessage> {
+        val from = state.rewoundFrom ?: return state.messages
+        discardedByRewind += state.messages.dropWhile { it.id != from }.map { it.id }
+        return state.visibleMessages
+    }
+
+    private fun canRewind(currentBackend: OpenCodeBackend?): Boolean = (currentBackend as? RuntimeTarget)?.capabilities?.checkpoints == true
+
+    /**
+     * Picks up a rewind the session already carries - one made on another device, or before the app
+     * was last closed - so the chat hides what the runtime will drop on the next message.
+     */
+    private fun refreshRewind(sessionId: String) {
+        val currentBackend = backend ?: return
+        if (!canRewind(currentBackend)) return
+        viewModelScope.launch {
+            val revert = runCatching { currentBackend.session(sessionId) }.getOrNull()?.revert
+            _uiState.update { if (it.sessionId == sessionId) it.copy(rewoundFrom = revert?.messageId) else it }
+        }
+    }
+
+    /**
+     * Rewinds the chat to just before [messageId], a message of the user's: the runtime restores
+     * the files the chat changed from then on, and the message and every later one are hidden. Its
+     * text goes back into the composer, ready to send again as it was or changed.
+     *
+     * Nothing is lost yet: [undoRewind] brings it all back until the next message is sent, which is
+     * when the runtime drops the rewound messages for good. See
+     * [com.yugahashimoto.andcode.runtime.RuntimeCapabilities.checkpoints] for which runtimes can.
+     */
+    fun rewindTo(messageId: String) {
+        val currentBackend = backend ?: return
+        val state = _uiState.value
+        val sessionId = state.sessionId ?: return
+        if (state.isRunning || state.isRewinding || !canRewind(currentBackend)) return
+        val message = state.messages.firstOrNull { it.id == messageId && it.isUser } ?: return
+        _uiState.update { it.copy(isRewinding = true) }
+        viewModelScope.launch {
+            runCatching { currentBackend.revertSession(sessionId, messageId) }
+                .onSuccess {
+                    // The session says where the rewind really landed; trust that over the request.
+                    val landed =
+                        runCatching { currentBackend.session(sessionId) }.getOrNull()?.revert?.messageId ?: messageId
+                    _uiState.update {
+                        if (it.sessionId != sessionId) return@update it.copy(isRewinding = false)
+                        it.copy(isRewinding = false, rewoundFrom = landed, editDraft = message.text)
+                    }
+                }
+                .onFailure { error ->
+                    if (error is CancellationException) throw error
+                    _uiState.update { it.copy(isRewinding = false) }
+                    reportError(error)
+                }
+        }
+    }
+
+    /** Takes a rewind back: the files return to how the chat left them, and so do the messages. */
+    fun undoRewind() {
+        val currentBackend = backend ?: return
+        val state = _uiState.value
+        val sessionId = state.sessionId ?: return
+        if (state.rewoundFrom == null || state.isRewinding) return
+        _uiState.update { it.copy(isRewinding = true) }
+        viewModelScope.launch {
+            runCatching { currentBackend.unrevertSession(sessionId) }
+                .onSuccess { _uiState.update { if (it.sessionId == sessionId) it.copy(isRewinding = false, rewoundFrom = null) else it } }
+                .onFailure { error ->
+                    if (error is CancellationException) throw error
+                    _uiState.update { it.copy(isRewinding = false) }
+                    reportError(error)
+                }
         }
     }
 
@@ -1484,7 +1581,8 @@ class ChatViewModel(
                 )
             _uiState.update {
                 it.copy(
-                    messages = it.messages + userMessage,
+                    messages = keepRewind(it) + userMessage,
+                    rewoundFrom = null,
                     offlineQueue = it.offlineQueue + outgoingText,
                     isOfflineQueued = true,
                     attachments = if (fromComposer) emptyList() else it.attachments,
@@ -1519,7 +1617,8 @@ class ChatViewModel(
             )
         _uiState.update {
             it.copy(
-                messages = it.messages + userMessage,
+                messages = keepRewind(it) + userMessage,
+                rewoundFrom = null,
                 isRunning = true,
                 isThinking = true,
                 retry = null,
@@ -1716,7 +1815,8 @@ class ChatViewModel(
                 )
             _uiState.update {
                 it.copy(
-                    messages = it.messages + userMessage,
+                    messages = keepRewind(it) + userMessage,
+                    rewoundFrom = null,
                     offlineQueue = it.offlineQueue + displayText,
                     isOfflineQueued = true,
                 )
@@ -1738,7 +1838,8 @@ class ChatViewModel(
             )
         _uiState.update {
             it.copy(
-                messages = it.messages + userMessage,
+                messages = keepRewind(it) + userMessage,
+                rewoundFrom = null,
                 isRunning = true,
                 isThinking = true,
                 retry = null,
@@ -2610,6 +2711,7 @@ class ChatViewModel(
     }
 
     private fun toUiMessage(message: OpenCodeMessage): ChatMessage? {
+        if (message.info.id in discardedByRewind) return null
         messageRoles[message.info.id] = message.info.role
         val parts = message.parts.mapNotNull { it.toChatPart(message.info.id) }.withMessageError(message.info.id, message.info.error)
         val attachments =

@@ -31,6 +31,20 @@ interface OpenCodeApi {
         messageId: String,
     ): Boolean
 
+    /**
+     * Rewinds [sessionId] to just before [messageId]: the server restores the files the session
+     * changed from then on, from its own snapshots, and marks that message and every later one as
+     * reverted ([OpenCodeSession.revert]) until the next prompt drops them or [unrevertSession]
+     * brings them back.
+     */
+    suspend fun revertSession(
+        sessionId: String,
+        messageId: String,
+    ): Unit = throw UnsupportedOperationException("session revert")
+
+    /** Undoes [revertSession]: the files and the hidden messages come back. */
+    suspend fun unrevertSession(sessionId: String): Unit = throw UnsupportedOperationException("session unrevert")
+
     suspend fun providers(): ProviderCatalog
 
     suspend fun agents(): List<OpenCodeAgent>

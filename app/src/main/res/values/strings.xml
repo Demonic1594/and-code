@@ -1387,4 +1387,11 @@
     <string name="inbox_failed_reply">Couldn\'t send the reply.</string>
     <string name="inbox_row_description">Inbox. Waiting for you: %1$d. Running: %2$d.</string>
     <string name="inbox_sending">Sending…</string>
+    <string name="action_rewind">Rewind to here</string>
+    <string name="rewind_confirm_title">Rewind to this message?</string>
+    <string name="rewind_confirm_body">Files the agent changed from this message on go back to how they were, and this message and the ones after it are hidden. Its text comes back to the message box. You can undo this until you send a new message.</string>
+    <string name="rewind_confirm">Rewind</string>
+    <string name="rewind_banner_title">Rewound to an earlier point</string>
+    <string name="rewind_banner_body">Files are back to how they were.</string>
+    <string name="rewind_hidden_count">Hidden: %1$d</string>
 </resources>

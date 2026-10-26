@@ -37,6 +37,15 @@ data class OpenCodeSession(
     val time: OpenCodeTime = OpenCodeTime(),
     val tokens: OpenCodeSessionTokens? = null,
     val share: OpenCodeSessionShare? = null,
+    /** Set while the session is rewound ([OpenCodeApi.revertSession]); null otherwise. */
+    val revert: OpenCodeSessionRevert? = null,
+)
+
+/** Where a rewound session stands: [messageId] and every message after it are reverted. */
+@Serializable
+data class OpenCodeSessionRevert(
+    @SerialName("messageID") val messageId: String,
+    @SerialName("partID") val partId: String? = null,
 )
 
 @Serializable

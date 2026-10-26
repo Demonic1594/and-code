@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.Icon
@@ -24,6 +25,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -197,6 +199,56 @@ internal fun StickyTodoBar(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+/**
+ * Shown while the chat is rewound: says the files are back to how they were and how many messages
+ * are hidden, with Undo. It stays until the next message makes the rewind permanent, so the way
+ * back is in sight for exactly as long as it exists.
+ */
+@Composable
+internal fun RewindBanner(
+    hiddenCount: Int,
+    busy: Boolean,
+    onUndo: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.xs).testTag("chat-rewind-banner"),
+        shape = AppShapes.lg,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = Spacing.md, end = Spacing.xs, top = Spacing.xs, bottom = Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        ) {
+            Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(20.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text(
+                        text = stringResource(R.string.rewind_banner_title),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    Surface(shape = AppShapes.pill, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.12f)) {
+                        Text(
+                            text = stringResource(R.string.rewind_hidden_count, hiddenCount),
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            modifier = Modifier.padding(horizontal = Spacing.sm),
+                        )
+                    }
+                }
+                Text(
+                    text = stringResource(R.string.rewind_banner_body),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+            TextButton(onClick = onUndo, enabled = !busy) { Text(stringResource(R.string.code_undo)) }
         }
     }
 }

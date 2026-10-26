@@ -96,6 +96,16 @@ class OpenCodeApiClient(
         messageId: String,
     ): Boolean = delete("session/${encodePath(sessionId)}/message/${encodePath(messageId)}")
 
+    // The answer (a session, or `true` on older servers) is not read: the caller reloads the
+    // session to see the revert, so either shape works.
+    override suspend fun revertSession(
+        sessionId: String,
+        messageId: String,
+    ) = postDiscardingBody("session/${encodePath(sessionId)}/revert", buildJsonObject { put("messageID", messageId) })
+
+    override suspend fun unrevertSession(sessionId: String) =
+        postDiscardingBody("session/${encodePath(sessionId)}/unrevert", JsonObject(emptyMap()))
+
     override suspend fun providers(): ProviderCatalog = get("provider")
 
     override suspend fun agents(): List<OpenCodeAgent> = getList("agent")
@@ -637,6 +647,14 @@ class OpenCodeApiClient(
                     .build()
             execute(request) { responseBody -> json.decodeFromString<T>(responseBody) }
         }
+
+    private suspend fun postDiscardingBody(
+        path: String,
+        body: JsonObject,
+    ) = withContext(Dispatchers.IO) {
+        val request = requestBuilder(path).post(body.toString().toRequestBody(JSON_MEDIA_TYPE)).build()
+        execute(request) { }
+    }
 
     private suspend inline fun <reified T> put(
         path: String,
