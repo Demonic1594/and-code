@@ -343,7 +343,9 @@ private fun ArtifactWebView(
                         ): Boolean {
                             val url = request.url.toString()
                             if (url.startsWith(baseUrl)) return false
-                            if (request.isForMainFrame) UrlLauncher.openUrl(context, url)
+                            // Only a tap opens the browser: a page redirecting itself on load or on a
+                            // timer must not launch apps over and over.
+                            if (request.isForMainFrame && request.hasGesture()) UrlLauncher.openUrl(context, url)
                             return true
                         }
                     }

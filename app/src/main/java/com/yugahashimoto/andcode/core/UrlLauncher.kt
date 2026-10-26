@@ -96,7 +96,7 @@ val LocalServerUrlOpener = staticCompositionLocalOf<((String) -> Unit)?> { null 
 // part of the host.
 private val LOCAL_SERVER_URL =
     Regex(
-        """https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1])(?::\d{2,5})?(?![\w\-@]|[.:]\w)(?:[/?#][^\s)\]>"'`]*)?""",
+        """https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1])(?::\d{2,5})?(?![\w\-@\\]|[.:]\w)(?:[/?#][^\s)\]>"'`]*)?""",
         RegexOption.IGNORE_CASE,
     )
 
