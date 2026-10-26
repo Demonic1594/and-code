@@ -560,6 +560,9 @@
     <string name="onboarding_remote_title">连接到电脑或 Mac</string>
     <string name="onboarding_remote_desc">连接到现有的 OpenCode 服务器。</string>
     <string name="onboarding_switch_note">无论哪种方式，您都可以稍后添加其他选项并随时切换。</string>
+    <string name="onboarding_feature_agents">直接在手机上运行 Claude Code、Codex、OpenCode 或 Antigravity</string>
+    <string name="onboarding_feature_review">审查每处改动，并把评论发回给代理</string>
+    <string name="onboarding_feature_anywhere">在通知中批准、停止或回复</string>
     <string name="onboarding_primary_button_android">在 Android 上开始设置</string>
     <string name="onboarding_primary_button_remote">连接到电脑或 Mac</string>
     <string name="onboarding_skip_link">稍后添加远程连接</string>
@@ -802,12 +805,10 @@
     <string name="cd_task_status">Task status</string>
     <string name="cd_disconnect">Disconnect</string>
     <string name="cd_connect">Connect</string>
-    <string name="cd_onboarding_option">Setup option</string>
     <string name="cd_favorite">Toggle favorite</string>
     <string name="cd_microphone">Microphone</string>
     <string name="cd_file_type">File</string>
     <string name="cd_repository">Repository</string>
-    <string name="cd_voice_setting">Voice setting</string>
     <string name="cd_settings_section">Settings section</string>
     <string name="cd_subagent_status">Subagent status</string>
     <string name="cd_toggle_password">Toggle password visibility</string>

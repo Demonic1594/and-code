@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.feature.workspace
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,10 +21,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -32,7 +36,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -45,6 +48,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,6 +59,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -78,6 +83,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
@@ -90,6 +96,8 @@ import com.yugahashimoto.andcode.ui.components.SectionCard
 import com.yugahashimoto.andcode.ui.components.StatusChip
 import com.yugahashimoto.andcode.ui.components.rememberHaptics
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
+import com.yugahashimoto.andcode.ui.theme.Radius
+import com.yugahashimoto.andcode.ui.theme.Spacing
 
 data class CommitInfo(
     val hash: String,
@@ -385,74 +393,121 @@ private fun FilesTab(
     onOpenNode: (OpenCodeFileNode) -> Unit,
     onNavigateUp: () -> Unit,
 ) {
+    // The view model lists folders first, then files, each alphabetically.
+    val sorted = state.files
+    val atRoot = state.currentPath == WorkspaceFolders.GUEST_ROOT
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding =
+            androidx.compose.foundation.layout.PaddingValues(
+                start = Spacing.screenEdge,
+                end = Spacing.screenEdge,
+                top = Spacing.md,
+            ),
     ) {
-        item {
-            SectionCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Icon(
-                        Icons.Default.Folder,
-                        contentDescription = stringResource(R.string.cd_folder),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        state.currentPath,
-                        modifier = Modifier.weight(1f),
-                        fontFamily = CodeFontFamily,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    IconButton(onClick = onNavigateUp, enabled = state.currentPath != WorkspaceFolders.GUEST_ROOT) {
-                        Icon(Icons.Default.ArrowUpward, contentDescription = stringResource(R.string.parent_folder))
-                    }
+        item(key = "path") {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+            ) {
+                FilledTonalIconButton(onClick = onNavigateUp, enabled = !atRoot) {
+                    Icon(Icons.Default.ArrowUpward, contentDescription = stringResource(R.string.parent_folder))
                 }
+                Text(
+                    text = state.currentPath,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontFamily = CodeFontFamily,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
 
-        if (state.isLoadingFiles) {
-            item { LoadingCard(stringResource(R.string.loading_file_list)) }
-        } else if (state.files.isEmpty()) {
-            item {
-                SectionCard {
-                    Text(stringResource(R.string.folder_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        when {
+            state.isLoadingFiles -> item(key = "loading") { LoadingCard(stringResource(R.string.loading_file_list)) }
+            sorted.isEmpty() ->
+                item(key = "empty") {
+                    Text(
+                        stringResource(R.string.folder_empty),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = Spacing.xxl),
+                        textAlign = TextAlign.Center,
+                    )
                 }
-            }
-        } else {
-            items(state.files, key = { it.absolute }) { node ->
-                SectionCard(modifier = Modifier.clickable { onOpenNode(node) }) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        FileTypeIcon(
-                            fileName = node.name,
-                            isDirectory = node.type == "directory",
-                        )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(node.name, fontWeight = FontWeight.Medium)
-                            Text(
-                                node.path,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        if (node.ignored) StatusChip(stringResource(R.string.ignored_label), active = false)
-                    }
+            else ->
+                itemsIndexed(sorted, key = { _, node -> node.absolute }) { index, node ->
+                    FileRow(
+                        node = node,
+                        first = index == 0,
+                        last = index == sorted.lastIndex,
+                        onClick = { onOpenNode(node) },
+                        modifier = Modifier.animateItem(),
+                    )
                 }
-            }
         }
         state.error?.let { item { ErrorCard(it) } }
         item { Spacer(Modifier.height(72.dp)) }
+    }
+}
+
+/**
+ * One entry of a folder, drawn as a row of one grouped card rather than a card of its own: a
+ * folder of thirty files used to be thirty boxes, each repeating its own name as its path.
+ */
+@Composable
+private fun FileRow(
+    node: OpenCodeFileNode,
+    first: Boolean,
+    last: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isDirectory = node.type == "directory"
+    val outline = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+    val shape =
+        RoundedCornerShape(
+            topStart = if (first) Radius.lg else 0.dp,
+            topEnd = if (first) Radius.lg else 0.dp,
+            bottomStart = if (last) Radius.lg else 0.dp,
+            bottomEnd = if (last) Radius.lg else 0.dp,
+        )
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = shape,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, outline),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        ) {
+            FileTypeIcon(fileName = node.name, isDirectory = isDirectory, modifier = Modifier.size(20.dp))
+            Text(
+                node.name,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isDirectory) FontWeight.Medium else FontWeight.Normal,
+                // Ignored files are there but out of the way, as in an IDE's tree.
+                color = if (node.ignored) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (node.ignored) StatusChip(stringResource(R.string.ignored_label), active = false)
+            if (isDirectory) {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
     }
 }
 
