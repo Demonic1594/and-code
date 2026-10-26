@@ -38,7 +38,8 @@ sealed interface MarkdownBlock {
 
     data class BulletList(val items: List<List<MarkdownInline>>) : MarkdownBlock
 
-    data class OrderedList(val items: List<List<MarkdownInline>>) : MarkdownBlock
+    /** [start] is the first item's number: 1, or later for a long list split into pieces. */
+    data class OrderedList(val items: List<List<MarkdownInline>>, val start: Int = 1) : MarkdownBlock
 
     data class Blockquote(val inlines: List<MarkdownInline>) : MarkdownBlock
 
@@ -210,3 +211,39 @@ object MarkdownLite {
         return s
     }
 }
+
+private const val LAZY_CODE_LINES = 150
+private const val LAZY_LIST_ITEMS = 40
+private const val LAZY_TABLE_ROWS = 60
+
+/**
+ * [blocks] with any block too long to lay out as one piece split into consecutive pieces, for a lazy
+ * list: one layout taller than Compose can measure is cut off, and a single fence, list or table
+ * can be that long on its own (an unclosed fence swallows the rest of the document). Code splits on
+ * line boundaries, lists keep their numbering, and every table piece repeats the header row.
+ */
+fun lazyMarkdownBlocks(blocks: List<MarkdownBlock>): List<MarkdownBlock> =
+    blocks.flatMap { block ->
+        when (block) {
+            is MarkdownBlock.CodeBlock -> {
+                val lines = block.code.lines()
+                if (lines.size <= LAZY_CODE_LINES) {
+                    listOf(block)
+                } else {
+                    lines.chunked(LAZY_CODE_LINES).map { MarkdownBlock.CodeBlock(it.joinToString("\n"), block.language) }
+                }
+            }
+            is MarkdownBlock.BulletList -> block.items.chunked(LAZY_LIST_ITEMS).map { MarkdownBlock.BulletList(it) }
+            is MarkdownBlock.OrderedList ->
+                block.items.chunked(LAZY_LIST_ITEMS).mapIndexed { index, items ->
+                    MarkdownBlock.OrderedList(items, block.start + index * LAZY_LIST_ITEMS)
+                }
+            is MarkdownBlock.Table ->
+                if (block.rows.size <= LAZY_TABLE_ROWS) {
+                    listOf(block)
+                } else {
+                    block.rows.chunked(LAZY_TABLE_ROWS).map { MarkdownBlock.Table(block.headers, it) }
+                }
+            else -> listOf(block)
+        }
+    }

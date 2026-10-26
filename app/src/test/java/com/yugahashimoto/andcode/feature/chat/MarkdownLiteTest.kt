@@ -297,4 +297,24 @@ class MarkdownLiteTest {
             paragraph.inlines,
         )
     }
+
+    @Test
+    fun `long blocks are split for lazy rendering, keeping numbering and table headers`() {
+        val code = MarkdownBlock.CodeBlock((1..400).joinToString("\n") { "line $it" }, "kt")
+        val list = MarkdownBlock.OrderedList((1..90).map { listOf(MarkdownInline.Plain("item $it")) })
+        val table = MarkdownBlock.Table(listOf("a", "b"), (1..130).map { listOf("$it", "x") })
+        val short = MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain("hi")))
+
+        val split = lazyMarkdownBlocks(listOf(short, code, list, table))
+
+        val codes = split.filterIsInstance<MarkdownBlock.CodeBlock>()
+        assertEquals(3, codes.size)
+        assertEquals(code.code, codes.joinToString("\n") { it.code })
+        assertTrue(codes.all { it.language == "kt" })
+        assertEquals(listOf(1, 41, 81), split.filterIsInstance<MarkdownBlock.OrderedList>().map { it.start })
+        val tables = split.filterIsInstance<MarkdownBlock.Table>()
+        assertEquals(listOf(60, 60, 10), tables.map { it.rows.size })
+        assertTrue(tables.all { it.headers == listOf("a", "b") })
+        assertEquals(short, split.first())
+    }
 }

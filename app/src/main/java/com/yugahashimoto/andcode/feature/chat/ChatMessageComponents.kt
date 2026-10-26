@@ -450,7 +450,7 @@ internal fun LazyMarkdownDocument(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     onImageClick: (ChatImageSource) -> Unit = {},
 ) {
-    val blocks = remember(text) { MarkdownLite.parse(text) }
+    val blocks = remember(text) { lazyMarkdownBlocks(MarkdownLite.parse(text)) }
     LazyColumn(
         modifier = modifier,
         contentPadding = contentPadding,
@@ -484,31 +484,33 @@ private fun MarkdownBlockView(
                 linkColor = linkColor,
                 codeBackground = codeInlineBackground,
             )
-        is MarkdownBlock.Paragraph -> {
-            val currentInlines = mutableListOf<MarkdownInline>()
+        // A paragraph with pictures is several pieces; one Column keeps them spaced as one block.
+        is MarkdownBlock.Paragraph ->
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                val currentInlines = mutableListOf<MarkdownInline>()
 
-            @Composable
-            fun flushInlines() {
-                if (currentInlines.isNotEmpty()) {
-                    InlineText(
-                        inlines = currentInlines.toList(),
-                        style = bodyStyle,
-                        linkColor = linkColor,
-                        codeBackground = codeInlineBackground,
-                    )
-                    currentInlines.clear()
+                @Composable
+                fun flushInlines() {
+                    if (currentInlines.isNotEmpty()) {
+                        InlineText(
+                            inlines = currentInlines.toList(),
+                            style = bodyStyle,
+                            linkColor = linkColor,
+                            codeBackground = codeInlineBackground,
+                        )
+                        currentInlines.clear()
+                    }
                 }
-            }
-            block.inlines.forEach { inline ->
-                if (inline is MarkdownInline.Image) {
-                    flushInlines()
-                    MarkdownImageView(inline, onImageClick)
-                } else {
-                    currentInlines += inline
+                block.inlines.forEach { inline ->
+                    if (inline is MarkdownInline.Image) {
+                        flushInlines()
+                        MarkdownImageView(inline, onImageClick)
+                    } else {
+                        currentInlines += inline
+                    }
                 }
+                flushInlines()
             }
-            flushInlines()
-        }
         is MarkdownBlock.CodeBlock ->
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -540,7 +542,7 @@ private fun MarkdownBlockView(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 block.items.forEachIndexed { index, item ->
                     Row {
-                        Text("${index + 1}.  ", color = MaterialTheme.colorScheme.onSurface)
+                        Text("${block.start + index}.  ", color = MaterialTheme.colorScheme.onSurface)
                         InlineText(item, bodyStyle, linkColor, codeInlineBackground)
                     }
                 }

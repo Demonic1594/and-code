@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -47,6 +48,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -61,13 +63,17 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -268,28 +274,42 @@ internal fun ArtifactPreviewDialog(
 @Composable
 private fun SourceView(content: String) {
     val lines = remember(content) { content.lines() }
-    val gutterWidth = remember(lines.size) { (lines.size.toString().length * 8 + 12).dp }
-    SelectionContainer {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(vertical = Spacing.sm),
-        ) {
-            items(lines.size) { index ->
-                Row(modifier = Modifier.fillMaxWidth().padding(end = Spacing.md)) {
-                    Text(
-                        text = (index + 1).toString(),
-                        fontFamily = CodeFontFamily,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                        textAlign = TextAlign.End,
-                        modifier = Modifier.width(gutterWidth).padding(end = Spacing.sm),
-                    )
-                    Text(
-                        text = lines[index],
-                        fontFamily = CodeFontFamily,
-                        style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr),
-                        modifier = Modifier.weight(1f),
-                    )
+    val numberStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = CodeFontFamily)
+    // Measured, not guessed, so the widest number fits at any font size without wrapping.
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val gutterWidth =
+        remember(lines.size, numberStyle, density) {
+            with(density) { measurer.measure("9".repeat(lines.size.toString().length), numberStyle).size.width.toDp() }
+        }
+    // Code reads left to right, gutter first, whatever the app's language.
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        SelectionContainer {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = Spacing.sm),
+            ) {
+                items(lines.size) { index ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(end = Spacing.md)) {
+                        // Line numbers are not part of the file: a copied selection leaves them out.
+                        DisableSelection {
+                            Text(
+                                text = (index + 1).toString(),
+                                style = numberStyle,
+                                color = MaterialTheme.colorScheme.outline,
+                                textAlign = TextAlign.End,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(horizontal = Spacing.sm).width(gutterWidth),
+                            )
+                        }
+                        Text(
+                            text = lines[index],
+                            fontFamily = CodeFontFamily,
+                            style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr),
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
             }
         }
