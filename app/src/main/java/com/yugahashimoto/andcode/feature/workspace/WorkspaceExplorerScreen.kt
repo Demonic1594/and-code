@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Source
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -131,6 +132,7 @@ fun WorkspaceExplorerScreen(
     tabManager: WorkspaceTabManager? = null,
     workspaceDeck: List<String> = emptyList(),
     onOpenTerminal: () -> Unit = {},
+    onOpenSourceControl: () -> Unit = {},
     onOpenChange: (OpenCodeFileChange) -> Unit = {},
     gitActions: GitActions = GitActions(),
 ) {
@@ -174,6 +176,11 @@ fun WorkspaceExplorerScreen(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+            }
+            if (state.canRunGit) {
+                IconButton(onClick = onOpenSourceControl) {
+                    Icon(Icons.Outlined.AccountTree, contentDescription = stringResource(R.string.git_title))
+                }
             }
             IconButton(onClick = onOpenTerminal) {
                 Icon(Icons.Default.Terminal, contentDescription = stringResource(R.string.tab_type_terminal))
