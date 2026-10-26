@@ -1370,4 +1370,19 @@
     <string name="message_search_no_results_body">No chat contains that text. Try fewer words, or include archived chats.</string>
     <string name="message_search_match_count">Matches: %1$d</string>
     <string name="drawer_search_messages">Search messages for “%1$s”</string>
+    <string name="inbox_title">Inbox</string>
+    <string name="inbox_needs_you">Needs you</string>
+    <string name="inbox_running">Running</string>
+    <string name="inbox_finished">Finished</string>
+    <string name="inbox_working">Working…</string>
+    <string name="inbox_reply">Reply</string>
+    <string name="inbox_reply_hint">Reply to this chat</string>
+    <string name="inbox_mark_read">Mark as read</string>
+    <string name="inbox_mark_all_read">Mark all as read</string>
+    <string name="inbox_empty_title">All caught up</string>
+    <string name="inbox_empty_body">Approvals, running chats and chats that finished while you were away gather here, from every agent.</string>
+    <string name="inbox_failed_approval">Couldn\'t send your answer. Try again from the chat.</string>
+    <string name="inbox_failed_stop">Couldn\'t stop the run.</string>
+    <string name="inbox_failed_reply">Couldn\'t send the reply.</string>
+    <string name="inbox_waiting_count">Waiting for you: %1$d</string>
 </resources>

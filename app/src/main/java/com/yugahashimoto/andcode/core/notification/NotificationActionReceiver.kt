@@ -7,15 +7,14 @@ import android.content.Intent
 import android.util.Log
 import androidx.core.app.RemoteInput
 import com.yugahashimoto.andcode.AndCodeApplication
-import com.yugahashimoto.andcode.core.api.PromptRequest
 import com.yugahashimoto.andcode.runtime.OpenCodeBackend
+import com.yugahashimoto.andcode.runtime.followUpPrompt
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Answers the run notifications' own buttons: Stop on the live notification, and Reply on a
@@ -61,7 +60,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     // offering Reply again would only send it twice.
                     onFailure = { if (!sent) app.notifications.notifyReplyFailed(sessionId, notificationId, runtimeId) },
                 ) { backend ->
-                    backend.sendMessage(sessionId, replyRequest(backend, sessionId, text))
+                    backend.sendMessage(sessionId, followUpPrompt(backend, sessionId, text))
                     sent = true
                     app.activityRepository.markSessionRunning(sessionId)
                     // The live notification takes over from here; the answered notice goes.
@@ -69,32 +68,6 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 }
             }
         }
-    }
-
-    /**
-     * The reply goes out with the agent and model the chat's last prompt used. Without them
-     * OpenCode falls back to its default agent, so answering a chat that runs the read-only
-     * `plan` agent would run this one turn with a writing agent. Global settings are no stand-in:
-     * they may belong to another runtime and get the prompt rejected outright.
-     */
-    private suspend fun replyRequest(
-        backend: OpenCodeBackend,
-        sessionId: String,
-        text: String,
-    ): PromptRequest {
-        // Capped well inside the action's own timeout: a long transcript must not eat the time
-        // the send itself needs. Without it the reply still goes out, on the chat's defaults.
-        val last =
-            runCatching { withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { backend.listMessages(sessionId) } }
-                .getOrNull()
-                ?.lastOrNull { it.info.role == "user" }
-                ?.info
-        return PromptRequest(
-            text = text,
-            providerId = last?.model?.providerId,
-            modelId = last?.model?.modelId,
-            agent = last?.agent,
-        )
     }
 
     private fun run(
@@ -131,7 +104,6 @@ class NotificationActionReceiver : BroadcastReceiver() {
     companion object {
         private const val TAG = "NotificationAction"
         private const val TIMEOUT_MS = 8_000L
-        private const val LOOKUP_TIMEOUT_MS = 3_000L
         const val ACTION_STOP = "com.yugahashimoto.andcode.STOP_RUN"
         const val ACTION_REPLY = "com.yugahashimoto.andcode.REPLY"
         const val KEY_REPLY = "reply_text"

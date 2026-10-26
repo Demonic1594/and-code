@@ -1345,4 +1345,19 @@
     <string name="message_search_no_results_body">没有聊天包含该文本。请尝试减少词语，或包含已归档的聊天。</string>
     <string name="message_search_match_count">匹配：%1$d</string>
     <string name="drawer_search_messages">在消息中搜索“%1$s”</string>
+    <string name="inbox_title">收件箱</string>
+    <string name="inbox_needs_you">需要你处理</string>
+    <string name="inbox_running">运行中</string>
+    <string name="inbox_finished">已完成</string>
+    <string name="inbox_working">处理中…</string>
+    <string name="inbox_reply">回复</string>
+    <string name="inbox_reply_hint">回复此聊天</string>
+    <string name="inbox_mark_read">标记为已读</string>
+    <string name="inbox_mark_all_read">全部标记为已读</string>
+    <string name="inbox_empty_title">全部处理完毕</string>
+    <string name="inbox_empty_body">来自所有代理的待批准请求、运行中的聊天以及你离开时完成的聊天都会汇集在这里。</string>
+    <string name="inbox_failed_approval">无法发送你的回答。请在聊天中重试。</string>
+    <string name="inbox_failed_stop">无法停止运行。</string>
+    <string name="inbox_failed_reply">无法发送回复。</string>
+    <string name="inbox_waiting_count">等待你处理：%1$d</string>
 </resources>

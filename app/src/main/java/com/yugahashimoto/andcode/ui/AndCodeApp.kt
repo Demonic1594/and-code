@@ -66,6 +66,8 @@ import com.yugahashimoto.andcode.feature.chat.ChatHomeScreen
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
 import com.yugahashimoto.andcode.feature.chat.SubagentInfo
 import com.yugahashimoto.andcode.feature.chat.buildHandoffPrompt
+import com.yugahashimoto.andcode.feature.inbox.InboxScreen
+import com.yugahashimoto.andcode.feature.inbox.InboxViewModel
 import com.yugahashimoto.andcode.feature.onboarding.AndroidSetupScreen
 import com.yugahashimoto.andcode.feature.onboarding.OnboardingChoiceScreen
 import com.yugahashimoto.andcode.feature.schedule.ScheduleEditorScreen
@@ -91,6 +93,7 @@ import com.yugahashimoto.andcode.ui.navigation.DRAWER_ROOT_ROUTES
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ANDROID_SETUP
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ARCHIVE
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_CHAT
+import com.yugahashimoto.andcode.ui.navigation.ROUTE_INBOX
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ONBOARDING
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_REMOTE_CONNECTION
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SCHEDULES
@@ -207,6 +210,23 @@ fun AndCodeApp(
                 },
         )
     val activityState by activityViewModel.state.collectAsState()
+
+    // App-wide rather than per screen: the drawer shows its counts on every route.
+    val inboxViewModel: InboxViewModel =
+        viewModel(
+            key = "inbox",
+            factory =
+                ViewModelFactory {
+                    InboxViewModel(
+                        catalog = app.catalogRepository,
+                        activity = app.activityRepository,
+                        registry = app.runtimeRegistry,
+                        pendingDeletion = app.chatLifecycle.pendingDeletion,
+                        onStopped = app.notifications::cancelStalled,
+                    )
+                },
+        )
+    val inboxState by inboxViewModel.state.collectAsState()
 
     val settingsViewModel: SettingsViewModel =
         viewModel(
@@ -875,6 +895,8 @@ fun AndCodeApp(
                     ModalDrawerSheet {
                         AppDrawerContent(
                             recentSessions = recentSessions,
+                            inboxWaiting = inboxState.content.needsYou,
+                            inboxRunning = inboxState.content.running.size,
                             workspaces = workspaceState.workspaces,
                             selectedWorkspacePath = chatState.selectedWorkspacePath,
                             onNewChat = {
@@ -1389,6 +1411,27 @@ fun AndCodeApp(
                                     if (searchState.query.isNotBlank()) pendingFindRequest = session.id to searchState.query.trim()
                                     openSessionInChat(session.id, session.title, hit.ref.runtimeId)
                                 },
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
+
+                        composable(ROUTE_INBOX) {
+                            InboxScreen(
+                                state = inboxState,
+                                relativeTime = { relativeTimeLabel(context, it) },
+                                onOpen = { chat -> openSessionInChat(chat.sessionId, chat.title, chat.runtimeId) },
+                                onRespond = {
+                                        approval,
+                                        response,
+                                        remember,
+                                    ->
+                                    inboxViewModel.respond(approval.request, response, remember)
+                                },
+                                onStop = inboxViewModel::stop,
+                                onReply = inboxViewModel::reply,
+                                onMarkRead = inboxViewModel::markRead,
+                                onMarkAllRead = inboxViewModel::markAllRead,
+                                onConsumeFailure = inboxViewModel::consumeFailure,
                                 onBack = { navController.popBackStack() },
                             )
                         }
