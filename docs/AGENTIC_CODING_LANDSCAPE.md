@@ -270,7 +270,7 @@ Ranked by value to a phone user against the cost of building it. The **Status** 
 | 18 | Inline diff-line comments sent back to the agent | Codex mobile | Shipped: Changes card + review screen with line comments |
 | 19 | E2E relay pairing for remote mode | Happy Coder | Later |
 | 20 | Spec-driven templates (requirements → design → tasks) | Kiro | Later |
-| 21 | Agent tasks inbox across sessions | GitHub Mobile, Jules | Later |
+| 21 | Agent tasks inbox across sessions | GitHub Mobile, Jules | Shipped: Inbox (approvals, running, finished unread, inline reply) |
 | 22 | Preview button for dev servers started by the agent | Replit, Bolt, Lovable | Later |
 | 23 | Issue URL → chat entry point | Copilot, Factory, OpenHands | Later |
 

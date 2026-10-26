@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -62,8 +63,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -78,6 +81,7 @@ import com.yugahashimoto.andcode.ui.components.SessionStatus
 import com.yugahashimoto.andcode.ui.components.StatusDot
 import com.yugahashimoto.andcode.ui.components.rememberHaptics
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ARCHIVE
+import com.yugahashimoto.andcode.ui.navigation.ROUTE_INBOX
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 import com.yugahashimoto.andcode.ui.theme.AppShapes
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
@@ -138,6 +142,9 @@ fun AppDrawerContent(
     /** Session id, title, and the runtime that owns it. */
     onOpenSession: (String, String, String?) -> Unit,
     onNavigate: (String) -> Unit,
+    /** Chats waiting on an answer or finished unread, and chats running, as the inbox counts them. */
+    inboxWaiting: Int = 0,
+    inboxRunning: Int = 0,
     /** Installed agents, offered as a switcher only when there is more than one. */
     agents: List<DrawerAgent> = emptyList(),
     selectedRuntimeId: String? = null,
@@ -260,6 +267,7 @@ fun AppDrawerContent(
             ) {
                 DrawerHeader()
                 NewChatRow(onClick = onNewChat)
+                InboxRow(waiting = inboxWaiting, running = inboxRunning, onClick = { onNavigate(ROUTE_INBOX) })
                 if (recentSessions.isNotEmpty()) {
                     DrawerSearchField(query = searchQuery, onQueryChange = { searchQuery = it })
                 }
@@ -551,6 +559,63 @@ private fun NewChatRow(onClick: () -> Unit) {
         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(Spacing.sm))
         Text(text = stringResource(R.string.new_chat), style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+/**
+ * The way into the inbox, with what is in it at a glance: how many chats wait on the user and how
+ * many are running, across every agent - so a run on another agent is not out of sight.
+ */
+@Composable
+private fun InboxRow(
+    waiting: Int,
+    running: Int,
+    onClick: () -> Unit,
+) {
+    val tc = LocalThemeColors.current
+    val label = stringResource(R.string.inbox_title)
+    val description = stringResource(R.string.inbox_row_description, waiting, running)
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.sm)
+                .clip(AppShapes.md)
+                .clickable(onClick = onClick)
+                .semantics(mergeDescendants = true) { contentDescription = description }
+                .padding(horizontal = Spacing.md, vertical = 10.dp)
+                .testTag("drawer-inbox"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+    ) {
+        Icon(
+            Icons.Outlined.Inbox,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        if (running > 0) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                StatusDot(SessionStatus.RUNNING, size = 6.dp)
+                Text(
+                    running.toString(),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontFamily = CodeFontFamily,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (waiting > 0) {
+            Surface(shape = AppShapes.pill, color = tc.warning, contentColor = MaterialTheme.colorScheme.surface) {
+                Text(
+                    text = waiting.toString(),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 1.dp),
+                )
+            }
+        }
     }
 }
 

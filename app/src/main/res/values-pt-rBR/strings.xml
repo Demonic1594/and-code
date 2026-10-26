@@ -1351,4 +1351,21 @@
     <string name="message_search_no_results_body">Nenhuma conversa contém esse texto. Tente menos palavras ou inclua conversas arquivadas.</string>
     <string name="message_search_match_count">Resultados: %1$d</string>
     <string name="drawer_search_messages">Pesquisar “%1$s” nas mensagens</string>
+    <string name="inbox_title">Caixa de entrada</string>
+    <string name="inbox_needs_you">Precisa de você</string>
+    <string name="inbox_running">Em execução</string>
+    <string name="inbox_finished">Concluídos</string>
+    <string name="inbox_working">Trabalhando…</string>
+    <string name="inbox_reply">Responder</string>
+    <string name="inbox_reply_hint">Responder a este chat</string>
+    <string name="inbox_open_to_reply">Abrir o chat para responder</string>
+    <string name="inbox_mark_read">Marcar como lido</string>
+    <string name="inbox_mark_all_read">Marcar tudo como lido</string>
+    <string name="inbox_empty_title">Tudo em dia</string>
+    <string name="inbox_empty_body">Aprovações, chats em execução e chats que terminaram enquanto você estava fora ficam aqui, de todos os agentes.</string>
+    <string name="inbox_failed_approval">Não foi possível enviar sua resposta. Tente de novo pelo chat.</string>
+    <string name="inbox_failed_stop">Não foi possível parar a execução.</string>
+    <string name="inbox_failed_reply">Não foi possível enviar a resposta.</string>
+    <string name="inbox_row_description">Caixa de entrada. Aguardando você: %1$d. Em execução: %2$d.</string>
+    <string name="inbox_sending">Enviando…</string>
 </resources>

@@ -1351,4 +1351,21 @@
     <string name="message_search_no_results_body">Aucune discussion ne contient ce texte. Essayez moins de mots ou incluez les discussions archivées.</string>
     <string name="message_search_match_count">Résultats : %1$d</string>
     <string name="drawer_search_messages">Rechercher « %1$s » dans les messages</string>
+    <string name="inbox_title">Boîte de réception</string>
+    <string name="inbox_needs_you">Vous attend</string>
+    <string name="inbox_running">En cours</string>
+    <string name="inbox_finished">Terminés</string>
+    <string name="inbox_working">En cours…</string>
+    <string name="inbox_reply">Répondre</string>
+    <string name="inbox_reply_hint">Répondre à cette discussion</string>
+    <string name="inbox_open_to_reply">Ouvrir la discussion pour répondre</string>
+    <string name="inbox_mark_read">Marquer comme lu</string>
+    <string name="inbox_mark_all_read">Tout marquer comme lu</string>
+    <string name="inbox_empty_title">Tout est à jour</string>
+    <string name="inbox_empty_body">Les autorisations, les discussions en cours et celles terminées pendant votre absence se retrouvent ici, pour tous les agents.</string>
+    <string name="inbox_failed_approval">Impossible d\'envoyer votre réponse. Réessayez depuis la discussion.</string>
+    <string name="inbox_failed_stop">Impossible d\'arrêter l\'exécution.</string>
+    <string name="inbox_failed_reply">Impossible d\'envoyer la réponse.</string>
+    <string name="inbox_row_description">Boîte de réception. En attente de vous : %1$d. En cours : %2$d.</string>
+    <string name="inbox_sending">Envoi…</string>
 </resources>

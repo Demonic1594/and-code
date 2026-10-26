@@ -1351,4 +1351,21 @@
     <string name="message_search_no_results_body">Ningún chat contiene ese texto. Prueba con menos palabras o incluye los chats archivados.</string>
     <string name="message_search_match_count">Coincidencias: %1$d</string>
     <string name="drawer_search_messages">Buscar «%1$s» en los mensajes</string>
+    <string name="inbox_title">Bandeja</string>
+    <string name="inbox_needs_you">Te necesita</string>
+    <string name="inbox_running">En curso</string>
+    <string name="inbox_finished">Terminados</string>
+    <string name="inbox_working">Trabajando…</string>
+    <string name="inbox_reply">Responder</string>
+    <string name="inbox_reply_hint">Responder a este chat</string>
+    <string name="inbox_open_to_reply">Abrir el chat para responder</string>
+    <string name="inbox_mark_read">Marcar como leído</string>
+    <string name="inbox_mark_all_read">Marcar todo como leído</string>
+    <string name="inbox_empty_title">Todo al día</string>
+    <string name="inbox_empty_body">Aquí se reúnen las aprobaciones, los chats en curso y los que terminaron mientras no estabas, de todos los agentes.</string>
+    <string name="inbox_failed_approval">No se pudo enviar tu respuesta. Inténtalo de nuevo desde el chat.</string>
+    <string name="inbox_failed_stop">No se pudo detener la ejecución.</string>
+    <string name="inbox_failed_reply">No se pudo enviar la respuesta.</string>
+    <string name="inbox_row_description">Bandeja. Esperándote: %1$d. En curso: %2$d.</string>
+    <string name="inbox_sending">Enviando…</string>
 </resources>

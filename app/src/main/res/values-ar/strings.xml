@@ -1360,4 +1360,21 @@
     <string name="message_search_no_results_body">لا توجد محادثة تحتوي على هذا النص. جرّب كلمات أقل، أو ضمّن المحادثات المؤرشفة.</string>
     <string name="message_search_match_count">التطابقات: %1$d</string>
     <string name="drawer_search_messages">البحث في الرسائل عن «%1$s»</string>
+    <string name="inbox_title">البريد الوارد</string>
+    <string name="inbox_needs_you">بانتظارك</string>
+    <string name="inbox_running">قيد التشغيل</string>
+    <string name="inbox_finished">مكتملة</string>
+    <string name="inbox_working">جارٍ العمل…</string>
+    <string name="inbox_reply">رد</string>
+    <string name="inbox_reply_hint">الرد على هذه المحادثة</string>
+    <string name="inbox_open_to_reply">افتح المحادثة للرد</string>
+    <string name="inbox_mark_read">تعليم كمقروءة</string>
+    <string name="inbox_mark_all_read">تعليم الكل كمقروء</string>
+    <string name="inbox_empty_title">لا شيء بانتظارك</string>
+    <string name="inbox_empty_body">تجتمع هنا طلبات الموافقة والمحادثات الجارية والمحادثات التي اكتملت أثناء غيابك، من كل الوكلاء.</string>
+    <string name="inbox_failed_approval">تعذّر إرسال إجابتك. حاول مرة أخرى من المحادثة.</string>
+    <string name="inbox_failed_stop">تعذّر إيقاف التشغيل.</string>
+    <string name="inbox_failed_reply">تعذّر إرسال الرد.</string>
+    <string name="inbox_row_description">البريد الوارد. بانتظارك: %1$d. قيد التشغيل: %2$d.</string>
+    <string name="inbox_sending">جارٍ الإرسال…</string>
 </resources>
