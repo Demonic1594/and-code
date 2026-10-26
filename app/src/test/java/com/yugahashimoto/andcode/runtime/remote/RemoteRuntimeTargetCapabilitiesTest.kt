@@ -58,6 +58,18 @@ class RemoteRuntimeTargetCapabilitiesTest {
         }
 
     @Test
+    fun `a remote server never offers file editing because it has no write endpoint`() =
+        runBlocking {
+            server.enqueue(MockResponse().setHeader("Content-Type", "text/html").setBody("<html/>"))
+            server.enqueue(MockResponse().setBody("""{"healthy":true,"version":"1.18.5"}"""))
+            val target = target()
+
+            target.connect().getOrThrow()
+
+            assertFalse(target.capabilities.fileEditing)
+        }
+
+    @Test
     fun `a V2 server turns off what its API does not offer`() =
         runBlocking {
             server.enqueue(MockResponse().setBody("""{"version":"2.0.28","pid":1,"urls":[],"paths":{},"capabilities":{}}"""))

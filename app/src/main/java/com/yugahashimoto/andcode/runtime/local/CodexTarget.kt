@@ -62,7 +62,7 @@ class CodexTarget(
     // ClaudeStreamJsonParser does. questions stays false: item/tool/requestUserInput has no UI wired
     // up (see CodexRuntime.handleServerRequest's else branch). Each turn is a multiplexed RPC call
     // rather than a fresh process, so forcesQueue does not apply the way it does for Antigravity.
-    override val capabilities = RuntimeCapabilities(permissions = true, toolEvents = true, providerModelList = true)
+    override val capabilities = RuntimeCapabilities(permissions = true, toolEvents = true, providerModelList = true, fileEditing = true)
 
     /** The ChatGPT sign-in [completeProviderOAuth] is waiting on, set by [authorizeProvider]. */
     @Volatile private var activeLoginId: String? = null
@@ -306,6 +306,18 @@ class CodexTarget(
         directory: String,
         path: String,
     ): OpenCodeFileContent = withContext(Dispatchers.IO) { files.read(directory, path) }
+
+    override suspend fun readFileForEditing(
+        directory: String,
+        path: String,
+    ): String = withContext(Dispatchers.IO) { files.readForEditing(directory, path) }
+
+    override suspend fun writeFile(
+        directory: String,
+        path: String,
+        content: String,
+        expectedContent: String?,
+    ) = withContext(Dispatchers.IO) { files.write(directory, path, content, expectedContent) }
 
     override suspend fun findFiles(
         directory: String,

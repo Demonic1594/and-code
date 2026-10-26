@@ -43,16 +43,27 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -133,10 +144,23 @@ internal fun ChatComposer(
     onRemoveImage: (Int) -> Unit,
     onCameraLaunch: () -> Unit,
     onGalleryLaunch: () -> Unit,
+    onPasteImage: () -> Unit,
 ) {
     val input = inputValue.text
     val voiceActive = isListening || isSpeechProcessing
     var showAttachMenu by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val currentOnPasteImage by rememberUpdatedState(onPasteImage)
+    val baseTextToolbar = LocalTextToolbar.current
+    val imagePasteToolbar =
+        remember(baseTextToolbar, context) {
+            ImagePasteTextToolbar(
+                delegate = baseTextToolbar,
+                canPasteImage = { context.clipboardHasImage() },
+                onPasteImage = { currentOnPasteImage() },
+            )
+        }
     var showRunSettings by remember { mutableStateOf(false) }
 
     Column(
@@ -257,39 +281,53 @@ internal fun ChatComposer(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    BasicTextField(
-                        value = inputValue,
-                        onValueChange = onInputValueChange,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .testTag("chat-message-input"),
-                        minLines = 1,
-                        maxLines = 4,
-                        textStyle =
-                            TextStyle(
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                                lineHeight = MaterialTheme.typography.bodyLarge.lineHeight,
-                                // Follow the typed content's direction so Arabic (RTL) input lays
-                                // out correctly even when the app language is LTR (issue #341).
-                                textDirection = TextDirection.Content,
-                            ),
-                        keyboardOptions =
-                            KeyboardOptions(
-                                imeAction =
-                                    if (enterToSend) ImeAction.Send else ImeAction.Default,
-                            ),
-                        keyboardActions =
-                            KeyboardActions(
-                                onSend = {
-                                    if (enterToSend) {
-                                        onSend()
-                                    }
-                                },
-                            ),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    )
+                    // A copied screenshot is an image, which the field itself cannot paste: the
+                    // toolbar and the paste shortcut attach it instead (issue #401).
+                    CompositionLocalProvider(LocalTextToolbar provides imagePasteToolbar) {
+                        BasicTextField(
+                            value = inputValue,
+                            onValueChange = onInputValueChange,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .testTag("chat-message-input")
+                                    .onPreviewKeyEvent { event ->
+                                        val pasteImage =
+                                            event.type == KeyEventType.KeyDown &&
+                                                // Holding the keys repeats KeyDown, which would attach the image again.
+                                                event.nativeKeyEvent.repeatCount == 0 &&
+                                                isPasteShortcut(event.key, event.isCtrlPressed, event.isShiftPressed) &&
+                                                shouldPasteImage(clipboardManager.hasText(), context.clipboardHasImage())
+                                        if (pasteImage) currentOnPasteImage()
+                                        pasteImage
+                                    },
+                            minLines = 1,
+                            maxLines = 4,
+                            textStyle =
+                                TextStyle(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = MaterialTheme.typography.bodyLarge.fontSize,
+                                    lineHeight = MaterialTheme.typography.bodyLarge.lineHeight,
+                                    // Follow the typed content's direction so Arabic (RTL) input lays
+                                    // out correctly even when the app language is LTR (issue #341).
+                                    textDirection = TextDirection.Content,
+                                ),
+                            keyboardOptions =
+                                KeyboardOptions(
+                                    imeAction =
+                                        if (enterToSend) ImeAction.Send else ImeAction.Default,
+                                ),
+                            keyboardActions =
+                                KeyboardActions(
+                                    onSend = {
+                                        if (enterToSend) {
+                                            onSend()
+                                        }
+                                    },
+                                ),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        )
+                    }
                 }
                 if (isListening || isSpeechProcessing) {
                     Spacer(Modifier.height(8.dp))

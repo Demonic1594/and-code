@@ -39,11 +39,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class LocalRuntimeTarget(
     private val runtimeManager: LocalRuntimeManager,
     private val backend: LocalOpenCodeBackend = LocalOpenCodeBackend(runtimeManager),
     private val messages: LocalRuntimeMessages = LocalRuntimeMessages,
+    /**
+     * Host-side access to the workspace folders, used only to save edits: OpenCode's server has no
+     * write endpoint, but its workspace is the same directory on the device the other local agents
+     * use. Null leaves the file viewer read-only.
+     */
+    private val files: ClaudeWorkspaceFiles? = null,
 ) : RuntimeTarget {
     override val id: String = LocalAgent.OPEN_CODE.targetId
     override val displayName: String = "OpenCode"
@@ -67,6 +74,7 @@ class LocalRuntimeTarget(
                 diffCapable = true,
                 configEditing = backend.protocol != OpenCodeProtocol.V2,
                 mcpOAuth = backend.protocol != OpenCodeProtocol.V2,
+                fileEditing = files != null,
             )
 
     private val mutableState = MutableStateFlow(mapStatus(runtimeManager.status()))
@@ -223,6 +231,24 @@ class LocalRuntimeTarget(
         directory: String,
         path: String,
     ): OpenCodeFileContent = backend.readFile(directory, path)
+
+    override suspend fun readFileForEditing(
+        directory: String,
+        path: String,
+    ): String {
+        val hostFiles = files ?: return super.readFileForEditing(directory, path)
+        return withContext(Dispatchers.IO) { hostFiles.readForEditing(directory, path) }
+    }
+
+    override suspend fun writeFile(
+        directory: String,
+        path: String,
+        content: String,
+        expectedContent: String?,
+    ) {
+        val hostFiles = files ?: return super.writeFile(directory, path, content, expectedContent)
+        withContext(Dispatchers.IO) { hostFiles.write(directory, path, content, expectedContent) }
+    }
 
     override suspend fun fileStatus(directory: String): List<OpenCodeFileChange> = backend.fileStatus(directory)
 

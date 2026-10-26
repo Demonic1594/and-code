@@ -1304,10 +1304,6 @@
     <string name="transcript_assistant">アシスタント</string>
     <string name="transcript_tool">ツール</string>
     <string name="transcript_error">エラー</string>
-    <string name="code_edit">ファイルを編集</string>
-    <string name="code_discard_title">変更を破棄しますか？</string>
-    <string name="code_discard_body">このファイルへの編集内容は保存されていません。</string>
-    <string name="code_discard_confirm">破棄</string>
     <string name="git_commit">コミット</string>
     <string name="git_pull">プル</string>
     <string name="git_push">プッシュ</string>
@@ -1329,7 +1325,6 @@
     <string name="schedule_template_todos">TODO の棚卸し</string>
     <string name="schedule_template_security">毎月のセキュリティレビュー</string>
     <string name="chat_copy_too_long">このチャットはクリップボードに収まらないほど長いため、代わりにファイルとして共有します。</string>
-    <string name="code_save_too_large">このファイルはサイズが大きすぎるため、ここから保存できません（上限 1 MB）。</string>
     <string name="chat_usage_cached">うち %1$s はキャッシュから</string>
     <string name="git_discard">変更を破棄</string>
     <string name="git_discard_title">変更を破棄しますか？</string>
@@ -1420,4 +1415,19 @@
     <string name="artifact_source">ソース</string>
     <string name="artifact_unavailable">このファイルは表示できませんでした。</string>
     <string name="artifact_share">ファイルを共有</string>
+    <string name="file_edit_action">ファイルを編集</string>
+    <string name="file_edit_save">保存</string>
+    <string name="file_edit_discard_title">変更を破棄しますか？</string>
+    <string name="file_edit_discard_message">このファイルへの編集は保存されていません。</string>
+    <string name="file_edit_discard_confirm">破棄</string>
+    <string name="code_discard_confirm">破棄</string>
+    <string name="file_edit_keep_editing">編集を続ける</string>
+    <string name="file_edit_error_outside_workspace">このファイルはワークスペースの外にあるため、編集できません。</string>
+    <string name="file_edit_error_not_found">ファイルが存在しません。</string>
+    <string name="file_edit_error_not_text">編集できるのは UTF-8 のテキストファイルのみです。</string>
+    <string name="file_edit_error_too_large">このファイルは大きすぎて編集できません（上限: %1$d KB）。</string>
+    <string name="file_edit_error_read_only">このファイルは読み取り専用です。</string>
+    <string name="file_edit_error_changed_on_disk">ファイルを開いた後に他の処理によって変更されたため、編集内容は保存されませんでした。テキストをコピーし、エディターを閉じてからファイルを開き直してください。</string>
+    <string name="file_edit_error_write_failed">ファイルを保存できませんでした。</string>
+    <string name="file_edit_error_generic">ファイルを編集できませんでした。</string>
 </resources>

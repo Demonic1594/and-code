@@ -9,6 +9,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.feature.browser.GuestBrowserScreen
+import com.yugahashimoto.andcode.feature.workspace.AndroidCodeViewerMessages
 import com.yugahashimoto.andcode.feature.workspace.CodeViewerScreen
 import com.yugahashimoto.andcode.feature.workspace.CodeViewerViewModel
 import com.yugahashimoto.andcode.feature.workspace.GitActions
@@ -241,7 +242,16 @@ fun NavGraphBuilder.workspaceNavGraph(
                     key = "code-viewer-${backStack.id}",
                     factory =
                         ViewModelFactory {
-                            CodeViewerViewModel(runtime, arguments.second, arguments.third, localWorkspaceShell(app, runtime))
+                            CodeViewerViewModel(
+                                backend = runtime,
+                                workspacePath = arguments.second,
+                                filePath = arguments.third,
+                                // Only a runtime whose workspace is a folder on this device can write a file; a
+                                // remote OpenCode server has no write endpoint, so its viewer stays read-only.
+                                // The selected workspace, not the folder being browsed, bounds what is editable.
+                                editableRoot = if (runtime.capabilities.fileEditing) selectedWorkspace()?.path else null,
+                                messages = AndroidCodeViewerMessages(app),
+                            )
                         },
                 )
             val viewerState by viewerViewModel.state.collectAsState()
@@ -251,9 +261,9 @@ fun NavGraphBuilder.workspaceNavGraph(
                 syntaxThemeKey = preferences.syntaxTheme,
                 onBack = { navController.popBackStack() },
                 onStartEditing = viewerViewModel::startEditing,
-                onEditChange = viewerViewModel::updateDraft,
+                onDraftChange = viewerViewModel::updateDraft,
                 onSave = viewerViewModel::save,
-                onCancelEditing = viewerViewModel::cancelEditing,
+                onStopEditing = viewerViewModel::stopEditing,
                 onUndo = viewerViewModel::undo,
                 onRedo = viewerViewModel::redo,
                 onReplaceAll = viewerViewModel::replaceAll,

@@ -1290,10 +1290,6 @@
     <string name="transcript_assistant">Assistant</string>
     <string name="transcript_tool">Outil</string>
     <string name="transcript_error">Erreur</string>
-    <string name="code_edit">Modifier le fichier</string>
-    <string name="code_discard_title">Annuler les modifications ?</string>
-    <string name="code_discard_body">Vos modifications de ce fichier n’ont pas été enregistrées.</string>
-    <string name="code_discard_confirm">Annuler</string>
     <string name="git_commit">Commit</string>
     <string name="git_pull">Pull</string>
     <string name="git_push">Push</string>
@@ -1315,7 +1311,6 @@
     <string name="schedule_template_todos">Revue des TODO</string>
     <string name="schedule_template_security">Revue de sécurité mensuelle</string>
     <string name="chat_copy_too_long">Cette discussion est trop longue pour le presse-papiers ; elle est donc partagée sous forme de fichier.</string>
-    <string name="code_save_too_large">Ce fichier est trop volumineux pour être enregistré d’ici (limite : 1 Mo).</string>
     <string name="chat_usage_cached">%1$s depuis le cache</string>
     <string name="git_discard">Annuler les modifications</string>
     <string name="git_discard_title">Annuler les modifications ?</string>
@@ -1406,4 +1401,19 @@
     <string name="artifact_source">Source</string>
     <string name="artifact_unavailable">Impossible d\'afficher ce fichier.</string>
     <string name="artifact_share">Partager le fichier</string>
+    <string name="file_edit_action">Modifier le fichier</string>
+    <string name="file_edit_save">Enregistrer</string>
+    <string name="file_edit_discard_title">Abandonner les modifications ?</string>
+    <string name="file_edit_discard_message">Vos modifications de ce fichier n’ont pas été enregistrées.</string>
+    <string name="file_edit_discard_confirm">Abandonner</string>
+    <string name="code_discard_confirm">Annuler</string>
+    <string name="file_edit_keep_editing">Continuer à modifier</string>
+    <string name="file_edit_error_outside_workspace">Ce fichier est en dehors de l’espace de travail et ne peut pas être modifié.</string>
+    <string name="file_edit_error_not_found">Le fichier n’existe plus.</string>
+    <string name="file_edit_error_not_text">Seuls les fichiers texte UTF-8 peuvent être modifiés.</string>
+    <string name="file_edit_error_too_large">Ce fichier est trop volumineux pour être modifié (limite : %1$d Ko).</string>
+    <string name="file_edit_error_read_only">Ce fichier est en lecture seule.</string>
+    <string name="file_edit_error_changed_on_disk">Le fichier a été modifié par autre chose depuis son ouverture ; vos modifications n’ont donc pas été enregistrées. Copiez votre texte, fermez l’éditeur, puis rouvrez le fichier.</string>
+    <string name="file_edit_error_write_failed">Impossible d’enregistrer le fichier.</string>
+    <string name="file_edit_error_generic">Impossible de modifier le fichier.</string>
 </resources>

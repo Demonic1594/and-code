@@ -3,6 +3,15 @@ package com.yugahashimoto.andcode.feature.schedule
 import com.yugahashimoto.andcode.data.schedule.Schedule
 import com.yugahashimoto.andcode.data.schedule.ScheduleRun
 import com.yugahashimoto.andcode.data.schedule.ScheduleRunStatus
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -77,6 +86,7 @@ class ScheduleBridgeTest {
         requestId: String,
         op: String,
         args: JSONObject = JSONObject(),
+        createdAtMs: Long = 0L,
     ) {
         val file = File(pendingDir(bridge), "$requestId.json")
         file.parentFile?.mkdirs()
@@ -84,7 +94,7 @@ class ScheduleBridgeTest {
             JSONObject()
                 .put("op", op)
                 .put("args", args)
-                .put("createdAtMs", 0L)
+                .put("createdAtMs", createdAtMs)
                 .toString(),
         )
     }
@@ -441,5 +451,108 @@ class ScheduleBridgeTest {
         bridge.pollOnce()
 
         assertTrue(!orphan.exists())
+    }
+
+    /**
+     * Nothing can be waiting on the bridge while the app is backgrounded and no work is in flight -
+     * the device is free to suspend and the guest freezes with it - so the loop must stay parked
+     * then, and answer at once when the gate opens again.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `run answers pending requests only while the gate is open`() =
+        runTest {
+            val bridge = bridgeWith(FakeStore())
+            val id = requestId()
+            writeRequest(bridge, id, "list")
+            val gate = MutableStateFlow(false)
+            val scope = TestScope(StandardTestDispatcher(testScheduler))
+            try {
+                scope.launch { bridge.run(gate) }
+                advanceTimeBy(10 * ScheduleBridge.POLL_INTERVAL_MILLIS)
+                runCurrent()
+                assertFalse(File(responsesDir(bridge), "$id.json").exists())
+
+                gate.value = true
+                runCurrent()
+
+                assertTrue(File(responsesDir(bridge), "$id.json").exists())
+            } finally {
+                scope.cancel()
+            }
+        }
+
+    /**
+     * The guest stops waiting after 90 seconds and tells the agent the call failed. A request that
+     * sat unanswered past that - written while the gate was shut - must not run on the way back in,
+     * or a `create`/`delete`/`runNow` the agent was told did not happen would happen anyway.
+     */
+    @Test
+    fun `a request the guest has already given up on is dropped with an error instead of run`() {
+        val store = FakeStore()
+        val now = System.currentTimeMillis()
+        val bridge = bridgeWith(store, clock = { now })
+        val id = requestId()
+        writeRequest(bridge, id, "create", createArgs(), createdAtMs = now - 5 * 60_000L)
+
+        bridge.pollOnce()
+
+        val response = readResponse(bridge, id)
+        assertFalse(response.getBoolean("ok"))
+        assertTrue(response.getString("error").contains("expired"))
+        assertEquals(0, store.schedules.size)
+        assertFalse(File(pendingDir(bridge), "$id.json").exists())
+    }
+
+    @Test
+    fun `a request the guest is still waiting on is run`() {
+        val store = FakeStore()
+        val now = System.currentTimeMillis()
+        val bridge = bridgeWith(store, clock = { now })
+        val id = requestId()
+        writeRequest(bridge, id, "create", createArgs(), createdAtMs = now - 30_000L)
+
+        bridge.pollOnce()
+
+        assertTrue(readResponse(bridge, id).getBoolean("ok"))
+        assertEquals(1, store.schedules.size)
+    }
+
+    @Test
+    fun `the expiry line falls at the configured age`() {
+        val store = FakeStore()
+        val now = System.currentTimeMillis()
+        val bridge = bridgeWith(store, clock = { now })
+        val inside = requestId()
+        val outside = requestId()
+        val limit = ScheduleBridge.REQUEST_EXPIRES_AFTER_MILLIS
+        writeRequest(bridge, inside, "create", createArgs(prompt = "inside"), createdAtMs = now - limit + 1_000L)
+        writeRequest(bridge, outside, "create", createArgs(prompt = "outside"), createdAtMs = now - limit - 1_000L)
+
+        bridge.pollOnce()
+
+        assertTrue(readResponse(bridge, inside).getBoolean("ok"))
+        assertFalse(readResponse(bridge, outside).getBoolean("ok"))
+        assertEquals(listOf("inside"), store.schedules.map { it.prompt })
+    }
+
+    /** Only a timestamp that is plainly in the past counts as old; anything else is run as before. */
+    @Test
+    fun `a request stamped in the future or with no timestamp is run`() {
+        val store = FakeStore()
+        val now = System.currentTimeMillis()
+        val bridge = bridgeWith(store, clock = { now })
+        val future = requestId()
+        val missing = requestId()
+        writeRequest(bridge, future, "create", createArgs(prompt = "future"), createdAtMs = now + 60_000L)
+        File(pendingDir(bridge), "$missing.json").writeText(
+            JSONObject().put("op", "create").put("args", createArgs(prompt = "missing")).toString(),
+        )
+
+        bridge.pollOnce()
+
+        assertTrue(readResponse(bridge, future).getBoolean("ok"))
+        assertTrue(readResponse(bridge, missing).getBoolean("ok"))
+        assertEquals(setOf("future", "missing"), store.schedules.map { it.prompt }.toSet())
     }
 }

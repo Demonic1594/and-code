@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -59,6 +60,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -96,9 +98,9 @@ fun CodeViewerScreen(
     onBack: () -> Unit,
     syntaxThemeKey: String? = null,
     onStartEditing: () -> Unit = {},
-    onEditChange: (String) -> Unit = {},
+    onDraftChange: (String) -> Unit = {},
     onSave: () -> Unit = {},
-    onCancelEditing: () -> Unit = {},
+    onStopEditing: () -> Unit = {},
     onUndo: () -> Unit = {},
     onRedo: () -> Unit = {},
     /** Replaces every match and returns how many there were. */
@@ -111,24 +113,29 @@ fun CodeViewerScreen(
     }
     val haptics = rememberHaptics()
     LaunchedEffect(state.savedCount) { if (state.savedCount > 0) haptics.perform(HapticEvent.CONFIRM) }
-    LaunchedEffect(state.saveError) { if (state.saveError != null) haptics.perform(HapticEvent.REJECT) }
+    LaunchedEffect(state.editError) { if (state.editError != null) haptics.perform(HapticEvent.REJECT) }
     // Back while editing with unsaved text asks first; losing an edit typed on a phone keyboard hurts.
+    // While a save is in flight, back does nothing: discarding then would be undone by the save landing.
     BackHandler(enabled = state.isEditing) {
-        if (state.hasUnsavedChanges) confirmDiscard = true else onCancelEditing()
+        when {
+            state.isSaving -> Unit
+            state.hasUnsavedChanges -> confirmDiscard = true
+            else -> onStopEditing()
+        }
     }
     if (confirmDiscard) {
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
-            title = { Text(stringResource(R.string.code_discard_title)) },
-            text = { Text(stringResource(R.string.code_discard_body)) },
+            title = { Text(stringResource(R.string.file_edit_discard_title)) },
+            text = { Text(stringResource(R.string.file_edit_discard_message)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDiscard = false
-                    onCancelEditing()
-                }) { Text(stringResource(R.string.code_discard_confirm), color = MaterialTheme.colorScheme.error) }
+                    onStopEditing()
+                }) { Text(stringResource(R.string.file_edit_discard_confirm), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.cancel)) }
+                TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.file_edit_keep_editing)) }
             },
         )
     }
@@ -170,10 +177,10 @@ fun CodeViewerScreen(
             TopAppBar(
                 title = { Text(state.filePath.substringAfterLast('/')) },
                 navigationIcon = {
-                    IconButton(onClick = {
+                    IconButton(enabled = !state.isSaving, onClick = {
                         when {
                             state.hasUnsavedChanges -> confirmDiscard = true
-                            state.isEditing -> onCancelEditing()
+                            state.isEditing -> onStopEditing()
                             else -> onBack()
                         }
                     }) {
@@ -195,14 +202,14 @@ fun CodeViewerScreen(
                             CircularProgressIndicator(modifier = Modifier.size(20.dp).padding(end = 4.dp), strokeWidth = 2.dp)
                         } else {
                             IconButton(onClick = onSave, enabled = state.hasUnsavedChanges) {
-                                Icon(Icons.Default.Save, contentDescription = stringResource(R.string.save))
+                                Icon(Icons.Default.Save, contentDescription = stringResource(R.string.file_edit_save))
                             }
                         }
                         return@TopAppBar
                     }
                     if (state.canEdit) {
-                        IconButton(onClick = onStartEditing) {
-                            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.code_edit))
+                        IconButton(onClick = onStartEditing, enabled = !state.isPreparingEdit) {
+                            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.file_edit_action))
                         }
                     }
                     IconButton(onClick = { showSearch = !showSearch }) {
@@ -232,7 +239,7 @@ fun CodeViewerScreen(
                     color = if (state.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                 )
             }
-        } else if (state.draft != null) {
+        } else if (state.isEditing) {
             Column(
                 modifier =
                     Modifier
@@ -240,9 +247,9 @@ fun CodeViewerScreen(
                         .padding(padding)
                         .background(CodeBackground),
             ) {
-                state.saveError?.let { error ->
+                state.editError?.let { error ->
                     Text(
-                        text = if (error == SAVE_ERROR_TOO_LARGE) stringResource(R.string.code_save_too_large) else error,
+                        text = error,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                         fontFamily = CodeFontFamily,
@@ -251,7 +258,10 @@ fun CodeViewerScreen(
                 }
                 BasicTextField(
                     value = state.draft,
-                    onValueChange = onEditChange,
+                    onValueChange = onDraftChange,
+                    readOnly = state.isSaving,
+                    // Code, paths and secrets: no autocorrect or sentence capitals rewriting them.
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false),
                     textStyle = TextStyle(color = CodeForeground, fontSize = 13.sp, lineHeight = 19.sp, fontFamily = CodeFontFamily),
                     cursorBrush = SolidColor(CodeForeground),
                     modifier =
@@ -270,6 +280,15 @@ fun CodeViewerScreen(
                         .padding(padding)
                         .background(CodeBackground),
             ) {
+                // A refused start (binary, too large, read-only, outside the workspace) says why here.
+                state.editError?.let { error ->
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
                 if (showSearch) {
                     Row(
                         modifier =
