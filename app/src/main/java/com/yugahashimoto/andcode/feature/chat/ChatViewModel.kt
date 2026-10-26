@@ -85,6 +85,11 @@ sealed interface ChatPart {
         val outputTruncated: Boolean = false,
         val error: String? = null,
         val todos: List<TodoItem> = emptyList(),
+        /**
+         * The files a writing tool's input names, read from it before [input] was formatted for
+         * display; empty for any other tool.
+         */
+        val filePaths: List<String> = emptyList(),
     ) : ChatPart
 
     data class Patch(override val id: String, val files: List<String>, val messageId: String) : ChatPart
@@ -308,6 +313,7 @@ internal fun OpenCodePart.toChatPart(messageId: String): ChatPart? {
                 outputTruncated = truncated,
                 error = stateMap["error"]?.jsonPrimitiveOrNull(),
                 todos = parsedTodos,
+                filePaths = if (toolName.lowercase() in WRITING_TOOLS) toolFilePaths(stateMap["input"]) else emptyList(),
             )
         }
         "patch" -> ChatPart.Patch(partId, extractPatchFiles(stateMap), messageId)

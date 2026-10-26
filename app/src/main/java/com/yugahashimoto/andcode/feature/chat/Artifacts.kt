@@ -1,10 +1,11 @@
 package com.yugahashimoto.andcode.feature.chat
 
 import com.yugahashimoto.andcode.core.localServerUrls
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
 
 /** What the app can show an artifact as, rather than as source text. */
 enum class ArtifactKind { HTML, SVG, MARKDOWN, IMAGE }
@@ -50,19 +51,75 @@ private val PREVIEWABLE =
 fun artifactKindOf(path: String): ArtifactKind? = PREVIEWABLE[path.substringAfterLast('.', "").lowercase()]
 
 // The keys a file tool's input names its file by: OpenCode's `filePath`, Claude Code's `file_path`,
-// and a plain `path`.
-private val TOOL_FILE_PATH_KEYS = listOf("filePath", "file_path", "path")
+// Antigravity's `TargetFile`, and a plain `path`.
+private val TOOL_FILE_PATH_KEYS = listOf("filePath", "file_path", "TargetFile", "targetFile", "target_file", "path")
 
-private val toolInputJson = Json { ignoreUnknownKeys = true }
+// The lines an `apply_patch` patch names the files it creates, changes or moves a file to by.
+private val PATCH_FILE_LINE = Regex("""^\*\*\* (Add File|Update File|Move to): (.+)$""", RegexOption.MULTILINE)
 
-/** The file a writing tool's JSON [input] names, or null when it names none. */
-internal fun toolFilePath(input: String): String? =
-    runCatching { toolInputJson.parseToJsonElement(input).jsonObject }
-        .getOrNull()
-        ?.let { args -> TOOL_FILE_PATH_KEYS.firstNotNullOfOrNull { key -> (args[key] as? JsonPrimitive)?.contentOrNull } }
-        ?.takeIf { it.isNotBlank() }
+/**
+ * The files a tool's raw [input] names: a file tool's path key, each entry of a Codex file change's
+ * list, or each file an `apply_patch` patch adds or updates. Read from the input as the runtime sent
+ * it, since what a [ChatPart.Tool] keeps as its input is text formatted for display.
+ */
+internal fun toolFilePaths(input: JsonElement?): List<String> =
+    when (input) {
+        is JsonObject ->
+            TOOL_FILE_PATH_KEYS.firstNotNullOfOrNull { key -> input[key].stringOrNull() }?.let(::listOf)
+                ?: listOf("patchText", "patch", "input")
+                    .firstNotNullOfOrNull { key -> input[key].stringOrNull() }
+                    ?.let(::patchFilePaths)
+                    .orEmpty()
+        is JsonArray -> input.mapNotNull { change -> (change as? JsonObject)?.let(::codexChangedPath) }
+        is JsonPrimitive -> input.stringOrNull()?.let(::patchFilePaths).orEmpty()
+        else -> emptyList()
+    }
 
-private val WRITING_TOOLS = setOf("write", "edit", "multiedit", "patch", "str_replace_based_edit_tool")
+// A moved file is only where it was moved to: its old path no longer exists to preview.
+private fun patchFilePaths(patch: String): List<String> {
+    val paths = mutableListOf<String>()
+    PATCH_FILE_LINE.findAll(patch).forEach { match ->
+        val path = match.groupValues[2].trim()
+        if (path.isEmpty()) return@forEach
+        if (match.groupValues[1] == "Move to" && paths.isNotEmpty()) paths.removeAt(paths.lastIndex)
+        paths += path
+    }
+    return paths
+}
+
+/**
+ * Where a Codex file change leaves its file, or null when it deletes it. Its `kind` is either a bare
+ * name or an object whose `type` names it, and an update that moves the file says where in
+ * `move_path` (or `movePath`).
+ */
+private fun codexChangedPath(change: JsonObject): String? {
+    val kind = change["kind"]
+    val kindName = (kind as? JsonObject)?.get("type").stringOrNull() ?: kind.stringOrNull()
+    if (kindName == "delete") return null
+    val movedTo = (kind as? JsonObject)?.let { it["move_path"].stringOrNull() ?: it["movePath"].stringOrNull() }
+    return movedTo ?: change["path"].stringOrNull()
+}
+
+private fun JsonElement?.stringOrNull(): String? =
+    (this as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull?.takeIf { it.isNotBlank() }
+
+// Every runtime's names for a tool that writes files: OpenCode's and Claude Code's, Codex's `patch`,
+// and Antigravity's.
+internal val WRITING_TOOLS =
+    setOf(
+        "write",
+        "edit",
+        "multiedit",
+        "patch",
+        "apply_patch",
+        "notebookedit",
+        "str_replace_based_edit_tool",
+        "str_replace_editor",
+        "create_file",
+        "write_to_file",
+        "replace_file_content",
+        "multi_replace_file_content",
+    )
 
 /**
  * Everything previewable the agent produced in [messages], newest first and each once: files it
@@ -83,13 +140,7 @@ fun collectArtifacts(messages: List<ChatMessage>): List<Artifact> {
             when (part) {
                 is ChatPart.Patch -> part.files.forEach { path -> artifactKindOf(path)?.let { add(Artifact.File(path, it)) } }
                 is ChatPart.Tool -> {
-                    if (part.name.lowercase() in WRITING_TOOLS) {
-                        part.input?.let { input ->
-                            toolFilePath(input)?.let { path ->
-                                artifactKindOf(path)?.let { add(Artifact.File(path, it)) }
-                            }
-                        }
-                    }
+                    part.filePaths.forEach { path -> artifactKindOf(path)?.let { add(Artifact.File(path, it)) } }
                     part.output?.let { output -> localServerUrls(output).forEach { add(Artifact.Server(it)) } }
                 }
                 is ChatPart.Text -> localServerUrls(part.text).forEach { add(Artifact.Server(it)) }
