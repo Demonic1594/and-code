@@ -1593,7 +1593,7 @@
     <string name="usage_include_archived">包括已归档</string>
     <string name="usage_reading">正在读取聊天：%1$d / %2$d</string>
     <string name="usage_empty_title">暂无用量</string>
-    <string name="usage_empty_body">智能体在聊天中回复后，令牌用量会显示在这里。</string>
+    <string name="usage_empty_body">这里会显示 OpenCode 聊天的令牌数和费用；Claude Code 聊天从下一次回复起也会显示。</string>
     <string name="usage_total_tokens">令牌总数</string>
     <string name="usage_cost">费用</string>
     <string name="usage_stat_chats">聊天</string>
@@ -1619,5 +1619,8 @@
     </plurals>
     <plurals name="usage_unreadable">
         <item quantity="other">有 %d 个聊天无法读取，其用量未计入。</item>
+    </plurals>
+    <plurals name="usage_untracked">
+        <item quantity="other">未计入 %d 个 Codex 或 Antigravity 聊天：这些智能体尚不报告令牌用量。</item>
     </plurals>
 </resources>

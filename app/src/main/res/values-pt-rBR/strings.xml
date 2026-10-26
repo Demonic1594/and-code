@@ -1603,7 +1603,7 @@
     <string name="usage_include_archived">Incluir arquivados</string>
     <string name="usage_reading">Lendo chats: %1$d de %2$d</string>
     <string name="usage_empty_title">Ainda não há uso</string>
-    <string name="usage_empty_body">Os tokens aparecerão aqui quando um agente responder em um chat.</string>
+    <string name="usage_empty_body">Os tokens e o custo aparecem aqui para chats do OpenCode e, a partir da próxima resposta, para chats do Claude Code.</string>
     <string name="usage_total_tokens">Total de tokens</string>
     <string name="usage_cost">Custo</string>
     <string name="usage_stat_chats">Chats</string>
@@ -1635,5 +1635,10 @@
         <item quantity="one">%d chat não pôde ser lido; o uso dele não está incluído.</item>
         <item quantity="many">%d chats não puderam ser lidos; o uso deles não está incluído.</item>
         <item quantity="other">%d chats não puderam ser lidos; o uso deles não está incluído.</item>
+    </plurals>
+    <plurals name="usage_untracked">
+        <item quantity="one">%d chat do Codex ou Antigravity não é contado: esses agentes ainda não informam o uso de tokens.</item>
+        <item quantity="many">%d chats do Codex ou Antigravity não são contados: esses agentes ainda não informam o uso de tokens.</item>
+        <item quantity="other">%d chats do Codex ou Antigravity não são contados: esses agentes ainda não informam o uso de tokens.</item>
     </plurals>
 </resources>

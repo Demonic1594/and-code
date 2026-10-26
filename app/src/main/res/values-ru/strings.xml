@@ -1608,7 +1608,7 @@
     <string name="usage_include_archived">С архивом</string>
     <string name="usage_reading">Чтение чатов: %1$d из %2$d</string>
     <string name="usage_empty_title">Пока нет данных</string>
-    <string name="usage_empty_body">Число токенов появится здесь, когда агент ответит в чате.</string>
+    <string name="usage_empty_body">Здесь появятся токены и стоимость чатов OpenCode, а для чатов Claude Code — начиная со следующего ответа.</string>
     <string name="usage_total_tokens">Всего токенов</string>
     <string name="usage_cost">Стоимость</string>
     <string name="usage_stat_chats">Чаты</string>
@@ -1643,5 +1643,11 @@
         <item quantity="few">Не удалось прочитать %d чата; их данные не учтены.</item>
         <item quantity="many">Не удалось прочитать %d чатов; их данные не учтены.</item>
         <item quantity="other">Не удалось прочитать %d чата; их данные не учтены.</item>
+    </plurals>
+    <plurals name="usage_untracked">
+        <item quantity="one">%d чат Codex или Antigravity не учтён: эти агенты пока не сообщают расход токенов.</item>
+        <item quantity="few">%d чата Codex или Antigravity не учтены: эти агенты пока не сообщают расход токенов.</item>
+        <item quantity="many">%d чатов Codex или Antigravity не учтены: эти агенты пока не сообщают расход токенов.</item>
+        <item quantity="other">%d чата Codex или Antigravity не учтены: эти агенты пока не сообщают расход токенов.</item>
     </plurals>
 </resources>

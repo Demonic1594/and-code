@@ -7,6 +7,7 @@ import com.yugahashimoto.andcode.runtime.LocalAgent
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /** How far back the usage page looks. */
 enum class UsageRange(
@@ -34,7 +35,7 @@ data class UsageTotals(
     /** Share of the prompt side served from cache, 0..1; null with no prompt tokens at all. */
     val cacheHitRate: Double?
         get() {
-            val prompt = input + cacheRead
+            val prompt = input + cacheRead + cacheWrite
             return if (prompt == 0L) null else cacheRead.toDouble() / prompt
         }
 
@@ -80,11 +81,18 @@ data class UsageReport(
     val activeChats: Int,
     /** Chats whose runtime could not be read, so their use is missing from the totals. */
     val unreadableChats: Int,
+    /** Chats with an agent that does not report usage. */
+    val untrackedChats: Int = 0,
+    /**
+     * How many days the totals cover: the range's length, or for all time the days since the first
+     * use. Not capped like [days], so the average matches the totals.
+     */
+    val spanDays: Int = days.size,
 ) {
     val busiestDay: DayUsage? get() = days.maxByOrNull { it.totals.tokens }?.takeIf { it.totals.tokens > 0 }
 
-    /** Average tokens per day over the days the range covers. */
-    val dailyAverage: Long get() = if (days.isEmpty()) 0 else totals.tokens / days.size
+    /** Average tokens per day over the days the totals cover. */
+    val dailyAverage: Long get() = if (spanDays <= 0) 0 else totals.tokens / spanDays
 
     companion object {
         const val TOP_CHATS = 10
@@ -101,7 +109,10 @@ data class UsageReport(
             val today = dayOf(now, zone)
             val firstDay = range.days?.let { today.minusDays(it - 1L) }
 
-            fun inRange(turn: TurnUsage) = firstDay == null || !dayOf(turn.time, zone).isBefore(firstDay)
+            // A turn stamped in the future (a clock that was wrong) counts as today.
+            fun dayOfTurn(turn: TurnUsage) = minOf(dayOf(turn.time, zone), today)
+
+            fun inRange(turn: TurnUsage) = firstDay == null || !dayOfTurn(turn).isBefore(firstDay)
 
             var totals = UsageTotals()
             val byDay = HashMap<LocalDate, UsageTotals>()
@@ -117,7 +128,7 @@ data class UsageReport(
                     totals += turn
                     chatTotals += turn
                     last = maxOf(last, turn.time)
-                    val day = dayOf(turn.time, zone)
+                    val day = dayOfTurn(turn)
                     byDay[day] = (byDay[day] ?: UsageTotals()) + turn
                     byModel.add(turn.model, turn, chatKey)
                     byAgent.add(chat.ref.agent?.id.orEmpty(), turn, chatKey)
@@ -125,10 +136,8 @@ data class UsageReport(
                 if (chatTotals.turns > 0) rows += ChatUsageRow(chat.ref, chatTotals, last)
             }
 
-            val chartStart =
-                firstDay
-                    ?: byDay.keys.minOrNull()?.let { maxOf(it, today.minusDays(MAX_CHART_DAYS - 1L)) }
-                    ?: today
+            val firstUse = byDay.keys.minOrNull() ?: today
+            val chartStart = firstDay ?: maxOf(firstUse, today.minusDays(MAX_CHART_DAYS - 1L))
             val days =
                 generateSequence(chartStart) { it.plusDays(1) }
                     .takeWhile { !it.isAfter(today) }
@@ -143,6 +152,8 @@ data class UsageReport(
                 topChats = rows.sortedByDescending { it.totals.tokens }.take(TOP_CHATS),
                 activeChats = rows.size,
                 unreadableChats = chats.count { it.unreadable },
+                untrackedChats = chats.count { it.untracked },
+                spanDays = range.days ?: (ChronoUnit.DAYS.between(firstUse, today).toInt() + 1),
             )
         }
 

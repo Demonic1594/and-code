@@ -1628,7 +1628,7 @@
     <string name="usage_include_archived">Include archived</string>
     <string name="usage_reading">Reading chats: %1$d of %2$d</string>
     <string name="usage_empty_title">No usage yet</string>
-    <string name="usage_empty_body">Token counts appear here once an agent has answered in a chat.</string>
+    <string name="usage_empty_body">Token counts and cost appear here for OpenCode chats, and for Claude Code chats from their next reply on.</string>
     <string name="usage_total_tokens">Total tokens</string>
     <string name="usage_cost">Cost</string>
     <string name="usage_stat_chats">Chats</string>
@@ -1657,5 +1657,9 @@
     <plurals name="usage_unreadable">
         <item quantity="one">%d chat could not be read, so its usage is missing.</item>
         <item quantity="other">%d chats could not be read, so their usage is missing.</item>
+    </plurals>
+    <plurals name="usage_untracked">
+        <item quantity="one">%d Codex or Antigravity chat is not counted: those agents do not report token usage yet.</item>
+        <item quantity="other">%d Codex or Antigravity chats are not counted: those agents do not report token usage yet.</item>
     </plurals>
 </resources>

@@ -212,4 +212,73 @@ class ClaudeStreamJsonParserTest {
         assertTrue(parsed.events.isEmpty())
         assertTrue(parsed.messages.isEmpty())
     }
+
+    private fun step(
+        id: String,
+        input: Int,
+        cacheRead: Int,
+    ) = """{"type":"assistant","message":{"id":"$id","content":[{"type":"text","text":"x"}],""" +
+        """"usage":{"input_tokens":$input,"output_tokens":1,"cache_read_input_tokens":$cacheRead,"cache_creation_input_tokens":5}}}"""
+
+    private fun result(
+        output: Int,
+        total: Double?,
+    ) = """{"type":"result","subtype":"success","usage":{"input_tokens":1,"output_tokens":$output}""" +
+        (total?.let { ""","total_cost_usd":$it""" } ?: "") + "}"
+
+    @Test
+    fun `records each step's input and cache, and the turn's output and cost on its last step`() {
+        val parser = parser()
+        parser.beginTurn()
+        val first = parser.parse(step("m1", input = 10, cacheRead = 100)).messages.single()
+        parser.parse(step("m1", input = 10, cacheRead = 100))
+        parser.parse(step("m2", input = 20, cacheRead = 200))
+
+        val closed = parser.parse(result(output = 345, total = 0.25))
+
+        assertEquals(10L, first.info.tokens?.input)
+        assertEquals(0L, first.info.tokens?.output)
+        val last = closed.messages.single()
+        assertEquals("m2", last.info.id)
+        assertEquals(20L, last.info.tokens?.input)
+        assertEquals(200L, last.info.tokens?.cache?.read)
+        assertEquals(5L, last.info.tokens?.cache?.write)
+        assertEquals(345L, last.info.tokens?.output)
+        assertEquals(0.25, last.info.cost!!, 1e-9)
+        assertEquals(0.25, closed.costTotal!!, 1e-9)
+    }
+
+    @Test
+    fun `a running total becomes each turn's own cost`() {
+        val parser = ClaudeStreamJsonParser("s", json, costBaseline = 1.0)
+        parser.beginTurn()
+        parser.parse(step("a", 1, 0))
+        assertEquals(0.5, parser.parse(result(1, total = 1.5)).messages.single().info.cost!!, 1e-9)
+        parser.beginTurn()
+        parser.parse(step("b", 1, 0))
+        assertEquals(0.25, parser.parse(result(1, total = 1.75)).messages.single().info.cost!!, 1e-9)
+        // The CLI started counting again (a /clear): the total is this turn's cost.
+        parser.beginTurn()
+        parser.parse(step("c", 1, 0))
+        assertEquals(0.1, parser.parse(result(1, total = 0.1)).messages.single().info.cost!!, 1e-9)
+    }
+
+    @Test
+    fun `no cost is guessed without a baseline or from a crash's zeroed total`() {
+        val unknown = ClaudeStreamJsonParser("s", json, costBaseline = null)
+        unknown.beginTurn()
+        unknown.parse(step("a", 1, 0))
+        val first = unknown.parse(result(7, total = 3.0))
+        assertNull(first.messages.single().info.cost)
+        assertEquals(7L, first.messages.single().info.tokens?.output)
+        unknown.beginTurn()
+        unknown.parse(step("b", 1, 0))
+        assertEquals(0.5, unknown.parse(result(1, total = 3.5)).messages.single().info.cost!!, 1e-9)
+
+        unknown.beginTurn()
+        unknown.parse(step("c", 1, 0))
+        val crashed = unknown.parse("""{"type":"result","subtype":"error_during_execution","is_error":true,"total_cost_usd":0}""")
+        assertTrue(crashed.messages.none { it.info.cost != null && it.info.id == "c" })
+        assertEquals(3.5, crashed.costTotal!!, 1e-9)
+    }
 }

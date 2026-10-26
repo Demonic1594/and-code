@@ -1603,7 +1603,7 @@
     <string name="usage_include_archived">Inclure les archives</string>
     <string name="usage_reading">Lecture des chats : %1$d sur %2$d</string>
     <string name="usage_empty_title">Aucune utilisation pour l\'instant</string>
-    <string name="usage_empty_body">Les jetons apparaîtront ici dès qu\'un agent aura répondu dans un chat.</string>
+    <string name="usage_empty_body">Les jetons et le coût s\'affichent ici pour les chats OpenCode, et pour les chats Claude Code à partir de leur prochaine réponse.</string>
     <string name="usage_total_tokens">Jetons au total</string>
     <string name="usage_cost">Coût</string>
     <string name="usage_stat_chats">Chats</string>
@@ -1635,5 +1635,10 @@
         <item quantity="one">%d chat n\'a pas pu être lu ; son utilisation manque.</item>
         <item quantity="many">%d chats n\'ont pas pu être lus ; leur utilisation manque.</item>
         <item quantity="other">%d chats n\'ont pas pu être lus ; leur utilisation manque.</item>
+    </plurals>
+    <plurals name="usage_untracked">
+        <item quantity="one">%d chat Codex ou Antigravity n\'est pas compté : ces agents ne signalent pas encore leurs jetons.</item>
+        <item quantity="many">%d chats Codex ou Antigravity ne sont pas comptés : ces agents ne signalent pas encore leurs jetons.</item>
+        <item quantity="other">%d chats Codex ou Antigravity ne sont pas comptés : ces agents ne signalent pas encore leurs jetons.</item>
     </plurals>
 </resources>

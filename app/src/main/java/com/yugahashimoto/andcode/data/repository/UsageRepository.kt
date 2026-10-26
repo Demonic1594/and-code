@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.data.repository
 
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
+import com.yugahashimoto.andcode.runtime.LocalAgent
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -28,11 +29,15 @@ data class TurnUsage(
     val tokens: Long get() = input + output + reasoning + cacheRead + cacheWrite
 }
 
-/** One chat's turns. A chat whose runtime could not be reached has [unreadable] set and no turns. */
+/**
+ * One chat's turns. A chat whose runtime could not be reached has [unreadable] set and no turns; one
+ * whose agent does not report usage has [untracked] set and is not read at all.
+ */
 data class ChatUsage(
     val ref: RuntimeSessionRef,
     val turns: List<TurnUsage>,
     val unreadable: Boolean = false,
+    val untracked: Boolean = false,
 )
 
 /** Reading the chats in progress: what was read so far, and how many there are. */
@@ -91,6 +96,8 @@ class UsageRepository(
         ref: RuntimeSessionRef,
         target: RuntimeTarget?,
     ): ChatUsage {
+        // Reading a whole transcript off disk to find no counts in it would be wasted work.
+        if (ref.agent in UNTRACKED_AGENTS) return ChatUsage(ref, emptyList(), untracked = true)
         val key = "${ref.runtimeId}/${ref.session.id}"
         val updated = ref.session.time.updated ?: ref.session.time.created
         synchronized(cache) { cache[key] }?.takeIf { it.updated == updated }?.let { return ChatUsage(ref, it.turns) }
@@ -112,11 +119,15 @@ class UsageRepository(
         private const val INITIAL_CAPACITY = 64
         private const val LOAD_FACTOR = 0.75f
 
+        /** Agents whose turns carry no token counts or cost yet, so their chats cannot be counted. */
+        val UNTRACKED_AGENTS = setOf(LocalAgent.CODEX, LocalAgent.ANTIGRAVITY)
+
         /** The assistant turns that reported tokens or a cost; the user's own messages use nothing. */
         internal fun turnsOf(messages: List<OpenCodeMessage>): List<TurnUsage> =
             messages
                 .filterNot { it.info.role.equals("user", ignoreCase = true) }
-                .filter { it.info.tokens != null || it.info.cost != null }
+                .filter { it.info.time.created > 0 }
+                // A turn stopped before it used anything, or still starting, is not a turn of use.
                 .map { message ->
                     val info = message.info
                     val tokens = info.tokens
@@ -131,5 +142,7 @@ class UsageRepository(
                         cost = info.cost,
                     )
                 }
+                // A turn stopped before it used anything, or still starting, is not a turn of use.
+                .filter { it.tokens > 0 || (it.cost ?: 0.0) > 0.0 }
     }
 }

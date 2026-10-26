@@ -174,6 +174,7 @@ fun UsageScreen(
             if (report == null) return@LazyColumn
             if (report.totals.turns == 0 && !state.loading) {
                 item { EmptyUsage() }
+                item { UsageNotes(report) }
                 return@LazyColumn
             }
             item { SummaryCard(report) }
@@ -204,15 +205,7 @@ fun UsageScreen(
                     ChatRow(row, report.totals.tokens, onClick = { onOpenChat(row) })
                 }
             }
-            if (report.unreadableChats > 0) {
-                item {
-                    Text(
-                        pluralStringResource(R.plurals.usage_unreadable, report.unreadableChats, report.unreadableChats),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            item { UsageNotes(report) }
         }
     }
 }
@@ -229,7 +222,7 @@ private fun RangeRow(
                 FilterChip(
                     selected = state.range == range,
                     onClick = { onRangeChange(range) },
-                    label = { Text(stringResource(RANGE_LABELS.getValue(range)), maxLines = 1) },
+                    label = { Text(stringResource(RANGE_LABELS.getValue(range)), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -241,6 +234,27 @@ private fun RangeRow(
                 modifier = Modifier.weight(1f),
             )
             Switch(checked = state.includeArchived, onCheckedChange = onIncludeArchivedChange)
+        }
+    }
+}
+
+/** What the totals leave out, and why. */
+@Composable
+private fun UsageNotes(report: UsageReport) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        if (report.untrackedChats > 0) {
+            Text(
+                pluralStringResource(R.plurals.usage_untracked, report.untrackedChats, report.untrackedChats),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (report.unreadableChats > 0) {
+            Text(
+                pluralStringResource(R.plurals.usage_unreadable, report.unreadableChats, report.unreadableChats),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -340,7 +354,11 @@ private fun DailyChartCard(report: UsageReport) {
     val days = report.days
     var selected by remember(days.size, days.firstOrNull()?.date) { mutableStateOf<Int?>(null) }
     val dateFormat = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM) }
-    val shortFormat = remember { DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()) }
+    val shortFormat =
+        remember {
+            val locale = Locale.getDefault()
+            DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(locale, "MMMd"), locale)
+        }
     val kinds = TokenKind.entries
     val colors = kinds.map { kindColor(it) }
     val track = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -383,7 +401,7 @@ private fun DailyChartCard(report: UsageReport) {
                     .fillMaxWidth()
                     .height(140.dp)
                     .padding(top = Spacing.sm)
-                    .pointerInput(days) {
+                    .pointerInput(days, rtl) {
                         detectTapGestures { offset ->
                             if (days.isEmpty()) return@detectTapGestures
                             val slot = size.width / days.size

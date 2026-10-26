@@ -167,4 +167,49 @@ class UsageReportTest {
         assertEquals(TurnUsage(42, "anthropic/opus", 1, 2, 3, 4, 5, 0.1), turns.single())
         assertEquals(15L, turns.single().tokens)
     }
+
+    @Test
+    fun `the all-time average spans every day since the first use, past the chart's cap`() {
+        val report = UsageReport.build(listOf(chat("a", LocalAgent.CLAUDE_CODE, turn(400), turn(0))), UsageRange.ALL, now, zone)
+
+        assertEquals(UsageReport.MAX_CHART_DAYS, report.days.size)
+        assertEquals(401, report.spanDays)
+        assertEquals(220L / 401, report.dailyAverage)
+    }
+
+    @Test
+    fun `a turn stamped in the future counts as today`() {
+        val report = UsageReport.build(listOf(chat("a", LocalAgent.CLAUDE_CODE, turn(-3))), UsageRange.WEEK, now, zone)
+
+        assertEquals(110L, report.days.last().totals.tokens)
+        assertEquals(110L, report.totals.tokens)
+    }
+
+    @Test
+    fun `chats of agents that report no usage are counted apart`() {
+        val untracked = ChatUsage(RuntimeSessionRef("rt", LocalAgent.CODEX, OpenCodeSession(id = "x")), emptyList(), untracked = true)
+
+        assertEquals(1, UsageReport.build(listOf(untracked), UsageRange.ALL, now, zone).untrackedChats)
+    }
+
+    @Test
+    fun `turns with no time or no use are left out`() {
+        fun message(
+            created: Long,
+            tokens: OpenCodeSessionTokens?,
+        ) = OpenCodeMessage(
+            OpenCodeMessageInfo(id = "m", sessionId = "s", role = "assistant", time = OpenCodeTime(created = created), tokens = tokens),
+        )
+
+        val turns =
+            UsageRepository.turnsOf(
+                listOf(
+                    message(0, OpenCodeSessionTokens(input = 5)),
+                    message(9, OpenCodeSessionTokens()),
+                    message(9, OpenCodeSessionTokens(output = 2)),
+                ),
+            )
+
+        assertEquals(listOf(2L), turns.map { it.output })
+    }
 }

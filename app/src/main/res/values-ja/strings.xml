@@ -1613,7 +1613,7 @@
     <string name="usage_include_archived">アーカイブを含める</string>
     <string name="usage_reading">チャットを読み込み中: %2$d 件中 %1$d 件</string>
     <string name="usage_empty_title">まだ使用量がありません</string>
-    <string name="usage_empty_body">エージェントがチャットで応答すると、ここにトークン数が表示されます。</string>
+    <string name="usage_empty_body">OpenCode のチャットと、次の応答以降の Claude Code のチャットのトークン数とコストがここに表示されます。</string>
     <string name="usage_total_tokens">合計トークン</string>
     <string name="usage_cost">コスト</string>
     <string name="usage_stat_chats">チャット</string>
@@ -1639,5 +1639,8 @@
     </plurals>
     <plurals name="usage_unreadable">
         <item quantity="other">%d 件のチャットを読み込めなかったため、その使用量は含まれていません。</item>
+    </plurals>
+    <plurals name="usage_untracked">
+        <item quantity="other">Codex と Antigravity のチャット %d 件は含まれていません。これらのエージェントはまだトークン使用量を報告しません。</item>
     </plurals>
 </resources>

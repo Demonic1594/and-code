@@ -42,6 +42,7 @@ class UsageViewModel(
 
     private var chats: List<ChatUsage> = emptyList()
     private var loadJob: Job? = null
+    private var publishJob: Job? = null
 
     init {
         reload()
@@ -50,7 +51,8 @@ class UsageViewModel(
     fun setRange(range: UsageRange) {
         if (range == mutableState.value.range) return
         mutableState.update { it.copy(range = range) }
-        viewModelScope.launch { publish() }
+        publishJob?.cancel()
+        publishJob = viewModelScope.launch { publish() }
     }
 
     fun setIncludeArchived(include: Boolean) {
@@ -72,8 +74,11 @@ class UsageViewModel(
                         active
                     }
                 repository.collect(all).conflate().collect { progress ->
-                    chats = progress.chats
                     mutableState.update { it.copy(read = progress.read, total = progress.total) }
+                    // Until the first chat is read, the last report stays up rather than dropping to zero.
+                    if (progress.read == 0 && progress.total > 0) return@collect
+                    chats = progress.chats
+                    publishJob?.cancel()
                     publish()
                 }
             }

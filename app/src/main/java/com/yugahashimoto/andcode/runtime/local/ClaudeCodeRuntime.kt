@@ -104,6 +104,23 @@ class ClaudeCodeRuntime(
         runCatching { json.decodeFromString<Map<String, String>>(resumeIdsFile.readText()).toMutableMap() }
             .getOrDefault(mutableMapOf())
 
+    /**
+     * The last running cost total Claude Code reported per session. A resumed process reports the
+     * conversation's earlier spend in its first total, so the parser needs this to tell a turn's own
+     * cost from what came before.
+     */
+    private val costTotalsFile = File(runtimeDirectory, "claude-cost-totals.json")
+    private val costTotals: MutableMap<String, Double> =
+        runCatching { json.decodeFromString<Map<String, Double>>(costTotalsFile.readText()).toMutableMap() }
+            .getOrDefault(mutableMapOf())
+
+    private fun persistCostTotals() {
+        runCatching {
+            costTotalsFile.parentFile?.mkdirs()
+            costTotalsFile.writeText(json.encodeToString(MapSerializer(String.serializer(), Double.serializer()), costTotals.toMap()))
+        }
+    }
+
     private fun persistResumeIds() {
         runCatching {
             resumeIdsFile.parentFile?.mkdirs()
@@ -430,6 +447,7 @@ class ClaudeCodeRuntime(
         stop(sessionId)
         val resumeId = resumeIds.remove(sessionId)
         persistResumeIds()
+        if (costTotals.remove(sessionId) != null) persistCostTotals()
         todos.remove(sessionId)
         messageStore.remove(sessionId)
         installedRuntimeProvider()?.rootfs?.let { rootfs ->
@@ -493,7 +511,10 @@ class ClaudeCodeRuntime(
                 }
                 .start()
 
-        val parser = ClaudeStreamJsonParser(sessionId, json)
+        // The same test the launch arguments make: a chat that has run before is resumed.
+        val resumed = resumeIds[sessionId] != null || messageStore.list(sessionId).isNotEmpty()
+        val parser =
+            ClaudeStreamJsonParser(sessionId, json, costBaseline = if (resumed) synchronized(this) { costTotals[sessionId] } else 0.0)
         val requestedModel = model
         val readerJob =
             scope.launch {
@@ -662,6 +683,14 @@ class ClaudeCodeRuntime(
             }
         }
         if (requestedModel != null) parsed.resolvedModel?.let { rememberResolvedModel(requestedModel, it) }
+        parsed.costTotal?.let { total ->
+            synchronized(this) {
+                if (costTotals[sessionId] != total) {
+                    costTotals[sessionId] = total
+                    persistCostTotals()
+                }
+            }
+        }
         parsed.todos?.let { synchronized(this) { todos[sessionId] = it } }
         parsed.slashCommands?.let { synchronized(this) { announcedCommands = it } }
         parsed.skills?.let { synchronized(this) { announcedSkills = it } }

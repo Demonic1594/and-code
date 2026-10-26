@@ -355,10 +355,12 @@ fun AppDrawerContent(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.sm, vertical = Spacing.xs),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                DrawerDestinationRow(Icons.Default.Inventory2, stringResource(R.string.archive_title)) { onNavigate(ROUTE_ARCHIVE) }
-                DrawerDestinationRow(Icons.Default.Schedule, stringResource(R.string.nav_schedules)) { onNavigate("schedules") }
-                DrawerDestinationRow(Icons.Outlined.Insights, stringResource(R.string.usage_title)) { onNavigate(ROUTE_USAGE) }
-                DrawerDestinationRow(Icons.Default.Settings, stringResource(R.string.nav_settings)) { onNavigate("settings") }
+                // An equal share each, so a long label in one language cannot squeeze out the last.
+                val item = Modifier.weight(1f)
+                DrawerDestinationRow(Icons.Default.Inventory2, stringResource(R.string.archive_title), item) { onNavigate(ROUTE_ARCHIVE) }
+                DrawerDestinationRow(Icons.Default.Schedule, stringResource(R.string.nav_schedules), item) { onNavigate("schedules") }
+                DrawerDestinationRow(Icons.Outlined.Insights, stringResource(R.string.usage_title), item) { onNavigate(ROUTE_USAGE) }
+                DrawerDestinationRow(Icons.Default.Settings, stringResource(R.string.nav_settings), item) { onNavigate("settings") }
             }
         }
     }
@@ -913,14 +915,15 @@ private fun DrawerChatRow(
 private fun DrawerDestinationRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     Column(
         modifier =
-            Modifier
+            modifier
                 .clip(AppShapes.md)
                 .clickable(onClick = onClick)
-                .padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                .padding(horizontal = Spacing.xs, vertical = Spacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
@@ -930,7 +933,13 @@ private fun DrawerDestinationRow(
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp),
         )
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
