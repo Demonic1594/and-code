@@ -101,10 +101,10 @@ class OpenCodeApiClient(
     override suspend fun revertSession(
         sessionId: String,
         messageId: String,
-    ) = postDiscardingBody("session/${encodePath(sessionId)}/revert", buildJsonObject { put("messageID", messageId) })
+    ) = postWithoutResponse("session/${encodePath(sessionId)}/revert", buildJsonObject { put("messageID", messageId) })
 
     override suspend fun unrevertSession(sessionId: String) =
-        postDiscardingBody("session/${encodePath(sessionId)}/unrevert", JsonObject(emptyMap()))
+        postWithoutResponse("session/${encodePath(sessionId)}/unrevert", JsonObject(emptyMap()))
 
     override suspend fun providers(): ProviderCatalog = get("provider")
 
@@ -647,14 +647,6 @@ class OpenCodeApiClient(
                     .build()
             execute(request) { responseBody -> json.decodeFromString<T>(responseBody) }
         }
-
-    private suspend fun postDiscardingBody(
-        path: String,
-        body: JsonObject,
-    ) = withContext(Dispatchers.IO) {
-        val request = requestBuilder(path).post(body.toString().toRequestBody(JSON_MEDIA_TYPE)).build()
-        execute(request) { }
-    }
 
     private suspend inline fun <reified T> put(
         path: String,

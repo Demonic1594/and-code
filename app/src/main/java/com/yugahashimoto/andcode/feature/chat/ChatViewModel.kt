@@ -660,6 +660,8 @@ class ChatViewModel(
      * the same default.
      */
     private val workspaceAttachmentNoteTemplate: String = "[Attached file available in the workspace: %s]",
+    /** Shown when the runtime took a rewind request but rewound nothing; localized by the app. */
+    private val rewindNothingMessage: String = "There was nothing to rewind to at that message.",
     /** Persists the Codex fast-mode choice (null = follow the model default). */
     private val onCodexFastModeChanged: (Boolean?) -> Unit = {},
     /** The user's saved Codex fast-mode choice, read when the ViewModel starts. */
@@ -1127,6 +1129,7 @@ class ChatViewModel(
                 pendingQuestions = emptyList(),
                 sessionDirectory = null,
                 rewoundFrom = if (switchingSession) null else it.rewoundFrom,
+                isRewinding = if (switchingSession) false else it.isRewinding,
                 isRunning = if (switchingSession) false else it.isRunning,
                 isThinking = if (switchingSession) false else it.isThinking,
                 dismissedTodoBarId = null,
@@ -1267,6 +1270,7 @@ class ChatViewModel(
                 imagePreviews = emptyList(),
                 dismissedTodoBarId = null,
                 rewoundFrom = null,
+                isRewinding = false,
                 error = null,
             )
         }
@@ -1321,17 +1325,23 @@ class ChatViewModel(
             runCatching { currentBackend.revertSession(sessionId, messageId) }
                 .onSuccess {
                     // The session says where the rewind really landed; trust that over the request.
-                    val landed =
-                        runCatching { currentBackend.session(sessionId) }.getOrNull()?.revert?.messageId ?: messageId
+                    // One that answers with no rewind at all rewound nothing (a message the runtime
+                    // never stored, say), and saying the files are back would be untrue. Only a
+                    // session that cannot be read at all falls back to the request.
+                    val session = runCatching { currentBackend.session(sessionId) }
+                    val landed = if (session.isSuccess) session.getOrNull()?.revert?.messageId else messageId
                     _uiState.update {
-                        if (it.sessionId != sessionId) return@update it.copy(isRewinding = false)
-                        it.copy(isRewinding = false, rewoundFrom = landed, editDraft = message.text)
+                        when {
+                            it.sessionId != sessionId -> it.copy(isRewinding = false)
+                            landed == null -> it.copy(isRewinding = false, error = rewindNothingMessage)
+                            else -> it.copy(isRewinding = false, rewoundFrom = landed, editDraft = message.text)
+                        }
                     }
                 }
                 .onFailure { error ->
                     if (error is CancellationException) throw error
                     _uiState.update { it.copy(isRewinding = false) }
-                    reportError(error)
+                    if (_uiState.value.sessionId == sessionId) reportError(error)
                 }
         }
     }
@@ -1345,11 +1355,17 @@ class ChatViewModel(
         _uiState.update { it.copy(isRewinding = true) }
         viewModelScope.launch {
             runCatching { currentBackend.unrevertSession(sessionId) }
-                .onSuccess { _uiState.update { if (it.sessionId == sessionId) it.copy(isRewinding = false, rewoundFrom = null) else it } }
+                .onSuccess {
+                    // Whatever a failed send marked as gone is back on the server now.
+                    discardedByRewind.clear()
+                    _uiState.update {
+                        if (it.sessionId == sessionId) it.copy(isRewinding = false, rewoundFrom = null) else it.copy(isRewinding = false)
+                    }
+                }
                 .onFailure { error ->
                     if (error is CancellationException) throw error
                     _uiState.update { it.copy(isRewinding = false) }
-                    reportError(error)
+                    if (_uiState.value.sessionId == sessionId) reportError(error)
                 }
         }
     }
@@ -1377,6 +1393,9 @@ class ChatViewModel(
         val currentBackend = backend ?: return
         val sessionId = _uiState.value.sessionId ?: return
         if (_uiState.value.isRunning) return
+        // While rewound, the last message on screen is not the last one stored; deleting "the last"
+        // would delete a hidden one.
+        if (_uiState.value.rewoundFrom != null || _uiState.value.isRewinding) return
         if ((currentBackend as? RuntimeTarget)?.capabilities?.editMessages != true) return
         val messages = _uiState.value.messages
         val lastUserIndex = messages.indexOfLast { it.isUser }
@@ -1528,6 +1547,9 @@ class ChatViewModel(
         text: String,
         fromComposer: Boolean,
     ) {
+        // A rewind or its undo in flight decides which messages the next one follows; the screen
+        // holds the composer until it lands.
+        if (_uiState.value.isRewinding) return
         val normalized = text.trim()
         val pendingAttachments = if (fromComposer) _uiState.value.attachments else emptyList()
         val messageIdsBeforeSend = _uiState.value.messages.map { it.id }.toSet()
@@ -1798,6 +1820,7 @@ class ChatViewModel(
         command: String,
         arguments: String,
     ) {
+        if (_uiState.value.isRewinding) return
         val currentBackend = backend
         if (currentBackend == null) {
             _uiState.update { it.copy(error = "OpenCode connection is not configured") }
@@ -2613,7 +2636,13 @@ class ChatViewModel(
                 }
             }
             is OpenCodeEvent.SessionCreated -> Unit
-            is OpenCodeEvent.SessionUpdated -> Unit
+            // A rewind made permanent, or made or undone elsewhere (another device, the TUI).
+            is OpenCodeEvent.SessionUpdated -> {
+                val session = event.session
+                if (session.id == _uiState.value.sessionId && canRewind(backend)) {
+                    _uiState.update { if (it.isRewinding) it else it.copy(rewoundFrom = session.revert?.messageId) }
+                }
+            }
             is OpenCodeEvent.Unknown -> Unit
         }
     }

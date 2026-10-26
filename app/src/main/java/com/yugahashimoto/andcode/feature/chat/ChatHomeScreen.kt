@@ -401,7 +401,11 @@ fun ChatHomeScreen(
     // than the user having to retype it.
     LaunchedEffect(state.editDraft) {
         state.editDraft?.let { draft ->
-            inputValue = TextFieldValue(draft, TextRange(draft.length))
+            // A rewind hands its message back as a convenience; it must not overwrite something
+            // the user was already typing. An edit always fills it: its message is gone otherwise.
+            if (state.rewoundFrom == null || inputValue.text.isBlank()) {
+                inputValue = TextFieldValue(draft, TextRange(draft.length))
+            }
             onEditDraftConsumed()
         }
     }
@@ -623,7 +627,7 @@ fun ChatHomeScreen(
                                                 id = entry.message.id,
                                                 text = entry.message.text,
                                                 canEdit =
-                                                    canEditMessages && !state.isRunning &&
+                                                    canEditMessages && !state.isRunning && state.rewoundFrom == null &&
                                                         entry.message.id == lastUserMessageId,
                                                 canRewind = canRewind && !state.isRunning && !state.isRewinding,
                                             )
@@ -761,9 +765,10 @@ fun ChatHomeScreen(
                 )
             }
 
-            if (state.rewoundFrom != null) {
+            val hiddenCount = state.messages.size - shownMessages.size
+            if (state.rewoundFrom != null && hiddenCount > 0) {
                 RewindBanner(
-                    hiddenCount = state.messages.size - shownMessages.size,
+                    hiddenCount = hiddenCount,
                     busy = state.isRewinding,
                     onUndo = onUndoRewind,
                 )
@@ -778,7 +783,8 @@ fun ChatHomeScreen(
                     },
                     isRunning = state.isRunning,
                     onSend = {
-                        if (input.isNotBlank() || state.attachments.isNotEmpty()) {
+                        // Held while a rewind lands: which messages the new one follows is not settled yet.
+                        if (!state.isRewinding && (input.isNotBlank() || state.attachments.isNotEmpty())) {
                             haptics.perform(HapticEvent.CONFIRM)
                             onSendMessage(SlashCommandRegistry.expandSavedPrompt(input, savedPrompts))
                             inputValue = TextFieldValue("")

@@ -1387,6 +1387,7 @@
     <string name="rewind_confirm_body">このメッセージ以降にエージェントが変更したファイルが元に戻り、このメッセージとそれ以降のメッセージが非表示になります。メッセージの本文は入力欄に戻ります。新しいメッセージを送るまでは元に戻せます。</string>
     <string name="rewind_confirm">巻き戻す</string>
     <string name="rewind_banner_title">以前の時点に巻き戻しました</string>
-    <string name="rewind_banner_body">ファイルは元の状態に戻りました。</string>
+    <string name="rewind_banner_body">スナップショットがあるファイルは元に戻りました。</string>
+    <string name="rewind_nothing">そのメッセージには巻き戻せる時点がありませんでした。</string>
     <string name="rewind_hidden_count">非表示: %1$d</string>
 </resources>

@@ -1373,6 +1373,7 @@
     <string name="rewind_confirm_body">Los archivos que el agente cambió desde este mensaje vuelven a como estaban, y este mensaje y los siguientes se ocultan. Su texto vuelve al cuadro de mensaje. Puedes deshacerlo hasta que envíes un mensaje nuevo.</string>
     <string name="rewind_confirm">Retroceder</string>
     <string name="rewind_banner_title">Se retrocedió a un punto anterior</string>
-    <string name="rewind_banner_body">Los archivos volvieron a como estaban.</string>
+    <string name="rewind_banner_body">Los archivos cambiados volvieron atrás donde había una instantánea.</string>
+    <string name="rewind_nothing">No había nada a lo que retroceder en ese mensaje.</string>
     <string name="rewind_hidden_count">Ocultos: %1$d</string>
 </resources>

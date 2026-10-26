@@ -1392,6 +1392,7 @@
     <string name="rewind_confirm_body">Files the agent changed from this message on go back to how they were, and this message and the ones after it are hidden. Its text comes back to the message box. You can undo this until you send a new message.</string>
     <string name="rewind_confirm">Rewind</string>
     <string name="rewind_banner_title">Rewound to an earlier point</string>
-    <string name="rewind_banner_body">Files are back to how they were.</string>
+    <string name="rewind_banner_body">Changed files are back where a snapshot existed.</string>
+    <string name="rewind_nothing">There was nothing to rewind to at that message.</string>
     <string name="rewind_hidden_count">Hidden: %1$d</string>
 </resources>

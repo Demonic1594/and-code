@@ -1376,6 +1376,7 @@
     <string name="rewind_confirm_body">Файлы, которые агент изменил начиная с этого сообщения, вернутся в прежнее состояние, а это и последующие сообщения будут скрыты. Текст сообщения вернётся в поле ввода. Отменить откат можно, пока вы не отправите новое сообщение.</string>
     <string name="rewind_confirm">Откатить</string>
     <string name="rewind_banner_title">Чат откачен к более ранней точке</string>
-    <string name="rewind_banner_body">Файлы возвращены в прежнее состояние.</string>
+    <string name="rewind_banner_body">Изменённые файлы возвращены там, где был снимок.</string>
+    <string name="rewind_nothing">К этому сообщению откатиться было нечего.</string>
     <string name="rewind_hidden_count">Скрыто: %1$d</string>
 </resources>
