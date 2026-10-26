@@ -305,6 +305,26 @@ class CodeViewerViewModelTest {
         }
 
     @Test
+    fun `a save confirms once and leaves no history behind`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend(OpenCodeFileContent("text", "a"), editText = "a")
+            val viewModel = editorFor(backend, file = "a.kt")
+            viewModel.startEditing()
+            advanceUntilIdle()
+            viewModel.updateDraft("ab")
+            assertTrue(viewModel.state.value.canUndo)
+
+            viewModel.save()
+            advanceUntilIdle()
+
+            val state = viewModel.state.value
+            assertEquals(1, state.savedCount)
+            assertFalse(state.isEditing)
+            assertFalse(state.canUndo)
+            assertFalse(state.canRedo)
+        }
+
+    @Test
     fun `typing bursts undo as one step and redo restores them`() =
         runTest(dispatcher) {
             var now = 0L

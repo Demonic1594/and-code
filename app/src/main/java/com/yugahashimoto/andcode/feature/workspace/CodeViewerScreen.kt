@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -59,6 +60,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -113,8 +115,13 @@ fun CodeViewerScreen(
     LaunchedEffect(state.savedCount) { if (state.savedCount > 0) haptics.perform(HapticEvent.CONFIRM) }
     LaunchedEffect(state.editError) { if (state.editError != null) haptics.perform(HapticEvent.REJECT) }
     // Back while editing with unsaved text asks first; losing an edit typed on a phone keyboard hurts.
+    // While a save is in flight, back does nothing: discarding then would be undone by the save landing.
     BackHandler(enabled = state.isEditing) {
-        if (state.hasUnsavedChanges) confirmDiscard = true else onStopEditing()
+        when {
+            state.isSaving -> Unit
+            state.hasUnsavedChanges -> confirmDiscard = true
+            else -> onStopEditing()
+        }
     }
     if (confirmDiscard) {
         AlertDialog(
@@ -170,7 +177,7 @@ fun CodeViewerScreen(
             TopAppBar(
                 title = { Text(state.filePath.substringAfterLast('/')) },
                 navigationIcon = {
-                    IconButton(onClick = {
+                    IconButton(enabled = !state.isSaving, onClick = {
                         when {
                             state.hasUnsavedChanges -> confirmDiscard = true
                             state.isEditing -> onStopEditing()
@@ -252,6 +259,9 @@ fun CodeViewerScreen(
                 BasicTextField(
                     value = state.draft,
                     onValueChange = onDraftChange,
+                    readOnly = state.isSaving,
+                    // Code, paths and secrets: no autocorrect or sentence capitals rewriting them.
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false),
                     textStyle = TextStyle(color = CodeForeground, fontSize = 13.sp, lineHeight = 19.sp, fontFamily = CodeFontFamily),
                     cursorBrush = SolidColor(CodeForeground),
                     modifier =
