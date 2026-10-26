@@ -18,7 +18,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -98,8 +100,9 @@ class GitScreenActions(
     val onStageAll: () -> Unit = {},
     val onUnstageAll: () -> Unit = {},
     val onDiscard: (GitFileChange) -> Unit = {},
-    val onCommit: (message: String, amend: Boolean) -> Unit = { _, _ -> },
-    val onLoadLastMessage: () -> Unit = {},
+    val onCommitMessageChange: (String) -> Unit = {},
+    val onAmendChange: (Boolean) -> Unit = {},
+    val onCommit: () -> Unit = {},
     val onFetch: () -> Unit = {},
     val onPull: () -> Unit = {},
     val onPush: () -> Unit = {},
@@ -130,6 +133,8 @@ fun GitScreen(
     actions: GitScreenActions,
 ) {
     var tab by rememberSaveable { mutableStateOf(GitTab.CHANGES) }
+    // Held up here, above the diff and commit screens, so coming back from one keeps the place.
+    val historyList = rememberLazyListState()
     val haptics = rememberHaptics()
     LaunchedEffect(state.done, state.error) {
         when {
@@ -202,7 +207,7 @@ fun GitScreen(
             }
             when (tab) {
                 GitTab.CHANGES -> ChangesTab(state, actions)
-                GitTab.HISTORY -> HistoryTab(state, actions)
+                GitTab.HISTORY -> HistoryTab(state, actions, historyList)
                 GitTab.BRANCHES -> BranchesTab(state, actions)
                 GitTab.STASHES -> StashesTab(state, actions)
             }
@@ -378,19 +383,16 @@ private fun ChangesTab(
     actions: GitScreenActions,
 ) {
     val status = state.status ?: return
-    var message by rememberSaveable { mutableStateOf("") }
-    var amend by rememberSaveable { mutableStateOf(false) }
+    val message = state.commitMessage
+    val amend = state.amend
     var confirmDiscard by remember { mutableStateOf<GitFileChange?>(null) }
-    LaunchedEffect(amend, state.lastCommitMessage) {
-        if (amend && message.isBlank()) message = state.lastCommitMessage.trim()
-    }
     val busy = state.running != null
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
                 OutlinedTextField(
                     value = message,
-                    onValueChange = { message = it },
+                    onValueChange = actions.onCommitMessageChange,
                     placeholder = { Text(stringResource(R.string.git_commit_message_label)) },
                     minLines = 2,
                     maxLines = 6,
@@ -399,20 +401,13 @@ private fun ChangesTab(
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = Spacing.xs)) {
                     Checkbox(
                         checked = amend,
-                        onCheckedChange = {
-                            amend = it
-                            if (it) actions.onLoadLastMessage()
-                        },
+                        onCheckedChange = actions.onAmendChange,
                         enabled = !status.noCommits,
                     )
                     Text(stringResource(R.string.git_amend), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     Button(
-                        onClick = {
-                            actions.onCommit(message, amend)
-                            message = ""
-                            amend = false
-                        },
-                        enabled = !busy && message.isNotBlank() && (status.changes.isNotEmpty() || amend),
+                        onClick = actions.onCommit,
+                        enabled = !busy && !state.loading && message.isNotBlank() && (status.changes.isNotEmpty() || amend),
                     ) {
                         Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
@@ -477,8 +472,11 @@ private fun ChangesTab(
                         },
                     onOpen = { actions.onOpenDiff(change, false) },
                     trailing = {
-                        IconButton(onClick = { confirmDiscard = change }, enabled = !busy) {
-                            Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.git_discard))
+                        // A conflicted file is resolved, not discarded; git refuses to restore it.
+                        if (!change.conflicted) {
+                            IconButton(onClick = { confirmDiscard = change }, enabled = !busy) {
+                                Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.git_discard))
+                            }
                         }
                         IconButton(onClick = { actions.onStage(change) }, enabled = !busy) {
                             Icon(Icons.Default.Add, contentDescription = stringResource(R.string.git_stage))
@@ -597,6 +595,7 @@ private fun ChangeRow(
 private fun HistoryTab(
     state: GitUiState,
     actions: GitScreenActions,
+    listState: LazyListState,
 ) {
     if (state.commits.isEmpty()) {
         Text(
@@ -608,7 +607,7 @@ private fun HistoryTab(
         return
     }
     val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
         items(state.commits, key = { it.hash }) { commit ->
             Row(
                 modifier =

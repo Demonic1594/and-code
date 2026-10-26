@@ -102,15 +102,17 @@ class GitClient(
         change: GitFileChange,
         staged: Boolean,
     ): Result<String> {
-        val path = top(change.path)
+        // A rename's old path goes in too, so git pairs the two and shows the edit, not a new file.
+        val paths = listOfNotNull(change.path, change.originalPath).joinToString(" ") { top(it) }
         val command =
             when {
                 change.untracked ->
-                    // --no-index exits 1 whenever there is a difference, which is always here.
-                    "cd ${quote(directory)} && cd \"\$(git rev-parse --show-toplevel)\" && " +
-                        "git diff --no-color --no-ext-diff --no-index -- /dev/null ${quote(change.path)}; [ \$? -le 1 ]"
-                staged -> git(directory, "diff --no-color --no-ext-diff --cached -M -- $path")
-                else -> git(directory, "diff --no-color --no-ext-diff -- $path")
+                    // --no-index exits 1 whenever there is a difference, which is always here; any
+                    // other failure (a file that vanished, say) is checked for first and fails.
+                    "cd ${quote(directory)} && cd \"\$(git rev-parse --show-toplevel)\" && test -f ${quote(change.path)} && " +
+                        "{ git diff --no-color --no-ext-diff --no-index -- /dev/null ${quote(change.path)}; [ \$? -eq 1 ]; }"
+                staged -> git(directory, "diff --no-color --no-ext-diff --cached -M -- $paths")
+                else -> git(directory, "diff --no-color --no-ext-diff -- $paths")
             }
         return exec(command, trim = false)
     }
@@ -121,7 +123,11 @@ class GitClient(
     ): Result<String> =
         if (paths.isEmpty()) Result.success("") else exec(git(directory, "add -A -- ${paths.joinToString(" ") { top(it) }}"))
 
-    /** Takes [paths] out of the index; before the first commit there is no HEAD to reset to, so `rm --cached` does it. */
+    /**
+     * Takes [paths] out of the index; before the first commit there is no HEAD to reset to, so
+     * `rm --cached` does it, forced so a file edited since it was staged is unstaged too (only the
+     * index is touched).
+     */
     suspend fun unstage(
         directory: String,
         paths: List<String>,
@@ -129,7 +135,7 @@ class GitClient(
     ): Result<String> {
         if (paths.isEmpty()) return Result.success("")
         val specs = paths.joinToString(" ") { top(it) }
-        return exec(git(directory, if (noCommits) "rm -r -q --cached -- $specs" else "restore --staged -- $specs"))
+        return exec(git(directory, if (noCommits) "rm -r -q -f --cached -- $specs" else "restore --staged -- $specs"))
     }
 
     suspend fun stageAll(directory: String): Result<String> = exec(git(directory, "add -A -- $ALL_PATHS"))
@@ -137,7 +143,7 @@ class GitClient(
     suspend fun unstageAll(
         directory: String,
         noCommits: Boolean,
-    ): Result<String> = exec(git(directory, if (noCommits) "rm -r -q --cached -- ':/'" else "reset -q"))
+    ): Result<String> = exec(git(directory, if (noCommits) "rm -r -q -f --cached -- ':/'" else "reset -q"))
 
     /**
      * Commits what is staged. As in [WorkspaceShell.commitAll], a runtime with no git identity gets a
@@ -171,7 +177,7 @@ class GitClient(
         val sha = validHash(hash) ?: return Result.failure(WorkspaceShellException("bad commit"))
         val header = exec(git(directory, "show -s --format='$LOG_FORMAT' $sha"), trim = false).getOrElse { return Result.failure(it) }
         val body = exec(git(directory, "show -s --format=%b $sha")).getOrDefault("")
-        val files = exec(git(directory, "show --format= --name-status -M -z $sha"), trim = false).getOrDefault("")
+        val files = exec(git(directory, "show --format= --name-status -M -z --first-parent $sha"), trim = false).getOrDefault("")
         val commit = parseLog(header).firstOrNull() ?: return Result.failure(WorkspaceShellException("bad commit"))
         return Result.success(GitCommitDetails(commit, body.trim(), parseNameStatus(files)))
     }
@@ -181,9 +187,11 @@ class GitClient(
         directory: String,
         hash: String,
         path: String,
+        originalPath: String? = null,
     ): Result<String> {
         val sha = validHash(hash) ?: return Result.failure(WorkspaceShellException("bad commit"))
-        return exec(git(directory, "show --no-color --no-ext-diff --format= -M --first-parent $sha -- ${top(path)}"), trim = false)
+        val paths = listOfNotNull(path, originalPath).joinToString(" ") { top(it) }
+        return exec(git(directory, "show --no-color --no-ext-diff --format= -M --first-parent $sha -- $paths"), trim = false)
     }
 
     suspend fun branches(directory: String): Result<List<GitBranch>> =
@@ -310,9 +318,10 @@ class GitClient(
         internal fun git(
             directory: String,
             arguments: String,
-        ): String = "git -C ${quote(directory)} -c core.quotepath=off $arguments"
+        ): String = "git --no-optional-locks -C ${quote(directory)} -c core.quotepath=off $arguments"
 
-        internal fun top(path: String): String = quote(":(top)$path")
+        /** A path from the repository root, taken literally: `[id]` or `*` in a name is not a glob. */
+        internal fun top(path: String): String = quote(":(top,literal)$path")
 
         /** A name git could read as an option (`-f`) is refused before it reaches the command line. */
         internal fun validRef(name: String): String? = name.trim().takeIf { it.isNotEmpty() && !it.startsWith("-") && !it.contains('\n') }

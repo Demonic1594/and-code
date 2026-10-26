@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yugahashimoto.andcode.core.util.safeMessage
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,7 +38,9 @@ data class GitUiState(
     val error: String? = null,
     val diff: GitDiffView? = null,
     val commit: GitCommitDetails? = null,
-    val lastCommitMessage: String = "",
+    /** The commit being written; kept here so opening a diff or switching tabs does not lose it. */
+    val commitMessage: String = "",
+    val amend: Boolean = false,
 )
 
 /**
@@ -54,45 +57,70 @@ class GitViewModel(
 
     private val directory get() = mutableState.value.directory
 
+    private var refreshJob: Job? = null
+    private var moreJob: Job? = null
+
+    /** Bumped by each refresh, so a page of history read before it is not appended after it. */
+    private var generation = 0
+
+    /** Bumped by each diff, commit or amend request, so only the latest answer is shown. */
+    private var request = 0
+
     init {
         refresh()
     }
 
     fun refresh() {
+        refreshJob?.cancel()
+        moreJob?.cancel()
+        val current = ++generation
         mutableState.update { it.copy(loading = true) }
-        viewModelScope.launch {
-            val status = async { client.status(directory) }
-            val branches = async { client.branches(directory) }
-            val log = async { client.log(directory) }
-            val stashes = async { client.stashes(directory) }
-            val statusResult = status.await()
-            val commits = log.await().getOrDefault(emptyList())
-            mutableState.update {
-                it.copy(
-                    loading = false,
-                    status = statusResult.getOrNull(),
-                    loadError = statusResult.exceptionOrNull()?.safeMessage("git status failed"),
-                    branches = branches.await().getOrDefault(emptyList()),
-                    commits = commits,
-                    moreCommits = commits.size >= GitClient.LOG_PAGE,
-                    stashes = stashes.await().getOrDefault(emptyList()),
-                )
+        refreshJob =
+            viewModelScope.launch {
+                val status = async { client.status(directory) }
+                val branches = async { client.branches(directory) }
+                val log = async { client.log(directory) }
+                val stashes = async { client.stashes(directory) }
+                val statusResult = status.await()
+                val commits = log.await().getOrDefault(emptyList())
+                val branchList = branches.await().getOrDefault(emptyList())
+                val stashList = stashes.await().getOrDefault(emptyList())
+                if (current != generation) return@launch
+                mutableState.update {
+                    it.copy(
+                        loading = false,
+                        status = statusResult.getOrNull(),
+                        loadError = statusResult.exceptionOrNull()?.safeMessage("git status failed"),
+                        branches = branchList,
+                        commits = commits,
+                        moreCommits = commits.size >= GitClient.LOG_PAGE,
+                        stashes = stashList,
+                    )
+                }
             }
-        }
     }
 
+    /** Reads the next page of history; a call while one is already being read is ignored. */
     fun loadMoreCommits() {
         val current = mutableState.value
-        if (!current.moreCommits || current.loading) return
-        viewModelScope.launch {
-            val next = client.log(directory, skip = current.commits.size).getOrDefault(emptyList())
-            mutableState.update { it.copy(commits = it.commits + next, moreCommits = next.size >= GitClient.LOG_PAGE) }
-        }
+        if (!current.moreCommits || current.loading || moreJob?.isActive == true) return
+        val forGeneration = generation
+        moreJob =
+            viewModelScope.launch {
+                val next = client.log(directory, skip = current.commits.size).getOrDefault(emptyList())
+                if (forGeneration != generation) return@launch
+                mutableState.update { state ->
+                    val seen = state.commits.mapTo(HashSet()) { it.hash }
+                    state.copy(commits = state.commits + next.filterNot { it.hash in seen }, moreCommits = next.size >= GitClient.LOG_PAGE)
+                }
+            }
     }
 
     fun stage(change: GitFileChange) = run(GitOperation.STAGE) { client.stage(directory, listOf(change.path)) }
 
-    fun unstage(change: GitFileChange) = run(GitOperation.UNSTAGE) { client.unstage(directory, listOf(change.path), noCommits()) }
+    // A rename is staged as a delete plus an add; unstaging only the new path would leave the delete.
+    fun unstage(change: GitFileChange) =
+        run(GitOperation.UNSTAGE) { client.unstage(directory, listOfNotNull(change.path, change.originalPath), noCommits()) }
 
     fun stageAll() = run(GitOperation.STAGE) { client.stageAll(directory) }
 
@@ -100,27 +128,37 @@ class GitViewModel(
 
     fun discard(change: GitFileChange) = run(GitOperation.DISCARD) { client.discard(directory, change) }
 
-    /** Commits what is staged; with nothing staged, everything is staged first, as most git UIs offer. */
-    fun commit(
-        message: String,
-        amend: Boolean,
-    ) {
-        val text = message.trim()
-        if (text.isEmpty()) return
-        run(GitOperation.COMMIT) {
-            val stagedNothing = mutableState.value.status?.staged.isNullOrEmpty()
-            if (stagedNothing && !amend) {
-                client.stageAll(directory).onFailure { return@run Result.failure(it) }
+    fun setCommitMessage(message: String) = mutableState.update { it.copy(commitMessage = message) }
+
+    /** Turning amend on starts the message from the last commit's, unless one is already written. */
+    fun setAmend(amend: Boolean) {
+        mutableState.update { it.copy(amend = amend) }
+        if (!amend) return
+        val asked = ++request
+        viewModelScope.launch {
+            val message = client.lastCommitMessage(directory).getOrDefault("").trim()
+            mutableState.update {
+                if (asked != request || !it.amend || it.commitMessage.isNotBlank()) it else it.copy(commitMessage = message)
             }
-            client.commit(directory, text, amend)
         }
     }
 
-    /** Loads the last commit's message, for the amend toggle to start from. */
-    fun loadLastCommitMessage() {
-        viewModelScope.launch {
-            val message = client.lastCommitMessage(directory).getOrDefault("")
-            mutableState.update { it.copy(lastCommitMessage = message) }
+    /**
+     * Commits what is staged; with nothing staged, everything is staged first, as most git UIs offer.
+     * Whether anything is staged is asked of git at the time, not read from the screen, which may be
+     * a refresh behind the user's last stage.
+     */
+    fun commit() {
+        val current = mutableState.value
+        val text = current.commitMessage.trim()
+        if (text.isEmpty() || current.loading) return
+        val amend = current.amend
+        run(GitOperation.COMMIT, onSuccess = { it.copy(commitMessage = "", amend = false) }) {
+            val status = client.status(directory).getOrElse { return@run Result.failure(it) }
+            if (status.staged.isEmpty() && !amend) {
+                client.stageAll(directory).onFailure { return@run Result.failure(it) }
+            }
+            client.commit(directory, text, amend)
         }
     }
 
@@ -155,22 +193,20 @@ class GitViewModel(
         change: GitFileChange,
         staged: Boolean,
     ) {
-        val title = change.path.substringAfterLast('/')
-        mutableState.update { it.copy(diff = GitDiffView(title, change.path)) }
+        val asked = ++request
+        mutableState.update { it.copy(diff = GitDiffView(change.path.substringAfterLast('/'), change.path)) }
         viewModelScope.launch {
             val result = client.diff(directory, change, staged)
-            mutableState.update { state ->
-                if (state.diff?.subtitle != change.path) return@update state
-                state.copy(
-                    diff = state.diff.copy(text = result.getOrNull(), error = result.exceptionOrNull()?.safeMessage("git diff failed")),
-                )
-            }
+            showDiff(asked, result, "git diff failed")
         }
     }
 
     fun openCommit(hash: String) {
+        val asked = ++request
         viewModelScope.launch {
-            client.commitDetails(directory, hash)
+            val result = client.commitDetails(directory, hash)
+            if (asked != request) return@launch
+            result
                 .onSuccess { details -> mutableState.update { it.copy(commit = details) } }
                 .onFailure { error -> mutableState.update { it.copy(error = error.safeMessage("git show failed")) } }
         }
@@ -178,23 +214,35 @@ class GitViewModel(
 
     fun openCommitFile(file: GitCommitFile) {
         val commit = mutableState.value.commit ?: return
-        val title = file.path.substringAfterLast('/')
-        val subtitle = "${commit.commit.shortHash} · ${file.path}"
-        mutableState.update { it.copy(diff = GitDiffView(title, subtitle)) }
+        val asked = ++request
+        mutableState.update { it.copy(diff = GitDiffView(file.path.substringAfterLast('/'), "${commit.commit.shortHash} · ${file.path}")) }
         viewModelScope.launch {
-            val result = client.commitFileDiff(directory, commit.commit.hash, file.path)
-            mutableState.update { state ->
-                if (state.diff?.subtitle != subtitle) return@update state
-                state.copy(
-                    diff = state.diff.copy(text = result.getOrNull(), error = result.exceptionOrNull()?.safeMessage("git show failed")),
-                )
-            }
+            val result = client.commitFileDiff(directory, commit.commit.hash, file.path, file.originalPath)
+            showDiff(asked, result, "git show failed")
         }
     }
 
-    fun closeDiff() = mutableState.update { it.copy(diff = null) }
+    private fun showDiff(
+        asked: Int,
+        result: Result<String>,
+        fallback: String,
+    ) {
+        mutableState.update { state ->
+            val diff = state.diff
+            if (asked != request || diff == null) return@update state
+            state.copy(diff = diff.copy(text = result.getOrNull(), error = result.exceptionOrNull()?.safeMessage(fallback)))
+        }
+    }
 
-    fun closeCommit() = mutableState.update { it.copy(commit = null) }
+    fun closeDiff() {
+        request++
+        mutableState.update { it.copy(diff = null) }
+    }
+
+    fun closeCommit() {
+        request++
+        mutableState.update { it.copy(commit = null) }
+    }
 
     fun consumeResult() = mutableState.update { it.copy(done = null, error = null) }
 
@@ -202,6 +250,7 @@ class GitViewModel(
 
     private fun run(
         operation: GitOperation,
+        onSuccess: (GitUiState) -> GitUiState = { it },
         action: suspend () -> Result<String>,
     ) {
         if (mutableState.value.running != null) return
@@ -215,17 +264,21 @@ class GitViewModel(
                 } catch (error: Exception) {
                     Result.failure(error)
                 }
+            // The screen stays busy until the reload has landed, so nothing acts on what git said before.
             mutableState.update {
-                it.copy(
-                    running = null,
-                    done = if (result.isSuccess) operation else null,
-                    error =
-                        result.exceptionOrNull()?.let { error ->
-                            if (error is InvalidRefException) ERROR_INVALID_REF else error.safeMessage("git failed")
-                        },
-                )
+                val updated =
+                    it.copy(
+                        done = if (result.isSuccess) operation else null,
+                        error =
+                            result.exceptionOrNull()?.let { error ->
+                                if (error is InvalidRefException) ERROR_INVALID_REF else error.safeMessage("git failed")
+                            },
+                    )
+                if (result.isSuccess) onSuccess(updated) else updated
             }
             refresh()
+            refreshJob?.join()
+            mutableState.update { it.copy(running = null) }
         }
     }
 

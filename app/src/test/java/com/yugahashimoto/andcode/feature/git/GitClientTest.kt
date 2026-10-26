@@ -220,4 +220,39 @@ class GitClientTest {
         assertEquals(listOf("a.kt"), status.unstaged.map { it.path })
         assertNull(GitClient.parseStatus("## HEAD (no branch)\u0000").branch)
     }
+
+    @Test
+    fun `paths are literal, so brackets and stars touch only that file`() =
+        runBlocking {
+            File(repo, "u/[id]").mkdirs()
+            File(repo, "u/i").mkdirs()
+            File(repo, "u/[id]/p.ts").writeText("x\n")
+            File(repo, "u/i/p.ts").writeText("keep\n")
+            File(repo, "b*.log").writeText("x\n")
+            File(repo, "bcd.log").writeText("keep\n")
+            val changes = client.status(dir).getOrThrow().changes.associateBy { it.path }
+
+            client.stage(dir, listOf("u/[id]/p.ts")).getOrThrow()
+            assertEquals(listOf("u/[id]/p.ts"), client.status(dir).getOrThrow().staged.map { it.path })
+
+            client.discard(dir, changes.getValue("b*.log")).getOrThrow()
+            assertFalse(File(repo, "b*.log").exists())
+            assertTrue(File(repo, "bcd.log").exists())
+            assertTrue(File(repo, "u/i/p.ts").exists())
+        }
+
+    @Test
+    fun `before the first commit a file edited since staging still unstages`() =
+        runBlocking {
+            val empty = temp.newFolder("unborn")
+            ProcessBuilder(
+                "sh",
+                "-c",
+                "git init -q -b main . && echo a > a.txt && git add a.txt && echo b >> a.txt",
+            ).directory(empty).start().waitFor()
+
+            client.unstage(empty.absolutePath, listOf("a.txt"), noCommits = true).getOrThrow()
+
+            assertTrue(client.status(empty.absolutePath).getOrThrow().changes.single().untracked)
+        }
 }

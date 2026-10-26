@@ -83,7 +83,8 @@ class GitViewModelTest {
             val viewModel = GitViewModel(client, repo.absolutePath)
             advanceUntilIdle()
 
-            viewModel.commit("  Everything  ", amend = false)
+            viewModel.setCommitMessage("  Everything  ")
+            viewModel.commit()
             advanceUntilIdle()
 
             val state = viewModel.state.value
@@ -129,5 +130,72 @@ class GitViewModelTest {
 
             assertNull(viewModel.state.value.status)
             assertNotNull(viewModel.state.value.loadError)
+        }
+
+    @Test
+    fun `a commit right after staging commits only what was staged`() =
+        runTest(dispatcher) {
+            File(repo, "a.txt").writeText("two\n")
+            File(repo, "secret.env").writeText("token\n")
+            val viewModel = GitViewModel(client, repo.absolutePath)
+            advanceUntilIdle()
+
+            // The screen still shows nothing staged when the commit is sent: git decides, not the screen.
+            sh("git add a.txt")
+            viewModel.setCommitMessage("Only a")
+            viewModel.commit()
+            advanceUntilIdle()
+
+            val state = viewModel.state.value
+            assertEquals(listOf("secret.env"), state.status!!.unstaged.map { it.path })
+            assertEquals("", state.commitMessage)
+        }
+
+    @Test
+    fun `unstaging a rename unstages both of its paths`() =
+        runTest(dispatcher) {
+            sh("git mv a.txt b.txt")
+            val viewModel = GitViewModel(client, repo.absolutePath)
+            advanceUntilIdle()
+
+            viewModel.unstage(viewModel.state.value.status!!.staged.single())
+            advanceUntilIdle()
+
+            val status = viewModel.state.value.status!!
+            assertTrue(status.staged.isEmpty())
+            assertEquals(setOf("a.txt", "b.txt"), status.unstaged.map { it.path }.toSet())
+        }
+
+    @Test
+    fun `amend starts from the latest commit message without replacing one being written`() =
+        runTest(dispatcher) {
+            val viewModel = GitViewModel(client, repo.absolutePath)
+            advanceUntilIdle()
+
+            viewModel.setAmend(true)
+            advanceUntilIdle()
+            assertEquals("first", viewModel.state.value.commitMessage)
+
+            viewModel.setAmend(false)
+            viewModel.setCommitMessage("mine")
+            viewModel.setAmend(true)
+            advanceUntilIdle()
+            assertEquals("mine", viewModel.state.value.commitMessage)
+        }
+
+    @Test
+    fun `loading more history twice does not repeat a page`() =
+        runTest(dispatcher) {
+            repeat(GitClient.LOG_PAGE + 5) { sh("git commit -q --allow-empty -m c$it") }
+            val viewModel = GitViewModel(client, repo.absolutePath)
+            advanceUntilIdle()
+
+            viewModel.loadMoreCommits()
+            viewModel.loadMoreCommits()
+            advanceUntilIdle()
+
+            val hashes = viewModel.state.value.commits.map { it.hash }
+            assertEquals(GitClient.LOG_PAGE + 6, hashes.size)
+            assertEquals(hashes.size, hashes.toSet().size)
         }
 }
