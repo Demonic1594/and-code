@@ -509,6 +509,13 @@
     <string name="notification_reply_hint">Ответить агенту</string>
     <string name="notification_reply_failed">Не удалось отправить ответ</string>
     <string name="notification_reply_failed_body">Откройте чат или попробуйте ответить ещё раз.</string>
+    <string name="changes_more">Ещё %1$d</string>
+    <string name="review_changes">Проверить изменения</string>
+    <string name="review_tap_hint">Нажмите на строку, чтобы прокомментировать её. Комментарии отправляются агенту вместе.</string>
+    <string name="review_comment_hint">Комментарий для агента к этой строке</string>
+    <string name="review_send_comments">Отправить агенту (%1$d)</string>
+    <string name="review_comment_delete">Удалить комментарий</string>
+    <string name="review_comments_pending">Комментарии: %1$d</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">Операции GitHub Git</string>
     <string name="github_not_connected">Не подключено</string>

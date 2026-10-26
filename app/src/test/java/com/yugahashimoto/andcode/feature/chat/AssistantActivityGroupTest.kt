@@ -442,4 +442,33 @@ class AssistantActivityGroupTest {
 
         assertTrue(summary.isEmpty)
     }
+
+    @Test
+    fun `a message that changed files ends with one changes card listing each file once`() {
+        val timeline =
+            groupConversationTimeline(
+                listOf(
+                    ChatMessage(id = "u1", isUser = true, parts = listOf(ChatPart.Text("t0", "fix it"))),
+                    assistant(
+                        "a1",
+                        tool("e1", "edit"),
+                        ChatPart.Patch("p1", listOf("app/Login.kt", "app/Form.kt"), "a1"),
+                        ChatPart.Patch("p2", listOf("app/Login.kt", "README.md"), "a1"),
+                        ChatPart.Text("t1", "Done."),
+                    ),
+                ),
+            )
+
+        val changes = timeline.filterIsInstance<TimelineEntry.Changes>().single()
+        assertEquals(listOf("app/Login.kt", "app/Form.kt", "README.md"), changes.files)
+        assertEquals("a1", changes.patch.messageId)
+        // After the answer, so it reads as the summary of what was done.
+        assertTrue(timeline.indexOf(changes) > timeline.indexOfFirst { it is TimelineEntry.Body })
+    }
+
+    @Test
+    fun `a message without file changes has no changes card`() {
+        val timeline = groupConversationTimeline(listOf(assistant("a1", ChatPart.Text("t1", "No edits needed."))))
+        assertTrue(timeline.none { it is TimelineEntry.Changes })
+    }
 }

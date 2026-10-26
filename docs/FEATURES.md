@@ -28,6 +28,7 @@ page: [`TOKEN_EFFICIENCY.md`](TOKEN_EFFICIENCY.md).
 | Usage readout | Chat → ⋮ | Tokens in and out for the whole chat, plus cost when the runtime reports one (OpenCode does). Cache reads appear on their own line, since they cost a fraction of fresh input. |
 | Run settings | Chat → the tune pill under the message box | One sheet for everything that decides how the next turn runs: agent or permission mode, auto-accept, thinking level, fast mode and the system prompt preset. Each section shows only when the runtime offers it, and changes apply at once. The pill names the mode, thinking level and fast mode, and turns accented when anything differs from a fresh chat. |
 | Starter prompts | A new, empty chat | Shows the agent's mark, "What should we work on?" and four starters (explain the project, fix a bug, write tests, review changes). Tapping one fills the message box without sending, so you can add the file or symptom first. |
+| Changes card and review | Under any answer that edited files → **Review changes** | The card lists the files that answer changed. The review screen shows every file with its +/− counts (tap a file to fold it) and a line-numbered diff. Tap a line to leave a comment; **Send to agent** sends all comments to the chat as one message that names each file, line and the code on it. Needs a runtime that can produce diffs (a Git workspace). |
 
 ## Workspace (on-device runtime)
 
@@ -60,6 +61,6 @@ it too.
 
 Researched and ranked in the landscape doc but not built: checkpoints / rewind, per-workspace
 rules, an AI-written commit message button, saved prompts stored as files in the repo, an
-interactive PTY terminal, one worktree per chat, best-of-N attempts, inline diff comments, E2E
+interactive PTY terminal, one worktree per chat, best-of-N attempts, E2E
 relay pairing, spec-driven templates, an agent tasks inbox, a dev-server preview button and an
 issue-to-chat entry point.

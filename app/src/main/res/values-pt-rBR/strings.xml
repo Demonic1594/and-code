@@ -507,6 +507,13 @@
     <string name="notification_reply_hint">Responder ao agente</string>
     <string name="notification_reply_failed">Não foi possível enviar sua resposta</string>
     <string name="notification_reply_failed_body">Abra o chat ou tente responder de novo.</string>
+    <string name="changes_more">+%1$d a mais</string>
+    <string name="review_changes">Revisar alterações</string>
+    <string name="review_tap_hint">Toque em uma linha para comentá-la. Os comentários são enviados juntos ao agente.</string>
+    <string name="review_comment_hint">Comentário para o agente sobre esta linha</string>
+    <string name="review_send_comments">Enviar ao agente (%1$d)</string>
+    <string name="review_comment_delete">Excluir comentário</string>
+    <string name="review_comments_pending">Comentários: %1$d</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">Operações Git do GitHub</string>
     <string name="github_not_connected">Não conectado</string>

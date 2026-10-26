@@ -617,6 +617,7 @@ fun ChatHomeScreen(
                                         is TimelineEntry.Image -> null
                                         is TimelineEntry.Activity -> null
                                         is TimelineEntry.Todo -> null
+                                        is TimelineEntry.Changes -> null
                                         is TimelineEntry.Error -> null
                                         is TimelineEntry.Footer -> null
                                     }
@@ -646,6 +647,7 @@ fun ChatHomeScreen(
                                         onOpenActivity = { activityGroupId = it },
                                         onImageClick = { selectedImage = it },
                                         onOpenProviderSettings = onOpenProviderSettings,
+                                        onOpenChanges = onOpenPatchDiff,
                                     )
                                 }
                             }
@@ -938,7 +940,7 @@ fun ChatHomeScreen(
     }
 
     state.patchDiff?.let { patchDiff ->
-        ChatDiffDialog(state = patchDiff, onDismiss = onDismissPatchDiff)
+        ChatDiffDialog(state = patchDiff, onDismiss = onDismissPatchDiff, onSendReview = onSendMessage)
     }
 
     showActionSheet?.let { target ->

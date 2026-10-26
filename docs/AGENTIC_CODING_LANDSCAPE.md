@@ -267,7 +267,7 @@ Ranked by value to a phone user against the cost of building it. The **Status** 
 | 15 | Interactive PTY terminal with an extra-keys row | Termux, Warp | Later |
 | 16 | Worktree per chat for parallel sessions | Conductor, Codex, Cursor | Later |
 | 17 | Best-of-N attempts with side-by-side diffs | Codex cloud, Cursor | Later |
-| 18 | Inline diff-line comments sent back to the agent | Codex mobile | Later |
+| 18 | Inline diff-line comments sent back to the agent | Codex mobile | Shipped: Changes card + review screen with line comments |
 | 19 | E2E relay pairing for remote mode | Happy Coder | Later |
 | 20 | Spec-driven templates (requirements → design → tasks) | Kiro | Later |
 | 21 | Agent tasks inbox across sessions | GitHub Mobile, Jules | Later |

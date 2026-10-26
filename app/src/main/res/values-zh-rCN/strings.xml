@@ -503,6 +503,13 @@
     <string name="notification_reply_hint">回复代理</string>
     <string name="notification_reply_failed">无法发送你的回复</string>
     <string name="notification_reply_failed_body">打开聊天，或再试一次回复。</string>
+    <string name="changes_more">另外 %1$d 个</string>
+    <string name="review_changes">审查更改</string>
+    <string name="review_tap_hint">点按某一行即可添加评论。评论会一起发送给代理。</string>
+    <string name="review_comment_hint">针对这一行给代理的评论</string>
+    <string name="review_send_comments">发送给代理（%1$d）</string>
+    <string name="review_comment_delete">删除评论</string>
+    <string name="review_comments_pending">评论：%1$d</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">GitHub Git 操作</string>
     <string name="github_not_connected">未连接</string>

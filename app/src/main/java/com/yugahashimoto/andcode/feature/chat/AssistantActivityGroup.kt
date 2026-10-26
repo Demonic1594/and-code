@@ -38,6 +38,20 @@ sealed interface TimelineEntry {
     data class Todo(override val id: String, val todos: List<TodoItem>) : TimelineEntry
 
     /**
+     * The files one assistant message changed, surfaced as a card under the answer instead of
+     * only inside the collapsed activity: what an agent edited is the thing you most want to check.
+     */
+    data class Changes(
+        override val id: String,
+        val messageId: String,
+        val files: List<String>,
+    ) : TimelineEntry {
+        /** The patch the review screen loads: every file of the message, diffed against its turn. */
+        val patch: ChatPart.Patch
+            get() = ChatPart.Patch(id = id, files = files, messageId = messageId)
+    }
+
+    /**
      * Trailing meta row for a finished assistant turn: the clock time the reply landed plus how
      * long the user waited for it, surfaced LINE-style beneath the answer.
      */
@@ -174,6 +188,12 @@ fun groupConversationTimeline(messages: List<ChatMessage>): List<TimelineEntry> 
                 else -> Unit
             }
         }
+        val patches = message.parts.filterIsInstance<ChatPart.Patch>()
+        val files = patches.flatMap { it.files }.distinct()
+        if (files.isNotEmpty()) {
+            flush()
+            entries += TimelineEntry.Changes("changes:${message.id}", patches.first().messageId, files)
+        }
     }
     flush()
     flushTurnFooter()
@@ -207,6 +227,7 @@ private fun TimelineEntry.repeated(occurrence: Int): TimelineEntry =
         is TimelineEntry.Error -> copy(id = "$id:$occurrence")
         is TimelineEntry.Activity -> copy(id = "$id:$occurrence")
         is TimelineEntry.Todo -> copy(id = "$id:$occurrence")
+        is TimelineEntry.Changes -> copy(id = "$id:$occurrence")
         is TimelineEntry.Footer -> copy(id = "$id:$occurrence")
     }
 
