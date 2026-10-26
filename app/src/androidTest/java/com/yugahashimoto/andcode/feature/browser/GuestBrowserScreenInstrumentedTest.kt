@@ -12,7 +12,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -61,8 +61,8 @@ class GuestBrowserScreenInstrumentedTest {
         val addressBar = composeRule.onNode(hasSetTextAction())
         addressBar.assertIsDisplayed().performClick().performTextReplacement("https://example.com/")
         addressBar.assertIsFocused()
-        val goLabel = InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.guest_browser_go)
-        composeRule.onNodeWithText(goLabel).assertIsDisplayed()
+        val clearLabel = InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.guest_browser_clear_address)
+        composeRule.onNodeWithContentDescription(clearLabel).assertIsDisplayed()
 
         // A semantic visibility assertion alone misses #370: the input still exists and takes
         // focus, while the native WebView paints over it. Sample the actual device framebuffer.
