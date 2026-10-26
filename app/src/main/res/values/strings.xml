@@ -1615,4 +1615,47 @@
     <string name="file_edit_error_changed_on_disk">The file was changed by something else since you opened it, so your edits were not saved. Copy your text, close the editor, and open the file again.</string>
     <string name="file_edit_error_write_failed">Could not save the file.</string>
     <string name="file_edit_error_generic">Could not edit the file.</string>
+    <string name="usage_title">Usage</string>
+    <string name="usage_kind_input">Input</string>
+    <string name="usage_kind_output">Output</string>
+    <string name="usage_kind_reasoning">Reasoning</string>
+    <string name="usage_kind_cache_read">Cache read</string>
+    <string name="usage_kind_cache_write">Cache write</string>
+    <string name="usage_range_week">7 days</string>
+    <string name="usage_range_month">30 days</string>
+    <string name="usage_range_quarter">90 days</string>
+    <string name="usage_range_all">All time</string>
+    <string name="usage_include_archived">Include archived</string>
+    <string name="usage_reading">Reading chats: %1$d of %2$d</string>
+    <string name="usage_empty_title">No usage yet</string>
+    <string name="usage_empty_body">Token counts appear here once an agent has answered in a chat.</string>
+    <string name="usage_total_tokens">Total tokens</string>
+    <string name="usage_cost">Cost</string>
+    <string name="usage_stat_chats">Chats</string>
+    <string name="usage_stat_turns">Turns</string>
+    <string name="usage_stat_daily">Per day</string>
+    <string name="usage_stat_cache">Cached</string>
+    <string name="usage_daily">Daily usage</string>
+    <string name="usage_busiest_day">Busiest day: %1$s</string>
+    <string name="usage_tokens_value">%1$s tokens</string>
+    <string name="usage_daily_average">Average %1$s a day</string>
+    <string name="usage_token_mix">Token mix</string>
+    <string name="usage_by_model">By model</string>
+    <string name="usage_by_agent">By agent</string>
+    <string name="usage_model_unknown">Unknown model</string>
+    <string name="usage_agent_server">OpenCode server</string>
+    <string name="usage_top_chats">Top chats</string>
+    <string name="usage_untitled">Untitled chat</string>
+    <plurals name="usage_turns">
+        <item quantity="one">%d turn</item>
+        <item quantity="other">%d turns</item>
+    </plurals>
+    <plurals name="usage_chats">
+        <item quantity="one">%d chat</item>
+        <item quantity="other">%d chats</item>
+    </plurals>
+    <plurals name="usage_unreadable">
+        <item quantity="one">%d chat could not be read, so its usage is missing.</item>
+        <item quantity="other">%d chats could not be read, so their usage is missing.</item>
+    </plurals>
 </resources>

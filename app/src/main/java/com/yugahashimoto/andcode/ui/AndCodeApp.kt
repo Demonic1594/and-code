@@ -81,6 +81,8 @@ import com.yugahashimoto.andcode.feature.settings.CodexSignInActions
 import com.yugahashimoto.andcode.feature.settings.CodexSignInViewModel
 import com.yugahashimoto.andcode.feature.settings.DiagnosticsSheet
 import com.yugahashimoto.andcode.feature.settings.SettingsViewModel
+import com.yugahashimoto.andcode.feature.usage.UsageScreen
+import com.yugahashimoto.andcode.feature.usage.UsageViewModel
 import com.yugahashimoto.andcode.feature.wakeword.WakeWordService
 import com.yugahashimoto.andcode.feature.wakeword.WakeWordSettingsPolicy
 import com.yugahashimoto.andcode.feature.workspace.WorkspaceViewModel
@@ -103,6 +105,7 @@ import com.yugahashimoto.andcode.ui.navigation.ROUTE_SEARCH
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_AGENT_CODEX
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_PROVIDERS
+import com.yugahashimoto.andcode.ui.navigation.ROUTE_USAGE
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_WORKSPACES
 import com.yugahashimoto.andcode.ui.navigation.SCHEDULE_DETAIL_ROUTE_PATTERN
 import com.yugahashimoto.andcode.ui.navigation.SCHEDULE_EDIT_ARG_ID
@@ -1448,6 +1451,33 @@ fun AndCodeApp(
                                 onMarkRead = inboxViewModel::markRead,
                                 onMarkAllRead = inboxViewModel::markAllRead,
                                 onConsumeFailure = inboxViewModel::consumeFailure,
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
+
+                        composable(ROUTE_USAGE) {
+                            val usageViewModel: UsageViewModel =
+                                viewModel(
+                                    factory =
+                                        ViewModelFactory {
+                                            UsageViewModel(
+                                                repository = app.usage,
+                                                activeChats = { app.catalogRepository.allSessions.value },
+                                                archivedChats = {
+                                                    app.chatLifecycle.listArchived().map {
+                                                        RuntimeSessionRef(it.runtimeId, it.agent, it.session)
+                                                    }
+                                                },
+                                            )
+                                        },
+                                )
+                            val usageState by usageViewModel.state.collectAsState()
+                            UsageScreen(
+                                state = usageState,
+                                onRangeChange = usageViewModel::setRange,
+                                onIncludeArchivedChange = usageViewModel::setIncludeArchived,
+                                onRefresh = usageViewModel::reload,
+                                onOpenChat = { row -> openSessionInChat(row.ref.session.id, row.ref.session.title, row.ref.runtimeId) },
                                 onBack = { navController.popBackStack() },
                             )
                         }

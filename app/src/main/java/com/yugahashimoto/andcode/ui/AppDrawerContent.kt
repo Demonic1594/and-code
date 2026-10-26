@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -82,6 +83,7 @@ import com.yugahashimoto.andcode.ui.components.StatusDot
 import com.yugahashimoto.andcode.ui.components.rememberHaptics
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ARCHIVE
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_INBOX
+import com.yugahashimoto.andcode.ui.navigation.ROUTE_USAGE
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 import com.yugahashimoto.andcode.ui.theme.AppShapes
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
@@ -348,13 +350,14 @@ fun AppDrawerContent(
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.42f))
-            // The three places you go less often share one row, so the chat list keeps the height.
+            // The places you go less often share one row, so the chat list keeps the height.
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.sm, vertical = Spacing.xs),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 DrawerDestinationRow(Icons.Default.Inventory2, stringResource(R.string.archive_title)) { onNavigate(ROUTE_ARCHIVE) }
                 DrawerDestinationRow(Icons.Default.Schedule, stringResource(R.string.nav_schedules)) { onNavigate("schedules") }
+                DrawerDestinationRow(Icons.Outlined.Insights, stringResource(R.string.usage_title)) { onNavigate(ROUTE_USAGE) }
                 DrawerDestinationRow(Icons.Default.Settings, stringResource(R.string.nav_settings)) { onNavigate("settings") }
             }
         }
