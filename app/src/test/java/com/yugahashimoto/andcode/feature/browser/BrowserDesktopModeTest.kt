@@ -34,5 +34,8 @@ class BrowserDesktopModeTest {
         assertEquals("https://example.com/a", normalizeBrowserUrl("https://example.com/a"))
         assertEquals("http://localhost:3000/", normalizeBrowserUrl("http://localhost:3000/"))
         assertEquals("http://127.0.0.1", normalizeBrowserUrl(""))
+        assertEquals("http://127.0.0.1", normalizeBrowserUrl("http://"))
+        // Any other scheme is read as a host name, never loaded as itself.
+        assertEquals("http://ftp://x", normalizeBrowserUrl("ftp://x"))
     }
 }

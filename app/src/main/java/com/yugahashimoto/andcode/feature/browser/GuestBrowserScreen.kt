@@ -8,6 +8,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -57,9 +58,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -90,6 +97,9 @@ fun GuestBrowserScreen(
     var findOpen by rememberSaveable { mutableStateOf(false) }
     var findQuery by rememberSaveable { mutableStateOf("") }
     var findMatch by remember { mutableStateOf(FindMatch()) }
+    // While the user is typing an address, a navigation (an agent's, a dev server's reload, a
+    // redirect) must not replace what they have typed so far.
+    var urlFocused by remember { mutableStateOf(false) }
 
     fun closeFind() {
         findOpen = false
@@ -155,6 +165,7 @@ fun GuestBrowserScreen(
             GuestBrowserUrlBar(
                 urlInput = urlInput,
                 onUrlChange = { urlInput = it },
+                onFocusChange = { urlFocused = it },
                 onGo = { webView?.loadUrl(normalizeBrowserUrl(urlInput)) },
             )
             if (findOpen) {
@@ -196,10 +207,12 @@ fun GuestBrowserScreen(
                         configure(
                             onProgress = { progress = it },
                             onNavigationStateChange = { url, back, forward ->
-                                urlInput = url
+                                if (!urlFocused) urlInput = url
                                 canGoBack = back
                                 canGoForward = forward
                             },
+                            // A new page has new matches: search it again for what is still asked.
+                            onPageLoaded = { view -> if (findOpen && findQuery.isNotEmpty()) view.findAllAsync(findQuery) },
                         )
                         setFindListener { active, count, _ -> findMatch = FindMatch(active, count) }
                         applyViewMode(desktopMode)
@@ -289,11 +302,13 @@ private fun BrowserMenu(
 ) {
     @Composable
     fun item(
-        label: Int,
+        @StringRes label: Int,
         icon: androidx.compose.ui.graphics.vector.ImageVector,
         onClick: () -> Unit,
         trailing: (@Composable () -> Unit)? = null,
+        modifier: Modifier = Modifier,
     ) = DropdownMenuItem(
+        modifier = modifier,
         text = { Text(stringResource(label)) },
         leadingIcon = { Icon(icon, contentDescription = null) },
         trailingIcon = trailing,
@@ -309,6 +324,11 @@ private fun BrowserMenu(
             icon = Icons.Default.DesktopWindows,
             onClick = actions.onToggleDesktop,
             trailing = { Checkbox(checked = desktopMode, onCheckedChange = null) },
+            modifier =
+                Modifier.semantics {
+                    role = Role.Checkbox
+                    toggleableState = ToggleableState(desktopMode)
+                },
         )
         item(R.string.guest_browser_find, Icons.Default.Search, actions.onFind)
         item(R.string.guest_browser_zoom_in, Icons.Default.ZoomIn, actions.onZoomIn)
@@ -324,13 +344,14 @@ private fun BrowserMenu(
 private fun GuestBrowserUrlBar(
     urlInput: String,
     onUrlChange: (String) -> Unit,
+    onFocusChange: (Boolean) -> Unit,
     onGo: () -> Unit,
 ) {
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         OutlinedTextField(
             value = urlInput,
             onValueChange = onUrlChange,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).onFocusChanged { onFocusChange(it.isFocused) },
             singleLine = true,
             placeholder = { Text(stringResource(R.string.guest_browser_url_hint)) },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
@@ -408,6 +429,7 @@ private fun WebView.applyViewMode(desktop: Boolean) {
 private fun WebView.configure(
     onProgress: (Int) -> Unit,
     onNavigationStateChange: (url: String, canGoBack: Boolean, canGoForward: Boolean) -> Unit,
+    onPageLoaded: (WebView) -> Unit,
 ) {
     // Guest pages (dev servers, dashboards, tool UIs) are interactive web apps that need JS.
     settings.javaScriptEnabled = true
@@ -446,6 +468,7 @@ private fun WebView.configure(
                 url: String?,
             ) {
                 if (view?.isDesktopMode == true) view.evaluateJavascript(DESKTOP_VIEWPORT_SCRIPT, null)
+                view?.let(onPageLoaded)
                 onProgress(100)
                 onNavigationStateChange(
                     url.orEmpty(),
