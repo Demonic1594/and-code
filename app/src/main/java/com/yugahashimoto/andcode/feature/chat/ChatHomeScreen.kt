@@ -255,7 +255,6 @@ fun ChatHomeScreen(
     // A rewound chat shows only what comes before the point it was rewound to.
     val shownMessages = state.visibleMessages
     val timelineEntries = remember(shownMessages) { groupConversationTimeline(shownMessages) }
-    val artifacts = remember(shownMessages) { collectArtifacts(shownMessages) }
     // Find in chat: which rows match, and which of them is the current one. A new query starts at
     // the newest match, since the chat itself sits at the bottom.
     var findActive by rememberSaveable { mutableStateOf(false) }
@@ -276,6 +275,11 @@ fun ChatHomeScreen(
     var showSlashCommands by remember { mutableStateOf(false) }
     var showSidePanel by remember { mutableStateOf(false) }
     var showChatMenu by remember { mutableStateOf(false) }
+    // Scanned only while the menu or the sheet is open, not on every streamed token.
+    val artifacts =
+        remember(shownMessages, showChatMenu || showArtifacts) {
+            if (showChatMenu || showArtifacts) collectArtifacts(shownMessages) else emptyList()
+        }
     val haptics = rememberHaptics()
     val context = androidx.compose.ui.platform.LocalContext.current
     val imageSaveLauncher =

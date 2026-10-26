@@ -1394,4 +1394,5 @@
     <string name="artifact_preview">Просмотр</string>
     <string name="artifact_source">Исходник</string>
     <string name="artifact_unavailable">Не удалось показать этот файл.</string>
+    <string name="artifact_share">Поделиться файлом</string>
 </resources>

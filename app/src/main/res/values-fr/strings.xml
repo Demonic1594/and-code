@@ -1391,4 +1391,5 @@
     <string name="artifact_preview">Aperçu</string>
     <string name="artifact_source">Source</string>
     <string name="artifact_unavailable">Impossible d\'afficher ce fichier.</string>
+    <string name="artifact_share">Partager le fichier</string>
 </resources>

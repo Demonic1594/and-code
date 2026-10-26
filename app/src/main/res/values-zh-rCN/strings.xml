@@ -1385,4 +1385,5 @@
     <string name="artifact_preview">预览</string>
     <string name="artifact_source">源码</string>
     <string name="artifact_unavailable">无法显示此文件。</string>
+    <string name="artifact_share">分享文件</string>
 </resources>

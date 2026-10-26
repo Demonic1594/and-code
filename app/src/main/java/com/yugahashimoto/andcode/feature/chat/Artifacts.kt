@@ -1,6 +1,10 @@
 package com.yugahashimoto.andcode.feature.chat
 
 import com.yugahashimoto.andcode.core.localServerUrls
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
 
 /** What the app can show an artifact as, rather than as source text. */
 enum class ArtifactKind { HTML, SVG, MARKDOWN, IMAGE }
@@ -45,9 +49,18 @@ private val PREVIEWABLE =
 /** How [path] can be previewed, or null when it is only source to read. */
 fun artifactKindOf(path: String): ArtifactKind? = PREVIEWABLE[path.substringAfterLast('.', "").lowercase()]
 
-// The path a file tool wrote, in the shapes the runtimes use: OpenCode's `filePath`, Claude Code's
-// `file_path`, and a plain `path`.
-private val TOOL_FILE_PATH = Regex(""""(?:filePath|file_path|path)"\s*:\s*"((?:[^"\\]|\\.)+)"""")
+// The keys a file tool's input names its file by: OpenCode's `filePath`, Claude Code's `file_path`,
+// and a plain `path`.
+private val TOOL_FILE_PATH_KEYS = listOf("filePath", "file_path", "path")
+
+private val toolInputJson = Json { ignoreUnknownKeys = true }
+
+/** The file a writing tool's JSON [input] names, or null when it names none. */
+internal fun toolFilePath(input: String): String? =
+    runCatching { toolInputJson.parseToJsonElement(input).jsonObject }
+        .getOrNull()
+        ?.let { args -> TOOL_FILE_PATH_KEYS.firstNotNullOfOrNull { key -> (args[key] as? JsonPrimitive)?.contentOrNull } }
+        ?.takeIf { it.isNotBlank() }
 
 private val WRITING_TOOLS = setOf("write", "edit", "multiedit", "patch", "str_replace_based_edit_tool")
 
@@ -72,7 +85,7 @@ fun collectArtifacts(messages: List<ChatMessage>): List<Artifact> {
                 is ChatPart.Tool -> {
                     if (part.name.lowercase() in WRITING_TOOLS) {
                         part.input?.let { input ->
-                            TOOL_FILE_PATH.find(input)?.groupValues?.get(1)?.replace("\\/", "/")?.let { path ->
+                            toolFilePath(input)?.let { path ->
                                 artifactKindOf(path)?.let { add(Artifact.File(path, it)) }
                             }
                         }

@@ -1531,7 +1531,8 @@ class ChatViewModel(
                                     base64 = file.encoding == "base64" || file.type == "binary",
                                 )
                             },
-                            onFailure = { error -> ArtifactPreviewState.Failed(artifact, error.safeMessage("File could not be read")) },
+                            // The runtime's own words when it has some; otherwise the screen says it.
+                            onFailure = { error -> ArtifactPreviewState.Failed(artifact, error.message?.takeIf { it.isNotBlank() }) },
                         ),
                 )
             }

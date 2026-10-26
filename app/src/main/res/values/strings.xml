@@ -1410,4 +1410,5 @@
     <string name="artifact_preview">Preview</string>
     <string name="artifact_source">Source</string>
     <string name="artifact_unavailable">This file could not be shown.</string>
+    <string name="artifact_share">Share file</string>
 </resources>

@@ -29,6 +29,18 @@ class ClaudeWorkspaceFilesTest {
     }
 
     @Test
+    fun `a picture is read as base64 so it can be shown`() {
+        val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0, 0, 0, 0x0D)
+        File(workspace, "project/logo.png").writeBytes(png)
+
+        val file = files.read("/workspace/project", "logo.png")
+
+        assertEquals("base64", file.encoding)
+        assertEquals("image/png", file.mimeType)
+        assertEquals(png.toList(), java.util.Base64.getDecoder().decode(file.content).toList())
+    }
+
+    @Test
     fun `lists directories before files and reports sandbox paths`() {
         val nodes = files.list("/workspace/project", "")
 

@@ -1400,4 +1400,5 @@
     <string name="artifact_preview">معاينة</string>
     <string name="artifact_source">المصدر</string>
     <string name="artifact_unavailable">تعذّر عرض هذا الملف.</string>
+    <string name="artifact_share">مشاركة الملف</string>
 </resources>

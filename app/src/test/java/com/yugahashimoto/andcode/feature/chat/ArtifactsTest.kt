@@ -81,6 +81,26 @@ class ArtifactsTest {
     }
 
     @Test
+    fun `only real local hosts are taken, whatever their case or query`() {
+        assertEquals(
+            emptyList<String>(),
+            localServerUrls("see https://localhost.example.com/docs and http://127.0.0.1.nip.io and http://localhost:123456"),
+        )
+        assertTrue(isLocalServerUrl("HTTP://LOCALHOST:8080"))
+        assertTrue(isLocalServerUrl("http://localhost:3000?x=1"))
+        // Only the host moves to 127.0.0.1; a path that happens to say 0.0.0.0 is left alone.
+        assertEquals(listOf("http://127.0.0.1:8000/0.0.0.0"), localServerUrls("http://0.0.0.0:8000/0.0.0.0"))
+    }
+
+    @Test
+    fun `a tool's file path is read as JSON, escapes and all`() {
+        assertEquals("C:\\proj\\a.html", toolFilePath("""{"file_path":"C:\\proj\\a.html"}"""))
+        assertEquals("/w/é.md", toolFilePath("""{"filePath":"/w/\u00e9.md"}"""))
+        assertNull(toolFilePath("not json"))
+        assertNull(toolFilePath("""{"command":"ls"}"""))
+    }
+
+    @Test
     fun `a path inside the workspace is read relative to it`() {
         assertEquals("app/index.html", workspaceRelativePath("/w/proj/app/index.html", "/w/proj/"))
         assertEquals("/elsewhere/a.md", workspaceRelativePath("/elsewhere/a.md", "/w/proj"))
