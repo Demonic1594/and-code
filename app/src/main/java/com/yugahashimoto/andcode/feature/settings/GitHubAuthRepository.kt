@@ -11,6 +11,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.IOException
 import java.net.UnknownHostException
 
 /** Attempts before [retryOnUnknownHost] gives up and lets the [UnknownHostException] through. */
@@ -145,23 +146,6 @@ class GitHubAuthRepository(
             error("GitHub authorization timed out")
         }
 
-    suspend fun refreshAccount(accessToken: String? = token): GitHubAccount? =
-        withContext(Dispatchers.IO) {
-            accessToken ?: return@withContext null
-            val request =
-                Request.Builder()
-                    .url("https://api.github.com/user")
-                    .header("Authorization", "Bearer $accessToken")
-                    .header("Accept", "application/vnd.github+json")
-                    .build()
-            retryOnUnknownHost { client.newCall(request).execute() }.use { response ->
-                if (!response.isSuccessful) return@withContext null
-                val account = json.decodeFromString<GitHubAccount>(response.body?.string().orEmpty())
-                settings.githubLogin = account.login
-                account
-            }
-        }
-
     suspend fun listRepos(): List<GitHubRepo> =
         withContext(Dispatchers.IO) {
             val accessToken = token ?: return@withContext emptyList()
@@ -192,7 +176,7 @@ class GitHubAuthRepository(
         return account
     }
 
-    /** The account [accessToken] belongs to, or null when GitHub refuses it. Writes nothing. */
+    /** The account [accessToken] belongs to, or null when GitHub refuses it (401). Writes nothing. */
     suspend fun verifyAccount(accessToken: String): GitHubAccount? =
         withContext(Dispatchers.IO) {
             val request =
@@ -202,7 +186,10 @@ class GitHubAuthRepository(
                     .header("Accept", "application/vnd.github+json")
                     .build()
             retryOnUnknownHost { client.newCall(request).execute() }.use { response ->
-                if (!response.isSuccessful) return@withContext null
+                // Only 401 says the token itself is wrong; a rate limit, an SSO gate or an outage
+                // is GitHub being unavailable, not the user's mistake.
+                if (response.code == 401) return@withContext null
+                if (!response.isSuccessful) throw IOException("GitHub answered ${response.code}")
                 json.decodeFromString<GitHubAccount>(response.body?.string().orEmpty())
             }
         }

@@ -534,6 +534,7 @@
     <string name="github_token_create">Créer un jeton</string>
     <string name="github_token_rejected">GitHub n\'a pas accepté ce jeton.</string>
     <string name="github_unreachable">Impossible de joindre GitHub. Réessayez.</string>
+    <string name="github_link_failed">Aucun navigateur n\'a pu ouvrir le lien.</string>
     <string name="github_disconnect">Déconnecter GitHub</string>
     <string name="github_verification_code">Saisissez le code : %1$s</string>
     <string name="github_waiting_for_authorization">En attente d\'autorisation…</string>

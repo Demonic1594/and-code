@@ -407,6 +407,11 @@ class SettingsViewModel(
             }
     }
 
+    /** Says something went wrong on the GitHub screen, where its own messages show. */
+    fun reportGitHubError(message: String) {
+        githubState.value = githubState.value.copy(message = message)
+    }
+
     private fun onGitHubSignedIn() {
         githubState.value = GitHubState()
         settingsTick.update { it + 1 }

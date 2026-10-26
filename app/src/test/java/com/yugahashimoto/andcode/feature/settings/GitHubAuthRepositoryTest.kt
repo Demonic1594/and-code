@@ -123,6 +123,17 @@ class GitHubAuthRepositoryTest {
         }
 
     @Test
+    fun `GitHub being unavailable is not taken for a wrong token`() =
+        runTest {
+            val store = FakeAccountStore()
+            val repo = GitHubAuthRepository(store, stubClient(503, "{}", mutableListOf()), clientId = "")
+
+            assertThrows(IOException::class.java) { kotlinx.coroutines.runBlocking { repo.signIn("ghp_token") } }
+
+            assertEquals(null, store.githubToken)
+        }
+
+    @Test
     fun `checking a token writes nothing`() =
         runTest {
             val store = FakeAccountStore()

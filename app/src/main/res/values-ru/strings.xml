@@ -536,6 +536,7 @@
     <string name="github_token_create">Создать токен</string>
     <string name="github_token_rejected">GitHub не принял этот токен.</string>
     <string name="github_unreachable">Не удалось связаться с GitHub. Попробуйте ещё раз.</string>
+    <string name="github_link_failed">Не удалось открыть ссылку в браузере.</string>
     <string name="github_disconnect">Отключить GitHub</string>
     <string name="github_verification_code">Введите код: %1$s</string>
     <string name="github_waiting_for_authorization">Ожидание авторизации…</string>

@@ -534,6 +534,7 @@
     <string name="github_token_create">Crear un token</string>
     <string name="github_token_rejected">GitHub no aceptó ese token.</string>
     <string name="github_unreachable">No se pudo contactar con GitHub. Inténtalo de nuevo.</string>
+    <string name="github_link_failed">Ningún navegador pudo abrir el enlace.</string>
     <string name="github_disconnect">Desconectar GitHub</string>
     <string name="github_verification_code">Introduce el código: %1$s</string>
     <string name="github_waiting_for_authorization">Esperando autorización…</string>

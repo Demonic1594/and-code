@@ -530,6 +530,7 @@
     <string name="github_token_create">创建令牌</string>
     <string name="github_token_rejected">GitHub 未接受该令牌。</string>
     <string name="github_unreachable">无法连接 GitHub，请重试。</string>
+    <string name="github_link_failed">没有可打开该链接的浏览器。</string>
     <string name="github_disconnect">断开 GitHub</string>
     <string name="github_verification_code">输入代码：%1$s</string>
     <string name="github_waiting_for_authorization">等待授权…</string>

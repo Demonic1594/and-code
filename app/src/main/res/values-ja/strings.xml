@@ -532,6 +532,7 @@
     <string name="github_token_create">トークンを作成</string>
     <string name="github_token_rejected">GitHub がそのトークンを受け付けませんでした。</string>
     <string name="github_unreachable">GitHub に接続できませんでした。もう一度お試しください。</string>
+    <string name="github_link_failed">リンクを開けるブラウザがありませんでした。</string>
     <string name="github_disconnect">GitHubの接続を解除</string>
     <string name="github_verification_code">認証コード: %1$s</string>
     <string name="github_waiting_for_authorization">認証を待機中…</string>

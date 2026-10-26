@@ -490,7 +490,7 @@ fun NavGraphBuilder.settingsNavGraph(
             onSignInWithToken = settingsViewModel::signInWithGitHubToken,
             onCreateToken = {
                 if (!UrlLauncher.openUrl(context, GITHUB_NEW_TOKEN_URL)) {
-                    settingsViewModel.reportOAuthError(context.getString(R.string.provider_auth_failed))
+                    settingsViewModel.reportGitHubError(context.getString(R.string.github_link_failed))
                 }
             },
             onDisconnect = settingsViewModel::disconnectGitHub,

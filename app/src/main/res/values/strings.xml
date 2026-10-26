@@ -520,6 +520,7 @@
     <string name="github_token_create">Create a token</string>
     <string name="github_token_rejected">GitHub did not accept that token.</string>
     <string name="github_unreachable">GitHub could not be reached. Try again.</string>
+    <string name="github_link_failed">No browser could open the link.</string>
     <string name="github_disconnect">Disconnect GitHub</string>
     <string name="github_verification_code">Enter code: %1$s</string>
     <string name="github_waiting_for_authorization">Waiting for authorization…</string>

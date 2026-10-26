@@ -540,6 +540,7 @@
     <string name="github_token_create">إنشاء رمز</string>
     <string name="github_token_rejected">لم يقبل GitHub هذا الرمز.</string>
     <string name="github_unreachable">تعذّر الوصول إلى GitHub. حاول مرة أخرى.</string>
+    <string name="github_link_failed">تعذّر فتح الرابط في أي متصفح.</string>
     <string name="github_disconnect">قطع الاتصال بـ GitHub</string>
     <string name="github_verification_code">أدخل الرمز: %1$s</string>
     <string name="github_waiting_for_authorization">في انتظار التفويض…</string>
