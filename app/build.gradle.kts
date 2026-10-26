@@ -136,6 +136,10 @@ android {
         versionCode = 66
         versionName = "1.2.27"
         buildConfigField("String", "GITHUB_CLIENT_ID", "\"$githubClientId\"")
+        // Added to the bundled runtime manifest's port when a runtime is installed. Loopback is
+        // shared by every app on the device, so a debug build installed next to a release (see
+        // the debug block below) must not start its OpenCode server on the same port.
+        buildConfigField("int", "LOCAL_RUNTIME_PORT_OFFSET", "0")
 
         // The on-device runtime (see ANDROID_ABIS in scripts/prepare_android_runtime_native_libs.py)
         // only exists for these two ABIs. Without the filter JNA and Vosk drag in libraries for
@@ -196,6 +200,7 @@ android {
         // See docs/FORK.md before changing any of the three.
         debug {
             applicationIdSuffix = ".heap"
+            buildConfigField("int", "LOCAL_RUNTIME_PORT_OFFSET", "1")
         }
         release {
             isMinifyEnabled = true

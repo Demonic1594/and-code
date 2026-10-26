@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.runtime.local
 
 import android.content.Context
 import android.system.Os
+import com.yugahashimoto.andcode.BuildConfig
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import kotlinx.coroutines.Dispatchers
@@ -203,7 +204,7 @@ class LocalRuntimeInstaller(
                 val metadata =
                     LocalRuntimeMetadata(
                         version = if (withOpenCode) manifest.openCodeVersion else "",
-                        port = manifest.port,
+                        port = manifest.port + BuildConfig.LOCAL_RUNTIME_PORT_OFFSET,
                         installedAt = System.currentTimeMillis(),
                         runtimeVersion = manifest.runtimeVersion,
                         abi = abi,
