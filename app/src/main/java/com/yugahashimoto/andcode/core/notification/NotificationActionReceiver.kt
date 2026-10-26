@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Answers the run notifications' own buttons: Stop on the live notification, and Reply on a
@@ -81,8 +82,10 @@ class NotificationActionReceiver : BroadcastReceiver() {
         sessionId: String,
         text: String,
     ): PromptRequest {
+        // Capped well inside the action's own timeout: a long transcript must not eat the time
+        // the send itself needs. Without it the reply still goes out, on the chat's defaults.
         val last =
-            runCatching { backend.listMessages(sessionId) }
+            runCatching { withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { backend.listMessages(sessionId) } }
                 .getOrNull()
                 ?.lastOrNull { it.info.role == "user" }
                 ?.info
@@ -128,6 +131,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
     companion object {
         private const val TAG = "NotificationAction"
         private const val TIMEOUT_MS = 8_000L
+        private const val LOOKUP_TIMEOUT_MS = 3_000L
         const val ACTION_STOP = "com.yugahashimoto.andcode.STOP_RUN"
         const val ACTION_REPLY = "com.yugahashimoto.andcode.REPLY"
         const val KEY_REPLY = "reply_text"
