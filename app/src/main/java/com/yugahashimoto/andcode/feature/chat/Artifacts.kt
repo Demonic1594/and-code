@@ -54,8 +54,9 @@ fun artifactKindOf(path: String): ArtifactKind? = PREVIEWABLE[path.substringAfte
 // Antigravity's `TargetFile`, and a plain `path`.
 private val TOOL_FILE_PATH_KEYS = listOf("filePath", "file_path", "TargetFile", "targetFile", "target_file", "path")
 
-// The lines an `apply_patch` patch names the files it creates or changes by.
-private val PATCH_FILE_LINE = Regex("""^\*\*\* (?:Add|Update) File: (.+)$""", RegexOption.MULTILINE)
+// The lines an `apply_patch` patch names the files it creates or changes by, including where a file
+// it moves ends up.
+private val PATCH_FILE_LINE = Regex("""^\*\*\* (?:Add File|Update File|Move to): (.+)$""", RegexOption.MULTILINE)
 
 /**
  * The files a tool's raw [input] names: a file tool's path key, each entry of a Codex file change's
@@ -83,7 +84,7 @@ private fun JsonElement?.stringOrNull(): String? =
 
 // Every runtime's names for a tool that writes files: OpenCode's and Claude Code's, Codex's `patch`,
 // and Antigravity's.
-private val WRITING_TOOLS =
+internal val WRITING_TOOLS =
     setOf(
         "write",
         "edit",
@@ -118,9 +119,7 @@ fun collectArtifacts(messages: List<ChatMessage>): List<Artifact> {
             when (part) {
                 is ChatPart.Patch -> part.files.forEach { path -> artifactKindOf(path)?.let { add(Artifact.File(path, it)) } }
                 is ChatPart.Tool -> {
-                    if (part.name.lowercase() in WRITING_TOOLS) {
-                        part.filePaths.forEach { path -> artifactKindOf(path)?.let { add(Artifact.File(path, it)) } }
-                    }
+                    part.filePaths.forEach { path -> artifactKindOf(path)?.let { add(Artifact.File(path, it)) } }
                     part.output?.let { output -> localServerUrls(output).forEach { add(Artifact.Server(it)) } }
                 }
                 is ChatPart.Text -> localServerUrls(part.text).forEach { add(Artifact.Server(it)) }

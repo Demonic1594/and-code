@@ -36,8 +36,6 @@ class ArtifactsTest {
                         ChatPart.Tool("t1", "Write", ToolStatus.COMPLETED, filePaths = listOf("/w/docs/plan.md")),
                     ),
                     assistant(ChatPart.Tool("t2", "edit", ToolStatus.COMPLETED, filePaths = listOf("/w/app/index.html"))),
-                    // A file read is not something the agent made.
-                    assistant(ChatPart.Tool("t3", "read", ToolStatus.COMPLETED, filePaths = listOf("/w/other.svg"))),
                 ),
             )
 
@@ -106,10 +104,10 @@ class ArtifactsTest {
         )
         // OpenCode's apply_patch.
         assertEquals(
-            listOf("site/index.html", "README.md"),
+            listOf("site/index.html", "README.md", "a.md", "docs/a.md"),
             toolFilePaths(
                 json(
-                    """{"patchText":"*** Begin Patch\n*** Add File: site/index.html\n+<p>\n*** Update File: README.md\n*** Delete File: old.md\n*** End Patch"}""",
+                    """{"patchText":"*** Begin Patch\n*** Add File: site/index.html\n+<p>\n*** Update File: README.md\n*** Update File: a.md\n*** Move to: docs/a.md\n*** Delete File: old.md\n*** End Patch"}""",
                 ),
             ),
         )
@@ -117,24 +115,30 @@ class ArtifactsTest {
         assertEquals(emptyList<String>(), toolFilePaths(null))
     }
 
+    private fun openCodeTool(
+        tool: String,
+        input: String,
+    ) = OpenCodePart(
+        id = "t-$tool",
+        type = "tool",
+        tool = tool,
+        state = mapOf("status" to JsonPrimitive("completed"), "input" to json(input)),
+    ).toChatPart("m1")!!
+
     @Test
     fun `a file an OpenCode write made is an artifact, though its input is shown as text`() {
-        val part =
-            OpenCodePart(
-                id = "t1",
-                type = "tool",
-                tool = "write",
-                state =
-                    mapOf(
-                        "status" to JsonPrimitive("completed"),
-                        "input" to json("""{"filePath":"/workspace/game/index.html","content":"<html></html>"}"""),
+        val artifacts =
+            collectArtifacts(
+                listOf(
+                    assistant(
+                        openCodeTool("write", """{"filePath":"/workspace/game/index.html","content":"<html></html>"}"""),
+                        // A file read is not something the agent made.
+                        openCodeTool("read", """{"filePath":"/workspace/other.svg"}"""),
                     ),
-            ).toChatPart("m1")
+                ),
+            )
 
-        assertEquals(
-            listOf(Artifact.File("/workspace/game/index.html", ArtifactKind.HTML)),
-            collectArtifacts(listOf(assistant(part!!))),
-        )
+        assertEquals(listOf(Artifact.File("/workspace/game/index.html", ArtifactKind.HTML)), artifacts)
     }
 
     @Test
