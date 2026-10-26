@@ -90,13 +90,14 @@ private fun patchFilePaths(patch: String): List<String> {
 /**
  * Where a Codex file change leaves its file, or null when it deletes it. Its `kind` is either a bare
  * name or an object whose `type` names it, and an update that moves the file says where in
- * `move_path`.
+ * `move_path` (or `movePath`).
  */
 private fun codexChangedPath(change: JsonObject): String? {
     val kind = change["kind"]
     val kindName = (kind as? JsonObject)?.get("type").stringOrNull() ?: kind.stringOrNull()
     if (kindName == "delete") return null
-    return (kind as? JsonObject)?.get("move_path").stringOrNull() ?: change["path"].stringOrNull()
+    val movedTo = (kind as? JsonObject)?.let { it["move_path"].stringOrNull() ?: it["movePath"].stringOrNull() }
+    return movedTo ?: change["path"].stringOrNull()
 }
 
 private fun JsonElement?.stringOrNull(): String? =
