@@ -12,7 +12,7 @@ class DiffReviewTest {
             "index 1111111..2222222 100644",
             "--- a/Login.kt",
             "+++ b/Login.kt",
-            "@@ -10,4 +10,5 @@ class Login {",
+            "@@ -10,3 +10,4 @@ class Login {",
             "     val a = 1",
             "-    val vm = remember { LoginViewModel() }",
             "+    val vm = viewModel<LoginViewModel>()",
@@ -54,6 +54,28 @@ class DiffReviewTest {
     }
 
     @Test
+    fun `a hunk ends at its line counts so the next file's header is not read as code`() {
+        val parsed =
+            parseUnifiedDiff(
+                "--- a/A.kt\r\n+++ b/A.kt\r\n@@ -1 +1 @@\r\n-old\r\n+new\r\n" +
+                    "diff --git a/B.kt b/B.kt\r\n--- a/B.kt\r\n+++ b/B.kt\r\n@@ -0,0 +1,1 @@\r\n+born\r\n",
+            )
+        assertEquals(2, parsed.additions)
+        assertEquals(1, parsed.deletions)
+        assertEquals("diff --git a/B.kt b/B.kt", parsed.rows[5].text)
+        assertEquals(DiffRow.Kind.META, parsed.rows[5].kind)
+        // Carriage returns of a CRLF patch are not part of the code.
+        assertEquals("new", parsed.rows[4].text)
+        assertEquals(DiffRow(DiffRow.Kind.ADDED, "born", null, 1), parsed.rows.last())
+    }
+
+    @Test
+    fun `a diff without hunks keeps its header lines`() {
+        val parsed = parseUnifiedDiff("diff --git a/logo.png b/logo.png\nBinary files differ\n")
+        assertEquals(listOf(DiffRow.Kind.META, DiffRow.Kind.META), parsed.rows.map { it.kind })
+    }
+
+    @Test
     fun `a malformed hunk header leaves lines unnumbered instead of guessing`() {
         val rows = parseUnifiedDiff("@@ garbage @@\n+x\n").rows
         assertEquals(null, rows[1].newLine)
@@ -62,14 +84,14 @@ class DiffReviewTest {
     @Test
     fun `review message lists comments by file and line with the quoted code`() {
         val rows = parseUnifiedDiff(patch).rows
-        val added = rows.first { it.kind == DiffRow.Kind.ADDED }
-        val removed = rows.first { it.kind == DiffRow.Kind.REMOVED }
+        val added = rows.indexOfFirst { it.kind == DiffRow.Kind.ADDED }
+        val removed = rows.indexOfFirst { it.kind == DiffRow.Kind.REMOVED }
         val message =
             reviewCommentsMessage(
                 listOf(
-                    ReviewComment("b.kt", added.copy(newLine = 3), "rename this"),
-                    ReviewComment("Login.kt", added, " use hiltViewModel here "),
-                    ReviewComment("Login.kt", removed, "why remove `remember`?"),
+                    ReviewComment("b.kt", 0, rows[added].copy(newLine = 3), "rename this"),
+                    ReviewComment("Login.kt", added, rows[added], " use hiltViewModel here "),
+                    ReviewComment("Login.kt", removed, rows[removed], "why remove `remember`?"),
                 ),
             )
         assertEquals(

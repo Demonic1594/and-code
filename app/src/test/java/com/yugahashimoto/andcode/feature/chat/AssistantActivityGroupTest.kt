@@ -444,7 +444,7 @@ class AssistantActivityGroupTest {
     }
 
     @Test
-    fun `a message that changed files ends with one changes card listing each file once`() {
+    fun `a finished turn ends with one changes card listing each file once`() {
         val timeline =
             groupConversationTimeline(
                 listOf(
@@ -455,7 +455,7 @@ class AssistantActivityGroupTest {
                         ChatPart.Patch("p1", listOf("app/Login.kt", "app/Form.kt"), "a1"),
                         ChatPart.Patch("p2", listOf("app/Login.kt", "README.md"), "a1"),
                         ChatPart.Text("t1", "Done."),
-                    ),
+                    ).copy(completedAt = 2_000L),
                 ),
             )
 
@@ -467,8 +467,54 @@ class AssistantActivityGroupTest {
     }
 
     @Test
+    fun `a turn spread over several step messages keeps its activity whole and gets one card after the answer`() {
+        // OpenCode writes one assistant message per model step: the edits come steps before the answer.
+        val timeline =
+            groupConversationTimeline(
+                listOf(
+                    ChatMessage(id = "u1", isUser = true, timestamp = 1_000L, parts = listOf(ChatPart.Text("t0", "fix it"))),
+                    assistant("a1", tool("e1", "edit"), ChatPart.Patch("p1", listOf("app/Login.kt"), "a1")),
+                    assistant("a2", tool("e2", "edit"), ChatPart.Patch("p2", listOf("app/Form.kt", "app/Login.kt"), "a2")),
+                    assistant("a3", ChatPart.Text("t1", "Done.")).copy(completedAt = 5_000L),
+                ),
+            )
+
+        assertEquals(
+            listOf(
+                TimelineEntry.UserMessage::class,
+                TimelineEntry.Activity::class,
+                TimelineEntry.Body::class,
+                TimelineEntry.Changes::class,
+                TimelineEntry.Footer::class,
+            ),
+            timeline.map { it::class },
+        )
+        assertEquals(4, timeline.filterIsInstance<TimelineEntry.Activity>().single().parts.size)
+        val changes = timeline.filterIsInstance<TimelineEntry.Changes>().single()
+        assertEquals(listOf("app/Login.kt", "app/Form.kt"), changes.files)
+        assertEquals("changes:a1", changes.id)
+    }
+
+    @Test
+    fun `a running turn shows no changes card until it finishes`() {
+        val running =
+            listOf(
+                ChatMessage(id = "u1", isUser = true, parts = listOf(ChatPart.Text("t0", "fix it"))),
+                assistant("a1", tool("e1", "edit"), ChatPart.Patch("p1", listOf("app/Login.kt"), "a1")),
+            )
+        assertTrue(groupConversationTimeline(running).none { it is TimelineEntry.Changes })
+
+        // Cut short by the next prompt, it still shows what it changed, above that prompt.
+        val interrupted =
+            groupConversationTimeline(running + ChatMessage(id = "u2", isUser = true, parts = listOf(ChatPart.Text("t2", "stop"))))
+        val changes = interrupted.indexOfFirst { it is TimelineEntry.Changes }
+        assertTrue(changes in 0 until interrupted.indexOfLast { it is TimelineEntry.UserMessage })
+    }
+
+    @Test
     fun `a message without file changes has no changes card`() {
-        val timeline = groupConversationTimeline(listOf(assistant("a1", ChatPart.Text("t1", "No edits needed."))))
+        val timeline =
+            groupConversationTimeline(listOf(assistant("a1", ChatPart.Text("t1", "No edits needed.")).copy(completedAt = 1L)))
         assertTrue(timeline.none { it is TimelineEntry.Changes })
     }
 }

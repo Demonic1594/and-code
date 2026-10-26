@@ -520,6 +520,12 @@
     <string name="review_send_comments">إرسال إلى الوكيل (%1$d)</string>
     <string name="review_comment_delete">حذف التعليق</string>
     <string name="review_comments_pending">التعليقات: %1$d</string>
+    <string name="review_files_changed">الملفات المعدّلة: %1$d</string>
+    <string name="review_discard_title">هل تريد تجاهل تعليقاتك؟</string>
+    <string name="review_discard_body">لم تُرسَل التعليقات التي تركتها إلى الوكيل بعد.</string>
+    <string name="review_line_comment">التعليق على هذا السطر</string>
+    <string name="review_file_expanded">موسّع</string>
+    <string name="review_file_collapsed">مطويّ</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">عمليات GitHub Git</string>
     <string name="github_not_connected">غير متصل</string>

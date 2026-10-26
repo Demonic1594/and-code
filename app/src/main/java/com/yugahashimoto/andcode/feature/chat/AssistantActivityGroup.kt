@@ -38,8 +38,13 @@ sealed interface TimelineEntry {
     data class Todo(override val id: String, val todos: List<TodoItem>) : TimelineEntry
 
     /**
-     * The files one assistant message changed, surfaced as a card under the answer instead of
-     * only inside the collapsed activity: what an agent edited is the thing you most want to check.
+     * The files one finished turn changed, surfaced as a card under its answer instead of only
+     * inside the collapsed activity: what an agent edited is the thing you most want to check.
+     *
+     * One per turn, not per message: OpenCode writes a new assistant message for every model step,
+     * so the edits usually land in an earlier message than the answer. [messageId] is the first
+     * editing message's; the review screen shows only [files], so a backend that answers with the
+     * whole session's diff still shows this turn's files.
      */
     data class Changes(
         override val id: String,
@@ -117,6 +122,9 @@ fun groupConversationTimeline(messages: List<ChatMessage>): List<TimelineEntry> 
     // sticky todo bar could stay suppressed for what is actually a new todowrite update that
     // happened to reuse a prior call's id.
     val todoIdOccurrences = mutableMapOf<String, Int>()
+    // The turn's edits, gathered across all its messages and shown once the turn is over.
+    val turnFiles = linkedSetOf<String>()
+    var turnPatchMessageId: String? = null
 
     fun flush() {
         if (pending.isEmpty()) return
@@ -143,9 +151,20 @@ fun groupConversationTimeline(messages: List<ChatMessage>): List<TimelineEntry> 
         turnLastId = null
     }
 
+    // A turn still running shows no card yet: its file list would keep growing under the user.
+    // A turn the next prompt cut short (no completion time) still shows what it changed.
+    fun flushTurnChanges(interrupted: Boolean) {
+        val messageId = turnPatchMessageId ?: return
+        if (turnCompletedAt == null && !interrupted) return
+        entries += TimelineEntry.Changes("changes:$messageId", messageId, turnFiles.toList())
+        turnFiles.clear()
+        turnPatchMessageId = null
+    }
+
     messages.forEach { message ->
         if (message.isUser) {
             flush()
+            flushTurnChanges(interrupted = true)
             flushTurnFooter()
             lastUserAt = message.timestamp
             entries += TimelineEntry.UserMessage("user:${message.id}", message)
@@ -178,9 +197,16 @@ fun groupConversationTimeline(messages: List<ChatMessage>): List<TimelineEntry> 
                     flush()
                     // Footer must trail the error card the way it trails a body text entry.
                     entries += TimelineEntry.Error("error:${part.id}", part)
+                    flushTurnChanges(interrupted = false)
                     flushTurnFooter()
                 }
-                part !is ChatPart.Text -> pending += part
+                part !is ChatPart.Text -> {
+                    pending += part
+                    if (part is ChatPart.Patch && part.files.isNotEmpty()) {
+                        if (turnPatchMessageId == null) turnPatchMessageId = part.messageId
+                        turnFiles += part.files
+                    }
+                }
                 part.text.isNotBlank() -> {
                     flush()
                     entries += TimelineEntry.Body("body:${part.id}", message.id, part)
@@ -188,14 +214,9 @@ fun groupConversationTimeline(messages: List<ChatMessage>): List<TimelineEntry> 
                 else -> Unit
             }
         }
-        val patches = message.parts.filterIsInstance<ChatPart.Patch>()
-        val files = patches.flatMap { it.files }.distinct()
-        if (files.isNotEmpty()) {
-            flush()
-            entries += TimelineEntry.Changes("changes:${message.id}", patches.first().messageId, files)
-        }
     }
     flush()
+    flushTurnChanges(interrupted = false)
     flushTurnFooter()
     return entries.withUniqueIds()
 }

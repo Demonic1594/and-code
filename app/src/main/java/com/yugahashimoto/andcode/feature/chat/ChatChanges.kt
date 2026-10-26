@@ -18,13 +18,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.ui.components.FileTypeIcon
@@ -162,82 +166,98 @@ internal fun DiffCounts(
 internal fun ReviewDiffView(
     diff: ParsedDiff,
     comments: List<ReviewComment>,
-    onLineTap: (DiffRow) -> Unit,
+    onLineTap: (index: Int, row: DiffRow) -> Unit,
     onCommentTap: (ReviewComment) -> Unit,
 ) {
     val tc = LocalThemeColors.current
-    Column(modifier = Modifier.fillMaxWidth()) {
-        diff.rows.forEach { row ->
-            if (row.kind == DiffRow.Kind.META) return@forEach
-            val background =
-                when (row.kind) {
-                    DiffRow.Kind.ADDED -> tc.diffAddition
-                    DiffRow.Kind.REMOVED -> tc.diffDeletion
-                    DiffRow.Kind.HUNK -> MaterialTheme.colorScheme.surfaceVariant
-                    else -> Color.Transparent
-                }
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(background)
-                        .then(if (row.commentable) Modifier.clickable { onLineTap(row) } else Modifier),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Text(
-                    text = (row.newLine ?: row.oldLine)?.toString().orEmpty(),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontFamily = CodeFontFamily,
-                    color = LocalThemeColors.current.foregroundExtraMuted,
-                    modifier = Modifier.width(40.dp).padding(end = 6.dp, top = 1.dp),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                )
-                Text(
-                    text =
-                        when (row.kind) {
-                            DiffRow.Kind.ADDED -> "+"
-                            DiffRow.Kind.REMOVED -> "−"
-                            else -> " "
-                        },
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = CodeFontFamily,
-                    color =
-                        when (row.kind) {
-                            DiffRow.Kind.ADDED -> tc.success
-                            DiffRow.Kind.REMOVED -> tc.destructive
-                            else -> Color.Transparent
-                        },
-                    modifier = Modifier.width(14.dp),
-                )
-                Text(
-                    text = row.text,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = CodeFontFamily,
-                    color = if (row.kind == DiffRow.Kind.HUNK) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                    // Wrapped rather than scrolled sideways: on a phone a wrapped line is readable at a
-                    // glance, and one scroll position cannot be shared across many rows.
-                    modifier = Modifier.weight(1f).padding(end = Spacing.sm, top = 1.dp, bottom = 1.dp),
-                )
-            }
-            comments.filter { it.row == row }.forEach { comment ->
-                Surface(
-                    onClick = { onCommentTap(comment) },
-                    modifier = Modifier.fillMaxWidth().padding(start = 40.dp, end = Spacing.sm, top = Spacing.xs, bottom = Spacing.xs),
-                    shape = AppShapes.sm,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
+    // File headers say nothing a reviewer needs once there are hunks; a diff with none (a binary
+    // file, a pure rename) has only them to say what happened.
+    val showMeta = diff.rows.none { it.kind == DiffRow.Kind.HUNK }
+    val commentLabel = stringResource(R.string.review_line_comment)
+    // Code reads left to right in every locale: an RTL layout would put the gutter on the right
+    // and the +/- marks after the code.
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            diff.rows.forEachIndexed { index, row ->
+                if (row.kind == DiffRow.Kind.META && !showMeta) return@forEachIndexed
+                val background =
+                    when (row.kind) {
+                        DiffRow.Kind.ADDED -> tc.diffAddition
+                        DiffRow.Kind.REMOVED -> tc.diffDeletion
+                        DiffRow.Kind.HUNK, DiffRow.Kind.META -> MaterialTheme.colorScheme.surfaceVariant
+                        else -> Color.Transparent
+                    }
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(background)
+                            .then(
+                                if (row.commentable) {
+                                    Modifier.clickable(
+                                        onClickLabel = commentLabel,
+                                    ) { onLineTap(index, row) }
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                    verticalAlignment = Alignment.Top,
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
-                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    Text(
+                        text = (row.newLine ?: row.oldLine)?.toString().orEmpty(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontFamily = CodeFontFamily,
+                        color = LocalThemeColors.current.foregroundExtraMuted,
+                        modifier = Modifier.width(40.dp).padding(end = 6.dp, top = 1.dp),
+                        textAlign = TextAlign.End,
+                    )
+                    Text(
+                        text =
+                            when (row.kind) {
+                                DiffRow.Kind.ADDED -> "+"
+                                DiffRow.Kind.REMOVED -> "−"
+                                else -> " "
+                            },
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = CodeFontFamily,
+                        color =
+                            when (row.kind) {
+                                DiffRow.Kind.ADDED -> tc.success
+                                DiffRow.Kind.REMOVED -> tc.destructive
+                                else -> Color.Transparent
+                            },
+                        modifier = Modifier.width(14.dp),
+                    )
+                    Text(
+                        text = row.text,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = CodeFontFamily,
+                        color = if (row.commentable) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                        // Wrapped rather than scrolled sideways: on a phone a wrapped line is readable at a
+                        // glance, and one scroll position cannot be shared across many rows.
+                        modifier = Modifier.weight(1f).padding(end = Spacing.sm, top = 1.dp, bottom = 1.dp),
+                    )
+                }
+                comments.filter { it.rowIndex == index }.forEach { comment ->
+                    Surface(
+                        onClick = { onCommentTap(comment) },
+                        modifier = Modifier.fillMaxWidth().padding(start = 40.dp, end = Spacing.sm, top = Spacing.xs, bottom = Spacing.xs),
+                        shape = AppShapes.sm,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
                     ) {
-                        Icon(
-                            Icons.Outlined.RateReview,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Text(comment.text, style = MaterialTheme.typography.bodySmall)
+                        Row(
+                            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        ) {
+                            Icon(
+                                Icons.Outlined.RateReview,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Text(comment.text, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }

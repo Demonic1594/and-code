@@ -514,6 +514,12 @@
     <string name="review_send_comments">Enviar al agente (%1$d)</string>
     <string name="review_comment_delete">Eliminar comentario</string>
     <string name="review_comments_pending">Comentarios: %1$d</string>
+    <string name="review_files_changed">Archivos cambiados: %1$d</string>
+    <string name="review_discard_title">¿Descartar tus comentarios?</string>
+    <string name="review_discard_body">Los comentarios que dejaste no se han enviado al agente.</string>
+    <string name="review_line_comment">Comentar esta línea</string>
+    <string name="review_file_expanded">Expandido</string>
+    <string name="review_file_collapsed">Contraído</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">Operaciones Git de GitHub</string>
     <string name="github_not_connected">No conectado</string>

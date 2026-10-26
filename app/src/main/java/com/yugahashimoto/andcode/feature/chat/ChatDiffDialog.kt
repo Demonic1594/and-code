@@ -40,6 +40,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -67,31 +69,52 @@ fun ChatDiffDialog(
     val comments = remember(state.partId) { mutableStateListOf<ReviewComment>() }
     val collapsed = remember(state.partId) { mutableStateListOf<String>() }
     var editing by remember(state.partId) { mutableStateOf<ReviewComment?>(null) }
+    var confirmingDiscard by remember(state.partId) { mutableStateOf(false) }
     val loaded = state as? PatchDiffState.Loaded
     val parsed =
         remember(loaded) {
-            loaded?.changes.orEmpty().associate { change -> change.displayPath to parseUnifiedDiff(change.patch.orEmpty()) }
+            loaded
+                ?.changes
+                .orEmpty()
+                .associate { change ->
+                    val patch = change.patch
+                    // A change the runtime only counted has no lines to show, but still its counts.
+                    change.displayPath to
+                        if (patch.isNullOrEmpty()) {
+                            ParsedDiff(
+                                rows = emptyList(),
+                                additions = maxOf(change.additions.toInt(), change.added),
+                                deletions = maxOf(change.deletions.toInt(), change.removed),
+                            )
+                        } else {
+                            parseUnifiedDiff(patch)
+                        }
+                }
         }
+    // Only this turn's files: a runtime may answer with the whole session's diff.
+    val shown = remember(parsed, state.files) { state.files.mapNotNull { parsed[it] } }
+    // Unsent comments are the user's work; closing must not drop them without asking.
+    val close = { if (comments.isEmpty()) onDismiss() else confirmingDiscard = true }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("chat-review")) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(start = Spacing.xs, end = Spacing.lg, top = Spacing.sm, bottom = Spacing.xs),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onDismiss) {
+                IconButton(onClick = close) {
                     Icon(Icons.Default.Close, contentDescription = stringResource(R.string.activity_details_close))
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(stringResource(R.string.review_changes), style = MaterialTheme.typography.titleMedium)
-                    if (parsed.isNotEmpty()) {
+                    if (shown.isNotEmpty()) {
                         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = stringResource(R.string.file_changes_title) + " · " + state.files.size,
+                                text = stringResource(R.string.review_files_changed, state.files.size),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            DiffCounts(parsed.values.sumOf { it.additions }, parsed.values.sumOf { it.deletions })
+                            DiffCounts(shown.sumOf { it.additions }, shown.sumOf { it.deletions })
                         }
                     }
                 }
@@ -121,20 +144,23 @@ fun ChatDiffDialog(
                 }
                 items(state.files, key = { it }) { file ->
                     val diff = parsed[file]
+                    val foldable = diff?.rows?.isNotEmpty() == true
                     val isCollapsed = file in collapsed
+                    val stateLabel = stringResource(if (isCollapsed) R.string.review_file_collapsed else R.string.review_file_expanded)
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Box(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .clickable(enabled = diff != null) {
+                                    .clickable(enabled = foldable) {
                                         if (isCollapsed) collapsed.remove(file) else collapsed.add(file)
                                     }
+                                    .then(if (foldable) Modifier.semantics { stateDescription = stateLabel } else Modifier)
                                     .padding(vertical = Spacing.xs),
                         ) {
                             ChangedFileRow(file) {
-                                if (diff != null) {
-                                    DiffCounts(diff.additions, diff.deletions)
+                                if (diff != null) DiffCounts(diff.additions, diff.deletions)
+                                if (foldable) {
                                     Icon(
                                         if (isCollapsed) Icons.Default.ExpandMore else Icons.Default.ExpandLess,
                                         contentDescription = stringResource(R.string.cd_expand_collapse),
@@ -144,11 +170,11 @@ fun ChatDiffDialog(
                                 }
                             }
                         }
-                        if (diff != null && !isCollapsed && diff.rows.isNotEmpty()) {
+                        if (diff != null && foldable && !isCollapsed) {
                             ReviewDiffView(
                                 diff = diff,
                                 comments = comments.filter { it.file == file },
-                                onLineTap = { row -> editing = ReviewComment(file, row, "") },
+                                onLineTap = { index, row -> editing = ReviewComment(file, index, row, "") },
                                 onCommentTap = { comment -> editing = comment },
                             )
                         }
@@ -197,19 +223,37 @@ fun ChatDiffDialog(
     }
 
     editing?.let { draft ->
+        fun sameLine(comment: ReviewComment) = comment.file == draft.file && comment.rowIndex == draft.rowIndex
         CommentEditor(
             draft = draft,
-            isExisting = comments.any { it.file == draft.file && it.row == draft.row },
+            isExisting = comments.any(::sameLine),
             onSave = { text ->
-                comments.removeAll { it.file == draft.file && it.row == draft.row }
+                comments.removeAll(::sameLine)
                 if (text.isNotBlank()) comments += draft.copy(text = text.trim())
                 editing = null
             },
             onDelete = {
-                comments.removeAll { it.file == draft.file && it.row == draft.row }
+                comments.removeAll(::sameLine)
                 editing = null
             },
             onDismiss = { editing = null },
+        )
+    }
+
+    if (confirmingDiscard) {
+        AlertDialog(
+            onDismissRequest = { confirmingDiscard = false },
+            title = { Text(stringResource(R.string.review_discard_title)) },
+            text = { Text(stringResource(R.string.review_discard_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingDiscard = false
+                    onDismiss()
+                }) { Text(stringResource(R.string.code_discard_confirm), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingDiscard = false }) { Text(stringResource(R.string.cancel)) }
+            },
         )
     }
 }
