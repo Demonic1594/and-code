@@ -51,6 +51,7 @@ internal fun searchableText(entry: TimelineEntry): String =
                 }
             }
         is TimelineEntry.Todo -> entry.todos.joinToString("\n") { it.content }
+        is TimelineEntry.Changes -> entry.files.joinToString("\n")
         is TimelineEntry.Image -> ""
         is TimelineEntry.Footer -> ""
     }

@@ -180,6 +180,8 @@ fun ChatHomeScreen(
     /** Whether reasoning/thinking cards should start expanded when the activity sheet opens. */
     autoExpandReasoning: Boolean = false,
     onSendMessage: (String) -> Unit,
+    /** Sends the diff review's comments without the composer's draft or attachments. */
+    onSendReview: (String) -> Unit = {},
     /** False for a runtime that cannot delete a message server-side, so "Edit & resend" is hidden. */
     canEditMessages: Boolean = false,
     /** Removes the last user message (and its reply) and hands its text back via [state]'s edit draft. */
@@ -617,6 +619,7 @@ fun ChatHomeScreen(
                                         is TimelineEntry.Image -> null
                                         is TimelineEntry.Activity -> null
                                         is TimelineEntry.Todo -> null
+                                        is TimelineEntry.Changes -> null
                                         is TimelineEntry.Error -> null
                                         is TimelineEntry.Footer -> null
                                     }
@@ -646,6 +649,7 @@ fun ChatHomeScreen(
                                         onOpenActivity = { activityGroupId = it },
                                         onImageClick = { selectedImage = it },
                                         onOpenProviderSettings = onOpenProviderSettings,
+                                        onOpenChanges = onOpenPatchDiff,
                                     )
                                 }
                             }
@@ -938,7 +942,7 @@ fun ChatHomeScreen(
     }
 
     state.patchDiff?.let { patchDiff ->
-        ChatDiffDialog(state = patchDiff, onDismiss = onDismissPatchDiff)
+        ChatDiffDialog(state = patchDiff, onDismiss = onDismissPatchDiff, onSendReview = onSendReview)
     }
 
     showActionSheet?.let { target ->

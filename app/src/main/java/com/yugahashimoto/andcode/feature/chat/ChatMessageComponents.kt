@@ -172,6 +172,7 @@ fun TimelineEntryRow(
     onOpenActivity: (String) -> Unit = {},
     onImageClick: (ChatImageSource) -> Unit = {},
     onOpenProviderSettings: (() -> Unit)? = null,
+    onOpenChanges: (ChatPart.Patch) -> Unit = {},
 ) {
     when (entry) {
         is TimelineEntry.UserMessage -> MessageBubble(entry.message, onImageClick)
@@ -184,6 +185,7 @@ fun TimelineEntryRow(
                 onClick = { onOpenActivity(entry.id) },
             )
         is TimelineEntry.Todo -> TodoTimelineCard(entry.todos)
+        is TimelineEntry.Changes -> ChangesCard(entry, onReview = { onOpenChanges(entry.patch) })
         is TimelineEntry.Footer -> MessageFooter(entry)
     }
 }

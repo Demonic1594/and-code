@@ -373,6 +373,45 @@ class ChatViewModelTest {
         }
 
     @Test
+    fun `sending a review leaves the composer's attachments for the user's own message`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.addAttachment(PromptAttachment("photo.jpg", "image/jpeg", "data:image/jpeg;base64,/9j/4AAQ"))
+
+            viewModel.sendReview("Please address these review comments")
+            advanceUntilIdle()
+
+            val request = backend.sentPrompts.single().second
+            assertEquals("Please address these review comments", request.text)
+            assertTrue(request.attachments.isEmpty())
+            assertEquals(listOf("photo.jpg"), viewModel.uiState.value.attachments.map { it.filename })
+        }
+
+    @Test
+    fun `a review sent while a turn runs waits for it instead of interrupting`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(abortsBeforeInterrupt = true))
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+
+            viewModel.sendReview("review")
+            advanceUntilIdle()
+            assertEquals(listOf("prompt:first"), backend.calls)
+            // Attached while the review waits: it belongs to the user's next message, not the review.
+            viewModel.addAttachment(PromptAttachment("photo.jpg", "image/jpeg", "data:image/jpeg;base64,/9j/4AAQ"))
+
+            backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+            assertEquals(listOf("prompt:first", "prompt:review"), backend.calls)
+            assertTrue(backend.sentPrompts.last().second.attachments.isEmpty())
+            assertEquals(listOf("photo.jpg"), viewModel.uiState.value.attachments.map { it.filename })
+        }
+
+    @Test
     fun `video attachment is blocked instead of failing the session`() =
         runTest(dispatcher) {
             val backend = FakeBackend()

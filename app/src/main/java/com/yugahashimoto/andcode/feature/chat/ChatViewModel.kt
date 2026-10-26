@@ -271,6 +271,8 @@ private data class QueuedPrompt(
     val text: String,
     val attachments: List<PromptAttachment>,
     val imagePreviews: List<Bitmap>,
+    /** False for a review from the diff screen, which must not touch the composer when it goes out. */
+    val fromComposer: Boolean = true,
 )
 
 internal fun OpenCodePart.toChatPart(messageId: String): ChatPart? {
@@ -1415,11 +1417,24 @@ class ChatViewModel(
         return if (text.isBlank()) refs else "$text\n\n$refs"
     }
 
-    fun sendMessage(text: String) {
+    fun sendMessage(text: String) = send(text, fromComposer = true)
+
+    /**
+     * Sends review comments from the diff review screen. Unlike [sendMessage] it leaves the
+     * composer alone - an attachment or draft waiting there is not part of the review and must not
+     * go out with it - and it queues behind a running turn rather than interrupting it: the
+     * comments are about the turn's result, so cutting the turn short would review half of it.
+     */
+    fun sendReview(text: String) = send(text, fromComposer = false)
+
+    private fun send(
+        text: String,
+        fromComposer: Boolean,
+    ) {
         val normalized = text.trim()
-        val pendingAttachments = _uiState.value.attachments
+        val pendingAttachments = if (fromComposer) _uiState.value.attachments else emptyList()
         val messageIdsBeforeSend = _uiState.value.messages.map { it.id }.toSet()
-        val pendingPreviews = _uiState.value.imagePreviews
+        val pendingPreviews = if (fromComposer) _uiState.value.imagePreviews else emptyList()
         val pendingPreviewsByFilename =
             pendingAttachments
                 .filter { it.mime.startsWith("image/") }
@@ -1450,7 +1465,7 @@ class ChatViewModel(
 
         // A known backend command or skill is executed through the runtime's own command handling
         // (OpenCode expands the template server-side) rather than sent as a plain prompt.
-        val slashCommand = matchSlashCommand(normalized)
+        val slashCommand = if (fromComposer) matchSlashCommand(normalized) else null
         if (slashCommand != null) {
             sendSlashCommand(slashCommand.first, slashCommand.second)
             return
@@ -1458,22 +1473,22 @@ class ChatViewModel(
 
         if (!_uiState.value.isConnected) {
             offlineMessageQueue.update {
-                it + QueuedPrompt(outgoingText, modelAttachments, _uiState.value.imagePreviews)
+                it + QueuedPrompt(outgoingText, modelAttachments, pendingPreviews, fromComposer)
             }
             val userMessage =
                 ChatMessage(
                     isUser = true,
                     parts = listOf(ChatPart.Text(id = UUID.randomUUID().toString(), text = outgoingText)),
                     attachments = pendingAttachments,
-                    imagePreviews = _uiState.value.imagePreviews,
+                    imagePreviews = pendingPreviews,
                 )
             _uiState.update {
                 it.copy(
                     messages = it.messages + userMessage,
                     offlineQueue = it.offlineQueue + outgoingText,
                     isOfflineQueued = true,
-                    attachments = emptyList(),
-                    imagePreviews = emptyList(),
+                    attachments = if (fromComposer) emptyList() else it.attachments,
+                    imagePreviews = if (fromComposer) emptyList() else it.imagePreviews,
                 )
             }
             return
@@ -1483,11 +1498,11 @@ class ChatViewModel(
         // it - interrupting there kills the in-flight one-shot process instead of cancelling a
         // request, which surfaced as a crash. See RuntimeCapabilities.forcesQueue.
         val mustQueue = (currentBackend as? RuntimeTarget)?.capabilities?.forcesQueue == true
-        if ((_sendBehavior.value == "queue" || mustQueue) && _uiState.value.isRunning) {
+        if ((_sendBehavior.value == "queue" || mustQueue || !fromComposer) && _uiState.value.isRunning) {
             messageQueue.update {
-                it + QueuedPrompt(outgoingText, modelAttachments, _uiState.value.imagePreviews)
+                it + QueuedPrompt(outgoingText, modelAttachments, pendingPreviews, fromComposer)
             }
-            _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
+            if (fromComposer) _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
             return
         }
         val interrupting = _uiState.value.isRunning
@@ -1500,7 +1515,7 @@ class ChatViewModel(
                         listOf(ChatPart.Text(id = UUID.randomUUID().toString(), text = it))
                     }.orEmpty(),
                 attachments = pendingAttachments,
-                imagePreviews = _uiState.value.imagePreviews,
+                imagePreviews = pendingPreviews,
             )
         _uiState.update {
             it.copy(
@@ -1572,8 +1587,10 @@ class ChatViewModel(
                     .onSuccess { title ->
                         if (title.isNotBlank()) _uiState.update { it.copy(sessionTitle = title) }
                     }
-                _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
-                clearDraft(targetSessionId)
+                if (fromComposer) {
+                    _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
+                    clearDraft(targetSessionId)
+                }
                 var sessionCompleted = false
 
                 // Every update below is guarded on the chat still being on screen: if the user
@@ -2704,6 +2721,10 @@ class ChatViewModel(
      * just started and take its place. See [interruptRunningTurn].
      */
     private fun sendQueued(queuedPrompt: QueuedPrompt) {
+        if (!queuedPrompt.fromComposer) {
+            send(queuedPrompt.text, fromComposer = false)
+            return
+        }
         _uiState.update {
             it.copy(
                 attachments = queuedPrompt.attachments,

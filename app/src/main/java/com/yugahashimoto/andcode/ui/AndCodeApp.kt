@@ -1241,6 +1241,7 @@ fun AndCodeApp(
                                 enterToSend = preferences.enterToSend,
                                 autoExpandReasoning = preferences.autoExpandReasoning,
                                 onSendMessage = chatViewModel::sendMessage,
+                                onSendReview = chatViewModel::sendReview,
                                 canEditMessages = selectedRuntime?.capabilities?.editMessages == true,
                                 onEditLastMessage = chatViewModel::editLastUserMessage,
                                 onEditDraftConsumed = chatViewModel::consumeEditDraft,
