@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.data.repository
 
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
+import com.yugahashimoto.andcode.core.api.OpenCodePart
 import com.yugahashimoto.andcode.core.api.PermissionRequest
 import com.yugahashimoto.andcode.core.api.QuestionRequest
 import com.yugahashimoto.andcode.core.api.sessionIdOrNull
@@ -33,6 +34,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 data class RuntimeEventLog(
     val timestamp: Long = System.currentTimeMillis(),
@@ -55,6 +58,11 @@ data class RuntimeActivityState(
     val permissions: List<PermissionRequest> = emptyList(),
     val logs: List<RuntimeEventLog> = emptyList(),
     val streamError: String? = null,
+    /**
+     * What each running chat is doing right now ("bash · ./gradlew test"), from its latest tool
+     * event. Read only for chats in [activeSessionIds]; the live run notification shows it.
+     */
+    val currentSteps: Map<String, String> = emptyMap(),
 )
 
 class RuntimeActivityRepository(
@@ -498,7 +506,12 @@ class RuntimeActivityRepository(
                 val sessionId = event.part.sessionId ?: return
                 activateSession(target, sessionId)
                 when (event.part.type) {
-                    "tool", "tool-invocation" -> appendLog(messages.eventTool, event.part.tool, sessionId)
+                    "tool", "tool-invocation" -> {
+                        appendLog(messages.eventTool, event.part.tool, sessionId)
+                        toolStep(event.part)?.let { step ->
+                            mutableState.update { current -> current.copy(currentSteps = current.currentSteps + (sessionId to step)) }
+                        }
+                    }
                     "reasoning" -> appendLog(messages.eventReasoning, null, sessionId)
                 }
             }
@@ -526,6 +539,7 @@ class RuntimeActivityRepository(
                         completedSessionIds = current.completedSessionIds + event.sessionId,
                         settledSessionIds = current.settledSessionIds + event.sessionId,
                         mutedSessionIds = current.mutedSessionIds - event.sessionId,
+                        currentSteps = current.currentSteps - event.sessionId,
                     )
                 }
                 appendLog(messages.eventCompleted, null, event.sessionId)
@@ -732,4 +746,18 @@ class RuntimeActivityRepository(
     companion object {
         private const val MAX_LOGS = 100
     }
+}
+
+/**
+ * A one-line description of a tool call for the live run notification: its title when the agent
+ * gave one ("./gradlew test"), led by the tool's name, or just the name. Null for a call that has
+ * already finished, so a completed step does not linger as "what it is doing now".
+ */
+internal fun toolStep(part: OpenCodePart): String? {
+    val tool = part.tool?.takeIf(String::isNotBlank) ?: return null
+    val state = part.state.orEmpty()
+    val status = (state["status"] as? JsonPrimitive)?.contentOrNull
+    if (status == "completed" || status == "error") return null
+    val title = (state["title"] as? JsonPrimitive)?.contentOrNull?.trim()?.takeIf(String::isNotBlank)
+    return if (title == null || title == tool) tool else "$tool · $title"
 }

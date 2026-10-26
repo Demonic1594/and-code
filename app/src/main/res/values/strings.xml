@@ -485,6 +485,14 @@
     <string name="chat_suggest_fix">Find and fix a bug</string>
     <string name="chat_suggest_tests">Write tests for the code I changed</string>
     <string name="chat_suggest_review">Review my uncommitted changes</string>
+    <string name="notification_live_working">Working…</string>
+    <string name="notification_live_many">%1$d chats running</string>
+    <string name="notification_channel_live">Running chats</string>
+    <string name="notification_channel_live_description">Shows which chats are running, what they are doing and for how long, with a Stop button.</string>
+    <string name="notification_reply">Reply</string>
+    <string name="notification_reply_hint">Reply to the agent</string>
+    <string name="notification_reply_failed">Couldn\'t send your reply</string>
+    <string name="notification_reply_failed_body">Open the chat or try replying again.</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">GitHub Git operations</string>
     <string name="github_not_connected">Not connected</string>

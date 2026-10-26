@@ -15,6 +15,7 @@ import com.yugahashimoto.andcode.core.lifecycle.AppForeground
 import com.yugahashimoto.andcode.core.lifecycle.ForegroundReturnDetector
 import com.yugahashimoto.andcode.core.lifecycle.ProcessLifecycleAppForeground
 import com.yugahashimoto.andcode.core.locale.AppLanguage
+import com.yugahashimoto.andcode.core.notification.LiveRunNotifier
 import com.yugahashimoto.andcode.core.notification.RuntimeNotificationHelper
 import com.yugahashimoto.andcode.core.runtime.RuntimeWorkTracker
 import com.yugahashimoto.andcode.core.storage.DeviceStorage
@@ -588,6 +589,13 @@ class AndCodeApplication : Application() {
             activeSessionIds = { activityRepository.state.value.activeSessionIds },
             preferences = preferences.state,
             scope = applicationScope,
+        ).start()
+        LiveRunNotifier(
+            context = this,
+            scope = applicationScope,
+            activity = activityRepository.state,
+            sessions = catalogRepository.allSessions,
+            agentName = { ref -> ref?.agent?.let { getString(it.displayNameRes) } },
         ).start()
         // A chat or agent run in flight is real work happening on the runtime's proot process,
         // so it holds the device awake until the session settles - wired here rather than inside

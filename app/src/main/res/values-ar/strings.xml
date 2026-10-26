@@ -505,6 +505,14 @@
     <string name="chat_suggest_fix">ابحث عن خطأ وأصلحه</string>
     <string name="chat_suggest_tests">اكتب اختبارات للشيفرة التي غيّرتها</string>
     <string name="chat_suggest_review">راجع تغييراتي غير المحفوظة</string>
+    <string name="notification_live_working">يعمل…</string>
+    <string name="notification_live_many">عدد المحادثات الجارية: %1$d</string>
+    <string name="notification_channel_live">المحادثات الجارية</string>
+    <string name="notification_channel_live_description">يعرض المحادثات الجارية وما تفعله ومدة تشغيلها، مع زر للإيقاف.</string>
+    <string name="notification_reply">رد</string>
+    <string name="notification_reply_hint">الرد على الوكيل</string>
+    <string name="notification_reply_failed">تعذّر إرسال ردك</string>
+    <string name="notification_reply_failed_body">افتح المحادثة أو حاول الرد مرة أخرى.</string>
     <string name="chat_token_speed">%1$s tok/s</string>
     <string name="github_git_operations">عمليات GitHub Git</string>
     <string name="github_not_connected">غير متصل</string>

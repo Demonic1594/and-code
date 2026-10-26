@@ -53,11 +53,13 @@ it too.
 | App shortcuts | Long-press the app icon | Up to two pinned chats, then New chat, Workspaces and Schedules, cut to as many as the launcher shows. Ignored until onboarding is done. |
 | Quick Settings tile | Edit Quick Settings → **AndCode prompt** | Opens the quick-prompt box from the home screen widget. Asks you to unlock first. |
 | Schedule templates | Schedules → new schedule → **Start from a template** | Daily change summary, weekly dependency check, nightly test run, TODO sweep, monthly security review. Each one fills in the name, prompt and timing. Templates are only offered for a new schedule. |
+| Live run notification | Notification shade, while a chat runs | One silent, ongoing notification: the chat's title, its agent and the step in flight ("bash · ./gradlew test"), a running clock and **Stop**. Several running chats share one notification that lists each. Subagent sessions are left out; their parent stands for them. Its own channel, **Running chats**, can be turned off in Android's notification settings. |
+| Reply from a notification | "Chat finished" and "Chat failed" notices → **Reply** | Type the next instruction in the shade; it is sent to that chat and the live notification takes over. If sending fails, the notice comes back with Reply on it. Approval notices already have Allow once, Always allow and Reject. |
 
 ## Not done yet
 
 Researched and ranked in the landscape doc but not built: checkpoints / rewind, per-workspace
-rules, an AI-written commit message button, saved prompts stored as files in the repo, an ongoing "run in progress" notification, an
+rules, an AI-written commit message button, saved prompts stored as files in the repo, an
 interactive PTY terminal, one worktree per chat, best-of-N attempts, inline diff comments, E2E
 relay pairing, spec-driven templates, an agent tasks inbox, a dev-server preview button and an
 issue-to-chat entry point.
