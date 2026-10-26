@@ -120,6 +120,10 @@ class SettingsViewModel(
     private val providerDisconnectRejectedMessage: String = "Provider disconnect was not accepted",
     /** Shown when GitHub does not accept a pasted token; localized by the app. */
     private val githubTokenRejectedMessage: String = "GitHub did not accept that token.",
+    /** Shown when GitHub cannot be reached to check a token; localized by the app. */
+    private val githubUnreachableMessage: String = "GitHub could not be reached. Try again.",
+    /** Replaces the GitHub client for tests. */
+    githubAuthOverride: GitHubAuthRepository? = null,
     private val customProviderInvalidMessage: String = "Enter a provider id, base URL, and at least one model id",
     private val modelFetcher: CustomProviderModelFetcher = CustomProviderModelFetcher(),
     private val customProviderFetchNeedsBaseUrlMessage: String = "Enter a base URL first",
@@ -142,10 +146,13 @@ class SettingsViewModel(
     private val githubState = MutableStateFlow(GitHubState())
     private var providerAuthJob: Job? = null
     private val githubAuth =
-        GitHubAuthRepository(
+        githubAuthOverride ?: GitHubAuthRepository(
             settings = settings,
             clientId = com.yugahashimoto.andcode.BuildConfig.GITHUB_CLIENT_ID,
         )
+
+    /** The sign-in in progress, device flow or token; one at a time. */
+    private var githubJob: Job? = null
     var onLocalRuntimeRestartNeeded: (() -> Unit)? = null
     var onProviderAuthCompleted: (() -> Unit)? = null
 
@@ -361,47 +368,53 @@ class SettingsViewModel(
     ) = preferences.toggleModelVisibility(providerId, modelId)
 
     fun beginGitHubDeviceFlow() {
-        viewModelScope.launch {
-            runCatching {
-                val code = githubAuth.requestDeviceCode()
-                githubState.value = GitHubState(deviceCode = code, polling = true)
-                val accessToken = githubAuth.pollToken(code.deviceCode, code.intervalSeconds, code.expiresInSeconds)
-                checkNotNull(githubAuth.refreshAccount(accessToken)) { "GitHub account could not be verified" }
-                githubAuth.saveToken(accessToken)
-            }.onSuccess {
-                githubState.value = GitHubState()
-                settingsTick.update { it + 1 }
-                onLocalRuntimeRestartNeeded?.invoke()
-            }.onFailure { error ->
-                githubState.value = GitHubState(message = error.message ?: "GitHub authorization failed")
+        if (githubJob?.isActive == true) return
+        githubJob =
+            viewModelScope.launch {
+                runCatching {
+                    val code = githubAuth.requestDeviceCode()
+                    githubState.value = GitHubState(deviceCode = code, polling = true)
+                    val accessToken = githubAuth.pollToken(code.deviceCode, code.intervalSeconds, code.expiresInSeconds)
+                    githubAuth.signIn(accessToken)
+                }.onSuccess {
+                    onGitHubSignedIn()
+                }.onFailure { error ->
+                    if (error is CancellationException) throw error
+                    githubState.value = GitHubState(message = error.message ?: "GitHub authorization failed")
+                }
             }
-        }
     }
 
     /**
      * Signs in with a personal access token pasted by the user - the way in that needs no OAuth
-     * app, so it works in every build, including one built without GITHUB_CLIENT_ID. The token is
-     * checked against GitHub before it is kept: a typo must not look like a connected account.
+     * app, so it works in every build, including one built without GITHUB_CLIENT_ID. A device
+     * flow still waiting is given up: it would otherwise sign in over this token later.
      */
     fun signInWithGitHubToken(token: String) {
         val trimmed = token.trim()
         if (trimmed.isEmpty() || githubState.value.verifyingToken) return
+        githubJob?.cancel()
         githubState.value = GitHubState(verifyingToken = true)
-        viewModelScope.launch {
-            runCatching {
-                checkNotNull(githubAuth.refreshAccount(trimmed)) { githubTokenRejectedMessage }
-                githubAuth.saveToken(trimmed)
-            }.onSuccess {
-                githubState.value = GitHubState()
-                settingsTick.update { it + 1 }
-                onLocalRuntimeRestartNeeded?.invoke()
-            }.onFailure { error ->
-                githubState.value = GitHubState(message = error.message ?: githubTokenRejectedMessage)
+        githubJob =
+            viewModelScope.launch {
+                runCatching { githubAuth.signIn(trimmed) }
+                    .onSuccess { onGitHubSignedIn() }
+                    .onFailure { error ->
+                        if (error is CancellationException) throw error
+                        val message = if (error is GitHubTokenRejectedException) githubTokenRejectedMessage else githubUnreachableMessage
+                        githubState.value = GitHubState(message = message)
+                    }
             }
-        }
+    }
+
+    private fun onGitHubSignedIn() {
+        githubState.value = GitHubState()
+        settingsTick.update { it + 1 }
+        onLocalRuntimeRestartNeeded?.invoke()
     }
 
     fun disconnectGitHub() {
+        githubJob?.cancel()
         githubAuth.disconnect()
         githubState.value = GitHubState()
         settingsTick.update { it + 1 }

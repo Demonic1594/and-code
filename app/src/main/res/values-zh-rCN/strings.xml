@@ -524,11 +524,12 @@
     <string name="github_intro">连接 GitHub 以进行仓库、Git、拉取请求和 Actions 工作流操作。</string>
     <string name="github_client_id_missing">此版本未配置一键 GitHub 登录。请改用下方的个人访问令牌登录。</string>
     <string name="github_token_section">使用个人访问令牌登录</string>
-    <string name="github_token_help">请授予 repo 和 workflow 权限。令牌会经 GitHub 验证，并且只保存在此设备上。</string>
+    <string name="github_token_help">该链接会勾选应用所需的权限。令牌会经 GitHub 验证，并且只保存在此设备上。</string>
     <string name="github_token_hint">个人访问令牌</string>
     <string name="github_token_sign_in">使用令牌登录</string>
     <string name="github_token_create">创建令牌</string>
     <string name="github_token_rejected">GitHub 未接受该令牌。</string>
+    <string name="github_unreachable">无法连接 GitHub，请重试。</string>
     <string name="github_disconnect">断开 GitHub</string>
     <string name="github_verification_code">输入代码：%1$s</string>
     <string name="github_waiting_for_authorization">等待授权…</string>

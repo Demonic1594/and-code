@@ -5,11 +5,16 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.yugahashimoto.andcode.data.repository.UnreadSessionStore
+import com.yugahashimoto.andcode.feature.settings.GitHubAccountStore
 import com.yugahashimoto.andcode.feature.wakeword.WakeWordGrammar
 import com.yugahashimoto.andcode.runtime.RuntimeConnectionStore
 import com.yugahashimoto.andcode.runtime.local.AdbConnectionStore
 
-class SecureSettingsRepository(context: Context) : RuntimeConnectionStore, UnreadSessionStore, AdbConnectionStore {
+class SecureSettingsRepository(context: Context) :
+    RuntimeConnectionStore,
+    UnreadSessionStore,
+    AdbConnectionStore,
+    GitHubAccountStore {
     private val masterKey =
         MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -337,11 +342,11 @@ class SecureSettingsRepository(context: Context) : RuntimeConnectionStore, Unrea
                 .apply()
         }
 
-    var githubToken: String?
+    override var githubToken: String?
         get() = preferences.getString(KEY_GITHUB_TOKEN, null)
         set(value) = preferences.edit().putString(KEY_GITHUB_TOKEN, value).apply()
 
-    var githubLogin: String?
+    override var githubLogin: String?
         get() = preferences.getString(KEY_GITHUB_LOGIN, null)
         set(value) = preferences.edit().putString(KEY_GITHUB_LOGIN, value).apply()
 
@@ -361,7 +366,7 @@ class SecureSettingsRepository(context: Context) : RuntimeConnectionStore, Unrea
         get() = preferences.getBoolean(KEY_GITHUB_STAR_THANK_YOU_SHOWN, false)
         set(value) = preferences.edit().putBoolean(KEY_GITHUB_STAR_THANK_YOU_SHOWN, value).apply()
 
-    var githubStarredCache: Boolean?
+    override var githubStarredCache: Boolean?
         get() = if (preferences.contains(KEY_GITHUB_STARRED_CACHE)) preferences.getBoolean(KEY_GITHUB_STARRED_CACHE, false) else null
         set(value) {
             val editor = preferences.edit()
@@ -369,7 +374,7 @@ class SecureSettingsRepository(context: Context) : RuntimeConnectionStore, Unrea
             editor.apply()
         }
 
-    var githubStarStatusCheckedAt: Long
+    override var githubStarStatusCheckedAt: Long
         get() = preferences.getLong(KEY_GITHUB_STAR_STATUS_CHECKED_AT, 0L)
         set(value) = preferences.edit().putLong(KEY_GITHUB_STAR_STATUS_CHECKED_AT, value).apply()
 

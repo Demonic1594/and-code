@@ -66,6 +66,8 @@ val viewModelModule =
                     androidContext().getString(com.yugahashimoto.andcode.R.string.provider_disconnect_rejected),
                 githubTokenRejectedMessage =
                     androidContext().getString(com.yugahashimoto.andcode.R.string.github_token_rejected),
+                githubUnreachableMessage =
+                    androidContext().getString(com.yugahashimoto.andcode.R.string.github_unreachable),
                 customProviderInvalidMessage =
                     androidContext().getString(com.yugahashimoto.andcode.R.string.provider_custom_invalid),
                 modelFetcher = CustomProviderModelFetcher(get()),

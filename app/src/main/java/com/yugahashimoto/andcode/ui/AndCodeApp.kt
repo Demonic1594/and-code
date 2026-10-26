@@ -243,6 +243,7 @@ fun AndCodeApp(
                         voskModels = app.voskModels,
                         providerDisconnectRejectedMessage = context.getString(R.string.provider_disconnect_rejected),
                         githubTokenRejectedMessage = context.getString(R.string.github_token_rejected),
+                        githubUnreachableMessage = context.getString(R.string.github_unreachable),
                         customProviderInvalidMessage = context.getString(R.string.provider_custom_invalid),
                         customProviderFetchNeedsBaseUrlMessage = context.getString(R.string.provider_custom_fetch_needs_base_url),
                         customProviderFetchEmptyMessage = context.getString(R.string.provider_custom_fetch_empty),

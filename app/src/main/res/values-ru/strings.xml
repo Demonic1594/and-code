@@ -530,11 +530,12 @@
     <string name="github_intro">Подключите GitHub для работы с репозиториями, Git, пул-реквестами и рабочими процессами Actions.</string>
     <string name="github_client_id_missing">В этой сборке вход в GitHub одним касанием не настроен. Войдите с помощью персонального токена доступа ниже.</string>
     <string name="github_token_section">Войти с персональным токеном доступа</string>
-    <string name="github_token_help">Выдайте ему области repo и workflow. Токен проверяется через GitHub и хранится только на этом устройстве.</string>
+    <string name="github_token_help">Ссылка отмечает разрешения, которые использует приложение. Токен проверяется через GitHub и хранится только на этом устройстве.</string>
     <string name="github_token_hint">Персональный токен доступа</string>
     <string name="github_token_sign_in">Войти с токеном</string>
     <string name="github_token_create">Создать токен</string>
     <string name="github_token_rejected">GitHub не принял этот токен.</string>
+    <string name="github_unreachable">Не удалось связаться с GitHub. Попробуйте ещё раз.</string>
     <string name="github_disconnect">Отключить GitHub</string>
     <string name="github_verification_code">Введите код: %1$s</string>
     <string name="github_waiting_for_authorization">Ожидание авторизации…</string>

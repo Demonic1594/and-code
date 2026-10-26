@@ -29,12 +29,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -42,8 +45,12 @@ import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.ui.theme.AppShapes
 import com.yugahashimoto.andcode.ui.theme.Spacing
 
-/** Creates a classic token with the scopes the app's Git and PR features use. */
-const val GITHUB_NEW_TOKEN_URL = "https://github.com/settings/tokens/new?scopes=repo,workflow&description=AndCode"
+/**
+ * Creates a classic token with the scopes the app's Git and PR features use - the same ones the
+ * device flow asks for, so both ways in can do the same things.
+ */
+const val GITHUB_NEW_TOKEN_URL =
+    "https://github.com/settings/tokens/new?scopes=repo,workflow,read:org,read:user,gist,notifications&description=AndCode"
 
 @Composable
 fun GitHubSettingsScreen(
@@ -80,7 +87,9 @@ fun GitHubSettingsScreen(
         ) {
             Text(stringResource(R.string.github_intro), color = MaterialTheme.colorScheme.onSurfaceVariant)
             AccountCard(login = state.githubLogin, onDisconnect = onDisconnect)
-            state.githubMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            state.githubMessage?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+            }
             if (state.githubLogin != null) return@Column
 
             // One-tap sign-in needs an OAuth app's client ID baked into the build. Without one the
@@ -150,7 +159,9 @@ private fun TokenSignIn(
     onSignIn: (String) -> Unit,
     onCreateToken: () -> Unit,
 ) {
-    var token by rememberSaveable { mutableStateOf("") }
+    // remember, not rememberSaveable: a secret has no place in the saved instance state, which
+    // outlives the process. Rotating the screen means pasting it again.
+    var token by remember { mutableStateOf("") }
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Text(stringResource(R.string.github_token_section), style = MaterialTheme.typography.titleSmall)
         Text(
@@ -182,9 +193,9 @@ private fun TokenSignIn(
 
 @Composable
 private fun TokenButtonLabel(verifying: Boolean) {
-    if (verifying) {
-        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-    } else {
+    // The label stays while the token is checked, so the button still says what it does.
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        if (verifying) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
         Text(stringResource(R.string.github_token_sign_in))
     }
 }

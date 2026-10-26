@@ -1,6 +1,5 @@
 package com.yugahashimoto.andcode.feature.settings
 
-import com.yugahashimoto.andcode.data.connection.SecureSettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -66,8 +65,16 @@ data class GitHubRepo(
     @SerialName("updated_at") val updatedAt: String? = null,
 )
 
+/** Where the GitHub account the app signed in with is kept. */
+interface GitHubAccountStore {
+    var githubToken: String?
+    var githubLogin: String?
+    var githubStarredCache: Boolean?
+    var githubStarStatusCheckedAt: Long
+}
+
 class GitHubAuthRepository(
-    private val settings: SecureSettingsRepository,
+    private val settings: GitHubAccountStore,
     private val client: OkHttpClient = OkHttpClient(),
     private val json: Json =
         Json {
@@ -170,6 +177,36 @@ class GitHubAuthRepository(
             }
         }
 
+    /**
+     * Keeps [accessToken] as the signed-in account once GitHub confirms it is a working token -
+     * from the device flow or pasted by the user. The token is checked first and nothing is
+     * written for one GitHub refuses; then the token and the login are written together, so the
+     * app never shows an account it holds no token for.
+     */
+    suspend fun signIn(accessToken: String): GitHubAccount {
+        val trimmed = accessToken.trim()
+        require(trimmed.isNotEmpty()) { "No token to sign in with" }
+        val account = verifyAccount(trimmed) ?: throw GitHubTokenRejectedException()
+        saveToken(trimmed)
+        settings.githubLogin = account.login
+        return account
+    }
+
+    /** The account [accessToken] belongs to, or null when GitHub refuses it. Writes nothing. */
+    suspend fun verifyAccount(accessToken: String): GitHubAccount? =
+        withContext(Dispatchers.IO) {
+            val request =
+                Request.Builder()
+                    .url("https://api.github.com/user")
+                    .header("Authorization", "Bearer $accessToken")
+                    .header("Accept", "application/vnd.github+json")
+                    .build()
+            retryOnUnknownHost { client.newCall(request).execute() }.use { response ->
+                if (!response.isSuccessful) return@withContext null
+                json.decodeFromString<GitHubAccount>(response.body?.string().orEmpty())
+            }
+        }
+
     fun saveToken(value: String) {
         val normalized = value.trim().takeIf { it.isNotEmpty() }
         if (normalized != settings.githubToken) invalidateStarVerification()
@@ -198,3 +235,6 @@ class GitHubAuthRepository(
         }
     }
 }
+
+/** GitHub refused a token: wrong, expired, or revoked. */
+class GitHubTokenRejectedException : IllegalStateException("GitHub did not accept that token")

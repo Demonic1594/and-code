@@ -528,11 +528,12 @@
     <string name="github_intro">Connectez GitHub pour les opérations de dépôt, Git, pull requests et workflows Actions.</string>
     <string name="github_client_id_missing">La connexion GitHub en un geste n\'est pas configurée dans cette version. Connectez-vous plutôt avec un jeton d\'accès personnel ci-dessous.</string>
     <string name="github_token_section">Se connecter avec un jeton d\'accès personnel</string>
-    <string name="github_token_help">Donnez-lui les portées repo et workflow. Il est vérifié auprès de GitHub et conservé uniquement sur cet appareil.</string>
+    <string name="github_token_help">Le lien coche les autorisations utilisées par l\'app. Le jeton est vérifié auprès de GitHub et conservé uniquement sur cet appareil.</string>
     <string name="github_token_hint">Jeton d\'accès personnel</string>
     <string name="github_token_sign_in">Se connecter avec le jeton</string>
     <string name="github_token_create">Créer un jeton</string>
     <string name="github_token_rejected">GitHub n\'a pas accepté ce jeton.</string>
+    <string name="github_unreachable">Impossible de joindre GitHub. Réessayez.</string>
     <string name="github_disconnect">Déconnecter GitHub</string>
     <string name="github_verification_code">Saisissez le code : %1$s</string>
     <string name="github_waiting_for_authorization">En attente d\'autorisation…</string>
