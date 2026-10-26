@@ -524,7 +524,15 @@
     <string name="github_connect">GitHubに接続</string>
     <string name="github_screen_title">GitHub / Git操作</string>
     <string name="github_intro">リポジトリ、Git、プルリクエスト、Actionsワークフローの操作のためにGitHubを接続します。</string>
-    <string name="github_client_id_missing">このビルドにはGitHubクライアントIDが含まれていないため、サインインを開始できません。GITHUB_CLIENT_IDを指定してビルドし直してください。</string>
+    <string name="github_client_id_missing">このビルドではワンタップの GitHub サインインが設定されていません。代わりに下の個人アクセストークンでサインインしてください。</string>
+    <string name="github_token_section">個人アクセストークンでサインイン</string>
+    <string name="github_token_help">リンクからアプリが使う権限が選択された状態で作成できます。トークンは GitHub で確認したうえで、この端末にだけ保存されます。</string>
+    <string name="github_token_hint">個人アクセストークン</string>
+    <string name="github_token_sign_in">トークンでサインイン</string>
+    <string name="github_token_create">トークンを作成</string>
+    <string name="github_token_rejected">GitHub がそのトークンを受け付けませんでした。</string>
+    <string name="github_unreachable">GitHub に接続できませんでした。もう一度お試しください。</string>
+    <string name="github_link_failed">リンクを開けるブラウザがありませんでした。</string>
     <string name="github_disconnect">GitHubの接続を解除</string>
     <string name="github_verification_code">認証コード: %1$s</string>
     <string name="github_waiting_for_authorization">認証を待機中…</string>

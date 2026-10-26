@@ -1,6 +1,5 @@
 package com.yugahashimoto.andcode.feature.settings
 
-import com.yugahashimoto.andcode.data.connection.SecureSettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -12,6 +11,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.IOException
 import java.net.UnknownHostException
 
 /** Attempts before [retryOnUnknownHost] gives up and lets the [UnknownHostException] through. */
@@ -66,8 +66,16 @@ data class GitHubRepo(
     @SerialName("updated_at") val updatedAt: String? = null,
 )
 
+/** Where the GitHub account the app signed in with is kept. */
+interface GitHubAccountStore {
+    var githubToken: String?
+    var githubLogin: String?
+    var githubStarredCache: Boolean?
+    var githubStarStatusCheckedAt: Long
+}
+
 class GitHubAuthRepository(
-    private val settings: SecureSettingsRepository,
+    private val settings: GitHubAccountStore,
     private val client: OkHttpClient = OkHttpClient(),
     private val json: Json =
         Json {
@@ -138,23 +146,6 @@ class GitHubAuthRepository(
             error("GitHub authorization timed out")
         }
 
-    suspend fun refreshAccount(accessToken: String? = token): GitHubAccount? =
-        withContext(Dispatchers.IO) {
-            accessToken ?: return@withContext null
-            val request =
-                Request.Builder()
-                    .url("https://api.github.com/user")
-                    .header("Authorization", "Bearer $accessToken")
-                    .header("Accept", "application/vnd.github+json")
-                    .build()
-            retryOnUnknownHost { client.newCall(request).execute() }.use { response ->
-                if (!response.isSuccessful) return@withContext null
-                val account = json.decodeFromString<GitHubAccount>(response.body?.string().orEmpty())
-                settings.githubLogin = account.login
-                account
-            }
-        }
-
     suspend fun listRepos(): List<GitHubRepo> =
         withContext(Dispatchers.IO) {
             val accessToken = token ?: return@withContext emptyList()
@@ -167,6 +158,39 @@ class GitHubAuthRepository(
             retryOnUnknownHost { client.newCall(request).execute() }.use { response ->
                 if (!response.isSuccessful) return@withContext emptyList()
                 json.decodeFromString<List<GitHubRepo>>(response.body?.string().orEmpty())
+            }
+        }
+
+    /**
+     * Keeps [accessToken] as the signed-in account once GitHub confirms it is a working token -
+     * from the device flow or pasted by the user. The token is checked first and nothing is
+     * written for one GitHub refuses; then the token and the login are written together, so the
+     * app never shows an account it holds no token for.
+     */
+    suspend fun signIn(accessToken: String): GitHubAccount {
+        val trimmed = accessToken.trim()
+        require(trimmed.isNotEmpty()) { "No token to sign in with" }
+        val account = verifyAccount(trimmed) ?: throw GitHubTokenRejectedException()
+        saveToken(trimmed)
+        settings.githubLogin = account.login
+        return account
+    }
+
+    /** The account [accessToken] belongs to, or null when GitHub refuses it (401). Writes nothing. */
+    suspend fun verifyAccount(accessToken: String): GitHubAccount? =
+        withContext(Dispatchers.IO) {
+            val request =
+                Request.Builder()
+                    .url("https://api.github.com/user")
+                    .header("Authorization", "Bearer $accessToken")
+                    .header("Accept", "application/vnd.github+json")
+                    .build()
+            retryOnUnknownHost { client.newCall(request).execute() }.use { response ->
+                // Only 401 says the token itself is wrong; a rate limit, an SSO gate or an outage
+                // is GitHub being unavailable, not the user's mistake.
+                if (response.code == 401) return@withContext null
+                if (!response.isSuccessful) throw IOException("GitHub answered ${response.code}")
+                json.decodeFromString<GitHubAccount>(response.body?.string().orEmpty())
             }
         }
 
@@ -198,3 +222,6 @@ class GitHubAuthRepository(
         }
     }
 }
+
+/** GitHub refused a token: wrong, expired, or revoked. */
+class GitHubTokenRejectedException : IllegalStateException("GitHub did not accept that token")

@@ -526,7 +526,15 @@
     <string name="github_connect">Conectar GitHub</string>
     <string name="github_screen_title">GitHub / Operações Git</string>
     <string name="github_intro">Conecte o GitHub para operações de repositório, Git, pull requests e workflows do Actions.</string>
-    <string name="github_client_id_missing">Esta compilação não tem um ID de cliente do GitHub, então não é possível iniciar o login. Recompile definindo GITHUB_CLIENT_ID.</string>
+    <string name="github_client_id_missing">O login no GitHub com um toque não está configurado nesta versão. Entre com um token de acesso pessoal abaixo.</string>
+    <string name="github_token_section">Entrar com um token de acesso pessoal</string>
+    <string name="github_token_help">O link marca as permissões que o app usa. O token é verificado com o GitHub e guardado só neste dispositivo.</string>
+    <string name="github_token_hint">Token de acesso pessoal</string>
+    <string name="github_token_sign_in">Entrar com token</string>
+    <string name="github_token_create">Criar um token</string>
+    <string name="github_token_rejected">O GitHub não aceitou esse token.</string>
+    <string name="github_unreachable">Não foi possível falar com o GitHub. Tente de novo.</string>
+    <string name="github_link_failed">Nenhum navegador conseguiu abrir o link.</string>
     <string name="github_disconnect">Desconectar GitHub</string>
     <string name="github_verification_code">Insira o código: %1$s</string>
     <string name="github_waiting_for_authorization">Aguardando autorização…</string>

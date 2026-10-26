@@ -2,6 +2,11 @@ package com.yugahashimoto.andcode.feature.settings
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -87,7 +92,82 @@ class GitHubAuthRepositoryTest {
             assertEquals("ok", result)
             assertEquals(1, attempts)
         }
+
+    @Test
+    fun `a token GitHub accepts is kept with its login`() =
+        runTest {
+            val store = FakeAccountStore()
+            val seen = mutableListOf<String>()
+            val repo = GitHubAuthRepository(store, stubClient(200, """{"login":"octocat"}""", seen), clientId = "")
+
+            val account = repo.signIn("  ghp_token  ")
+
+            assertEquals("octocat", account.login)
+            assertEquals("ghp_token", store.githubToken)
+            assertEquals("octocat", store.githubLogin)
+            assertEquals(listOf("Bearer ghp_token"), seen)
+            // A new account's star state is not the old one's.
+            assertEquals(null, store.githubStarredCache)
+        }
+
+    @Test
+    fun `a token GitHub refuses leaves nothing behind`() =
+        runTest {
+            val store = FakeAccountStore()
+            val repo = GitHubAuthRepository(store, stubClient(401, """{"message":"Bad credentials"}""", mutableListOf()), clientId = "")
+
+            assertThrows(GitHubTokenRejectedException::class.java) { kotlinx.coroutines.runBlocking { repo.signIn("ghp_wrong") } }
+
+            assertEquals(null, store.githubToken)
+            assertEquals(null, store.githubLogin)
+        }
+
+    @Test
+    fun `GitHub being unavailable is not taken for a wrong token`() =
+        runTest {
+            val store = FakeAccountStore()
+            val repo = GitHubAuthRepository(store, stubClient(503, "{}", mutableListOf()), clientId = "")
+
+            assertThrows(IOException::class.java) { kotlinx.coroutines.runBlocking { repo.signIn("ghp_token") } }
+
+            assertEquals(null, store.githubToken)
+        }
+
+    @Test
+    fun `checking a token writes nothing`() =
+        runTest {
+            val store = FakeAccountStore()
+            val repo = GitHubAuthRepository(store, stubClient(200, """{"login":"octocat"}""", mutableListOf()), clientId = "")
+
+            assertEquals("octocat", repo.verifyAccount("ghp_token")?.login)
+            assertEquals(null, store.githubToken)
+            assertEquals(null, store.githubLogin)
+        }
 }
+
+private class FakeAccountStore : GitHubAccountStore {
+    override var githubToken: String? = null
+    override var githubLogin: String? = null
+    override var githubStarredCache: Boolean? = true
+    override var githubStarStatusCheckedAt: Long = 42L
+}
+
+/** A client that answers every request with [code] and [body], counting what it was asked. */
+private fun stubClient(
+    code: Int,
+    body: String,
+    seenTokens: MutableList<String>,
+) = OkHttpClient.Builder()
+    .addInterceptor { chain ->
+        seenTokens += chain.request().header("Authorization").orEmpty()
+        Response.Builder()
+            .request(chain.request())
+            .protocol(Protocol.HTTP_1_1)
+            .code(code)
+            .message("stub")
+            .body(body.toResponseBody("application/json".toMediaType()))
+            .build()
+    }.build()
 
 private object GitHubAuthRepositoryTestProbe {
     fun isConfigured(clientId: String) = clientId.isNotBlank()
