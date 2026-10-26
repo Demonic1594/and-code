@@ -1343,6 +1343,17 @@ class ChatViewModel(
                     _uiState.update { it.copy(isRewinding = false) }
                     if (_uiState.value.sessionId == sessionId) reportError(error)
                 }
+            drainHeldPrompts()
+        }
+    }
+
+    /** Sends what queued up while a rewind was landing, now that the transcript is settled. */
+    private fun drainHeldPrompts() {
+        val state = _uiState.value
+        if (state.isConnected && offlineMessageQueue.value.isNotEmpty()) {
+            drainOfflineQueue()
+        } else if (!state.isRunning) {
+            drainQueue()
         }
     }
 
@@ -1367,6 +1378,7 @@ class ChatViewModel(
                     _uiState.update { it.copy(isRewinding = false) }
                     if (_uiState.value.sessionId == sessionId) reportError(error)
                 }
+            drainHeldPrompts()
         }
     }
 
@@ -2829,6 +2841,8 @@ class ChatViewModel(
     }
 
     private fun drainQueue() {
+        // Held, not dropped: send() refuses while a rewind lands, and the rewind drains after.
+        if (_uiState.value.isRewinding) return
         val queued = messageQueue.value
         if (queued.isEmpty()) return
         messageQueue.value = queued.drop(1)
@@ -2836,6 +2850,7 @@ class ChatViewModel(
     }
 
     private fun drainOfflineQueue() {
+        if (_uiState.value.isRewinding) return
         val queued = offlineMessageQueue.value
         if (queued.isEmpty()) return
         offlineMessageQueue.value = emptyList()
