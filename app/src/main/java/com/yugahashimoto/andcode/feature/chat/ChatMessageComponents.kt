@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -432,157 +433,185 @@ internal fun MarkdownText(
     onImageClick: (ChatImageSource) -> Unit = {},
 ) {
     val blocks = remember(text) { MarkdownLite.parse(text) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        blocks.forEach { block -> MarkdownBlockView(block, onImageClick) }
+    }
+}
+
+/**
+ * A whole Markdown document as a lazy list of its blocks, for documents too long to lay out at once:
+ * a single layout taller than Compose can measure (some 262,000 pixels) is cut off at that height,
+ * which a long report reaches. Only the blocks on screen are composed.
+ */
+@Composable
+internal fun LazyMarkdownDocument(
+    text: String,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    onImageClick: (ChatImageSource) -> Unit = {},
+) {
+    val blocks = remember(text) { MarkdownLite.parse(text) }
+    LazyColumn(
+        modifier = modifier,
+        contentPadding = contentPadding,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        items(blocks.size) { index -> MarkdownBlockView(blocks[index], onImageClick) }
+    }
+}
+
+@Composable
+private fun MarkdownBlockView(
+    block: MarkdownBlock,
+    onImageClick: (ChatImageSource) -> Unit,
+) {
     val codeInlineBackground = MaterialTheme.colorScheme.surfaceVariant
     val linkColor = MaterialTheme.colorScheme.primary
     val bodyStyle =
         MaterialTheme.typography.bodyLarge.copy(
             color = MaterialTheme.colorScheme.onSurface,
         )
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        blocks.forEach { block ->
-            when (block) {
-                is MarkdownBlock.Heading ->
+    when (block) {
+        is MarkdownBlock.Heading ->
+            InlineText(
+                inlines = block.inlines,
+                style =
+                    when (block.level) {
+                        1 -> MaterialTheme.typography.titleLarge
+                        2 -> MaterialTheme.typography.titleMedium
+                        else -> MaterialTheme.typography.titleSmall
+                    }.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface),
+                linkColor = linkColor,
+                codeBackground = codeInlineBackground,
+            )
+        is MarkdownBlock.Paragraph -> {
+            val currentInlines = mutableListOf<MarkdownInline>()
+
+            @Composable
+            fun flushInlines() {
+                if (currentInlines.isNotEmpty()) {
                     InlineText(
-                        inlines = block.inlines,
-                        style =
-                            when (block.level) {
-                                1 -> MaterialTheme.typography.titleLarge
-                                2 -> MaterialTheme.typography.titleMedium
-                                else -> MaterialTheme.typography.titleSmall
-                            }.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface),
+                        inlines = currentInlines.toList(),
+                        style = bodyStyle,
                         linkColor = linkColor,
                         codeBackground = codeInlineBackground,
                     )
-                is MarkdownBlock.Paragraph -> {
-                    val currentInlines = mutableListOf<MarkdownInline>()
-
-                    @Composable
-                    fun flushInlines() {
-                        if (currentInlines.isNotEmpty()) {
-                            InlineText(
-                                inlines = currentInlines.toList(),
-                                style = bodyStyle,
-                                linkColor = linkColor,
-                                codeBackground = codeInlineBackground,
-                            )
-                            currentInlines.clear()
-                        }
-                    }
-                    block.inlines.forEach { inline ->
-                        if (inline is MarkdownInline.Image) {
-                            flushInlines()
-                            MarkdownImageView(inline, onImageClick)
-                        } else {
-                            currentInlines += inline
-                        }
-                    }
-                    flushInlines()
+                    currentInlines.clear()
                 }
-                is MarkdownBlock.CodeBlock ->
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                    ) {
-                        Text(
-                            text = block.code,
-                            modifier =
-                                Modifier
-                                    .horizontalScroll(rememberScrollState())
-                                    .padding(10.dp),
-                            fontFamily = CodeFontFamily,
-                            // Code is always laid out LTR, even in RTL app locales (issue #341).
-                            style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr),
-                        )
+            }
+            block.inlines.forEach { inline ->
+                if (inline is MarkdownInline.Image) {
+                    flushInlines()
+                    MarkdownImageView(inline, onImageClick)
+                } else {
+                    currentInlines += inline
+                }
+            }
+            flushInlines()
+        }
+        is MarkdownBlock.CodeBlock ->
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ) {
+                Text(
+                    text = block.code,
+                    modifier =
+                        Modifier
+                            .horizontalScroll(rememberScrollState())
+                            .padding(10.dp),
+                    fontFamily = CodeFontFamily,
+                    // Code is always laid out LTR, even in RTL app locales (issue #341).
+                    style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr),
+                )
+            }
+        is MarkdownBlock.BulletList ->
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                block.items.forEach { item ->
+                    Row {
+                        Text("•  ", color = MaterialTheme.colorScheme.onSurface)
+                        InlineText(item, bodyStyle, linkColor, codeInlineBackground)
                     }
-                is MarkdownBlock.BulletList ->
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        block.items.forEach { item ->
-                            Row {
-                                Text("•  ", color = MaterialTheme.colorScheme.onSurface)
-                                InlineText(item, bodyStyle, linkColor, codeInlineBackground)
-                            }
-                        }
+                }
+            }
+        is MarkdownBlock.OrderedList ->
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                block.items.forEachIndexed { index, item ->
+                    Row {
+                        Text("${index + 1}.  ", color = MaterialTheme.colorScheme.onSurface)
+                        InlineText(item, bodyStyle, linkColor, codeInlineBackground)
                     }
-                is MarkdownBlock.OrderedList ->
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        block.items.forEachIndexed { index, item ->
-                            Row {
-                                Text("${index + 1}.  ", color = MaterialTheme.colorScheme.onSurface)
-                                InlineText(item, bodyStyle, linkColor, codeInlineBackground)
-                            }
-                        }
-                    }
-                is MarkdownBlock.Blockquote ->
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(6.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    ) {
-                        Box(
-                            modifier =
-                                Modifier.padding(
-                                    start = 10.dp,
-                                    end = 8.dp,
-                                    top = 6.dp,
-                                    bottom = 6.dp,
-                                ),
-                        ) {
-                            InlineText(
-                                inlines = block.inlines,
-                                style = bodyStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                }
+            }
+        is MarkdownBlock.Blockquote ->
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(6.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ) {
+                Box(
+                    modifier =
+                        Modifier.padding(
+                            start = 10.dp,
+                            end = 8.dp,
+                            top = 6.dp,
+                            bottom = 6.dp,
+                        ),
+                ) {
+                    InlineText(
+                        inlines = block.inlines,
+                        style = bodyStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                        linkColor = linkColor,
+                        codeBackground = codeInlineBackground,
+                    )
+                }
+            }
+        is MarkdownBlock.Table ->
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ) {
+                Column(
+                    modifier = Modifier.padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        block.headers.forEach { header ->
+                            TableCellText(
+                                text = header,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                                 linkColor = linkColor,
                                 codeBackground = codeInlineBackground,
                             )
                         }
                     }
-                is MarkdownBlock.Table ->
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Row(modifier = Modifier.fillMaxWidth()) {
-                                block.headers.forEach { header ->
-                                    TableCellText(
-                                        text = header,
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                        linkColor = linkColor,
-                                        codeBackground = codeInlineBackground,
-                                    )
-                                }
-                            }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
-                            block.rows.forEach { row ->
-                                val padded =
-                                    row.take(block.headers.size) +
-                                        List((block.headers.size - row.size).coerceAtLeast(0)) { "" }
-                                Row(modifier = Modifier.fillMaxWidth()) {
-                                    padded.forEach { cell ->
-                                        TableCellText(
-                                            text = cell,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            linkColor = linkColor,
-                                            codeBackground = codeInlineBackground,
-                                        )
-                                    }
-                                }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
+                    block.rows.forEach { row ->
+                        val padded =
+                            row.take(block.headers.size) +
+                                List((block.headers.size - row.size).coerceAtLeast(0)) { "" }
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            padded.forEach { cell ->
+                                TableCellText(
+                                    text = cell,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    linkColor = linkColor,
+                                    codeBackground = codeInlineBackground,
+                                )
                             }
                         }
                     }
-                is MarkdownBlock.HorizontalRule ->
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                    )
+                }
             }
-        }
+        is MarkdownBlock.HorizontalRule ->
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+            )
     }
 }
 
