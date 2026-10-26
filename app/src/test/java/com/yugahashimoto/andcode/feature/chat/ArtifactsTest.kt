@@ -102,9 +102,18 @@ class ArtifactsTest {
             listOf("/w/a.html", "/w/b.kt"),
             toolFilePaths(json("""[{"path":"/w/a.html","kind":"add"},{"path":"/w/b.kt","kind":"update"}]""")),
         )
+        // A file Codex deleted is gone, and one it moved is where it went.
+        assertEquals(
+            listOf("/w/new.md"),
+            toolFilePaths(
+                json(
+                    """[{"path":"/w/gone.html","kind":{"type":"delete"}},{"path":"/w/old.md","kind":{"type":"update","move_path":"/w/new.md"}}]""",
+                ),
+            ),
+        )
         // OpenCode's apply_patch.
         assertEquals(
-            listOf("site/index.html", "README.md", "a.md", "docs/a.md"),
+            listOf("site/index.html", "README.md", "docs/a.md"),
             toolFilePaths(
                 json(
                     """{"patchText":"*** Begin Patch\n*** Add File: site/index.html\n+<p>\n*** Update File: README.md\n*** Update File: a.md\n*** Move to: docs/a.md\n*** Delete File: old.md\n*** End Patch"}""",

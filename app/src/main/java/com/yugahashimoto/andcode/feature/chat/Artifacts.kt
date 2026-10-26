@@ -54,9 +54,8 @@ fun artifactKindOf(path: String): ArtifactKind? = PREVIEWABLE[path.substringAfte
 // Antigravity's `TargetFile`, and a plain `path`.
 private val TOOL_FILE_PATH_KEYS = listOf("filePath", "file_path", "TargetFile", "targetFile", "target_file", "path")
 
-// The lines an `apply_patch` patch names the files it creates or changes by, including where a file
-// it moves ends up.
-private val PATCH_FILE_LINE = Regex("""^\*\*\* (?:Add File|Update File|Move to): (.+)$""", RegexOption.MULTILINE)
+// The lines an `apply_patch` patch names the files it creates, changes or moves a file to by.
+private val PATCH_FILE_LINE = Regex("""^\*\*\* (Add File|Update File|Move to): (.+)$""", RegexOption.MULTILINE)
 
 /**
  * The files a tool's raw [input] names: a file tool's path key, each entry of a Codex file change's
@@ -71,13 +70,34 @@ internal fun toolFilePaths(input: JsonElement?): List<String> =
                     .firstNotNullOfOrNull { key -> input[key].stringOrNull() }
                     ?.let(::patchFilePaths)
                     .orEmpty()
-        is JsonArray -> input.mapNotNull { change -> (change as? JsonObject)?.get("path").stringOrNull() }
+        is JsonArray -> input.mapNotNull { change -> (change as? JsonObject)?.let(::codexChangedPath) }
         is JsonPrimitive -> input.stringOrNull()?.let(::patchFilePaths).orEmpty()
         else -> emptyList()
     }
 
-private fun patchFilePaths(patch: String): List<String> =
-    PATCH_FILE_LINE.findAll(patch).map { it.groupValues[1].trim() }.filter { it.isNotEmpty() }.toList()
+// A moved file is only where it was moved to: its old path no longer exists to preview.
+private fun patchFilePaths(patch: String): List<String> {
+    val paths = mutableListOf<String>()
+    PATCH_FILE_LINE.findAll(patch).forEach { match ->
+        val path = match.groupValues[2].trim()
+        if (path.isEmpty()) return@forEach
+        if (match.groupValues[1] == "Move to" && paths.isNotEmpty()) paths.removeAt(paths.lastIndex)
+        paths += path
+    }
+    return paths
+}
+
+/**
+ * Where a Codex file change leaves its file, or null when it deletes it. Its `kind` is either a bare
+ * name or an object whose `type` names it, and an update that moves the file says where in
+ * `move_path`.
+ */
+private fun codexChangedPath(change: JsonObject): String? {
+    val kind = change["kind"]
+    val kindName = (kind as? JsonObject)?.get("type").stringOrNull() ?: kind.stringOrNull()
+    if (kindName == "delete") return null
+    return (kind as? JsonObject)?.get("move_path").stringOrNull() ?: change["path"].stringOrNull()
+}
 
 private fun JsonElement?.stringOrNull(): String? =
     (this as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull?.takeIf { it.isNotBlank() }
