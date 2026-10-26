@@ -1,7 +1,10 @@
 package com.yugahashimoto.andcode.feature.chat
 
+import com.yugahashimoto.andcode.core.api.OpenCodePart
 import com.yugahashimoto.andcode.core.isLocalServerUrl
 import com.yugahashimoto.andcode.core.localServerUrls
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -9,6 +12,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ArtifactsTest {
+    private fun json(text: String) = Json.parseToJsonElement(text)
+
     private fun assistant(vararg parts: ChatPart) = ChatMessage(isUser = false, parts = parts.toList())
 
     @Test
@@ -28,16 +33,11 @@ class ArtifactsTest {
                 listOf(
                     assistant(
                         ChatPart.Patch("p1", listOf("/w/app/index.html", "/w/app/Main.kt"), "a1"),
-                        ChatPart.Tool(
-                            "t1",
-                            "write",
-                            ToolStatus.COMPLETED,
-                            input = """{"file_path":"/w/docs\/plan.md","content":"# Plan"}""",
-                        ),
+                        ChatPart.Tool("t1", "Write", ToolStatus.COMPLETED, filePaths = listOf("/w/docs/plan.md")),
                     ),
-                    assistant(ChatPart.Tool("t2", "edit", ToolStatus.COMPLETED, input = """{"filePath":"/w/app/index.html"}""")),
+                    assistant(ChatPart.Tool("t2", "edit", ToolStatus.COMPLETED, filePaths = listOf("/w/app/index.html"))),
                     // A file read is not something the agent made.
-                    assistant(ChatPart.Tool("t3", "read", ToolStatus.COMPLETED, input = """{"filePath":"/w/other.svg"}""")),
+                    assistant(ChatPart.Tool("t3", "read", ToolStatus.COMPLETED, filePaths = listOf("/w/other.svg"))),
                 ),
             )
 
@@ -93,11 +93,48 @@ class ArtifactsTest {
     }
 
     @Test
-    fun `a tool's file path is read as JSON, escapes and all`() {
-        assertEquals("C:\\proj\\a.html", toolFilePath("""{"file_path":"C:\\proj\\a.html"}"""))
-        assertEquals("/w/é.md", toolFilePath("""{"filePath":"/w/\u00e9.md"}"""))
-        assertNull(toolFilePath("not json"))
-        assertNull(toolFilePath("""{"command":"ls"}"""))
+    fun `a tool's files are read from each runtime's input`() {
+        // OpenCode's write and edit, and Claude Code's Write.
+        assertEquals(listOf("/w/index.html"), toolFilePaths(json("""{"filePath":"/w/index.html","content":"<p>"}""")))
+        assertEquals(listOf("C:\\proj\\a.md"), toolFilePaths(json("""{"file_path":"C:\\proj\\a.md"}""")))
+        // Antigravity's write_to_file.
+        assertEquals(listOf("/w/logo.svg"), toolFilePaths(json("""{"TargetFile":"/w/logo.svg","CodeContent":"<svg/>"}""")))
+        // Codex's file change list.
+        assertEquals(
+            listOf("/w/a.html", "/w/b.kt"),
+            toolFilePaths(json("""[{"path":"/w/a.html","kind":"add"},{"path":"/w/b.kt","kind":"update"}]""")),
+        )
+        // OpenCode's apply_patch.
+        assertEquals(
+            listOf("site/index.html", "README.md"),
+            toolFilePaths(
+                json(
+                    """{"patchText":"*** Begin Patch\n*** Add File: site/index.html\n+<p>\n*** Update File: README.md\n*** Delete File: old.md\n*** End Patch"}""",
+                ),
+            ),
+        )
+        assertEquals(emptyList<String>(), toolFilePaths(json("""{"command":"ls"}""")))
+        assertEquals(emptyList<String>(), toolFilePaths(null))
+    }
+
+    @Test
+    fun `a file an OpenCode write made is an artifact, though its input is shown as text`() {
+        val part =
+            OpenCodePart(
+                id = "t1",
+                type = "tool",
+                tool = "write",
+                state =
+                    mapOf(
+                        "status" to JsonPrimitive("completed"),
+                        "input" to json("""{"filePath":"/workspace/game/index.html","content":"<html></html>"}"""),
+                    ),
+            ).toChatPart("m1")
+
+        assertEquals(
+            listOf(Artifact.File("/workspace/game/index.html", ArtifactKind.HTML)),
+            collectArtifacts(listOf(assistant(part!!))),
+        )
     }
 
     @Test
