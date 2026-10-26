@@ -393,12 +393,8 @@ private fun FilesTab(
     onOpenNode: (OpenCodeFileNode) -> Unit,
     onNavigateUp: () -> Unit,
 ) {
-    // Folders first, then files, each alphabetically - the order every file manager uses, so the
-    // eye finds a name without reading the whole list.
-    val sorted =
-        remember(state.files) {
-            state.files.sortedWith(compareBy({ it.type != "directory" }, { it.name.lowercase() }))
-        }
+    // The view model lists folders first, then files, each alphabetically.
+    val sorted = state.files
     val atRoot = state.currentPath == WorkspaceFolders.GUEST_ROOT
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -424,7 +420,7 @@ private fun FilesTab(
                     style = MaterialTheme.typography.labelLarge,
                     fontFamily = CodeFontFamily,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

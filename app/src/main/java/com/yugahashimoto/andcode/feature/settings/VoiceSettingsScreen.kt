@@ -183,7 +183,7 @@ fun VoiceSettingsScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize().navigationBarsPadding(),
-            contentPadding = PaddingValues(start = Spacing.screenEdge, end = Spacing.screenEdge, bottom = Spacing.xxl),
+            contentPadding = PaddingValues(start = Spacing.screenEdge, end = Spacing.screenEdge, top = Spacing.sm, bottom = Spacing.xxl),
             verticalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
             item {
