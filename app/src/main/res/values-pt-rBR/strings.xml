@@ -1385,4 +1385,10 @@
     <string name="rewind_banner_body">Os arquivos alterados voltaram onde havia um snapshot.</string>
     <string name="rewind_nothing">Não havia nada para onde voltar nessa mensagem.</string>
     <string name="rewind_hidden_count">Ocultas: %1$d</string>
+    <string name="artifacts_title">Artefatos</string>
+    <string name="artifacts_menu">Artefatos (%1$d)</string>
+    <string name="artifacts_local_server">Servidor local neste dispositivo</string>
+    <string name="artifact_preview">Prévia</string>
+    <string name="artifact_source">Código-fonte</string>
+    <string name="artifact_unavailable">Não foi possível mostrar este arquivo.</string>
 </resources>

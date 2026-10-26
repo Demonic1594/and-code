@@ -7,12 +7,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.RateReview
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -48,6 +50,7 @@ private const val CARD_FILE_LIMIT = 4
 internal fun ChangesCard(
     entry: TimelineEntry.Changes,
     onReview: () -> Unit,
+    onPreview: (Artifact.File) -> Unit = {},
 ) {
     Surface(
         onClick = onReview,
@@ -74,7 +77,20 @@ internal fun ChangesCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            entry.files.take(CARD_FILE_LIMIT).forEach { file -> ChangedFileRow(file) }
+            entry.files.take(CARD_FILE_LIMIT).forEach { file ->
+                // A page, drawing, document or picture can be looked at right from the card.
+                val kind = artifactKindOf(file)
+                ChangedFileRow(file) {
+                    if (kind != null) {
+                        AssistChip(
+                            onClick = { onPreview(Artifact.File(file, kind)) },
+                            label = { Text(stringResource(R.string.artifact_preview), style = MaterialTheme.typography.labelSmall) },
+                            leadingIcon = { Icon(kind.icon(), contentDescription = null, modifier = Modifier.size(14.dp)) },
+                            modifier = Modifier.height(28.dp),
+                        )
+                    }
+                }
+            }
             if (entry.files.size > CARD_FILE_LIMIT) {
                 Text(
                     text = stringResource(R.string.changes_more, entry.files.size - CARD_FILE_LIMIT),

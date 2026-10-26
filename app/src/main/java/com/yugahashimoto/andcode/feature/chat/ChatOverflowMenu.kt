@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DataUsage
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -14,6 +15,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import com.yugahashimoto.andcode.R
@@ -24,6 +27,8 @@ internal fun ChatOverflowMenu(
     onDismiss: () -> Unit,
     usage: SessionUsage?,
     onShare: () -> Unit,
+    artifactCount: Int = 0,
+    onArtifacts: () -> Unit = {},
     onCopy: () -> Unit,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
@@ -59,6 +64,15 @@ internal fun ChatOverflowMenu(
                 enabled = false,
             )
             HorizontalDivider()
+        }
+        // Only offered once the chat has something to show.
+        if (artifactCount > 0) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.artifacts_menu, artifactCount)) },
+                leadingIcon = { Icon(Icons.Outlined.AutoAwesome, contentDescription = null) },
+                onClick = onArtifacts,
+                modifier = Modifier.testTag("chat-menu-artifacts"),
+            )
         }
         DropdownMenuItem(
             text = { Text(stringResource(R.string.chat_menu_share)) },

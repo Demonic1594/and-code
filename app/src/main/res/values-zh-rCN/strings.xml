@@ -1379,4 +1379,10 @@
     <string name="rewind_banner_body">有快照的已更改文件已恢复。</string>
     <string name="rewind_nothing">这条消息处没有可回退的时间点。</string>
     <string name="rewind_hidden_count">已隐藏：%1$d</string>
+    <string name="artifacts_title">产物</string>
+    <string name="artifacts_menu">产物 (%1$d)</string>
+    <string name="artifacts_local_server">此设备上的本地服务器</string>
+    <string name="artifact_preview">预览</string>
+    <string name="artifact_source">源码</string>
+    <string name="artifact_unavailable">无法显示此文件。</string>
 </resources>

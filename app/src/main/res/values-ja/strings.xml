@@ -1399,4 +1399,10 @@
     <string name="rewind_banner_body">スナップショットがあるファイルは元に戻りました。</string>
     <string name="rewind_nothing">そのメッセージには巻き戻せる時点がありませんでした。</string>
     <string name="rewind_hidden_count">非表示: %1$d</string>
+    <string name="artifacts_title">アーティファクト</string>
+    <string name="artifacts_menu">アーティファクト (%1$d)</string>
+    <string name="artifacts_local_server">この端末のローカルサーバー</string>
+    <string name="artifact_preview">プレビュー</string>
+    <string name="artifact_source">ソース</string>
+    <string name="artifact_unavailable">このファイルは表示できませんでした。</string>
 </resources>

@@ -216,6 +216,11 @@ fun ChatHomeScreen(
     /** Fetches and opens the diff dialog for a tapped [ChatPart.Patch] card. */
     onOpenPatchDiff: (ChatPart.Patch) -> Unit = {},
     onDismissPatchDiff: () -> Unit = {},
+    /** Opens a page, drawing, document or picture the agent wrote in the artifact preview. */
+    onOpenArtifact: (Artifact.File) -> Unit = {},
+    onDismissArtifact: () -> Unit = {},
+    /** Opens a server on this device (a dev server the agent started) in the in-app browser. */
+    onOpenLocalUrl: ((String) -> Unit)? = null,
     /** Reads the unsent text kept for a session, for restoring after the app was closed. */
     onLoadDraft: (String) -> String? = { null },
     /** Keeps the composer's unsent text for a session; blank text clears it. */
@@ -243,12 +248,14 @@ fun ChatHomeScreen(
     val isAtBottom = remember { mutableStateOf(true) }
     var showActionSheet by remember { mutableStateOf<MessageActionTarget?>(null) }
     var rewindTarget by remember { mutableStateOf<MessageActionTarget?>(null) }
+    var showArtifacts by remember { mutableStateOf(false) }
     var activityGroupId by remember { mutableStateOf<String?>(null) }
     var selectedImage by remember { mutableStateOf<ChatImageSource?>(null) }
     var legacyDownload by remember { mutableStateOf<ChatImageSource?>(null) }
     // A rewound chat shows only what comes before the point it was rewound to.
     val shownMessages = state.visibleMessages
     val timelineEntries = remember(shownMessages) { groupConversationTimeline(shownMessages) }
+    val artifacts = remember(shownMessages) { collectArtifacts(shownMessages) }
     // Find in chat: which rows match, and which of them is the current one. A new query starts at
     // the newest match, since the chat itself sits at the bottom.
     var findActive by rememberSaveable { mutableStateOf(false) }
@@ -532,6 +539,11 @@ fun ChatHomeScreen(
                                     expanded = showChatMenu,
                                     onDismiss = { showChatMenu = false },
                                     usage = state.sessionUsage,
+                                    artifactCount = artifacts.size,
+                                    onArtifacts = {
+                                        showChatMenu = false
+                                        showArtifacts = true
+                                    },
                                     onShare = {
                                         showChatMenu = false
                                         val title = state.sessionTitle.ifBlank { context.getString(R.string.chat_home_title) }
@@ -667,6 +679,7 @@ fun ChatHomeScreen(
                                         onImageClick = { selectedImage = it },
                                         onOpenProviderSettings = onOpenProviderSettings,
                                         onOpenChanges = onOpenPatchDiff,
+                                        onPreviewArtifact = onOpenArtifact,
                                     )
                                 }
                             }
@@ -970,6 +983,25 @@ fun ChatHomeScreen(
 
     state.patchDiff?.let { patchDiff ->
         ChatDiffDialog(state = patchDiff, onDismiss = onDismissPatchDiff, onSendReview = onSendReview)
+    }
+
+    if (showArtifacts) {
+        ArtifactsSheet(
+            artifacts = artifacts,
+            onOpenFile = { artifact ->
+                showArtifacts = false
+                onOpenArtifact(artifact)
+            },
+            onOpenServer = { url ->
+                showArtifacts = false
+                onOpenLocalUrl?.invoke(url)
+            },
+            onDismiss = { showArtifacts = false },
+        )
+    }
+
+    state.artifactPreview?.let { preview ->
+        ArtifactPreviewDialog(state = preview, onDismiss = onDismissArtifact)
     }
 
     rewindTarget?.let { target ->

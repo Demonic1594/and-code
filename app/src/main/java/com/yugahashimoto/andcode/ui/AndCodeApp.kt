@@ -48,6 +48,7 @@ import androidx.navigation.navArgument
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.BuildConfig
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.LocalServerUrlOpener
 import com.yugahashimoto.andcode.core.UrlLauncher
 import com.yugahashimoto.andcode.core.diagnostics.CrashLog
 import com.yugahashimoto.andcode.data.repository.ChatLifecycleRepository
@@ -884,7 +885,12 @@ fun AndCodeApp(
         appTheme = AppTheme.fromKey(preferences.theme),
         uiFontSize = preferences.uiFontSize,
     ) {
-        CompositionLocalProvider(LocalHapticsEnabled provides preferences.hapticsEnabled) {
+        // Links to a server on this device - a dev server an agent started - open in the in-app
+        // browser, which can reach it, wherever they appear.
+        CompositionLocalProvider(
+            LocalHapticsEnabled provides preferences.hapticsEnabled,
+            LocalServerUrlOpener provides { url -> navController.navigate(guestBrowserRoute(url)) { launchSingleTop = true } },
+        ) {
             ModalNavigationDrawer(
                 modifier =
                     if (drawerGesturesEnabled) {
@@ -1314,6 +1320,9 @@ fun AndCodeApp(
                                 },
                                 onOpenPatchDiff = chatViewModel::openPatchDiff,
                                 onDismissPatchDiff = chatViewModel::dismissPatchDiff,
+                                onOpenArtifact = chatViewModel::openArtifact,
+                                onDismissArtifact = chatViewModel::dismissArtifact,
+                                onOpenLocalUrl = { url -> navController.navigate(guestBrowserRoute(url)) { launchSingleTop = true } },
                                 onLoadDraft = { sessionId -> chatViewModel.loadDraft(sessionId)?.text },
                                 onSaveDraft = { sessionId, text -> chatViewModel.saveDraft(sessionId, text) },
                                 savedPrompts = preferences.savedPrompts,

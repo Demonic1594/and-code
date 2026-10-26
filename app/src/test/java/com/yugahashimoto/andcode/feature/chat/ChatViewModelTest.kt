@@ -1686,6 +1686,41 @@ class ChatViewModelTest {
         }
 
     @Test
+    fun `an artifact opens from the chat's workspace, read relative to it`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities())
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.selectWorkspace("/w/site")
+            val page = Artifact.File("/w/site/index.html", ArtifactKind.HTML)
+
+            viewModel.openArtifact(page)
+            advanceUntilIdle()
+
+            assertEquals(listOf("/w/site|index.html"), backend.readPaths)
+            val preview = viewModel.uiState.value.artifactPreview as ArtifactPreviewState.Loaded
+            assertEquals("<h1>Hi</h1>", preview.content)
+            assertFalse(preview.base64)
+
+            viewModel.dismissArtifact()
+            assertNull(viewModel.uiState.value.artifactPreview)
+        }
+
+    @Test
+    fun `an artifact with no workspace to read from says so instead of loading forever`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities())
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+
+            viewModel.openArtifact(Artifact.File("notes.md", ArtifactKind.MARKDOWN))
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.artifactPreview is ArtifactPreviewState.Failed)
+            assertTrue(backend.readPaths.isEmpty())
+        }
+
+    @Test
     fun `a runtime without checkpoints is not asked to rewind`() =
         runTest(dispatcher) {
             val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(editMessages = true))
@@ -2460,6 +2495,17 @@ class ChatViewModelTest {
             deletedMessageIds += messageId
             calls += "delete:$messageId"
             return deleteResult
+        }
+
+        /** Paths [readFile] was asked for, as directory|path. */
+        val readPaths = mutableListOf<String>()
+
+        override suspend fun readFile(
+            directory: String,
+            path: String,
+        ): com.yugahashimoto.andcode.core.api.OpenCodeFileContent {
+            readPaths += "$directory|$path"
+            return com.yugahashimoto.andcode.core.api.OpenCodeFileContent(type = "text", content = "<h1>Hi</h1>")
         }
 
         /** Where the session stands rewound, as the server would report it. */
