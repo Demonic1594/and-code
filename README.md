@@ -1,17 +1,33 @@
 # AndCode
 
 <p align="center">
-  <a href="https://github.com/yuga-hashimoto/and-code/actions/workflows/android.yml"><img src="https://github.com/yuga-hashimoto/and-code/actions/workflows/android.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/yuga-hashimoto/and-code/releases/latest"><img src="https://img.shields.io/github/v/release/yuga-hashimoto/and-code" alt="Release" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/yuga-hashimoto/and-code" alt="License: MIT" /></a>
-  <a href="https://github.com/yuga-hashimoto/and-code/releases/latest"><img src="https://img.shields.io/github/downloads/yuga-hashimoto/and-code/total" alt="Downloads" /></a>
+  <a href="https://github.com/Demonic1594/and-code/actions/workflows/android.yml"><img src="https://github.com/Demonic1594/and-code/actions/workflows/android.yml/badge.svg" alt="CI" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Demonic1594/and-code" alt="License: MIT" /></a>
+  <a href="https://github.com/yuga-hashimoto/and-code"><img src="https://img.shields.io/badge/fork%20of-yuga--hashimoto%2Fand--code-blue" alt="Fork of yuga-hashimoto/and-code" /></a>
+  <a href="https://github.com/yuga-hashimoto/and-code/releases/latest"><img src="https://img.shields.io/github/v/release/yuga-hashimoto/and-code?label=upstream%20release" alt="Upstream release" /></a>
 </p>
 
 **Run coding agents locally on Android through a native GUI — no terminal required.**
 
 AndCode is a native Android GUI app that brings AI coding agents to your phone. Chat with [OpenCode](https://github.com/sst/opencode), [Claude Code](https://github.com/anthropics/claude-code), [Google Antigravity](https://github.com/google-antigravity/antigravity-cli), and [OpenAI Codex](https://github.com/openai/codex) through a touch-first interface — no terminal, no SSH, no PC required for on-device use. It wraps agent runtimes via PRoot (on-device) or connects remotely to your existing OpenCode server on PC/Mac/Linux.
 
-[Releases](https://github.com/yuga-hashimoto/and-code/releases/latest) · [日本語のREADME](README.ja.md)
+[Upstream releases](https://github.com/yuga-hashimoto/and-code/releases/latest) · [Fork features](docs/FEATURES.md) · [Fork notes](docs/FORK.md) · [日本語のREADME](README.ja.md)
+
+## About this fork
+
+This repository is a fork of [yuga-hashimoto/and-code](https://github.com/yuga-hashimoto/and-code). It tracks upstream `main` and adds a deliberate set of features on top (everything below the upstream list is documented in [docs/FEATURES.md](docs/FEATURES.md)):
+
+- **Browser with DevTools** — a redesigned in-app browser for the pages your agent serves, with Console, Network, Elements, Storage, Sources and Performance panels, desktop site, find in page and zoom
+- **Code editor** — syntax colours for about 30 file types, a key bar, inline find & replace (regex, whole word), go to line, and a status bar
+- **Git panel** — stage, commit, amend, branches, stashes, history and diffs from a full source-control screen
+- **Storage manager** — see what uses space, clean caches and install leftovers safely, and browse folders by size
+- **Usage page** — tokens and cost across every chat, by day, model and agent
+- **Changes review, Inbox and Rewind** — review what an answer changed with line comments, handle approvals and finished chats in one list, and rewind a chat to any of your messages, files included
+- **Artifacts** — preview the pages, drawings, documents and pictures the agent made, with a desktop layout and zoom
+- **A new look** — one design language across the app, Material You colours, JetBrains Mono for code, haptics, and a Run settings sheet
+- **Chat quality of life** — search inside messages, find in chat, pinned chats, saved prompts with arguments, a real delete and an Archive, share as Markdown, paste images, and live-run notifications you can reply from
+
+The debug build installs as **AndCode LH** beside an upstream install and has its own local runtime port, so the two never collide. This fork has no releases of its own yet: build it (see [Building from Source](#building-from-source)), or add the `build-apk` label to a pull request, or run the **PR APK Build** workflow from the Actions tab, to get an installable APK.
 
 > [!IMPORTANT]
 > AndCode is an independent, local-first graphical interface that installs or launches supported third-party command-line tools on the user's own Android device. AndCode itself does not provide or resell the underlying AI services, subscriptions, model access, or account entitlements. Authentication, model access, inference, and provider communication are handled by the applicable official CLI or user-configured provider. AndCode is not affiliated with, endorsed by, sponsored by, or officially supported by OpenCode, Anthropic, Google, or OpenAI. See [Legal & Third-Party Software](#legal--third-party-software) below.
@@ -22,16 +38,33 @@ AndCode is a native Android GUI app that brings AI coding agents to your phone. 
 
 <table>
   <tr>
-    <td align="center"><img src="screenshots/navigation-drawer.jpg" width="180" alt="Navigation drawer with agents, projects, and recent chats"><br><em>Navigation drawer</em></td>
-    <td align="center"><img src="screenshots/model-picker.jpg" width="180" alt="Model and runtime picker with searchable favorite models"><br><em>Model &amp; runtime picker</em></td>
-    <td align="center"><img src="screenshots/repository-chat.jpg" width="180" alt="Chat with an agent inspecting the AndCode repository"><br><em>Repository chat</em></td>
+    <td align="center"><img src="screenshots/fork-chat.jpg" width="180" alt="A chat where the agent fixed a bug, with the changes card under its answer"><br><em>Chat &amp; changes card</em></td>
+    <td align="center"><img src="screenshots/fork-drawer.jpg" width="180" alt="Navigation drawer with agents, projects, recent chats, Inbox, Archive, Schedules, Usage and Settings"><br><em>Navigation drawer</em></td>
+    <td align="center"><img src="screenshots/fork-inbox.jpg" width="180" alt="Inbox with an approval, running chats and finished chats"><br><em>Inbox</em></td>
   </tr>
   <tr>
-    <td align="center"><img src="screenshots/image-generation.jpg" width="180" alt="Agent-generated image displayed inside a conversation"><br><em>Image generation</em></td>
-    <td align="center"><img src="screenshots/schedules.jpg" width="180" alt="Scheduled prompt with a daily run enabled"><br><em>Schedules</em></td>
-    <td align="center"><img src="screenshots/run-result.jpg" width="180" alt="Completed scheduled run with an option to open the chat"><br><em>Run result</em></td>
+    <td align="center"><img src="screenshots/fork-review.jpg" width="180" alt="Diff review with line-numbered changes to comment on"><br><em>Review changes</em></td>
+    <td align="center"><img src="screenshots/fork-rewind.jpg" width="180" alt="A chat rewound to an earlier message with an Undo banner"><br><em>Rewind</em></td>
+    <td align="center"><img src="screenshots/fork-artifacts.jpg" width="180" alt="Artifacts sheet listing a local server, a page, a drawing and a document"><br><em>Artifacts</em></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/fork-devtools-console.jpg" width="180" alt="In-app browser with the DevTools Console showing logs, a warning, an error and a JavaScript prompt"><br><em>Browser: Console</em></td>
+    <td align="center"><img src="screenshots/fork-devtools-network.jpg" width="180" alt="DevTools Network panel with request status, size and a waterfall"><br><em>Browser: Network</em></td>
+    <td align="center"><img src="screenshots/fork-editor.jpg" width="180" alt="Code editor with Kotlin highlighting, line numbers and a key bar"><br><em>Code editor</em></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/fork-git.jpg" width="180" alt="Source control screen with ahead/behind counts, a commit box and staged and unstaged files"><br><em>Git panel</em></td>
+    <td align="center"><img src="screenshots/fork-usage.jpg" width="180" alt="Usage page with totals, a daily chart, the token mix and breakdowns by model and agent"><br><em>Usage</em></td>
+    <td align="center"><img src="screenshots/fork-storage.jpg" width="180" alt="Storage manager with a cleanup card and a breakdown of what uses space"><br><em>Storage manager</em></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/fork-model-picker.jpg" width="180" alt="Model and runtime picker with searchable favorite models"><br><em>Model &amp; runtime picker</em></td>
+    <td align="center"><img src="screenshots/fork-schedules.jpg" width="180" alt="Scheduled prompts with daily and weekly runs"><br><em>Schedules</em></td>
+    <td align="center"><img src="screenshots/fork-settings.jpg" width="180" alt="Settings grouped in cards with icon tiles"><br><em>Settings</em></td>
   </tr>
 </table>
+
+<sub>Rendered from the app's own screens with sample data, so they match the current UI. The page inside the browser is not drawn in these renders.</sub>
 
 </div>
 
@@ -42,6 +75,7 @@ AndCode is a native Android GUI app that brings AI coding agents to your phone. 
 
 ## Table of Contents
 
+- [About this fork](#about-this-fork)
 - [Supported Agents](#supported-agents)
 - [Features](#features)
 - [Antigravity](#antigravity)
@@ -93,6 +127,24 @@ On-device agents run inside a Linux environment via PRoot. OpenCode, Claude Code
 - **Secure storage** — Connection credentials encrypted with Android Keystore
 - **Localized UI** — English, Japanese, Chinese (Simplified), Russian, Spanish, French, Portuguese (Brazil), and Arabic, switchable from Settings
 
+### Added in this fork
+
+- **Guest Browser and DevTools** — Console (with a JavaScript prompt), Network (headers, payloads, waterfall, copy as cURL), Elements (tap-to-inspect, CSS rules, box model, edit attributes), Storage, Sources and Performance, docked under the page
+- **Code editor** — Colours as you type for about 30 file types, line numbers that follow wrapped lines, auto-indent, a key bar above the keyboard, inline find & replace, go to line and text size
+- **Git panel** — Branch with ahead/behind, fetch/pull/push, staged and unstaged changes, diffs, commit and amend, history, branches and stashes
+- **Storage manager** — Breakdown of what AndCode uses, one-tap cleanup that never touches your projects or a running install, and a size-sorted folder browser
+- **Usage** — Tokens and cost across every chat, with a day-by-day chart and breakdowns by model and agent
+- **Changes card and review** — See which files an answer edited and leave line comments that go back to the agent as one message
+- **Inbox** — Approvals, running chats and unread chats from every agent in one list, with Allow / Reject, Stop and Reply
+- **Rewind** — Put an OpenCode chat and the files the agent changed back to how they were at any of your messages (not available for the other agents)
+- **Artifacts** — Full-screen preview of what the agent made, and a list of the local servers it started
+- **Stays live** — After you have been away for a few seconds, the chat reconnects as soon as you come back and catches up on anything it missed, so you no longer need to reopen the session to see a reply
+- **Search and organise** — Search inside every chat's messages, find in a chat, pin chats, archive and really delete them
+- **Saved prompts** — `/name` commands with `$ARGUMENTS` and `$1`, `$2` placeholders
+- **Live run notification** — One ongoing notification with the current step and **Stop**, and **Reply** from the shade
+- **Run settings sheet** — Agent or permission mode, thinking level, fast mode and system prompt preset in one place
+- **GitHub token sign-in** — Use a personal access token when the build has no OAuth client ID
+
 ## Antigravity
 
 Google Antigravity (`agy`) runs on-device inside the same PRoot environment. Unlike OpenCode and Claude Code which run in Alpine Linux, Antigravity uses a Debian Bookworm rootfs for glibc compatibility with the official CLI binary.
@@ -128,14 +180,18 @@ In addition to on-device agents, AndCode can connect to OpenCode running on your
 |--------|-------------|
 | Chat | Home screen and conversation view — recent sessions, collapsible reasoning/tools, voice input, model switching, approvals, handoff |
 | Workspaces | Local runtime setup, PC connections, working folders, file browser, code viewer, embedded terminal |
+| Inbox | What is waiting on you across every agent: approvals, running chats and chats that finished unread |
 | Schedules | Create, edit, enable/disable, and review the run history of one-time or recurring (cron) prompts |
-| Settings | Agents & providers, GitHub, MCP servers, model visibility, voice/TTS, digital assistant, language |
+| Usage | Tokens and cost across every chat, by day, model and agent (Drawer → Usage) |
+| Git | Source control for a workspace: changes, commits, history, branches and stashes (from the file explorer's top bar) |
+| Browser | The pages your agent serves, with DevTools (Settings → Guest Browser, or a local server under Artifacts) |
+| Settings | Agents & providers, GitHub, MCP servers, model visibility, voice/TTS, digital assistant, language, and Storage |
 
 ## Quick Start
 
 ### Option A: On-Device (no PC needed)
 
-1. Install the APK from [Releases](https://github.com/yuga-hashimoto/and-code/releases/latest)
+1. Install the APK: this fork's build from the **PR APK Build** workflow (Actions tab) or from source, or upstream's from its [releases](https://github.com/yuga-hashimoto/and-code/releases/latest)
 2. Open the app → tap **Workspaces** → **This Android device** → **Set up on this device**
 3. Wait for the runtime to download and install (~2 min on a good connection)
 4. Select your coding agent and start chatting
@@ -254,7 +310,7 @@ adb install -r app/build/outputs/apk/github/debug/app-github-debug.apk
 - [Translation Guide](docs/TRANSLATION.md)
 - [Device Validation Matrix](docs/device-matrix.md)
 - [Fork Notes (debug build, upstream sync)](docs/FORK.md)
-- [Fork Features](docs/FEATURES.md)
+- [Fork Features (what this fork adds, and where to find it)](docs/FEATURES.md)
 - [Token Efficiency](docs/TOKEN_EFFICIENCY.md)
 - [Agentic Coding Landscape (25 tools surveyed)](docs/AGENTIC_CODING_LANDSCAPE.md)
 
