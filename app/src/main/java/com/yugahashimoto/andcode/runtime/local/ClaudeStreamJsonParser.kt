@@ -204,6 +204,10 @@ class ClaudeStreamJsonParser(
      * below the baseline means the CLI started counting again (a `/clear`, or an older CLI that
      * resumes from zero), and then the total is this turn's cost. With no known baseline, or a
      * zeroed total after a crash, no cost is recorded rather than a wrong one.
+     *
+     * This assumes a resumed CLI restores the conversation's earlier total, as current Claude Code
+     * documents. One that restores nothing but then spends more than the saved total in its first
+     * turn is under-counted by that total; the token counts are unaffected.
      */
     private fun parseResult(root: JsonObject): Parsed {
         turnFinished = true

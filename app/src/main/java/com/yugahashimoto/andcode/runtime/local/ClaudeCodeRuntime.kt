@@ -114,6 +114,10 @@ class ClaudeCodeRuntime(
         runCatching { json.decodeFromString<Map<String, Double>>(costTotalsFile.readText()).toMutableMap() }
             .getOrDefault(mutableMapOf())
 
+    /** Told once each time a turn ends, with the app's session id. */
+    @Volatile
+    var onTurnFinished: ((String) -> Unit)? = null
+
     private fun persistCostTotals() {
         runCatching {
             costTotalsFile.parentFile?.mkdirs()
@@ -696,7 +700,10 @@ class ClaudeCodeRuntime(
         parsed.skills?.let { synchronized(this) { announcedSkills = it } }
         parsed.messages.forEach { message -> messageStore.upsert(sessionId, message) }
         parsed.events.forEach(events::tryEmit)
-        if (parsed.turnFinished) messageStore.flush()
+        if (parsed.turnFinished) {
+            messageStore.flush()
+            onTurnFinished?.invoke(sessionId)
+        }
     }
 
     /**

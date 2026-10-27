@@ -34,7 +34,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -502,12 +501,14 @@ class ClaudeCodeTarget(
     override suspend fun pendingQuestions(directory: String?): List<QuestionRequest> =
         withContext(Dispatchers.IO) { runtime.pendingQuestions() }
 
-    // A finished turn has just written its last messages (and their token counts), so the chat
-    // counts as updated again.
-    override fun events(): Flow<OpenCodeEvent> =
-        runtime.events().onEach { event ->
-            if (event is OpenCodeEvent.SessionIdle) touch(event.sessionId)
-        }
+    override fun events(): Flow<OpenCodeEvent> = runtime.events()
+
+    init {
+        // A finished turn has just written its last messages (and their token counts), so the chat
+        // counts as updated again. The runtime says so once per turn, from its reader thread; the
+        // records are changed on the main thread, like every other change to them.
+        runtime.onTurnFinished = { sessionId -> titleScope.launch(Dispatchers.Main) { touch(sessionId) } }
+    }
 
     private fun touch(sessionId: String) {
         val record = records[sessionId] ?: return
