@@ -1590,4 +1590,55 @@
     <string name="file_edit_error_changed_on_disk">Otro proceso modificó el archivo desde que lo abriste, así que tus cambios no se guardaron. Copia tu texto, cierra el editor y vuelve a abrir el archivo.</string>
     <string name="file_edit_error_write_failed">No se pudo guardar el archivo.</string>
     <string name="file_edit_error_generic">No se pudo editar el archivo.</string>
+    <string name="usage_title">Uso</string>
+    <string name="usage_kind_input">Entrada</string>
+    <string name="usage_kind_output">Salida</string>
+    <string name="usage_kind_reasoning">Razonamiento</string>
+    <string name="usage_kind_cache_read">Lectura de caché</string>
+    <string name="usage_kind_cache_write">Escritura en caché</string>
+    <string name="usage_range_week">7 días</string>
+    <string name="usage_range_month">30 días</string>
+    <string name="usage_range_quarter">90 días</string>
+    <string name="usage_range_all">Todo</string>
+    <string name="usage_include_archived">Incluir archivados</string>
+    <string name="usage_reading">Leyendo chats: %1$d de %2$d</string>
+    <string name="usage_empty_title">Aún no hay uso</string>
+    <string name="usage_empty_body">Aquí aparecen los tokens y el coste de los chats de OpenCode, y de los de Claude Code a partir de su próxima respuesta.</string>
+    <string name="usage_total_tokens">Tokens totales</string>
+    <string name="usage_cost">Coste</string>
+    <string name="usage_stat_chats">Chats</string>
+    <string name="usage_stat_turns">Turnos</string>
+    <string name="usage_stat_daily">Por día</string>
+    <string name="usage_stat_cache">En caché</string>
+    <string name="usage_daily">Uso diario</string>
+    <string name="usage_busiest_day">Día de más uso: %1$s</string>
+    <string name="usage_tokens_value">%1$s tokens</string>
+    <string name="usage_daily_average">Media de %1$s al día</string>
+    <string name="usage_token_mix">Tipos de tokens</string>
+    <string name="usage_by_model">Por modelo</string>
+    <string name="usage_by_agent">Por agente</string>
+    <string name="usage_model_unknown">Modelo desconocido</string>
+    <string name="usage_agent_server">Servidor OpenCode</string>
+    <string name="usage_top_chats">Chats con más uso</string>
+    <string name="usage_untitled">Chat sin título</string>
+    <plurals name="usage_turns">
+        <item quantity="one">%d turno</item>
+        <item quantity="many">%d turnos</item>
+        <item quantity="other">%d turnos</item>
+    </plurals>
+    <plurals name="usage_chats">
+        <item quantity="one">%d chat</item>
+        <item quantity="many">%d chats</item>
+        <item quantity="other">%d chats</item>
+    </plurals>
+    <plurals name="usage_unreadable">
+        <item quantity="one">No se pudo leer %d chat; su uso no se incluye.</item>
+        <item quantity="many">No se pudieron leer %d chats; su uso no se incluye.</item>
+        <item quantity="other">No se pudieron leer %d chats; su uso no se incluye.</item>
+    </plurals>
+    <plurals name="usage_untracked">
+        <item quantity="one">%d chat de Codex o Antigravity no se cuenta: esos agentes aún no informan del uso de tokens.</item>
+        <item quantity="many">%d chats de Codex o Antigravity no se cuentan: esos agentes aún no informan del uso de tokens.</item>
+        <item quantity="other">%d chats de Codex o Antigravity no se cuentan: esos agentes aún no informan del uso de tokens.</item>
+    </plurals>
 </resources>

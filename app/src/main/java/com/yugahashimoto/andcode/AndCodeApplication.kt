@@ -31,6 +31,7 @@ import com.yugahashimoto.andcode.data.repository.PullRequestStatusRepository
 import com.yugahashimoto.andcode.data.repository.RuntimeActivityRepository
 import com.yugahashimoto.andcode.data.repository.RuntimeCatalogRepository
 import com.yugahashimoto.andcode.data.repository.SessionAutoArchiver
+import com.yugahashimoto.andcode.data.repository.UsageRepository
 import com.yugahashimoto.andcode.data.schedule.ScheduleRepository
 import com.yugahashimoto.andcode.data.settings.AppPreferencesRepository
 import com.yugahashimoto.andcode.data.settings.DraftRepository
@@ -167,6 +168,10 @@ class AndCodeApplication : Application() {
 
     /** Searches the text of every chat's messages; see [MessageSearchRepository]. */
     lateinit var messageSearch: MessageSearchRepository
+        private set
+
+    /** Token use and cost across every chat, for the usage page; see [UsageRepository]. */
+    lateinit var usage: UsageRepository
         private set
 
     lateinit var notifications: RuntimeNotificationHelper
@@ -580,6 +585,7 @@ class AndCodeApplication : Application() {
             )
         val drafts = DraftRepository(this)
         messageSearch = MessageSearchRepository(targets = { runtimeRegistry.targets.value })
+        usage = UsageRepository(targets = { runtimeRegistry.targets.value })
         chatLifecycle =
             ChatLifecycleRepository(
                 targets = { runtimeRegistry.targets.value },

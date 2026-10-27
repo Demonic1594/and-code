@@ -380,11 +380,11 @@ class ClaudeCodeTarget(
         }
         val model = request.modelId ?: record.model
         val effort = request.variant ?: record.effort
-        // Remembered so reopening the chat keeps what the user last picked.
-        if (model != record.model || effort != record.effort) {
-            records[sessionId] = record.copy(model = model, effort = effort)
-            persist()
-        }
+        // Remembered so reopening the chat keeps what the user last picked; the updated time moves
+        // with the conversation, as OpenCode's does, so anything cached by it is read again.
+        val current = records[sessionId] ?: record
+        records[sessionId] = current.copy(model = model, effort = effort, session = current.session.touched())
+        persist()
         withContext(Dispatchers.IO) {
             runtime.send(
                 sessionId = sessionId,
@@ -502,6 +502,22 @@ class ClaudeCodeTarget(
         withContext(Dispatchers.IO) { runtime.pendingQuestions() }
 
     override fun events(): Flow<OpenCodeEvent> = runtime.events()
+
+    init {
+        // A finished turn has just written its last messages (and their token counts), so the chat
+        // counts as updated again. The runtime says so once per turn, from its reader thread; the
+        // records are changed on the main thread, like every other change to them.
+        runtime.onTurnFinished = { sessionId -> titleScope.launch(Dispatchers.Main) { touch(sessionId) } }
+    }
+
+    private fun touch(sessionId: String) {
+        val record = records[sessionId] ?: return
+        records[sessionId] = record.copy(session = record.session.touched())
+        persist()
+    }
+
+    private fun OpenCodeSession.touched(): OpenCodeSession =
+        copy(time = time.copy(updated = maxOf(System.currentTimeMillis(), (time.updated ?: 0L) + 1)))
 
     /**
      * Working-tree diff for the session's workspace.

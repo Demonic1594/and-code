@@ -1595,4 +1595,59 @@
     <string name="file_edit_error_changed_on_disk">Файл был изменён другим процессом после того, как вы его открыли, поэтому ваши правки не сохранены. Скопируйте текст, закройте редактор и откройте файл снова.</string>
     <string name="file_edit_error_write_failed">Не удалось сохранить файл.</string>
     <string name="file_edit_error_generic">Не удалось отредактировать файл.</string>
+    <string name="usage_title">Использование</string>
+    <string name="usage_kind_input">Ввод</string>
+    <string name="usage_kind_output">Вывод</string>
+    <string name="usage_kind_reasoning">Рассуждение</string>
+    <string name="usage_kind_cache_read">Чтение из кэша</string>
+    <string name="usage_kind_cache_write">Запись в кэш</string>
+    <string name="usage_range_week">7 дней</string>
+    <string name="usage_range_month">30 дней</string>
+    <string name="usage_range_quarter">90 дней</string>
+    <string name="usage_range_all">Всё время</string>
+    <string name="usage_include_archived">С архивом</string>
+    <string name="usage_reading">Чтение чатов: %1$d из %2$d</string>
+    <string name="usage_empty_title">Пока нет данных</string>
+    <string name="usage_empty_body">Здесь появятся токены и стоимость чатов OpenCode, а для чатов Claude Code — начиная со следующего ответа.</string>
+    <string name="usage_total_tokens">Всего токенов</string>
+    <string name="usage_cost">Стоимость</string>
+    <string name="usage_stat_chats">Чаты</string>
+    <string name="usage_stat_turns">Ходы</string>
+    <string name="usage_stat_daily">В день</string>
+    <string name="usage_stat_cache">Кэш</string>
+    <string name="usage_daily">По дням</string>
+    <string name="usage_busiest_day">Самый активный день: %1$s</string>
+    <string name="usage_tokens_value">%1$s токенов</string>
+    <string name="usage_daily_average">В среднем %1$s в день</string>
+    <string name="usage_token_mix">Состав токенов</string>
+    <string name="usage_by_model">По моделям</string>
+    <string name="usage_by_agent">По агентам</string>
+    <string name="usage_model_unknown">Неизвестная модель</string>
+    <string name="usage_agent_server">Сервер OpenCode</string>
+    <string name="usage_top_chats">Самые затратные чаты</string>
+    <string name="usage_untitled">Чат без названия</string>
+    <plurals name="usage_turns">
+        <item quantity="one">%d ход</item>
+        <item quantity="few">%d хода</item>
+        <item quantity="many">%d ходов</item>
+        <item quantity="other">%d хода</item>
+    </plurals>
+    <plurals name="usage_chats">
+        <item quantity="one">%d чат</item>
+        <item quantity="few">%d чата</item>
+        <item quantity="many">%d чатов</item>
+        <item quantity="other">%d чата</item>
+    </plurals>
+    <plurals name="usage_unreadable">
+        <item quantity="one">Не удалось прочитать %d чат; его данные не учтены.</item>
+        <item quantity="few">Не удалось прочитать %d чата; их данные не учтены.</item>
+        <item quantity="many">Не удалось прочитать %d чатов; их данные не учтены.</item>
+        <item quantity="other">Не удалось прочитать %d чата; их данные не учтены.</item>
+    </plurals>
+    <plurals name="usage_untracked">
+        <item quantity="one">%d чат Codex или Antigravity не учтён: эти агенты пока не сообщают расход токенов.</item>
+        <item quantity="few">%d чата Codex или Antigravity не учтены: эти агенты пока не сообщают расход токенов.</item>
+        <item quantity="many">%d чатов Codex или Antigravity не учтены: эти агенты пока не сообщают расход токенов.</item>
+        <item quantity="other">%d чата Codex или Antigravity не учтены: эти агенты пока не сообщают расход токенов.</item>
+    </plurals>
 </resources>

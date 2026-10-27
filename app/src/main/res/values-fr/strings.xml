@@ -1590,4 +1590,55 @@
     <string name="file_edit_error_changed_on_disk">Le fichier a été modifié par autre chose depuis son ouverture ; vos modifications n’ont donc pas été enregistrées. Copiez votre texte, fermez l’éditeur, puis rouvrez le fichier.</string>
     <string name="file_edit_error_write_failed">Impossible d’enregistrer le fichier.</string>
     <string name="file_edit_error_generic">Impossible de modifier le fichier.</string>
+    <string name="usage_title">Utilisation</string>
+    <string name="usage_kind_input">Entrée</string>
+    <string name="usage_kind_output">Sortie</string>
+    <string name="usage_kind_reasoning">Raisonnement</string>
+    <string name="usage_kind_cache_read">Lecture du cache</string>
+    <string name="usage_kind_cache_write">Écriture du cache</string>
+    <string name="usage_range_week">7 jours</string>
+    <string name="usage_range_month">30 jours</string>
+    <string name="usage_range_quarter">90 jours</string>
+    <string name="usage_range_all">Tout</string>
+    <string name="usage_include_archived">Inclure les archives</string>
+    <string name="usage_reading">Lecture des chats : %1$d sur %2$d</string>
+    <string name="usage_empty_title">Aucune utilisation pour l\'instant</string>
+    <string name="usage_empty_body">Les jetons et le coût s\'affichent ici pour les chats OpenCode, et pour les chats Claude Code à partir de leur prochaine réponse.</string>
+    <string name="usage_total_tokens">Jetons au total</string>
+    <string name="usage_cost">Coût</string>
+    <string name="usage_stat_chats">Chats</string>
+    <string name="usage_stat_turns">Tours</string>
+    <string name="usage_stat_daily">Par jour</string>
+    <string name="usage_stat_cache">En cache</string>
+    <string name="usage_daily">Utilisation par jour</string>
+    <string name="usage_busiest_day">Jour le plus chargé : %1$s</string>
+    <string name="usage_tokens_value">%1$s jetons</string>
+    <string name="usage_daily_average">Moyenne de %1$s par jour</string>
+    <string name="usage_token_mix">Répartition des jetons</string>
+    <string name="usage_by_model">Par modèle</string>
+    <string name="usage_by_agent">Par agent</string>
+    <string name="usage_model_unknown">Modèle inconnu</string>
+    <string name="usage_agent_server">Serveur OpenCode</string>
+    <string name="usage_top_chats">Chats les plus gourmands</string>
+    <string name="usage_untitled">Chat sans titre</string>
+    <plurals name="usage_turns">
+        <item quantity="one">%d tour</item>
+        <item quantity="many">%d tours</item>
+        <item quantity="other">%d tours</item>
+    </plurals>
+    <plurals name="usage_chats">
+        <item quantity="one">%d chat</item>
+        <item quantity="many">%d chats</item>
+        <item quantity="other">%d chats</item>
+    </plurals>
+    <plurals name="usage_unreadable">
+        <item quantity="one">%d chat n\'a pas pu être lu ; son utilisation manque.</item>
+        <item quantity="many">%d chats n\'ont pas pu être lus ; leur utilisation manque.</item>
+        <item quantity="other">%d chats n\'ont pas pu être lus ; leur utilisation manque.</item>
+    </plurals>
+    <plurals name="usage_untracked">
+        <item quantity="one">%d chat Codex ou Antigravity n\'est pas compté : ces agents ne signalent pas encore leurs jetons.</item>
+        <item quantity="many">%d chats Codex ou Antigravity ne sont pas comptés : ces agents ne signalent pas encore leurs jetons.</item>
+        <item quantity="other">%d chats Codex ou Antigravity ne sont pas comptés : ces agents ne signalent pas encore leurs jetons.</item>
+    </plurals>
 </resources>

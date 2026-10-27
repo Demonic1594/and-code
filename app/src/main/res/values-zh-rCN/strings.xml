@@ -1580,4 +1580,47 @@
     <string name="file_edit_error_changed_on_disk">自你打开此文件后，它已被其他程序修改，因此你的修改未保存。请复制你的文本，关闭编辑器，然后重新打开该文件。</string>
     <string name="file_edit_error_write_failed">无法保存文件。</string>
     <string name="file_edit_error_generic">无法编辑文件。</string>
+    <string name="usage_title">用量</string>
+    <string name="usage_kind_input">输入</string>
+    <string name="usage_kind_output">输出</string>
+    <string name="usage_kind_reasoning">推理</string>
+    <string name="usage_kind_cache_read">缓存读取</string>
+    <string name="usage_kind_cache_write">缓存写入</string>
+    <string name="usage_range_week">7 天</string>
+    <string name="usage_range_month">30 天</string>
+    <string name="usage_range_quarter">90 天</string>
+    <string name="usage_range_all">全部</string>
+    <string name="usage_include_archived">包括已归档</string>
+    <string name="usage_reading">正在读取聊天：%1$d / %2$d</string>
+    <string name="usage_empty_title">暂无用量</string>
+    <string name="usage_empty_body">这里会显示 OpenCode 聊天的令牌数和费用；Claude Code 聊天从下一次回复起也会显示。</string>
+    <string name="usage_total_tokens">令牌总数</string>
+    <string name="usage_cost">费用</string>
+    <string name="usage_stat_chats">聊天</string>
+    <string name="usage_stat_turns">轮次</string>
+    <string name="usage_stat_daily">每天</string>
+    <string name="usage_stat_cache">缓存</string>
+    <string name="usage_daily">每日用量</string>
+    <string name="usage_busiest_day">用量最多的一天：%1$s</string>
+    <string name="usage_tokens_value">%1$s 个令牌</string>
+    <string name="usage_daily_average">日均 %1$s</string>
+    <string name="usage_token_mix">令牌构成</string>
+    <string name="usage_by_model">按模型</string>
+    <string name="usage_by_agent">按智能体</string>
+    <string name="usage_model_unknown">未知模型</string>
+    <string name="usage_agent_server">OpenCode 服务器</string>
+    <string name="usage_top_chats">用量最多的聊天</string>
+    <string name="usage_untitled">无标题聊天</string>
+    <plurals name="usage_turns">
+        <item quantity="other">%d 轮</item>
+    </plurals>
+    <plurals name="usage_chats">
+        <item quantity="other">%d 个聊天</item>
+    </plurals>
+    <plurals name="usage_unreadable">
+        <item quantity="other">有 %d 个聊天无法读取，其用量未计入。</item>
+    </plurals>
+    <plurals name="usage_untracked">
+        <item quantity="other">未计入 %d 个 Codex 或 Antigravity 聊天：这些智能体尚不报告令牌用量。</item>
+    </plurals>
 </resources>

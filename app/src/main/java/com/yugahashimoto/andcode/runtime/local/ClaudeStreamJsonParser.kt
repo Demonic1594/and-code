@@ -1,13 +1,16 @@
 package com.yugahashimoto.andcode.runtime.local
 
+import com.yugahashimoto.andcode.core.api.OpenCodeCacheTokens
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
 import com.yugahashimoto.andcode.core.api.OpenCodeMessageInfo
 import com.yugahashimoto.andcode.core.api.OpenCodePart
+import com.yugahashimoto.andcode.core.api.OpenCodeSessionTokens
 import com.yugahashimoto.andcode.core.api.OpenCodeTime
 import com.yugahashimoto.andcode.core.api.OpenCodeTodo
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -26,6 +29,12 @@ import java.util.UUID
 class ClaudeStreamJsonParser(
     private val sessionId: String,
     private val json: Json,
+    /**
+     * The spend Claude Code already reported for this conversation before this process: zero for a
+     * new one, the last saved total for a resumed one, or null when it is not known (a chat begun
+     * before totals were saved). See [parseResult] for why it matters.
+     */
+    costBaseline: Double? = 0.0,
 ) {
     /** What the runtime should do with a parsed line, beyond emitting [events]. */
     data class Parsed(
@@ -41,7 +50,14 @@ class ClaudeStreamJsonParser(
         val skills: List<String>? = null,
         val turnFinished: Boolean = false,
         val errorMessage: String? = null,
+        /** The conversation's running cost total from a result line, for the runtime to keep. */
+        val costTotal: Double? = null,
     )
+
+    private var costBaseline: Double? = costBaseline
+
+    /** Assistant messages of the running turn, oldest first: the turn's output and cost go on the last. */
+    private val turnMessageIds = mutableListOf<String>()
 
     private var currentMessageId: String? = null
 
@@ -56,6 +72,7 @@ class ClaudeStreamJsonParser(
     fun beginTurn() {
         turnFinished = false
         interruptRequested = false
+        turnMessageIds.clear()
     }
 
     fun requestInterrupt() {
@@ -129,6 +146,11 @@ class ClaudeStreamJsonParser(
         // transcript readable instead of interleaving fake user turns.
         val effectiveRole = if (role == "user") "assistant" else role
         val existing = messagesById[messageId]
+        // Each API response's usage, deduplicated by message id since every block of one response
+        // repeats it. Input and cache counts are exact here; output is a placeholder from the
+        // response's start, so it is left out and the turn's real total is added from the result.
+        val stepTokens = if (role == "assistant" && originMessageId == null) usageOf(message["usage"]) else null
+        if (stepTokens != null && messageId !in turnMessageIds) turnMessageIds += messageId
         // Merge rather than replace: a tool_result routed back onto an earlier assistant message
         // must update that message's existing tool part in place, not wipe out its other parts.
         val mergedParts =
@@ -143,13 +165,15 @@ class ClaudeStreamJsonParser(
         val parsedMessage =
             OpenCodeMessage(
                 info =
-                    existing?.info ?: OpenCodeMessageInfo(
-                        id = messageId,
-                        sessionId = sessionId,
-                        role = effectiveRole,
-                        time = now(),
-                        agent = "claude",
-                    ),
+                    (
+                        existing?.info ?: OpenCodeMessageInfo(
+                            id = messageId,
+                            sessionId = sessionId,
+                            role = effectiveRole,
+                            time = now(),
+                            agent = "claude",
+                        )
+                    ).let { info -> if (stepTokens != null) info.copy(tokens = stepTokens) else info },
                 parts = mergedParts,
             )
         messagesById[messageId] = parsedMessage
@@ -173,9 +197,33 @@ class ClaudeStreamJsonParser(
         )
     }
 
+    /**
+     * Ends the turn. The result line carries what the assistant lines cannot: the turn's real
+     * output token count (`usage`, this turn only) and the cost. `total_cost_usd` is a running total
+     * for the whole conversation, so this turn's cost is its rise since the previous result. A total
+     * below the baseline means the CLI started counting again (a `/clear`, or an older CLI that
+     * resumes from zero), and then the total is this turn's cost. With no known baseline, or a
+     * zeroed total after a crash, no cost is recorded rather than a wrong one.
+     *
+     * This assumes a resumed CLI restores the conversation's earlier total, as current Claude Code
+     * documents. One that restores nothing but then spends more than the saved total in its first
+     * turn is under-counted by that total; the token counts are unaffected.
+     */
     private fun parseResult(root: JsonObject): Parsed {
         turnFinished = true
         val claudeSessionId = root.string("session_id")
+        val total = root.double("total_cost_usd")
+        val base = costBaseline
+        val zeroedByCrash = total == 0.0 && (base ?: 0.0) > 0.0
+        val turnCost =
+            when {
+                total == null || zeroedByCrash || base == null -> null
+                total >= base -> total - base
+                else -> total
+            }
+        if (total != null && !zeroedByCrash) costBaseline = total
+        val costed = recordTurnUsage(root, turnCost)
+        val usage = Parsed(messages = listOfNotNull(costed), costTotal = costBaseline.takeIf { total != null })
         // A turn the user stopped ends with an error-shaped result ("error_during_execution"), but
         // stopping is a decision, not a failure: settle what was running and go idle quietly.
         if (interruptRequested) {
@@ -184,9 +232,10 @@ class ClaudeStreamJsonParser(
             currentMessageId = null
             return Parsed(
                 events = settled.events + OpenCodeEvent.SessionIdle(sessionId),
-                messages = settled.messages,
+                messages = settled.messages + usage.messages,
                 claudeSessionId = claudeSessionId,
                 turnFinished = true,
+                costTotal = usage.costTotal,
             )
         }
         val isError = root["is_error"]?.jsonPrimitive?.contentOrNull == "true"
@@ -196,18 +245,36 @@ class ClaudeStreamJsonParser(
             val settled = settleOpenTools(message)
             return Parsed(
                 events = settled.events + OpenCodeEvent.SessionError(sessionId, message) + OpenCodeEvent.SessionIdle(sessionId),
-                messages = settled.messages,
+                messages = settled.messages + usage.messages,
                 claudeSessionId = claudeSessionId,
                 turnFinished = true,
                 errorMessage = message,
+                costTotal = usage.costTotal,
             )
         }
         currentMessageId = null
         return Parsed(
             events = listOf(OpenCodeEvent.SessionIdle(sessionId)),
+            messages = usage.messages,
             claudeSessionId = claudeSessionId,
             turnFinished = true,
+            costTotal = usage.costTotal,
         )
+    }
+
+    /** Puts the turn's output tokens and cost on its last assistant message, the one that closed it. */
+    private fun recordTurnUsage(
+        root: JsonObject,
+        cost: Double?,
+    ): OpenCodeMessage? {
+        val lastId = turnMessageIds.lastOrNull() ?: return null
+        val last = messagesById[lastId] ?: return null
+        val output = (root["usage"] as? JsonObject)?.long("output_tokens")
+        val tokens = last.info.tokens?.let { if (output != null) it.copy(output = output) else it }
+        if (tokens == last.info.tokens && cost == null) return null
+        val updated = last.copy(info = last.info.copy(tokens = tokens, cost = cost ?: last.info.cost))
+        messagesById[lastId] = updated
+        return updated
     }
 
     private data class SettledTools(
@@ -333,6 +400,24 @@ class ClaudeStreamJsonParser(
 
     private companion object {
         fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
+
+        fun JsonObject.long(key: String): Long? = (this[key] as? JsonPrimitive)?.contentOrNull?.toLongOrNull()
+
+        fun JsonObject.double(key: String): Double? = (this[key] as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull()
+
+        /** An Anthropic `usage` object's input and cache counts; output is filled in at the turn's end. */
+        fun usageOf(element: JsonElement?): OpenCodeSessionTokens? {
+            val usage = element as? JsonObject ?: return null
+            val input = usage.long("input_tokens") ?: return null
+            return OpenCodeSessionTokens(
+                input = input,
+                cache =
+                    OpenCodeCacheTokens(
+                        read = usage.long("cache_read_input_tokens") ?: 0,
+                        write = usage.long("cache_creation_input_tokens") ?: 0,
+                    ),
+            )
+        }
 
         fun JsonObject.stringList(key: String): List<String>? =
             (this[key] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
