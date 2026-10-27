@@ -337,6 +337,7 @@ fun AndCodeApp(
                         // backgrounded - neither loop's result is visible to anyone until it is
                         // foreground again.
                         awaitForeground = { app.appForeground.foreground.first { visible -> visible } },
+                        foreground = app.appForeground.foreground,
                         videoNotSupportedMessage = context.getString(R.string.error_video_not_supported),
                         rewindNothingMessage = context.getString(R.string.rewind_nothing),
                         workspaceAttachmentNoteTemplate = context.getString(R.string.chat_workspace_attachment_note),

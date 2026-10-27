@@ -49,6 +49,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -138,6 +139,51 @@ data class ChatMessage(
 ) {
     val text: String
         get() = parts.filterIsInstance<ChatPart.Text>().joinToString("") { it.text }
+}
+
+/**
+ * The newer of a reply as streamed here ([live]) and as the transcript has it ([snapshot]). Either
+ * can be ahead: the transcript lags the stream, but a stream that died quietly lags the transcript.
+ * A finished snapshot is the whole reply. Otherwise each part keeps whichever copy is further on -
+ * streamed text only ever grows, so a longer snapshot that starts with the live text is newer, and
+ * a tool the snapshot shows finished is done - and parts only one side has are kept.
+ */
+internal fun fresherReply(
+    live: ChatMessage,
+    snapshot: ChatMessage,
+): ChatMessage {
+    if (snapshot.completedAt != null) return snapshot
+    val livePartsById = live.parts.associateBy { it.id }
+    val merged = snapshot.parts.map { part -> livePartsById[part.id]?.let { fresherPart(it, part) } ?: part }
+    val snapshotIds = snapshot.parts.map { it.id }.toSet()
+    return live.copy(parts = merged + live.parts.filter { it.id !in snapshotIds })
+}
+
+private fun fresherPart(
+    live: ChatPart,
+    snapshot: ChatPart,
+): ChatPart {
+    fun ahead(
+        liveText: String,
+        snapshotText: String,
+    ) = snapshotText.length > liveText.length && snapshotText.startsWith(liveText)
+    return when {
+        live is ChatPart.Text && snapshot is ChatPart.Text -> if (ahead(live.text, snapshot.text)) snapshot else live
+        live is ChatPart.Reasoning && snapshot is ChatPart.Reasoning -> if (ahead(live.text, snapshot.text)) snapshot else live
+        // An early delta is kept as text until its part says it was reasoning.
+        live is ChatPart.Text && snapshot is ChatPart.Reasoning ->
+            if (ahead(
+                    live.text,
+                    snapshot.text,
+                )
+            ) {
+                snapshot
+            } else {
+                snapshot.copy(text = live.text)
+            }
+        snapshot is ChatPart.Tool && (snapshot.status == ToolStatus.COMPLETED || snapshot.status == ToolStatus.ERROR) -> snapshot
+        else -> live
+    }
 }
 
 /**
@@ -260,6 +306,21 @@ internal const val STALL_THRESHOLD_MS = 150_000L
 
 /** How often a run in flight is measured against [STALL_THRESHOLD_MS]. */
 internal const val STALL_CHECK_INTERVAL_MS = 30_000L
+
+/** How long a running chat may hear nothing live before its transcript is re-read. */
+internal const val CATCH_UP_QUIET_MS = 12_000L
+
+/** The least time between two such re-reads. */
+internal const val CATCH_UP_INTERVAL_MS = 10_000L
+
+/** How often a running chat checks whether it needs to catch up. */
+internal const val CATCH_UP_CHECK_MS = 4_000L
+
+/** The most time between two catch-ups while the stream stays silent. */
+internal const val CATCH_UP_MAX_INTERVAL_MS = 60_000L
+
+/** How long the app must have been away before coming back re-reads the open chat. */
+internal const val RESYNC_AFTER_AWAY_MS = 10_000L
 
 /**
  * How often a run already reported as stalled is probed again. Once the chat has said its piece
@@ -654,6 +715,12 @@ class ChatViewModel(
      */
     private val awaitForeground: suspend () -> Unit = {},
     /**
+     * Whether the app is on screen. Coming back re-reads the open chat: whatever the runtime did
+     * while the app was away - and a local agent's stream never reconnects to say so - is shown
+     * without the user having to open the chat again from the drawer.
+     */
+    private val foreground: Flow<Boolean>? = null,
+    /**
      * Shown when a video attachment reaches the send path. Videos are converted to image
      * frames at attach time, so this only fires for stale or queued attachments that slipped
      * through. Injected the same way as WorkspaceViewModel.incompleteConnectionMessage so
@@ -753,6 +820,24 @@ class ChatViewModel(
     /** Last failure reported by the event stream, or null while it is healthy. */
     private var streamError: String? = null
 
+    /** When the running chat's transcript was last re-read because nothing had arrived live. */
+    private var lastCatchUpAt: Long = 0L
+
+    /** When anything last came down the event stream, for any chat: proof the stream is alive. */
+    private var lastStreamEventAt: Long = now()
+
+    /** Grows while catch-ups find the stream still silent, so a long quiet tool run is not re-read every few seconds. */
+    private var catchUpIntervalMs: Long = CATCH_UP_INTERVAL_MS
+
+    /**
+     * Bumped by every read that replaces the transcript, so a re-read that comes back after a
+     * newer one (or after the turn's own end-of-run reload) is dropped instead of rolling the chat
+     * back to an older snapshot.
+     */
+    private var transcriptGeneration: Long = 0L
+    private var resyncJob: Job? = null
+    private var leftScreenAt: Long? = null
+
     init {
         pullRequestStatuses?.let(::trackPullRequests)
         streamErrorFlow?.let { flow ->
@@ -824,6 +909,37 @@ class ChatViewModel(
                     delay(HEALTH_CHECK_DELAY_MS)
                 }
                 reportError(lastError)
+            }
+            foreground?.let { visible ->
+                viewModelScope.launch {
+                    visible.distinctUntilChanged().drop(1).collect { onScreen ->
+                        if (!onScreen) {
+                            leftScreenAt = now()
+                            return@collect
+                        }
+                        // A short glance away misses nothing a healthy stream would not deliver.
+                        val awayFor = leftScreenAt?.let { now() - it } ?: 0L
+                        leftScreenAt = null
+                        if (awayFor >= RESYNC_AFTER_AWAY_MS) resyncOpenChat()
+                    }
+                }
+            }
+            // Wired up only where the app's visibility is known: the loop waits on it, and screens or
+            // tests that do not pass it keep the transcript reads they already expect.
+            if (foreground != null) {
+                viewModelScope.launch {
+                    uiState
+                        .map { it.isRunning }
+                        .distinctUntilChanged()
+                        .collectLatest { running ->
+                            if (!running) return@collectLatest
+                            while (true) {
+                                awaitForeground()
+                                delay(CATCH_UP_CHECK_MS)
+                                maybeCatchUp()
+                            }
+                        }
+                }
             }
             if (monitorConnectionQuality) {
                 connectionMonitor.startMonitoring { backend.health() }
@@ -1120,6 +1236,7 @@ class ChatViewModel(
         // which never got a session to record it on - stops applying here.
         _uiState.update { it.copy(chatGeneration = it.chatGeneration + 1, draftSystemPrompt = null) }
         streamedParts.clear()
+        transcriptGeneration++
         messageRoles.clear()
         // Opening the chat is an explicit act of attention, so questions the user hid earlier are
         // offered again rather than staying suppressed by a stale dismissal.
@@ -1254,6 +1371,7 @@ class ChatViewModel(
 
     fun newSession() {
         streamedParts.clear()
+        transcriptGeneration++
         messageRoles.clear()
         dismissedQuestionIds.clear()
         dismissedPullRequestKeys.clear()
@@ -1830,6 +1948,7 @@ class ChatViewModel(
                             // carry, not drop it the way it otherwise would.
                             val retainedIds = streamedParts.keys.toSet()
                             streamedParts.clear()
+                            transcriptGeneration++
                             // Re-attach the in-memory previews the same way the polling loop does:
                             // the final reload otherwise drops them, and a runtime whose attachment
                             // URLs are not inlineable data URLs would lose the just-sent image the
@@ -2024,6 +2143,7 @@ class ChatViewModel(
                             if (!sessionCompleted && !hasResponse) return@onSuccess
                             val retainedIds = streamedParts.keys.toSet()
                             streamedParts.clear()
+                            transcriptGeneration++
                             _uiState.update {
                                 it.copy(
                                     messages =
@@ -2404,6 +2524,82 @@ class ChatViewModel(
     }
 
     /**
+     * Re-reads the open chat's transcript and open questions, keeping what is still streaming in.
+     * What opening the chat from the drawer does, without clearing the screen first: used when the
+     * stream reconnects, when the app comes back on screen, and when a running chat has heard
+     * nothing live for a while.
+     */
+    private fun resyncOpenChat() {
+        val session = _uiState.value.sessionId ?: return
+        val currentBackend = backend ?: return
+        lastCatchUpAt = now()
+        val generation = ++transcriptGeneration
+        resyncJob?.cancel()
+        resyncJob =
+            viewModelScope.launch {
+                runCatching { currentBackend.listMessages(session) }
+                    .onSuccess { messages ->
+                        // Superseded by a session switch, a newer read or the turn's own final reload.
+                        if (_uiState.value.sessionId != session || generation != transcriptGeneration) return@onSuccess
+                        applyResync(session, messages)
+                    }
+            }
+        refreshPendingQuestions(session)
+    }
+
+    private fun applyResync(
+        session: String,
+        messages: List<OpenCodeMessage>,
+    ) {
+        val live = streamedParts.keys.toSet()
+        val reloaded = messages.mapNotNull(::toUiMessage)
+        // Whether the transcript has caught up with the prompt on screen, rather than ending on the
+        // previous turn while a prompt just sent is still on its way.
+        val latestPrompt = _uiState.value.messages.lastOrNull { it.isUser }?.text
+        val hasLatestPrompt = latestPrompt != null && reloaded.lastOrNull { it.isUser }?.text == latestPrompt
+        _uiState.update { state ->
+            val onScreen = state.messages.associateBy { it.id }
+            val merged =
+                mergeReloadedMessages(reloaded, state.messages, retainIds = live)
+                    .map { message ->
+                        val streamed = onScreen[message.id]?.takeIf { message.id in live }
+                        if (streamed == null) message else fresherReply(streamed, message)
+                    }
+            state.copy(messages = merged)
+        }
+        if (!_uiState.value.isRunning) return
+        // The stream cache now matches the screen, so the next delta extends what is shown.
+        val messagesNow = _uiState.value.messages
+        val lastUser = messagesNow.indexOfLast { it.isUser }
+        messagesNow.drop(lastUser + 1).filter { !it.isUser && it.parts.isNotEmpty() }.forEach { message ->
+            streamedParts[message.id] = LinkedHashMap(message.parts.associateBy { it.id })
+        }
+        // A turn that ended while the stream was silent sent its idle into the void. Only trusted
+        // once the stream has been quiet a while: between two steps of a live turn the newest
+        // message is briefly complete too.
+        val answered = hasLatestPrompt && messages.lastOrNull()?.info?.role == "assistant"
+        if (answered && inspectRun(messages).turnCompleted && now() - lastStreamEventAt >= CATCH_UP_QUIET_MS) {
+            handleSessionIdle(session)
+        }
+    }
+
+    /**
+     * While a turn runs and nothing has arrived live for [CATCH_UP_QUIET_MS] - or the event stream
+     * is down - the transcript is re-read every [CATCH_UP_INTERVAL_MS], so the reply still appears
+     * when the live stream does not deliver it. A healthy stream never triggers this: every event
+     * counts as progress.
+     */
+    private fun maybeCatchUp() {
+        val state = _uiState.value
+        if (!state.isRunning || state.sessionId == null) return
+        val quiet = now() - lastProgressAt >= CATCH_UP_QUIET_MS && now() - lastStreamEventAt >= CATCH_UP_QUIET_MS
+        if (!quiet && streamError == null) return
+        if (now() - lastCatchUpAt < catchUpIntervalMs) return
+        catchUpIntervalMs = (catchUpIntervalMs * 2).coerceAtMost(CATCH_UP_MAX_INTERVAL_MS)
+        resyncOpenChat()
+    }
+
+    /**
      * Stops treating [sessionId]'s idles as leftovers of an interrupted run, so a turn that ends
      * without the replacement run ever reporting busy cannot leave idles ignored for good.
      */
@@ -2417,6 +2613,7 @@ class ChatViewModel(
      */
     private fun recordProgress() {
         lastProgressAt = now()
+        catchUpIntervalMs = CATCH_UP_INTERVAL_MS
         if (_uiState.value.stall != null) _uiState.update { it.copy(stall = null) }
     }
 
@@ -2506,6 +2703,7 @@ class ChatViewModel(
     }
 
     private fun handleEvent(event: OpenCodeEvent) {
+        lastStreamEventAt = now()
         val activeSession = _uiState.value.sessionId
         if (activeSession != null && event.sessionIdOrNull() == activeSession && event.provesRunProgress()) {
             recordProgress()
@@ -2513,28 +2711,7 @@ class ChatViewModel(
         when (event) {
             OpenCodeEvent.ServerConnected -> {
                 _uiState.update { it.copy(isConnected = true, error = null) }
-                val session = _uiState.value.sessionId
-                val currentBackend = backend
-                if (session != null && currentBackend != null) {
-                    viewModelScope.launch {
-                        runCatching { currentBackend.listMessages(session) }
-                            .onSuccess { messages ->
-                                val retainedIds = streamedParts.keys.toSet()
-                                streamedParts.clear()
-                                _uiState.update {
-                                    it.copy(
-                                        messages =
-                                            mergeReloadedMessages(
-                                                messages.mapNotNull(::toUiMessage),
-                                                it.messages,
-                                                retainIds = retainedIds,
-                                            ),
-                                    )
-                                }
-                            }
-                    }
-                    refreshPendingQuestions(session)
-                }
+                resyncOpenChat()
                 drainOfflineQueue()
             }
             is OpenCodeEvent.MessageUpdated -> {
@@ -2716,6 +2893,7 @@ class ChatViewModel(
         // survive the reload below, not vanish with the cache.
         val retainedIds = streamedParts.keys.toSet()
         streamedParts.clear()
+        transcriptGeneration++
         _uiState.update { state ->
             state.copy(
                 messages =
@@ -3006,6 +3184,7 @@ class ChatViewModel(
                     .onSuccess { messages ->
                         val retainedIds = streamedParts.keys.toSet()
                         streamedParts.clear()
+                        transcriptGeneration++
                         _uiState.update {
                             it.copy(
                                 messages =

@@ -105,6 +105,110 @@ class RuntimeActivityRepositoryTest {
         }
 
     @Test
+    fun `the stream reopens at once when the app comes back after a while away`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val target = FakeTarget(requireConnected = false)
+            val registry =
+                RuntimeRegistry(
+                    store = FakeStore(selectedRuntimeId = target.id),
+                    localTarget = target,
+                    remoteFactory = { error("unused") },
+                )
+            val onScreen = MutableStateFlow(true)
+            RuntimeActivityRepository(
+                registry = registry,
+                scope = TestScope(dispatcher),
+                foreground = onScreen,
+                reconnectAfterBackgroundMillis = 10_000L,
+                now = { testScheduler.currentTime },
+            )
+            advanceUntilIdle()
+            assertEquals(1, target.eventCalls)
+
+            // A glance away (a notification shade, a quick app switch) keeps the stream as it is.
+            onScreen.value = false
+            advanceTimeBy(3_000L)
+            onScreen.value = true
+            runCurrent()
+            assertEquals(1, target.eventCalls)
+
+            // Back after longer than that, the connection the system may have cut is reopened.
+            onScreen.value = false
+            advanceTimeBy(30_000L)
+            onScreen.value = true
+            runCurrent()
+            assertEquals(2, target.eventCalls)
+        }
+
+    @Test
+    fun `the retry wait starts over once the stream delivers again`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val target =
+                FakeTarget(requireConnected = false).apply {
+                    repeat(3) { eventFlows += flow { throw IllegalStateException("dropped") } }
+                    eventFlows +=
+                        flow {
+                            emit(OpenCodeEvent.ServerConnected)
+                            throw IllegalStateException("dropped again")
+                        }
+                }
+            val registry =
+                RuntimeRegistry(
+                    store = FakeStore(selectedRuntimeId = target.id),
+                    localTarget = target,
+                    remoteFactory = { error("unused") },
+                )
+            RuntimeActivityRepository(
+                registry = registry,
+                scope = TestScope(dispatcher),
+                retryDelayMillis = 1_000L,
+                maxRetryDelayMillis = 30_000L,
+            )
+            // Three failures in a row back off 1 s, 2 s and 4 s; the fourth connection delivers.
+            advanceTimeBy(7_001L)
+            assertEquals(4, target.eventCalls)
+
+            // It delivered, so the next wait is the shortest again rather than 8 s.
+            advanceTimeBy(1_001L)
+            assertEquals(5, target.eventCalls)
+        }
+
+    @Test
+    fun `an event that fails to be handled does not stop the stream`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val target = FakeTarget(requireConnected = false)
+            target.sessions = listOf(OpenCodeSession(id = "ses_1", title = "Main"))
+            val registry =
+                RuntimeRegistry(
+                    store = FakeStore(selectedRuntimeId = target.id),
+                    localTarget = target,
+                    remoteFactory = { error("unused") },
+                )
+            val repository =
+                RuntimeActivityRepository(
+                    registry = registry,
+                    scope = TestScope(dispatcher),
+                    onSessionIdle = { _, _, _ -> error("notification failed") },
+                )
+            advanceUntilIdle()
+            val received = mutableListOf<OpenCodeEvent>()
+            val collector = launch(dispatcher) { repository.events.collect { received += it } }
+            runCurrent()
+
+            target.eventFlow.emit(OpenCodeEvent.SessionIdle("ses_1"))
+            advanceUntilIdle()
+            target.eventFlow.emit(OpenCodeEvent.ServerConnected)
+            advanceUntilIdle()
+
+            assertEquals(1, target.eventCalls)
+            assertTrue(OpenCodeEvent.ServerConnected in received)
+            collector.cancel()
+        }
+
+    @Test
     fun `runtime state churn never restarts the event stream`() =
         runTest {
             val dispatcher = StandardTestDispatcher(testScheduler)

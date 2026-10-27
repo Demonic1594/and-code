@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.feature.chat
 
+import androidx.lifecycle.viewModelScope
 import com.yugahashimoto.andcode.core.api.OpenCodeAgent
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
 import com.yugahashimoto.andcode.core.api.OpenCodeHealth
@@ -19,9 +20,11 @@ import com.yugahashimoto.andcode.runtime.OpenCodeBackend
 import com.yugahashimoto.andcode.runtime.PermissionResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -76,6 +79,178 @@ class ChatViewModelStallTest {
             assertEquals(StallReason.NO_OUTPUT, stall?.reason)
             assertTrue((stall?.silentForMillis ?: 0L) >= STALL_THRESHOLD_MS)
             assertTrue(viewModel.uiState.value.isRunning)
+        }
+
+    @Test
+    fun `coming back to the app re-reads the open chat`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val onScreen = MutableStateFlow(true)
+            val viewModel = viewModel(backend, onScreen)
+            viewModel.sendMessage("Hello")
+            // Bounded steps only: a running chat keeps its catch-up loop going, so the clock never idles.
+            advanceTimeBy(1_000L)
+            runCurrent()
+
+            // Away long enough to count, landing between two ticks of the post-send poll so only
+            // the return itself can bring in the reply written meanwhile.
+            onScreen.value = false
+            runCurrent()
+            advanceTimeBy(RESYNC_AFTER_AWAY_MS + 500L)
+            backend.historyMessages = listOf(assistantMessage(text = "Done while you were away", completed = 3L))
+            onScreen.value = true
+            runCurrent()
+
+            assertTrue(viewModel.uiState.value.messages.any { message -> message.text.contains("Done while you were away") })
+            viewModel.stopCatchingUp()
+        }
+
+    @Test
+    fun `a short glance away does not re-read the chat`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val onScreen = MutableStateFlow(true)
+            viewModel(backend, onScreen)
+            val calls = backend.listMessagesCalls
+
+            onScreen.value = false
+            runCurrent()
+            advanceTimeBy(2_000L)
+            onScreen.value = true
+            runCurrent()
+
+            assertEquals(calls, backend.listMessagesCalls)
+        }
+
+    @Test
+    fun `a running chat that hears nothing live catches up from the transcript`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = viewModel(backend, MutableStateFlow(true))
+            viewModel.sendMessage("Hello")
+            // Past the post-send poll, which would otherwise be what brings the reply in.
+            runSilentlyPastThePoll()
+            val calls = backend.listMessagesCalls
+            backend.historyMessages = listOf(assistantMessage(text = "Partial answer"))
+
+            advanceTimeBy(CATCH_UP_MAX_INTERVAL_MS + 2 * CATCH_UP_CHECK_MS)
+            runCurrent()
+
+            assertTrue(backend.listMessagesCalls > calls)
+            assertTrue(viewModel.uiState.value.messages.any { message -> message.text.contains("Partial answer") })
+            assertTrue(viewModel.uiState.value.isRunning)
+            viewModel.stopCatchingUp()
+        }
+
+    @Test
+    fun `a re-read while a reply streams keeps what streamed and lets the next delta extend it`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val onScreen = MutableStateFlow(true)
+            val viewModel = viewModel(backend, onScreen)
+            viewModel.sendMessage("Hello")
+            advanceTimeBy(1_000L)
+            runCurrent()
+            backend.events.emit(OpenCodeEvent.MessagePartDelta("s1", "assistant-1", "text-1", "text", "Hello"))
+            backend.events.emit(OpenCodeEvent.MessagePartDelta("s1", "assistant-1", "text-1", "text", " world"))
+            runCurrent()
+
+            // The transcript lags behind the stream: it only has the first delta.
+            onScreen.value = false
+            runCurrent()
+            advanceTimeBy(RESYNC_AFTER_AWAY_MS + 500L)
+            backend.historyMessages = listOf(assistantMessage(text = "Hello"))
+            onScreen.value = true
+            runCurrent()
+            backend.events.emit(OpenCodeEvent.MessagePartDelta("s1", "assistant-1", "text-1", "text", "!"))
+            runCurrent()
+
+            val reply = viewModel.uiState.value.messages.single { it.id == "assistant-1" }
+            assertEquals("Hello world!", reply.text)
+            viewModel.stopCatchingUp()
+        }
+
+    @Test
+    fun `a re-read takes the transcript's text when the stream fell behind it`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val onScreen = MutableStateFlow(true)
+            val viewModel = viewModel(backend, onScreen)
+            viewModel.sendMessage("Say hi")
+            advanceTimeBy(1_000L)
+            runCurrent()
+            backend.events.emit(OpenCodeEvent.MessagePartDelta("s1", "assistant-1", "text-1", "text", "Hello"))
+            runCurrent()
+
+            // The stream died quietly while the app was away; the reply kept going without it.
+            onScreen.value = false
+            runCurrent()
+            advanceTimeBy(RESYNC_AFTER_AWAY_MS + 500L)
+            backend.historyMessages = listOf(userMessage("Say hi"), assistantMessage(text = "Hello world"))
+            onScreen.value = true
+            runCurrent()
+            assertEquals("Hello world", viewModel.uiState.value.messages.single { it.id == "assistant-1" }.text)
+
+            backend.events.emit(OpenCodeEvent.MessagePartDelta("s1", "assistant-1", "text-1", "text", "!"))
+            runCurrent()
+            assertEquals("Hello world!", viewModel.uiState.value.messages.single { it.id == "assistant-1" }.text)
+            viewModel.stopCatchingUp()
+        }
+
+    @Test
+    fun `a turn that ended while the stream was silent is wrapped up on return`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val onScreen = MutableStateFlow(true)
+            val viewModel = viewModel(backend, onScreen)
+            viewModel.sendMessage("Say hi")
+            advanceTimeBy(1_000L)
+            runCurrent()
+            backend.events.emit(OpenCodeEvent.MessagePartDelta("s1", "assistant-1", "text-1", "text", "Hel"))
+            runCurrent()
+
+            onScreen.value = false
+            runCurrent()
+            advanceTimeBy(CATCH_UP_QUIET_MS + 500L)
+            backend.historyMessages = listOf(userMessage("Say hi"), assistantMessage(text = "Hello there", completed = 3L))
+            onScreen.value = true
+            runCurrent()
+
+            assertFalse(viewModel.uiState.value.isRunning)
+            assertEquals("Hello there", viewModel.uiState.value.messages.single { it.id == "assistant-1" }.text)
+            viewModel.stopCatchingUp()
+        }
+
+    @Test
+    fun `a re-read that comes back after the turn ended does not roll the reply back`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val onScreen = MutableStateFlow(true)
+            val viewModel = viewModel(backend, onScreen)
+            viewModel.sendMessage("Hello")
+            advanceTimeBy(1_000L)
+            runCurrent()
+
+            // A re-read on return that is slow to answer, with a snapshot from mid-turn...
+            onScreen.value = false
+            runCurrent()
+            advanceTimeBy(RESYNC_AFTER_AWAY_MS + 500L)
+            backend.historyMessages = listOf(assistantMessage(text = "Half"))
+            backend.listMessagesDelayMs = 2_000L
+            onScreen.value = true
+            runCurrent()
+
+            // ...overtaken by the turn ending and its own final reload.
+            backend.listMessagesDelayMs = 0L
+            backend.historyMessages = listOf(assistantMessage(text = "Half and the rest", completed = 3L))
+            backend.events.emit(OpenCodeEvent.SessionIdle("s1"))
+            runCurrent()
+            advanceTimeBy(3_000L)
+            runCurrent()
+
+            val reply = viewModel.uiState.value.messages.single { it.id == "assistant-1" }
+            assertEquals("Half and the rest", reply.text)
+            viewModel.stopCatchingUp()
         }
 
     @Test
@@ -431,16 +606,26 @@ class ChatViewModelStallTest {
      * The chat under test, reading the virtual clock so the watchdog measures the same time the
      * test advances.
      */
-    private fun TestScope.viewModel(backend: FakeBackend): ChatViewModel =
+    private fun TestScope.viewModel(
+        backend: FakeBackend,
+        foreground: Flow<Boolean>? = null,
+    ): ChatViewModel =
         ChatViewModel(
             backend = backend,
             eventFlow = backend.events,
             now = { testScheduler.currentTime },
+            foreground = foreground,
         ).also {
             // Let the opening health check land: a chat that has not connected queues prompts
             // offline instead of running them.
             advanceUntilIdle()
         }
+
+    /**
+     * Ends the view model's work, as leaving the screen does. A chat left running keeps a catch-up
+     * loop ticking, so the test's closing wait for an idle clock would otherwise never return.
+     */
+    private fun ChatViewModel.stopCatchingUp() = viewModelScope.cancel()
 
     /**
      * Runs the clock past both the stall threshold and the bounded post-send poll, leaving the turn
@@ -512,6 +697,12 @@ class ChatViewModelStallTest {
 
         override fun events(): Flow<OpenCodeEvent> = events
     }
+
+    private fun userMessage(text: String): OpenCodeMessage =
+        OpenCodeMessage(
+            info = OpenCodeMessageInfo(id = "user-1", sessionId = "s1", role = "user", time = OpenCodeTime(created = 1L)),
+            parts = listOf(OpenCodePart(id = "user-text-1", type = "text", text = text)),
+        )
 
     private fun assistantMessage(
         text: String? = null,

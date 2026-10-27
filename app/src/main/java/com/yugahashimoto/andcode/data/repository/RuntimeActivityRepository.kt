@@ -20,6 +20,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -28,14 +29,16 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.retryWhen
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import java.io.IOException
 
 data class RuntimeEventLog(
     val timestamp: Long = System.currentTimeMillis(),
@@ -110,6 +113,13 @@ class RuntimeActivityRepository(
     private val now: () -> Long = System::currentTimeMillis,
     private val unreadStore: UnreadSessionStore? = null,
     private val messages: RuntimeActivityMessages = RuntimeActivityMessages,
+    /**
+     * Whether the app is on screen. Coming back after [reconnectAfterBackgroundMillis] away reopens
+     * the event stream at once: a connection the system cut while the app was away may otherwise
+     * sit silent, or be waiting out a long retry, while the user is already sending a prompt.
+     */
+    private val foreground: Flow<Boolean>? = null,
+    private val reconnectAfterBackgroundMillis: Long = 10_000L,
 ) {
     init {
         require(retryDelayMillis >= 0L)
@@ -214,28 +224,67 @@ class RuntimeActivityRepository(
         }
     }
 
+    /**
+     * Keeps the event stream open, reopening it when it fails or ends, and at once when the app
+     * comes back after a while away (see [foreground]). A reopened OpenCode stream starts with
+     * `server.connected`, which is what the chat re-reads its transcript on, so what was missed
+     * while the stream was down is filled in.
+     */
     private suspend fun streamEvents(target: RuntimeTarget) {
-        flow { emitAll(target.events()) }
-            .retryWhen { error, attempt ->
+        val returns = foreground?.let(::returnsFromBackground) ?: emptyFlow()
+        merge(flowOf(Unit), returns).collectLatest { connect(target) }
+    }
+
+    /** One emission each time the app comes back on screen after at least the reconnect delay away. */
+    private fun returnsFromBackground(visible: Flow<Boolean>): Flow<Unit> =
+        flow {
+            var leftAt: Long? = null
+            visible.distinctUntilChanged().collect { onScreen ->
+                if (!onScreen) {
+                    leftAt = now()
+                } else {
+                    val away = leftAt?.let { now() - it }
+                    leftAt = null
+                    if (away != null && away >= reconnectAfterBackgroundMillis) emit(Unit)
+                }
+            }
+        }
+
+    private suspend fun connect(target: RuntimeTarget) {
+        // Counts failures since the stream last delivered something, so one bad night does not
+        // leave every later reconnect waiting out the longest backoff.
+        var failures = 0
+        while (true) {
+            try {
+                target.events().collect { event ->
+                    failures = 0
+                    mutableState.update { it.copy(streamError = null) }
+                    if (event.provesRunProgress()) event.sessionIdOrNull()?.let(::recordActivity)
+                    mutableEvents.emit(event)
+                    // One event the repository cannot make sense of must not take the stream down:
+                    // the chat would stop updating until the app was restarted.
+                    try {
+                        handle(target, event)
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (error: Exception) {
+                        appendLog(messages.streamConnectionFailed, error.safeMessage(), event.sessionIdOrNull())
+                    }
+                }
+                throw IOException(messages.streamConnectionFailed)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
                 mutableState.update {
-                    it.copy(
-                        streamError = error.message?.takeIf(String::isNotBlank) ?: messages.streamConnectionFailed,
-                    )
+                    it.copy(streamError = error.message?.takeIf(String::isNotBlank) ?: messages.streamConnectionFailed)
                 }
                 if (retryDelayMillis > 0L) {
-                    val backoff =
-                        (retryDelayMillis * (1L shl attempt.toInt().coerceAtMost(4)))
-                            .coerceAtMost(maxRetryDelayMillis)
+                    val backoff = (retryDelayMillis * (1L shl failures.coerceAtMost(4))).coerceAtMost(maxRetryDelayMillis)
                     delay(backoff)
                 }
-                true
+                failures++
             }
-            .collect { event ->
-                mutableState.update { it.copy(streamError = null) }
-                if (event.provesRunProgress()) event.sessionIdOrNull()?.let(::recordActivity)
-                mutableEvents.emit(event)
-                handle(target, event)
-            }
+        }
     }
 
     /**
