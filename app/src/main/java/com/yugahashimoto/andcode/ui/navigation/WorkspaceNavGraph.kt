@@ -9,6 +9,10 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.feature.browser.GuestBrowserScreen
+import com.yugahashimoto.andcode.feature.git.GitClient
+import com.yugahashimoto.andcode.feature.git.GitScreen
+import com.yugahashimoto.andcode.feature.git.GitScreenActions
+import com.yugahashimoto.andcode.feature.git.GitViewModel
 import com.yugahashimoto.andcode.feature.workspace.AndroidCodeViewerMessages
 import com.yugahashimoto.andcode.feature.workspace.CodeViewerScreen
 import com.yugahashimoto.andcode.feature.workspace.CodeViewerViewModel
@@ -175,6 +179,7 @@ fun NavGraphBuilder.workspaceNavGraph(
                 onSearch = explorerViewModel::search,
                 onRefreshChanges = explorerViewModel::refreshChanges,
                 onOpenTerminal = { navController.navigate(ROUTE_TERMINAL) },
+                onOpenSourceControl = { navController.navigate(ROUTE_GIT) },
                 onOpenChange = { change ->
                     if (change.isOpenable()) {
                         navController.navigate(codeViewerRoute(runtime.id, workspace.path, change.displayPath))
@@ -190,6 +195,56 @@ fun NavGraphBuilder.workspaceNavGraph(
                         onStash = explorerViewModel::stash,
                         onDiscard = explorerViewModel::discard,
                         onConsumeResult = explorerViewModel::consumeActionResult,
+                    ),
+            )
+        }
+    }
+
+    composable(ROUTE_GIT) {
+        val workspace = selectedWorkspace()
+        val runtime = selectedRuntime()
+        if (workspace == null || runtime?.type != RuntimeType.LOCAL) {
+            LaunchedEffect(Unit) { navController.popBackStack() }
+        } else {
+            val gitViewModel: GitViewModel =
+                viewModel(
+                    key = "git-${runtime.id}-${workspace.id}",
+                    factory =
+                        ViewModelFactory {
+                            GitViewModel(GitClient { command, timeout -> app.commandRunner.runShell(command, timeout) }, workspace.path)
+                        },
+                )
+            val gitState by gitViewModel.state.collectAsState()
+            GitScreen(
+                state = gitState,
+                onBack = { navController.popBackStack() },
+                actions =
+                    GitScreenActions(
+                        onRefresh = gitViewModel::refresh,
+                        onStage = gitViewModel::stage,
+                        onUnstage = gitViewModel::unstage,
+                        onStageAll = gitViewModel::stageAll,
+                        onUnstageAll = gitViewModel::unstageAll,
+                        onDiscard = gitViewModel::discard,
+                        onCommitMessageChange = gitViewModel::setCommitMessage,
+                        onAmendChange = gitViewModel::setAmend,
+                        onCommit = gitViewModel::commit,
+                        onFetch = gitViewModel::fetch,
+                        onPull = gitViewModel::pull,
+                        onPush = gitViewModel::push,
+                        onCheckout = gitViewModel::checkout,
+                        onCreateBranch = gitViewModel::createBranch,
+                        onDeleteBranch = gitViewModel::deleteBranch,
+                        onStash = gitViewModel::stash,
+                        onApplyStash = gitViewModel::applyStash,
+                        onDropStash = gitViewModel::dropStash,
+                        onOpenDiff = gitViewModel::openDiff,
+                        onOpenCommit = gitViewModel::openCommit,
+                        onOpenCommitFile = gitViewModel::openCommitFile,
+                        onCloseDiff = gitViewModel::closeDiff,
+                        onCloseCommit = gitViewModel::closeCommit,
+                        onLoadMoreCommits = gitViewModel::loadMoreCommits,
+                        onConsumeResult = gitViewModel::consumeResult,
                     ),
             )
         }
