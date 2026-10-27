@@ -555,6 +555,7 @@ class AndCodeApplication : Application() {
             RuntimeActivityRepository(
                 registry = runtimeRegistry,
                 scope = applicationScope,
+                foreground = appForeground.foreground,
                 onPermissionAsked = { request, title, runtimeId ->
                     notifications.notifyPermission(request, title, runtimeId)
                 },
