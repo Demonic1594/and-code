@@ -447,7 +447,7 @@ class ClaudeCodeRuntime(
         stop(sessionId)
         val resumeId = resumeIds.remove(sessionId)
         persistResumeIds()
-        if (costTotals.remove(sessionId) != null) persistCostTotals()
+        synchronized(this) { if (costTotals.remove(sessionId) != null) persistCostTotals() }
         todos.remove(sessionId)
         messageStore.remove(sessionId)
         installedRuntimeProvider()?.rootfs?.let { rootfs ->

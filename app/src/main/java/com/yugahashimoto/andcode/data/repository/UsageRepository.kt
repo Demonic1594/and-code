@@ -126,8 +126,8 @@ class UsageRepository(
         internal fun turnsOf(messages: List<OpenCodeMessage>): List<TurnUsage> =
             messages
                 .filterNot { it.info.role.equals("user", ignoreCase = true) }
+                // Without a creation time a turn cannot be put on a day.
                 .filter { it.info.time.created > 0 }
-                // A turn stopped before it used anything, or still starting, is not a turn of use.
                 .map { message ->
                     val info = message.info
                     val tokens = info.tokens
