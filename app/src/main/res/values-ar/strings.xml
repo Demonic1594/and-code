@@ -822,8 +822,18 @@
     <!-- Command palette & search -->
     <string name="search_label">Search</string>
     <!-- Terminal -->
-    <string name="terminal_banner">OpenCode Terminal - PRoot Alpine Linux</string>
-    <string name="terminal_exit_code">exit code: %1$d</string>
+    <string name="terminal_starting">جارٍ تشغيل الطرفية…</string>
+    <string name="terminal_session_ended">انتهت الجلسة (رمز الخروج %1$d)</string>
+    <string name="terminal_not_installed">لم يتم تثبيت بيئة Linux بعد. ثبّت بيئة التشغيل المحلية لاستخدام الطرفية.</string>
+    <string name="terminal_start_failed">تعذّر تشغيل الطرفية.</string>
+    <string name="terminal_restart">إعادة التشغيل</string>
+    <string name="terminal_input_hint">أدخل أمرًا أو ردًا على مطالبة</string>
+    <string name="cd_terminal_interrupt">مقاطعة (Ctrl+C)</string>
+    <string name="cd_terminal_end_of_input">نهاية الإدخال (Ctrl+D)</string>
+    <string name="cd_terminal_key_up">سهم لأعلى</string>
+    <string name="cd_terminal_key_down">سهم لأسفل</string>
+    <string name="cd_terminal_key_left">سهم لليسار</string>
+    <string name="cd_terminal_key_right">سهم لليمين</string>
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">Agent</string>
