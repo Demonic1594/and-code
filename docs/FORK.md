@@ -28,6 +28,21 @@ CI (`.github/workflows/android.yml`) builds `assembleGithubDebug` on every PR. T
 installable "AndCode LH" APK attached to a PR, add the `build-apk` label (or run the
 `pr-apk-build.yml` workflow by hand); it uploads `and-code-debug-apk` and links it in a comment.
 
+## Releases
+
+This fork has no release signing key, so it publishes the debug-signed "AndCode LH" build instead.
+Bump `versionName` and `versionCode` in `app/build.gradle.kts`, `.release-version`,
+`ReleaseMetadataTest` and add `fastlane/metadata/android/*/changelogs/<versionCode>.txt`; once that
+is on `main`, run **Fork release** from the Actions tab. It builds the APK, creates the release for
+the tag in `.release-version` and attaches `and-code-lh-<tag>-debug.apk` and its SHA-256. A debug
+signature can only update other builds signed the same way, and the APK installs beside an upstream
+AndCode.
+
+`release.yml` (the signed upstream flow) is skipped on a repository whose
+`AND_CODE_GITHUB_CLIENT_ID` variable is not set, so a version bump does not start a run that stops at
+the missing keystore. That variable is also what puts a GitHub sign-in client ID into the APK, so
+setting it here switches `release.yml` back on: add the four `RELEASE_*` signing secrets first.
+
 ## Syncing with upstream
 
 ```bash
