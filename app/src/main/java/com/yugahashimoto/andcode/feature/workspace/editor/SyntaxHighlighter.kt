@@ -233,7 +233,13 @@ object SyntaxHighlighter {
                             )
                     text[i] == '&' -> {
                         // An entity is short; looking further would make a page of bare `&`s quadratic.
-                        val end = text.indexOf(';', i).takeIf { it in (i + 2)..(i + 10) } ?: -1
+                        var end = -1
+                        for (j in i + 2..minOf(n - 1, i + 10)) {
+                            if (text[j] == ';') {
+                                end = j
+                                break
+                            }
+                        }
                         if (end in (i + 2)..(i + 10)) {
                             out += Token(i, end + 1, TokenKind.NUMBER)
                             i = end + 1

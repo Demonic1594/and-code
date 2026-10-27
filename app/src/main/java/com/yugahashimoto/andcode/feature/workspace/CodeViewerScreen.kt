@@ -393,7 +393,10 @@ fun CodeViewerScreen(
                     onReplacementChange = { replacement = it },
                     onReplace = {
                         val range = matches.getOrNull(currentMatch.coerceAtLeast(0)) ?: return@FindBar
-                        edit(EditorOps.replaceMatch(field, range, query, replacement, options))
+                        val next = EditorOps.replaceMatch(field, range, query, replacement, options)
+                        // A refused replacement (a bad group reference) changes nothing and keeps the match.
+                        if (next.text == field.text) return@FindBar
+                        edit(next)
                         // The next match is the first after the replacement, not the same index again:
                         // a replacement that contains the query would otherwise be replaced in turn.
                         currentMatch = -1
