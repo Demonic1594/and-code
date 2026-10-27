@@ -1,0 +1,3 @@
+- New: an in-app browser with DevTools, a code editor, a Git panel, a storage manager, a usage page, changes review, an Inbox, rewind and artifacts.
+- Fix: the chat now stays live after you leave the app and come back, without reopening the session.
+- Fix: the Git panel no longer crashes when it opens.

@@ -17,6 +17,9 @@ permissions:
 
 jobs:
   release:
+    # Needs this repository's signing secrets and client ID. A fork that has not set the client ID
+    # variable skips the job instead of failing it on the missing keystore (see fork-release.yml).
+    if: ${{ vars.AND_CODE_GITHUB_CLIENT_ID != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
