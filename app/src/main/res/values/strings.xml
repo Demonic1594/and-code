@@ -845,7 +845,6 @@
     <string name="cd_send_command">Send command</string>
     <string name="cd_delete">Delete</string>
 
-    <string name="search_label">Search</string>
     <!-- Terminal -->
     <string name="terminal_banner">OpenCode Terminal - PRoot Alpine Linux</string>
     <string name="terminal_exit_code">exit code: %1$d</string>
@@ -1524,9 +1523,7 @@
     <string name="code_find_replace">Find and replace</string>
     <string name="code_find_label">Find</string>
     <string name="code_replace_label">Replace with</string>
-    <string name="code_ignore_case">Ignore case</string>
     <string name="code_replace_all">Replace all</string>
-    <string name="code_replaced_count">Replaced: %1$d</string>
     <string name="archive_title">Archive</string>
     <string name="archive_search_hint">Search archived chats</string>
     <string name="archive_empty_title">Nothing archived</string>
@@ -1661,5 +1658,43 @@
     <plurals name="usage_untracked">
         <item quantity="one">%d Codex or Antigravity chat is not counted: those agents do not report token usage yet.</item>
         <item quantity="other">%d Codex or Antigravity chats are not counted: those agents do not report token usage yet.</item>
+    </plurals>
+    <string name="editor_more">More options</string>
+    <string name="cd_previous_match">Previous match</string>
+    <string name="editor_key_indent">Indent</string>
+    <string name="editor_key_outdent">Outdent</string>
+    <string name="editor_key_left">Left</string>
+    <string name="editor_key_up">Up</string>
+    <string name="editor_key_down">Down</string>
+    <string name="editor_key_right">Right</string>
+    <string name="editor_key_home">Start of line</string>
+    <string name="editor_key_end">End of line</string>
+    <string name="editor_key_comment">Toggle comment</string>
+    <string name="editor_key_duplicate">Duplicate line</string>
+    <string name="editor_key_delete_line">Delete line</string>
+    <string name="editor_key_line_up">Move line up</string>
+    <string name="editor_key_line_down">Move line down</string>
+    <string name="editor_key_select_line">Select line</string>
+    <string name="editor_find_match_case">Match case</string>
+    <string name="editor_find_whole_word">Whole word</string>
+    <string name="editor_find_regex">Regular expression</string>
+    <string name="editor_replace_one">Replace</string>
+    <string name="editor_go_to_line">Go to line</string>
+    <string name="editor_wrap_on">Wrap lines</string>
+    <string name="editor_wrap_off">Don\'t wrap lines</string>
+    <string name="editor_font_larger">Larger text</string>
+    <string name="editor_font_smaller">Smaller text</string>
+    <string name="editor_position">Ln %1$d, Col %2$d</string>
+    <string name="editor_indent_tabs">Tabs</string>
+    <string name="editor_indent_spaces">Spaces: %1$d</string>
+    <string name="editor_line_range">Line (1–%1$d)</string>
+    <string name="editor_go">Go</string>
+    <plurals name="editor_selected">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <plurals name="editor_lines">
+        <item quantity="one">%d line</item>
+        <item quantity="other">%d lines</item>
     </plurals>
 </resources>

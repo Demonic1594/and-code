@@ -854,7 +854,6 @@
     <string name="cd_send_command">コマンドを送信</string>
     <string name="cd_delete">削除</string>
 
-    <string name="search_label">検索</string>
     <!-- Terminal -->
     <string name="terminal_banner">OpenCode ターミナル - PRoot Alpine Linux</string>
     <string name="terminal_exit_code">終了コード: %1$d</string>
@@ -1509,9 +1508,7 @@
     <string name="code_find_replace">検索と置換</string>
     <string name="code_find_label">検索</string>
     <string name="code_replace_label">置換後の文字列</string>
-    <string name="code_ignore_case">大文字と小文字を区別しない</string>
     <string name="code_replace_all">すべて置換</string>
-    <string name="code_replaced_count">置換した件数：%1$d</string>
     <string name="archive_title">アーカイブ</string>
     <string name="archive_search_hint">アーカイブ済みのチャットを検索</string>
     <string name="archive_empty_title">アーカイブはありません</string>
@@ -1642,5 +1639,41 @@
     </plurals>
     <plurals name="usage_untracked">
         <item quantity="other">Codex と Antigravity のチャット %d 件は含まれていません。これらのエージェントはまだトークン使用量を報告しません。</item>
+    </plurals>
+    <string name="editor_more">その他のオプション</string>
+    <string name="cd_previous_match">前の一致</string>
+    <string name="editor_key_indent">インデント</string>
+    <string name="editor_key_outdent">インデント解除</string>
+    <string name="editor_key_left">左</string>
+    <string name="editor_key_up">上</string>
+    <string name="editor_key_down">下</string>
+    <string name="editor_key_right">右</string>
+    <string name="editor_key_home">行頭</string>
+    <string name="editor_key_end">行末</string>
+    <string name="editor_key_comment">コメントの切り替え</string>
+    <string name="editor_key_duplicate">行を複製</string>
+    <string name="editor_key_delete_line">行を削除</string>
+    <string name="editor_key_line_up">行を上へ移動</string>
+    <string name="editor_key_line_down">行を下へ移動</string>
+    <string name="editor_key_select_line">行を選択</string>
+    <string name="editor_find_match_case">大文字と小文字を区別</string>
+    <string name="editor_find_whole_word">単語単位</string>
+    <string name="editor_find_regex">正規表現</string>
+    <string name="editor_replace_one">置換</string>
+    <string name="editor_go_to_line">行へ移動</string>
+    <string name="editor_wrap_on">折り返す</string>
+    <string name="editor_wrap_off">折り返さない</string>
+    <string name="editor_font_larger">文字を大きく</string>
+    <string name="editor_font_smaller">文字を小さく</string>
+    <string name="editor_position">%1$d 行、%2$d 列</string>
+    <string name="editor_indent_tabs">タブ</string>
+    <string name="editor_indent_spaces">スペース: %1$d</string>
+    <string name="editor_line_range">行（1〜%1$d）</string>
+    <string name="editor_go">移動</string>
+    <plurals name="editor_selected">
+        <item quantity="other">%d 文字選択</item>
+    </plurals>
+    <plurals name="editor_lines">
+        <item quantity="other">%d 行</item>
     </plurals>
 </resources>

@@ -375,24 +375,23 @@ class CodeViewerViewModelTest {
         }
 
     @Test
-    fun `replace all counts matches, honours case and undoes in one step`() =
+    fun `a command edit is its own undo step, even straight after typing`() =
         runTest(dispatcher) {
-            val text = "val foo = Foo(foo)"
+            val text = "val foo = 1"
             val viewModel = editorFor(FakeBackend(OpenCodeFileContent("text", text), editText = text), file = "a.kt")
             viewModel.startEditing()
             advanceUntilIdle()
 
-            assertEquals(2, viewModel.replaceAll("foo", "bar", ignoreCase = false))
-            assertEquals("val bar = Foo(bar)", viewModel.state.value.draft)
-            assertEquals(1, viewModel.replaceAll("FOO", "Baz", ignoreCase = true))
-            assertEquals("val bar = Baz(bar)", viewModel.state.value.draft)
-            // Literal text, not a regex: "(" is just a parenthesis.
-            assertEquals(1, viewModel.replaceAll("(", "[", ignoreCase = false))
-            assertEquals("val bar = Baz[bar)", viewModel.state.value.draft)
-            assertEquals(0, viewModel.replaceAll("missing", "x", ignoreCase = false))
+            viewModel.updateDraft("val foo = 12")
+            viewModel.applyEdit("val bar = 12")
+            viewModel.updateDraft("val bar = 123")
 
-            repeat(3) { viewModel.undo() }
-            assertEquals("val foo = Foo(foo)", viewModel.state.value.draft)
+            viewModel.undo()
+            assertEquals("val bar = 12", viewModel.state.value.draft)
+            viewModel.undo()
+            assertEquals("val foo = 12", viewModel.state.value.draft)
+            viewModel.undo()
+            assertEquals("val foo = 1", viewModel.state.value.draft)
         }
 
     @Test
