@@ -844,14 +844,12 @@
     <string name="cd_terminal">Terminal</string>
     <string name="cd_add_tab">Add tab</string>
     <string name="cd_back">Back</string>
-    <string name="cd_toggle_wrap">Toggle wrap</string>
     <string name="cd_next_match">Next match</string>
     <string name="cd_clear_terminal">Clear terminal</string>
     <string name="cd_send_command">Send command</string>
     <string name="cd_delete">Delete</string>
 
     <!-- Command palette & search -->
-    <string name="search_label">Search</string>
     <!-- Terminal -->
     <string name="terminal_banner">OpenCode Terminal - PRoot Alpine Linux</string>
     <string name="terminal_exit_code">exit code: %1$d</string>
@@ -1504,9 +1502,7 @@
     <string name="code_find_replace">Найти и заменить</string>
     <string name="code_find_label">Найти</string>
     <string name="code_replace_label">Заменить на</string>
-    <string name="code_ignore_case">Без учёта регистра</string>
     <string name="code_replace_all">Заменить все</string>
-    <string name="code_replaced_count">Заменено: %1$d</string>
     <string name="archive_title">Архив</string>
     <string name="archive_search_hint">Поиск в архиве чатов</string>
     <string name="archive_empty_title">Архив пуст</string>
@@ -1650,4 +1646,48 @@
         <item quantity="many">%d чатов Codex или Antigravity не учтены: эти агенты пока не сообщают расход токенов.</item>
         <item quantity="other">%d чата Codex или Antigravity не учтены: эти агенты пока не сообщают расход токенов.</item>
     </plurals>
+    <string name="editor_more">Ещё</string>
+    <string name="cd_previous_match">Предыдущее совпадение</string>
+    <string name="editor_key_indent">Увеличить отступ</string>
+    <string name="editor_key_outdent">Уменьшить отступ</string>
+    <string name="editor_key_left">Влево</string>
+    <string name="editor_key_up">Вверх</string>
+    <string name="editor_key_down">Вниз</string>
+    <string name="editor_key_right">Вправо</string>
+    <string name="editor_key_home">Начало строки</string>
+    <string name="editor_key_end">Конец строки</string>
+    <string name="editor_key_comment">Закомментировать</string>
+    <string name="editor_key_duplicate">Дублировать строку</string>
+    <string name="editor_key_delete_line">Удалить строку</string>
+    <string name="editor_key_line_up">Переместить строку вверх</string>
+    <string name="editor_key_line_down">Переместить строку вниз</string>
+    <string name="editor_key_select_line">Выделить строку</string>
+    <string name="editor_find_match_case">Учитывать регистр</string>
+    <string name="editor_find_whole_word">Слово целиком</string>
+    <string name="editor_find_regex">Регулярное выражение</string>
+    <string name="editor_replace_one">Заменить</string>
+    <string name="editor_go_to_line">Перейти к строке</string>
+    <string name="editor_wrap_on">Переносить строки</string>
+    <string name="editor_wrap_off">Не переносить строки</string>
+    <string name="editor_font_larger">Крупнее</string>
+    <string name="editor_font_smaller">Мельче</string>
+    <string name="editor_position">Стр %1$d, стлб %2$d</string>
+    <string name="editor_indent_tabs">Табуляция</string>
+    <string name="editor_indent_spaces">Пробелы: %1$d</string>
+    <string name="editor_line_range">Строка (1–%1$d)</string>
+    <string name="editor_go">Перейти</string>
+    <plurals name="editor_selected">
+        <item quantity="one">Выделен %d символ</item>
+        <item quantity="few">Выделено %d символа</item>
+        <item quantity="many">Выделено %d символов</item>
+        <item quantity="other">Выделено %d символа</item>
+    </plurals>
+    <plurals name="editor_lines">
+        <item quantity="one">%d строка</item>
+        <item quantity="few">%d строки</item>
+        <item quantity="many">%d строк</item>
+        <item quantity="other">%d строки</item>
+    </plurals>
+    <string name="editor_language_plain">Обычный текст</string>
+    <string name="editor_language_gitignore">Файл .gitignore</string>
 </resources>

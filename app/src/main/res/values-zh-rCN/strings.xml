@@ -835,14 +835,12 @@
     <string name="cd_terminal">Terminal</string>
     <string name="cd_add_tab">Add tab</string>
     <string name="cd_back">Back</string>
-    <string name="cd_toggle_wrap">Toggle wrap</string>
     <string name="cd_next_match">Next match</string>
     <string name="cd_clear_terminal">Clear terminal</string>
     <string name="cd_send_command">Send command</string>
     <string name="cd_delete">Delete</string>
 
     <!-- Command palette & search -->
-    <string name="search_label">Search</string>
     <!-- Terminal -->
     <string name="terminal_banner">OpenCode Terminal - PRoot Alpine Linux</string>
     <string name="terminal_exit_code">exit code: %1$d</string>
@@ -1489,9 +1487,7 @@
     <string name="code_find_replace">查找和替换</string>
     <string name="code_find_label">查找</string>
     <string name="code_replace_label">替换为</string>
-    <string name="code_ignore_case">忽略大小写</string>
     <string name="code_replace_all">全部替换</string>
-    <string name="code_replaced_count">已替换：%1$d</string>
     <string name="archive_title">归档</string>
     <string name="archive_search_hint">搜索已归档的聊天</string>
     <string name="archive_empty_title">没有已归档的聊天</string>
@@ -1623,4 +1619,42 @@
     <plurals name="usage_untracked">
         <item quantity="other">未计入 %d 个 Codex 或 Antigravity 聊天：这些智能体尚不报告令牌用量。</item>
     </plurals>
+    <string name="editor_more">更多选项</string>
+    <string name="cd_previous_match">上一个匹配</string>
+    <string name="editor_key_indent">增加缩进</string>
+    <string name="editor_key_outdent">减少缩进</string>
+    <string name="editor_key_left">左</string>
+    <string name="editor_key_up">上</string>
+    <string name="editor_key_down">下</string>
+    <string name="editor_key_right">右</string>
+    <string name="editor_key_home">行首</string>
+    <string name="editor_key_end">行尾</string>
+    <string name="editor_key_comment">切换注释</string>
+    <string name="editor_key_duplicate">复制行</string>
+    <string name="editor_key_delete_line">删除行</string>
+    <string name="editor_key_line_up">上移行</string>
+    <string name="editor_key_line_down">下移行</string>
+    <string name="editor_key_select_line">选择行</string>
+    <string name="editor_find_match_case">区分大小写</string>
+    <string name="editor_find_whole_word">全字匹配</string>
+    <string name="editor_find_regex">正则表达式</string>
+    <string name="editor_replace_one">替换</string>
+    <string name="editor_go_to_line">转到行</string>
+    <string name="editor_wrap_on">自动换行</string>
+    <string name="editor_wrap_off">不自动换行</string>
+    <string name="editor_font_larger">放大文字</string>
+    <string name="editor_font_smaller">缩小文字</string>
+    <string name="editor_position">第 %1$d 行，第 %2$d 列</string>
+    <string name="editor_indent_tabs">制表符</string>
+    <string name="editor_indent_spaces">空格：%1$d</string>
+    <string name="editor_line_range">行（1–%1$d）</string>
+    <string name="editor_go">转到</string>
+    <plurals name="editor_selected">
+        <item quantity="other">已选择 %d 个字符</item>
+    </plurals>
+    <plurals name="editor_lines">
+        <item quantity="other">%d 行</item>
+    </plurals>
+    <string name="editor_language_plain">纯文本</string>
+    <string name="editor_language_gitignore">Git 忽略文件</string>
 </resources>

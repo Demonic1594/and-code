@@ -850,14 +850,12 @@
     <string name="cd_terminal">Terminal</string>
     <string name="cd_add_tab">Add tab</string>
     <string name="cd_back">Back</string>
-    <string name="cd_toggle_wrap">Toggle wrap</string>
     <string name="cd_next_match">Next match</string>
     <string name="cd_clear_terminal">Clear terminal</string>
     <string name="cd_send_command">Send command</string>
     <string name="cd_delete">Delete</string>
 
     <!-- Command palette & search -->
-    <string name="search_label">Search</string>
     <!-- Terminal -->
     <string name="terminal_banner">OpenCode Terminal - PRoot Alpine Linux</string>
     <string name="terminal_exit_code">exit code: %1$d</string>
@@ -1514,9 +1512,7 @@
     <string name="code_find_replace">البحث والاستبدال</string>
     <string name="code_find_label">بحث</string>
     <string name="code_replace_label">استبدال بـ</string>
-    <string name="code_ignore_case">تجاهل حالة الأحرف</string>
     <string name="code_replace_all">استبدال الكل</string>
-    <string name="code_replaced_count">عدد الاستبدالات: %1$d</string>
     <string name="archive_title">الأرشيف</string>
     <string name="archive_search_hint">البحث في المحادثات المؤرشفة</string>
     <string name="archive_empty_title">لا يوجد شيء مؤرشف</string>
@@ -1668,4 +1664,52 @@
         <item quantity="many">لم تُحتسب %d محادثة من Codex أو Antigravity: لا يبلّغ هذان الوكيلان عن استخدام الرموز بعد.</item>
         <item quantity="other">لم تُحتسب %d محادثة من Codex أو Antigravity: لا يبلّغ هذان الوكيلان عن استخدام الرموز بعد.</item>
     </plurals>
+    <string name="editor_more">مزيد من الخيارات</string>
+    <string name="cd_previous_match">التطابق السابق</string>
+    <string name="editor_key_indent">زيادة المسافة البادئة</string>
+    <string name="editor_key_outdent">إنقاص المسافة البادئة</string>
+    <string name="editor_key_left">يسار</string>
+    <string name="editor_key_up">أعلى</string>
+    <string name="editor_key_down">أسفل</string>
+    <string name="editor_key_right">يمين</string>
+    <string name="editor_key_home">بداية السطر</string>
+    <string name="editor_key_end">نهاية السطر</string>
+    <string name="editor_key_comment">تبديل التعليق</string>
+    <string name="editor_key_duplicate">تكرار السطر</string>
+    <string name="editor_key_delete_line">حذف السطر</string>
+    <string name="editor_key_line_up">نقل السطر لأعلى</string>
+    <string name="editor_key_line_down">نقل السطر لأسفل</string>
+    <string name="editor_key_select_line">تحديد السطر</string>
+    <string name="editor_find_match_case">مطابقة حالة الأحرف</string>
+    <string name="editor_find_whole_word">الكلمة كاملة</string>
+    <string name="editor_find_regex">تعبير نمطي</string>
+    <string name="editor_replace_one">استبدال</string>
+    <string name="editor_go_to_line">الانتقال إلى سطر</string>
+    <string name="editor_wrap_on">التفاف الأسطر</string>
+    <string name="editor_wrap_off">عدم التفاف الأسطر</string>
+    <string name="editor_font_larger">نص أكبر</string>
+    <string name="editor_font_smaller">نص أصغر</string>
+    <string name="editor_position">السطر %1$d، العمود %2$d</string>
+    <string name="editor_indent_tabs">علامات الجدولة</string>
+    <string name="editor_indent_spaces">المسافات: %1$d</string>
+    <string name="editor_line_range">السطر (1–%1$d)</string>
+    <string name="editor_go">انتقال</string>
+    <plurals name="editor_selected">
+        <item quantity="zero">%d محدد</item>
+        <item quantity="one">حرف واحد محدد</item>
+        <item quantity="two">حرفان محددان</item>
+        <item quantity="few">%d أحرف محددة</item>
+        <item quantity="many">%d حرفًا محددًا</item>
+        <item quantity="other">%d حرف محدد</item>
+    </plurals>
+    <plurals name="editor_lines">
+        <item quantity="zero">%d سطر</item>
+        <item quantity="one">سطر واحد</item>
+        <item quantity="two">سطران</item>
+        <item quantity="few">%d أسطر</item>
+        <item quantity="many">%d سطرًا</item>
+        <item quantity="other">%d سطر</item>
+    </plurals>
+    <string name="editor_language_plain">نص عادي</string>
+    <string name="editor_language_gitignore">ملف تجاهل Git</string>
 </resources>

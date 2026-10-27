@@ -91,6 +91,9 @@ class CodeViewerViewModel(
     private val redoStack = ArrayDeque<String>()
     private var lastEditAt = 0L
 
+    /** Set after undo, redo or a command, so the next keystroke starts a new step whatever the clock says. */
+    private var startNewStep = false
+
     private val mutableState = MutableStateFlow(CodeViewerUiState(filePath = filePath))
     val state: StateFlow<CodeViewerUiState> = mutableState.asStateFlow()
 
@@ -162,7 +165,8 @@ class CodeViewerViewModel(
         val current = mutableState.value
         if (!current.isEditing || current.isSaving || text == current.draft) return
         val now = clock()
-        if (undoStack.isEmpty() || now - lastEditAt > UNDO_COALESCE_MS) pushUndo(current.draft)
+        if (undoStack.isEmpty() || startNewStep || now - lastEditAt > UNDO_COALESCE_MS) pushUndo(current.draft)
+        startNewStep = false
         lastEditAt = now
         redoStack.clear()
         mutableState.update { it.copy(draft = text, editError = null, canUndo = undoStack.isNotEmpty(), canRedo = false) }
@@ -174,7 +178,7 @@ class CodeViewerViewModel(
         val previous = undoStack.removeLastOrNull()?.also { undoChars -= it.length } ?: return
         redoStack.addLast(current.draft)
         // The next keystroke starts a new step instead of folding into the one just undone.
-        lastEditAt = 0L
+        startNewStep = true
         mutableState.update { it.copy(draft = previous, canUndo = undoStack.isNotEmpty(), canRedo = true) }
     }
 
@@ -183,30 +187,18 @@ class CodeViewerViewModel(
         if (!current.isEditing || current.isSaving) return
         val next = redoStack.removeLastOrNull() ?: return
         pushUndo(current.draft)
-        lastEditAt = 0L
+        startNewStep = true
         mutableState.update { it.copy(draft = next, canUndo = true, canRedo = redoStack.isNotEmpty()) }
     }
 
     /**
-     * Replaces every occurrence of [find] in the draft and returns how many there were. Literal text,
-     * not a regex: a phone keyboard is a poor place to debug escaping. One undo step reverts it all.
+     * Applies an edit made by a command rather than by typing - a key-bar action, a replace, a line
+     * move - as its own undo step, so undo takes back exactly that command.
      */
-    fun replaceAll(
-        find: String,
-        replacement: String,
-        ignoreCase: Boolean,
-    ): Int {
-        val current = mutableState.value
-        if (!current.isEditing || current.isSaving || find.isEmpty()) return 0
-        val draft = current.draft
-        val count = Regex(Regex.escape(find), if (ignoreCase) setOf(RegexOption.IGNORE_CASE) else emptySet()).findAll(draft).count()
-        if (count == 0) return 0
-        pushUndo(draft)
-        lastEditAt = 0L
-        redoStack.clear()
-        val updated = draft.replace(find, replacement, ignoreCase)
-        mutableState.update { it.copy(draft = updated, canUndo = true, canRedo = false) }
-        return count
+    fun applyEdit(text: String) {
+        startNewStep = true
+        updateDraft(text)
+        startNewStep = true
     }
 
     /** Leaves the editor and drops the draft. The caller confirms first when there are unsaved changes. */
@@ -233,6 +225,7 @@ class CodeViewerViewModel(
         undoChars = 0L
         redoStack.clear()
         lastEditAt = 0L
+        startNewStep = false
     }
 
     /**

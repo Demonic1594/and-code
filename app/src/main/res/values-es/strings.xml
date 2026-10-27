@@ -841,14 +841,12 @@
     <string name="cd_terminal">Terminal</string>
     <string name="cd_add_tab">Add tab</string>
     <string name="cd_back">Back</string>
-    <string name="cd_toggle_wrap">Toggle wrap</string>
     <string name="cd_next_match">Next match</string>
     <string name="cd_clear_terminal">Clear terminal</string>
     <string name="cd_send_command">Send command</string>
     <string name="cd_delete">Delete</string>
 
     <!-- Command palette & search -->
-    <string name="search_label">Search</string>
     <!-- Terminal -->
     <string name="terminal_banner">OpenCode Terminal - PRoot Alpine Linux</string>
     <string name="terminal_exit_code">exit code: %1$d</string>
@@ -1499,9 +1497,7 @@
     <string name="code_find_replace">Buscar y reemplazar</string>
     <string name="code_find_label">Buscar</string>
     <string name="code_replace_label">Reemplazar por</string>
-    <string name="code_ignore_case">Ignorar mayúsculas</string>
     <string name="code_replace_all">Reemplazar todo</string>
-    <string name="code_replaced_count">Reemplazos: %1$d</string>
     <string name="archive_title">Archivo</string>
     <string name="archive_search_hint">Buscar chats archivados</string>
     <string name="archive_empty_title">No hay nada archivado</string>
@@ -1641,4 +1637,46 @@
         <item quantity="many">%d chats de Codex o Antigravity no se cuentan: esos agentes aún no informan del uso de tokens.</item>
         <item quantity="other">%d chats de Codex o Antigravity no se cuentan: esos agentes aún no informan del uso de tokens.</item>
     </plurals>
+    <string name="editor_more">Más opciones</string>
+    <string name="cd_previous_match">Coincidencia anterior</string>
+    <string name="editor_key_indent">Aumentar sangría</string>
+    <string name="editor_key_outdent">Reducir sangría</string>
+    <string name="editor_key_left">Izquierda</string>
+    <string name="editor_key_up">Arriba</string>
+    <string name="editor_key_down">Abajo</string>
+    <string name="editor_key_right">Derecha</string>
+    <string name="editor_key_home">Inicio de línea</string>
+    <string name="editor_key_end">Fin de línea</string>
+    <string name="editor_key_comment">Comentar o descomentar</string>
+    <string name="editor_key_duplicate">Duplicar línea</string>
+    <string name="editor_key_delete_line">Eliminar línea</string>
+    <string name="editor_key_line_up">Subir línea</string>
+    <string name="editor_key_line_down">Bajar línea</string>
+    <string name="editor_key_select_line">Seleccionar línea</string>
+    <string name="editor_find_match_case">Coincidir mayúsculas</string>
+    <string name="editor_find_whole_word">Palabra completa</string>
+    <string name="editor_find_regex">Expresión regular</string>
+    <string name="editor_replace_one">Reemplazar</string>
+    <string name="editor_go_to_line">Ir a la línea</string>
+    <string name="editor_wrap_on">Ajustar líneas</string>
+    <string name="editor_wrap_off">No ajustar líneas</string>
+    <string name="editor_font_larger">Texto más grande</string>
+    <string name="editor_font_smaller">Texto más pequeño</string>
+    <string name="editor_position">Lín %1$d, Col %2$d</string>
+    <string name="editor_indent_tabs">Tabulaciones</string>
+    <string name="editor_indent_spaces">Espacios: %1$d</string>
+    <string name="editor_line_range">Línea (1–%1$d)</string>
+    <string name="editor_go">Ir</string>
+    <plurals name="editor_selected">
+        <item quantity="one">%d seleccionado</item>
+        <item quantity="many">%d seleccionados</item>
+        <item quantity="other">%d seleccionados</item>
+    </plurals>
+    <plurals name="editor_lines">
+        <item quantity="one">%d línea</item>
+        <item quantity="many">%d líneas</item>
+        <item quantity="other">%d líneas</item>
+    </plurals>
+    <string name="editor_language_plain">Texto sin formato</string>
+    <string name="editor_language_gitignore">Archivo .gitignore</string>
 </resources>

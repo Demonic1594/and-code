@@ -321,7 +321,7 @@ fun NavGraphBuilder.workspaceNavGraph(
                 onStopEditing = viewerViewModel::stopEditing,
                 onUndo = viewerViewModel::undo,
                 onRedo = viewerViewModel::redo,
-                onReplaceAll = viewerViewModel::replaceAll,
+                onApplyEdit = viewerViewModel::applyEdit,
             )
         }
     }
