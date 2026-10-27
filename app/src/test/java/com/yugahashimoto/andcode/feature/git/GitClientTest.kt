@@ -35,6 +35,13 @@ class GitClientTest {
             LocalRuntimeCommandResult(process.exitValue(), output)
         }
 
+    @Test
+    fun `only a stash reference is accepted as one`() {
+        assertEquals("stash@{0}", GitClient.validStash("stash@{0}"))
+        assertEquals("stash@{12}", GitClient.validStash(" stash@{12} "))
+        listOf("stash@{}", "stash@{a}", "stash@{0}x", "stash@{0}; rm -rf /", "HEAD").forEach { assertNull(it, GitClient.validStash(it)) }
+    }
+
     private fun sh(command: String): String {
         val process = ProcessBuilder("sh", "-c", command).directory(repo).redirectErrorStream(true).start()
         val output = process.inputStream.bufferedReader().readText()
