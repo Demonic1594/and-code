@@ -80,6 +80,9 @@ fun TerminalScreen(
     onClear: () -> Unit,
 ) {
     val running = state.status == TerminalStatus.RUNNING
+    // Whoever types, presses a key or clears wants to see what happens next, wherever they had
+    // scrolled to; only scrolling away by hand stops the view from following.
+    var followOutput by remember { mutableStateOf(true) }
     Column(
         modifier =
             Modifier
@@ -88,14 +91,36 @@ fun TerminalScreen(
                 .navigationBarsPadding()
                 .imePadding(),
     ) {
-        TerminalToolbar(state = state, onRestart = onRestart, onClear = onClear)
-        TerminalOutput(state = state, onOpen = onOpen, modifier = Modifier.weight(1f))
-        TerminalKeyRow(enabled = running, onKey = onKey)
+        TerminalToolbar(
+            state = state,
+            onRestart = onRestart,
+            onClear = {
+                followOutput = true
+                onClear()
+            },
+        )
+        TerminalOutput(
+            state = state,
+            followOutput = followOutput,
+            onFollowOutputChange = { followOutput = it },
+            onOpen = onOpen,
+            modifier = Modifier.weight(1f),
+        )
+        TerminalKeyRow(
+            enabled = running,
+            onKey = {
+                followOutput = true
+                onKey(it)
+            },
+        )
         TerminalInput(
             value = state.currentInput,
             enabled = running,
             onValueChange = onInputChange,
-            onSubmit = onSubmit,
+            onSubmit = {
+                followOutput = true
+                onSubmit()
+            },
         )
     }
 }
@@ -152,6 +177,8 @@ private fun TerminalToolbar(
 @Composable
 private fun TerminalOutput(
     state: TerminalUiState,
+    followOutput: Boolean,
+    onFollowOutputChange: (Boolean) -> Unit,
     onOpen: (columns: Int, rows: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -175,7 +202,6 @@ private fun TerminalOutput(
         // new lines arrive below the fold before they are scrolled to, and neither of those means the
         // reader left the end - judging by "can scroll forward" at those moments would stop following
         // exactly when the keyboard comes up to type the next command.
-        var followOutput by remember { mutableStateOf(true) }
         LaunchedEffect(listState) {
             var dragging = false
             launch {
@@ -184,11 +210,11 @@ private fun TerminalOutput(
             snapshotFlow { listState.isScrollInProgress }.collect { scrolling ->
                 if (!scrolling && dragging) {
                     dragging = false
-                    followOutput = !listState.canScrollForward
+                    onFollowOutputChange(!listState.canScrollForward)
                 }
             }
         }
-        LaunchedEffect(state.lines, constraints.maxHeight) {
+        LaunchedEffect(state.lines, constraints.maxHeight, followOutput) {
             if (followOutput) listState.scrollToItem(state.lines.lastIndex)
         }
 

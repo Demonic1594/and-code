@@ -204,6 +204,20 @@ class ProcessTerminalSessionTest {
         }
 
     @Test
+    fun `a shell that already ended is not walked as a tree`() =
+        runBlocking(Dispatchers.IO) {
+            val walked = CopyOnWriteArrayList<Boolean>()
+            val session = open("exit 0", killTree = { walked += true })
+            withTimeout(10_000) { session.exitCode.first { it != null } }
+
+            session.close()
+            // The tree walk is asynchronous; give it every chance to (wrongly) run.
+            delay(300)
+
+            assertTrue("the pid of a reaped process may already belong to something else", walked.isEmpty())
+        }
+
+    @Test
     fun `a failing tree walk still destroys the root`() =
         runBlocking(Dispatchers.IO) {
             val session = open("exec sleep 60", killTree = { error("no /proc today") })

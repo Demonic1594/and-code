@@ -178,13 +178,15 @@ class TerminalViewModel(
     private fun publish(change: AnsiTerminalEmulator.() -> Unit) {
         synchronized(lock) {
             val terminal = emulator ?: return
-            try {
-                terminal.change()
-            } catch (e: RuntimeException) {
-                // The stream is untrusted bytes; whatever it does, it must not take the app down.
-                Log.w(TAG, "Terminal output could not be interpreted", e)
-            }
-            val snapshot = terminal.snapshot()
+            val snapshot =
+                try {
+                    terminal.change()
+                    terminal.snapshot()
+                } catch (e: RuntimeException) {
+                    // The stream is untrusted bytes; whatever it does, it must not take the app down.
+                    Log.w(TAG, "Terminal output could not be interpreted", e)
+                    return
+                }
             _state.update {
                 it.copy(lines = snapshot.lines, cursorRow = snapshot.cursorRow, cursorColumn = snapshot.cursorColumn)
             }

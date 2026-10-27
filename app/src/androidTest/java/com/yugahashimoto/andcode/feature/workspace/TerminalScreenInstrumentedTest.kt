@@ -202,6 +202,21 @@ class TerminalScreenInstrumentedTest {
     }
 
     @Test
+    fun sendingInputBringsTheReaderBackToTheEnd() {
+        show(TerminalUiState(lines = lines(200), cursorRow = 199, status = TerminalStatus.RUNNING))
+        composeRule.waitForIdle()
+        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
+        composeRule.waitForIdle()
+        update { state = state.copy(lines = lines(210), cursorRow = 209) }
+        assertFalse(isVisible("line 209"))
+
+        composeRule.onNodeWithContentDescription(string(R.string.cd_send_command)).performClick()
+        update { state = state.copy(lines = lines(211), cursorRow = 210) }
+
+        assertTrue("typing something means wanting to see what comes back", isVisible("line 210"))
+    }
+
+    @Test
     fun stopsFollowingOnceTheReaderScrollsUpAndResumesAtTheEnd() {
         show(TerminalUiState(lines = lines(200), cursorRow = 199, status = TerminalStatus.RUNNING))
         composeRule.waitForIdle()

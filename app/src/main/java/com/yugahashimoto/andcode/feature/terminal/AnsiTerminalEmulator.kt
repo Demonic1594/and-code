@@ -163,9 +163,13 @@ class AnsiTerminalEmulator(
     ) {
         // Private modes (`?25l`, `?2004h`, `?1049h`...) switch features this emulator does not have.
         if (raw.isNotEmpty() && raw[0] in "?<=>") return
+        val parsed = raw.split(';', ':').map { it.toIntOrNull() }
+        // No valid parameter is negative, and an absent one means "default" (which SGR reads as 0), so
+        // a sequence that carries one is garbage: ignore it whole rather than guess.
+        if (parsed.any { it != null && it < 0 }) return
         // The stream is untrusted (a `cat` of any file will do): an absurd count must clamp, not
-        // overflow the arithmetic below. Digits beyond Int already parse as "absent".
-        val params = raw.split(';', ':').map { it.toIntOrNull()?.coerceIn(0, MAX_PARAMETER) }
+        // overflow the arithmetic below. Digits beyond Int already parse as absent.
+        val params = parsed.map { it?.coerceAtMost(MAX_PARAMETER) }
         val first = params.firstOrNull()
         val count = max(1, first ?: 1)
         when (command) {

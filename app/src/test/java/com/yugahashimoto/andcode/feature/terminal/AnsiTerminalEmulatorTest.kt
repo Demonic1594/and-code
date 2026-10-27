@@ -353,6 +353,16 @@ class AnsiTerminalEmulatorTest {
     }
 
     @Test
+    fun `a negative parameter is ignored rather than read as zero`() {
+        val terminal = emulator()
+        terminal.feed("\u001b[31ma\u001b[-1mb")
+
+        // `ESC[0m` would have reset the colour; an invalid parameter must leave the style alone.
+        val spans = terminal.snapshot().lines.single().spans
+        assertEquals(listOf(TerminalSpan(0, 2, TerminalStyle(foreground = TerminalPalette.ansi(1)))), spans)
+    }
+
+    @Test
     fun `an insert of a huge count only blanks the line`() {
         val terminal = emulator(columns = 10)
         terminal.feed("abc\r\u001b[2147483647@Z")

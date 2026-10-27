@@ -104,7 +104,9 @@ class ProcessTerminalSession(
         Thread(
             {
                 try {
-                    killTree(process)
+                    // A shell that ended on its own has been reaped, its pid may already belong to
+                    // something else, and its children are no longer found by walking from it.
+                    if (process.isAlive) killTree(process)
                 } catch (e: RuntimeException) {
                     Log.w(TAG, "Could not end the shell's process tree", e)
                 } finally {
