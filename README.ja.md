@@ -1,17 +1,33 @@
 # AndCode
 
 <p align="center">
-  <a href="https://github.com/yuga-hashimoto/and-code/actions/workflows/android.yml"><img src="https://github.com/yuga-hashimoto/and-code/actions/workflows/android.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/yuga-hashimoto/and-code/releases/latest"><img src="https://img.shields.io/github/v/release/yuga-hashimoto/and-code" alt="Release" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/yuga-hashimoto/and-code" alt="License: MIT" /></a>
-  <a href="https://github.com/yuga-hashimoto/and-code/releases/latest"><img src="https://img.shields.io/github/downloads/yuga-hashimoto/and-code/total" alt="Downloads" /></a>
+  <a href="https://github.com/Demonic1594/and-code/actions/workflows/android.yml"><img src="https://github.com/Demonic1594/and-code/actions/workflows/android.yml/badge.svg" alt="CI" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Demonic1594/and-code" alt="License: MIT" /></a>
+  <a href="https://github.com/yuga-hashimoto/and-code"><img src="https://img.shields.io/badge/fork%20of-yuga--hashimoto%2Fand--code-blue" alt="Fork of yuga-hashimoto/and-code" /></a>
+  <a href="https://github.com/yuga-hashimoto/and-code/releases/latest"><img src="https://img.shields.io/github/v/release/yuga-hashimoto/and-code?label=upstream%20release" alt="Upstream release" /></a>
 </p>
 
 **AIコーディングエージェントをAndroidのネイティブGUIでローカル実行 — ターミナル不要です。**
 
 AndCodeはAIコーディングエージェントをスマートフォンで使えるようにするネイティブAndroid GUIアプリです。[OpenCode](https://github.com/sst/opencode)、[Claude Code](https://github.com/anthropics/claude-code)、[Google Antigravity](https://github.com/google-antigravity/antigravity-cli)、[OpenAI Codex](https://github.com/openai/codex)とタッチ操作中心のインターフェースで対話できます — 端末エミュレータもSSHもPCも、オンデバイス実行には一切不要です。PRootによるオンデバイスランタイムか、PC/Mac/Linux上の既存OpenCodeサーバーへのリモート接続で動作します。
 
-[Releases](https://github.com/yuga-hashimoto/and-code/releases/latest) · [English README](README.md)
+[アップストリームのリリース](https://github.com/yuga-hashimoto/and-code/releases/latest) · [フォーク独自の機能](docs/FEATURES.md) · [フォークのメモ](docs/FORK.md) · [English README](README.md)
+
+## このフォークについて
+
+このリポジトリは[yuga-hashimoto/and-code](https://github.com/yuga-hashimoto/and-code)のフォークです。アップストリームの`main`に追従しつつ、独自の機能を追加しています（詳細は[docs/FEATURES.md](docs/FEATURES.md)、英語）。
+
+- **DevTools付きブラウザ** — エージェントが起動したページを開く、作り直したアプリ内ブラウザ。Console・Network・Elements・Storage・Sources・Performanceの各パネル、デスクトップ表示、ページ内検索、ズームに対応
+- **コードエディタ** — 約30種類のファイルのシンタックスカラー、キーバー、インラインの検索・置換（正規表現・単語単位）、行へ移動、ステータスバー
+- **Gitパネル** — ステージ、コミット、amend、ブランチ、スタッシュ、履歴、差分をフルのソース管理画面で操作
+- **ストレージ管理** — 容量の内訳を確認し、キャッシュやインストールの残りを安全に整理。サイズ順のフォルダブラウザ付き
+- **使用量ページ** — すべてのチャットのトークン数とコストを、日・モデル・エージェント別に表示
+- **変更のレビュー・受信トレイ・巻き戻し** — 回答が変更した内容を行コメント付きでレビュー、承認や完了したチャットを1つのリストで処理、チャットを任意のメッセージ（ファイルも含む）まで巻き戻し
+- **アーティファクト** — エージェントが作ったページ・図・文書・画像をプレビュー。デスクトップ表示とズームに対応
+- **新しいデザイン** — アプリ全体で統一したデザイン、Material Youの配色、コード用のJetBrains Mono、触覚フィードバック、実行設定シート
+- **チャットの使い勝手** — メッセージ内検索、チャット内検索、チャットのピン留め、引数付きの保存済みプロンプト、本当の削除とアーカイブ、Markdownで共有、画像の貼り付け、返信できる実行中通知
+
+デバッグビルドは**AndCode LH**としてアップストリーム版と並べてインストールでき、ローカルランタイムのポートも別なので衝突しません。このフォークにはまだ独自のリリースがありません。[ビルド](#ビルド)するか、プルリクエストに`build-apk`ラベルを付ける、またはActionsタブから**PR APK Build**ワークフローを実行するとインストール可能なAPKが得られます。
 
 > [!IMPORTANT]
 > AndCodeは、利用者自身のAndroid端末上で対応する第三者製コマンドラインツールをインストールまたは起動する、独立したローカルファーストGUIです。AndCode自体がClaude、Google Antigravity、OpenAI Codex、OpenCodeなどのAIサービス、サブスクリプション、モデル利用権またはアカウント利用権を提供するものではありません。認証、モデルアクセス、推論およびサービスとの通信は、各公式CLIまたは利用者が設定したプロバイダーによって処理されます。AndCodeはOpenCode、Anthropic、GoogleまたはOpenAIと提携、承認、後援または公式サポート関係にありません。詳細は[法的情報・第三者ソフトウェア](#法的情報第三者ソフトウェア)を参照してください。
@@ -22,16 +38,33 @@ AndCodeはAIコーディングエージェントをスマートフォンで使�
 
 <table>
   <tr>
-    <td align="center"><img src="screenshots/navigation-drawer.jpg" width="180" alt="エージェント、プロジェクト、最近のチャットを表示するナビゲーションドロワー"><br><em>ナビゲーションドロワー</em></td>
-    <td align="center"><img src="screenshots/model-picker.jpg" width="180" alt="お気に入りのモデルを検索できるモデル・実行先ピッカー"><br><em>モデル・実行先ピッカー</em></td>
-    <td align="center"><img src="screenshots/repository-chat.jpg" width="180" alt="AndCodeのリポジトリを調査するエージェントとのチャット"><br><em>リポジトリチャット</em></td>
+    <td align="center"><img src="screenshots/fork-chat.jpg" width="180" alt="バグを修正したエージェントの回答の下に変更カードが表示されたチャット"><br><em>チャットと変更カード</em></td>
+    <td align="center"><img src="screenshots/fork-drawer.jpg" width="180" alt="エージェント、プロジェクト、最近のチャット、受信トレイ、アーカイブ、スケジュール、使用量、設定を並べたナビゲーションドロワー"><br><em>ナビゲーションドロワー</em></td>
+    <td align="center"><img src="screenshots/fork-inbox.jpg" width="180" alt="承認、実行中のチャット、完了したチャットを表示した受信トレイ"><br><em>受信トレイ</em></td>
   </tr>
   <tr>
-    <td align="center"><img src="screenshots/image-generation.jpg" width="180" alt="会話内に表示されたエージェント生成画像"><br><em>画像生成</em></td>
-    <td align="center"><img src="screenshots/schedules.jpg" width="180" alt="毎日実行される有効なスケジュール済みプロンプト"><br><em>スケジュール</em></td>
-    <td align="center"><img src="screenshots/run-result.jpg" width="180" alt="チャットを開ける完了済みスケジュール実行"><br><em>実行結果</em></td>
+    <td align="center"><img src="screenshots/fork-review.jpg" width="180" alt="行番号付きの変更にコメントできる差分レビュー"><br><em>変更のレビュー</em></td>
+    <td align="center"><img src="screenshots/fork-rewind.jpg" width="180" alt="取り消しバナー付きで以前のメッセージまで巻き戻したチャット"><br><em>巻き戻し</em></td>
+    <td align="center"><img src="screenshots/fork-artifacts.jpg" width="180" alt="ローカルサーバー、ページ、図、文書を並べたアーティファクトのシート"><br><em>アーティファクト</em></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/fork-devtools-console.jpg" width="180" alt="ログ、警告、エラー、JavaScript入力欄を表示したDevToolsのConsoleを持つアプリ内ブラウザ"><br><em>ブラウザ：Console</em></td>
+    <td align="center"><img src="screenshots/fork-devtools-network.jpg" width="180" alt="リクエストの状態、サイズ、ウォーターフォールを表示したDevToolsのNetworkパネル"><br><em>ブラウザ：Network</em></td>
+    <td align="center"><img src="screenshots/fork-editor.jpg" width="180" alt="Kotlinのシンタックスカラー、行番号、キーバーを備えたコードエディタ"><br><em>コードエディタ</em></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/fork-git.jpg" width="180" alt="ahead/behind、コミット欄、ステージ済み・未ステージのファイルを表示したソース管理画面"><br><em>Gitパネル</em></td>
+    <td align="center"><img src="screenshots/fork-usage.jpg" width="180" alt="合計、日別チャート、トークンの内訳、モデル別・エージェント別の内訳を表示した使用量ページ"><br><em>使用量</em></td>
+    <td align="center"><img src="screenshots/fork-storage.jpg" width="180" alt="整理カードと使用量の内訳を表示したストレージ管理"><br><em>ストレージ管理</em></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/fork-model-picker.jpg" width="180" alt="お気に入りのモデルを検索できるモデル・実行先ピッカー"><br><em>モデル・実行先ピッカー</em></td>
+    <td align="center"><img src="screenshots/fork-schedules.jpg" width="180" alt="毎日・毎週実行されるスケジュール済みプロンプト"><br><em>スケジュール</em></td>
+    <td align="center"><img src="screenshots/fork-settings.jpg" width="180" alt="アイコンタイル付きのカードでグループ化した設定"><br><em>設定</em></td>
   </tr>
 </table>
+
+<sub>アプリ自身の画面をサンプルデータで描画したもので、現在のUIと一致します。ブラウザ内のページは、この描画では表示されません。</sub>
 
 </div>
 
@@ -42,6 +75,7 @@ AndCodeはAIコーディングエージェントをスマートフォンで使�
 
 ## 目次
 
+- [このフォークについて](#このフォークについて)
 - [対応エージェント](#対応エージェント)
 - [主な機能](#主な機能)
 - [Antigravity](#antigravity)
@@ -93,6 +127,24 @@ AndCodeはAIコーディングエージェントをスマートフォンで使�
 - **安全な保存** — 接続情報をAndroid Keystoreで暗号化
 - **多言語UI** — 英語、日本語、中国語（簡体字）、ロシア語、スペイン語、フランス語、ポルトガル語（ブラジル）、アラビア語に対応。設定画面から切替可能
 
+### このフォークで追加した機能
+
+- **ゲストブラウザとDevTools** — Console（JavaScriptの入力欄付き）、Network（ヘッダー、ペイロード、ウォーターフォール、cURLとしてコピー）、Elements（タップで検査、CSSルール、ボックスモデル、属性の編集）、Storage、Sources、Performanceをページの下にドッキング
+- **コードエディタ** — 入力に合わせた色付け（約30種類のファイル）、折り返しに追従する行番号、自動インデント、キーボード上のキーバー、インラインの検索・置換、行へ移動、文字サイズ
+- **Gitパネル** — 上流とのahead/behind付きブランチ、fetch/pull/push、ステージ済み・未ステージの変更、差分、コミットとamend、履歴、ブランチ、スタッシュ
+- **ストレージ管理** — AndCodeの使用量の内訳、プロジェクトや実行中のインストールに触れないワンタップ整理、サイズ順のフォルダブラウザ
+- **使用量** — すべてのチャットのトークン数とコスト。日別チャートとモデル別・エージェント別の内訳
+- **変更カードとレビュー** — 回答が編集したファイルを確認し、行コメントを1つのメッセージとしてエージェントへ返す
+- **受信トレイ** — すべてのエージェントの承認・実行中のチャット・未読のチャットを1つのリストに集約。許可／拒否、停止、返信に対応
+- **巻き戻し** — OpenCodeのチャットと、エージェントが変更したファイルを、任意のメッセージの時点に戻す（他のエージェントでは使えません）
+- **アーティファクト** — エージェントが作ったものの全画面プレビューと、起動したローカルサーバーの一覧
+- **常に最新** — 数秒以上アプリを離れたあと、戻るとすぐに再接続して取りこぼしを取得するため、返信を見るためにセッションを開き直す必要がありません
+- **検索と整理** — すべてのチャットのメッセージ内検索、チャット内検索、ピン留め、アーカイブ、本当の削除
+- **保存済みプロンプト** — `$ARGUMENTS`や`$1`、`$2`のプレースホルダーを使える`/name`コマンド
+- **実行中の通知** — 現在のステップと**停止**を表示する1つの常駐通知と、通知シェードからの**返信**
+- **実行設定シート** — エージェントまたは権限モード、思考レベル、高速モード、システムプロンプトのプリセットを1か所に
+- **GitHubトークンでのサインイン** — OAuthクライアントIDのないビルドでは、パーソナルアクセストークンを使用
+
 ## Antigravity
 
 Google Antigravity（`agy`）は同じPRoot環境内でオンデバイス実行されます。OpenCodeやClaude CodeがAlpine Linuxを使用するのに対し、Antigravityは公式CLIバイナリのglibc互換性のためDebian Bookworm rootfsを導入します。
@@ -128,14 +180,18 @@ OpenAIのCodex CLIは、OpenCodeやClaude Codeと同じAlpine/PRootサンドボ�
 |------|------|
 | チャット | ホーム画面兼会話画面 — 最近のセッション、折りたたみ可能なreasoning／ツール、音声入力、モデル切替、承認、ハンドオフ |
 | 作業先（Workspaces） | ローカルランタイムのセットアップ、PC接続、作業フォルダ、ファイルブラウザ、コードビューア、組み込みターミナル |
+| 受信トレイ | すべてのエージェントであなたの対応待ちのもの：承認、実行中のチャット、未読の完了済みチャット |
 | スケジュール | 単発またはcronによる定期実行プロンプトの作成・編集・有効／無効切替・実行履歴の確認 |
-| 設定 | エージェント・プロバイダー、GitHub、MCPサーバー、モデル表示設定、音声／TTS、デジタルアシスタント、言語 |
+| 使用量 | すべてのチャットのトークン数とコストを日・モデル・エージェント別に表示（ドロワー → 使用量） |
+| Git | ワークスペースのソース管理：変更、コミット、履歴、ブランチ、スタッシュ（ファイルエクスプローラー上部のバーから） |
+| ブラウザ | エージェントが起動したページとDevTools（設定 → ゲストブラウザ、またはアーティファクト内のローカルサーバー） |
+| 設定 | エージェント・プロバイダー、GitHub、MCPサーバー、モデル表示設定、音声／TTS、デジタルアシスタント、言語、ストレージ |
 
 ## クイックスタート
 
 ### オンデバイス実行（PC不要）
 
-1. [Releases](https://github.com/yuga-hashimoto/and-code/releases/latest)からAPKをインストール
+1. APKをインストール：このフォークのビルド（Actionsタブの**PR APK Build**ワークフロー、またはソースから）、もしくはアップストリームの[リリース](https://github.com/yuga-hashimoto/and-code/releases/latest)
 2. アプリを開く → **作業先** → **このAndroid端末** → **この端末へセットアップ**
 3. ランタイムのダウンロード・インストールを待つ（約2分）
 4. コーディングエージェントを選択してチャット開始
@@ -253,6 +309,8 @@ adb install -r app/build/outputs/apk/github/debug/app-github-debug.apk
 - [リリースガイド](docs/RELEASE.md)
 - [翻訳ガイド](docs/TRANSLATION.md)
 - [デバイス検証マトリクス](docs/device-matrix.md)
+- [フォークのメモ（デバッグビルド、アップストリームとの同期）](docs/FORK.md)
+- [フォーク独自の機能（英語）](docs/FEATURES.md)
 
 ## コントリビューション
 
