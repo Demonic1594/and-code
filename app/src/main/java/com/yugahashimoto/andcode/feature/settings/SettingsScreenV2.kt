@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Router
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.Tune
@@ -136,6 +137,7 @@ fun SettingsScreenV2(
     savedPromptCount: Int = 0,
     onOpenSavedPrompts: () -> Unit = {},
     onOpenArchive: () -> Unit = {},
+    onOpenStorage: () -> Unit = {},
     autoArchiveStaleEnabled: Boolean = false,
     onAutoArchiveStaleEnabledChange: (Boolean) -> Unit = {},
     autoArchiveStaleDays: Int = 30,
@@ -342,6 +344,12 @@ fun SettingsScreenV2(
             }
 
             SettingsSection(title = stringResource(R.string.section_system_settings)) {
+                SettingsRow(
+                    icon = Icons.Default.Storage,
+                    title = stringResource(R.string.storage_settings_row),
+                    onClick = onOpenStorage,
+                )
+                SettingsDivider()
                 SettingsRow(
                     icon = Icons.Default.SmartToy,
                     title = stringResource(R.string.settings_agents_row),

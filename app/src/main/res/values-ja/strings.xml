@@ -1677,4 +1677,54 @@
     </plurals>
     <string name="editor_language_plain">プレーンテキスト</string>
     <string name="editor_language_gitignore">Git 除外ファイル</string>
+    <string name="storage_settings_row">ストレージ</string>
+    <string name="storage_used_by_app">AndCode の使用量</string>
+    <string name="storage_device_free">%2$s 中 %1$s 空き</string>
+    <string name="storage_other_apps">その他: %1$s</string>
+    <string name="storage_cleanup_title">クリーンアップ</string>
+    <string name="storage_nothing_to_clean">今クリーンアップできるものはありません。</string>
+    <string name="storage_free_up">%1$s を解放</string>
+    <string name="storage_freed">%1$s を解放しました</string>
+    <string name="storage_clean_title">%1$s を解放しますか？</string>
+    <string name="storage_clean_body">キャッシュ、ログ、途中で終わったインストールを削除します。必要なものはアプリとエージェントがまたダウンロードします。</string>
+    <string name="storage_busy">インストール・更新・エージェントの実行中です。終わってからもう一度お試しください。</string>
+    <string name="storage_breakdown">容量の内訳</string>
+    <string name="storage_largest">大きいファイル</string>
+    <string name="storage_see_all">すべて表示</string>
+    <string name="storage_browse_all">すべてのファイルを表示</string>
+    <string name="storage_empty_folder">このフォルダは空です</string>
+    <string name="storage_delete">削除</string>
+    <string name="storage_delete_title">%1$s を削除しますか？</string>
+    <string name="storage_delete_body">%1$s が解放されます。元に戻せません。</string>
+    <string name="storage_locked">アプリが管理しています</string>
+    <string name="storage_area_projects">プロジェクト</string>
+    <string name="storage_area_projects_desc">ワークスペースとそのファイル</string>
+    <string name="storage_area_attachments">添付ファイル</string>
+    <string name="storage_area_attachments_desc">チャットで送った画像やファイル</string>
+    <string name="storage_area_agents">エージェント</string>
+    <string name="storage_area_agents_desc">Claude Code、Codex、OpenCode、Antigravity</string>
+    <string name="storage_area_agent_data">エージェントのデータ</string>
+    <string name="storage_area_agent_data_desc">チャット履歴とエージェントの設定</string>
+    <string name="storage_area_linux">Linux 環境</string>
+    <string name="storage_area_linux_desc">エージェントが動く Linux システム</string>
+    <string name="storage_area_caches">キャッシュ</string>
+    <string name="storage_area_caches_desc">ダウンロードとパッケージのキャッシュ（必要なときに再取得）</string>
+    <string name="storage_area_logs">ログ</string>
+    <string name="storage_area_logs_desc">インストールとクラッシュのログ</string>
+    <string name="storage_area_leftovers">インストールの残り</string>
+    <string name="storage_area_leftovers_desc">途中で終わったインストールと更新</string>
+    <string name="storage_area_temp">一時ファイル</string>
+    <string name="storage_area_temp_desc">実行中のエージェントの作業領域</string>
+    <string name="storage_area_backup">更新のバックアップ</string>
+    <string name="storage_area_backup_desc">直前の更新を戻すために保持</string>
+    <string name="storage_area_voice">音声モデル</string>
+    <string name="storage_area_voice_desc">オフラインのウェイクワード認識</string>
+    <string name="storage_area_other">その他</string>
+    <string name="storage_area_other_desc">アプリの設定などその他すべて</string>
+    <plurals name="storage_scanning">
+        <item quantity="other">計測中… %d ファイル</item>
+    </plurals>
+    <plurals name="storage_items">
+        <item quantity="other">%d 項目</item>
+    </plurals>
 </resources>
