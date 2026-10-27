@@ -118,4 +118,22 @@ class EditorOpsTest {
         assertEquals(7 to 1, EditorOps.matchingBracket(text, 8))
         assertNull(EditorOps.matchingBracket("f(a", 2))
     }
+
+    @Test
+    fun `replace all skips empty matches, as find does`() {
+        assertEquals("aXb" to 1, EditorOps.replaceAll("a1b", "\\d*", "X", EditorOps.FindOptions(regex = true)))
+        assertEquals(1, EditorOps.findAll("a1b", "\\d*", EditorOps.FindOptions(regex = true)).size)
+    }
+
+    @Test
+    fun `a single replace keeps lookaround context and moves past the replacement`() {
+        val value = v("|x.name = name")
+        val range = EditorOps.findAll(value.text, "(?<=\\.)name", EditorOps.FindOptions(regex = true)).single()
+        assertEquals(
+            "x.label| = name",
+            EditorOps.replaceMatch(value, range, "(?<=\\.)name", "label", EditorOps.FindOptions(regex = true)).marked(),
+        )
+        val log = v("|log(a)")
+        assertEquals("logger|(a)", EditorOps.replaceMatch(log, 0..2, "log", "logger", EditorOps.FindOptions()).marked())
+    }
 }

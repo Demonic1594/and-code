@@ -23,7 +23,7 @@ object EditorOps {
         return TextFieldValue(text, TextRange(start + insertion.length))
     }
 
-    /** Wraps a selection in the pair, or puts the cursor between a new pair; `)` over a `)` just steps past it. */
+    /** Wraps a selection in the pair, or puts the cursor between a new pair. */
     fun insertPair(
         value: TextFieldValue,
         open: Char,
@@ -337,7 +337,10 @@ object EditorOps {
         return runCatching { Regex(source, if (options.matchCase) emptySet() else setOf(RegexOption.IGNORE_CASE)) }.getOrNull()
     }
 
-    /** Replaces one match, with `$1`-style groups when [FindOptions.regex] is on. */
+    /**
+     * Replaces the match at [range], with `$1`-style groups when [FindOptions.regex] is on. The
+     * pattern runs against the whole text from the match on, so lookarounds see their context.
+     */
     fun replaceMatch(
         value: TextFieldValue,
         range: IntRange,
@@ -345,18 +348,33 @@ object EditorOps {
         replacement: String,
         options: FindOptions,
     ): TextFieldValue {
-        val matched = value.text.substring(range.first, range.last + 1)
-        val pattern = patternOf(query, options)
-        val replaced =
-            if (options.regex && pattern != null) {
-                runCatching { pattern.replaceFirst(matched, replacement) }.getOrDefault(replacement)
-            } else {
-                replacement
+        val pattern = patternOf(query, options) ?: return value
+        val matcher =
+            pattern.toPattern().matcher(value.text).apply {
+                region(range.first, value.text.length)
+                useTransparentBounds(true)
+                useAnchoringBounds(false)
             }
-        val text = value.text.replaceRange(range.first, range.last + 1, replaced)
+        if (!matcher.find() || matcher.start() != range.first || matcher.end() == matcher.start()) return value
+        // StringBuffer: the StringBuilder overload of appendReplacement needs API 34.
+        val out = StringBuffer()
+        val ok =
+            runCatching {
+                matcher.appendReplacement(
+                    out,
+                    if (options.regex) replacement else java.util.regex.Matcher.quoteReplacement(replacement),
+                )
+            }
+        if (ok.isFailure) return value
+        val replaced = out.substring(range.first)
+        val text = value.text.substring(0, range.first) + replaced + value.text.substring(matcher.end())
         return TextFieldValue(text, TextRange(range.first + replaced.length))
     }
 
+    /**
+     * Replaces every non-empty match. Empty matches (from `a*` and the like) are skipped, as
+     * [findAll] skips them, so what is replaced is exactly what was counted and highlighted.
+     */
     fun replaceAll(
         text: String,
         query: String,
@@ -364,15 +382,21 @@ object EditorOps {
         options: FindOptions,
     ): Pair<String, Int> {
         val pattern = patternOf(query, options) ?: return text to 0
-        val count = pattern.findAll(text).count { !it.range.isEmpty() }
-        if (count == 0) return text to 0
+        val matcher = pattern.toPattern().matcher(text)
+        val literal = if (options.regex) replacement else java.util.regex.Matcher.quoteReplacement(replacement)
+        val out = StringBuffer()
+        var count = 0
         val result =
-            if (options.regex) {
-                runCatching { pattern.replace(text, replacement) }.getOrElse { return text to 0 }
-            } else {
-                pattern.replace(text, Regex.escapeReplacement(replacement))
-            }
-        return result to count
+            runCatching {
+                while (matcher.find()) {
+                    if (matcher.end() == matcher.start()) continue
+                    matcher.appendReplacement(out, literal)
+                    count++
+                }
+                matcher.appendTail(out)
+                out.toString()
+            }.getOrElse { return text to 0 }
+        return if (count == 0) text to 0 else result to count
     }
 
     /** The bracket matching the one at or just before [offset], skipping nested pairs, or null. */

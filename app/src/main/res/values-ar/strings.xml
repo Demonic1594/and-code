@@ -850,7 +850,6 @@
     <string name="cd_terminal">Terminal</string>
     <string name="cd_add_tab">Add tab</string>
     <string name="cd_back">Back</string>
-    <string name="cd_toggle_wrap">Toggle wrap</string>
     <string name="cd_next_match">Next match</string>
     <string name="cd_clear_terminal">Clear terminal</string>
     <string name="cd_send_command">Send command</string>
@@ -1711,4 +1710,6 @@
         <item quantity="many">%d سطرًا</item>
         <item quantity="other">%d سطر</item>
     </plurals>
+    <string name="editor_language_plain">نص عادي</string>
+    <string name="editor_language_gitignore">ملف تجاهل Git</string>
 </resources>

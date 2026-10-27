@@ -848,7 +848,6 @@
     <string name="cd_terminal">ターミナル</string>
     <string name="cd_add_tab">タブを追加</string>
     <string name="cd_back">戻る</string>
-    <string name="cd_toggle_wrap">折り返し切替</string>
     <string name="cd_next_match">次の一致</string>
     <string name="cd_clear_terminal">ターミナルをクリア</string>
     <string name="cd_send_command">コマンドを送信</string>
@@ -1676,4 +1675,6 @@
     <plurals name="editor_lines">
         <item quantity="other">%d 行</item>
     </plurals>
+    <string name="editor_language_plain">プレーンテキスト</string>
+    <string name="editor_language_gitignore">Git 除外ファイル</string>
 </resources>

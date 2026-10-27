@@ -42,6 +42,12 @@ object SyntaxHighlighter {
         var i = 0
         val n = text.length
 
+        /**
+         * How deep in `{}` the lexer is: in CSS, `a:hover` outside braces is a selector and
+         * `color: red` inside them a declaration, told apart in one pass.
+         */
+        var braceDepth = 0
+
         fun run(): List<Token> {
             while (i < n) {
                 val c = text[i]
@@ -86,15 +92,24 @@ object SyntaxHighlighter {
                         )
                     }
                     c.isJavaIdentifierStart() || (c == '-' && lang.style == CodeLanguage.Style.CSS && i + 1 < n && text[i + 1].isLetter()) -> word()
-                    c in BRACKETS -> emit(i, i + 1, TokenKind.PUNCTUATION)
+                    c in BRACKETS -> {
+                        if (c == '{') {
+                            braceDepth++
+                        } else if (c == '}') {
+                            braceDepth = (braceDepth - 1).coerceAtLeast(0)
+                        }
+                        emit(i, i + 1, TokenKind.PUNCTUATION)
+                    }
                     else -> i++
                 }
             }
             return out
         }
 
-        // `#` starts a comment in a shell only at a word boundary: `${#x}` and `a#b` are not comments.
-        fun lineCommentStarts(): Boolean = lang.lineComment != "#" || i == 0 || text[i - 1].isWhitespace() || text[i - 1] == ';'
+        // In a shell `#` starts a comment only at a word boundary: `${#x}` and `a#b` are not comments.
+        // Python, Ruby and TOML have no such rule.
+        fun lineCommentStarts(): Boolean =
+            !lang.dollarVariables || lang.lineComment != "#" || i == 0 || text[i - 1].isWhitespace() || text[i - 1] == ';'
 
         fun emit(
             start: Int,
@@ -176,7 +191,7 @@ object SyntaxHighlighter {
             while (after < n && text[after] == ' ') after++
             val kind =
                 when {
-                    lang.style == CodeLanguage.Style.CSS && after < n && text[after] == ':' && !insideSelector(start) -> TokenKind.PROPERTY
+                    lang.style == CodeLanguage.Style.CSS && after < n && text[after] == ':' && braceDepth > 0 -> TokenKind.PROPERTY
                     lang.style == CodeLanguage.Style.JSON && after < n && text[after] == ':' && lineStartsWith(start) -> TokenKind.PROPERTY
                     key in lang.keywords -> TokenKind.KEYWORD
                     key in lang.builtins -> TokenKind.BUILTIN
@@ -186,9 +201,6 @@ object SyntaxHighlighter {
                 }
             if (kind == null) i = end else emit(start, end, kind)
         }
-
-        // In CSS, `a:hover` is a selector and `color: red` a property; inside braces it is a property.
-        fun insideSelector(at: Int): Boolean = text.lastIndexOf('{', at) <= text.lastIndexOf('}', at)
 
         // A YAML key is the first thing on its line (after indent or a list dash).
         fun lineStartsWith(at: Int): Boolean {
@@ -220,7 +232,8 @@ object SyntaxHighlighter {
                                 i,
                             )
                     text[i] == '&' -> {
-                        val end = text.indexOf(';', i)
+                        // An entity is short; looking further would make a page of bare `&`s quadratic.
+                        val end = text.indexOf(';', i).takeIf { it in (i + 2)..(i + 10) } ?: -1
                         if (end in (i + 2)..(i + 10)) {
                             out += Token(i, end + 1, TokenKind.NUMBER)
                             i = end + 1
@@ -290,7 +303,7 @@ object SyntaxHighlighter {
                 trimmed.startsWith("#") -> out += Token(lineStart, lineEnd, TokenKind.HEADING)
                 trimmed.startsWith(">") -> out += Token(lineStart, lineEnd, TokenKind.COMMENT)
                 else -> {
-                    val bullet = Regex("^\\s*([-*+]|\\d+[.)])\\s").find(line)
+                    val bullet = BULLET.find(line)
                     if (bullet != null) {
                         out +=
                             Token(
@@ -318,5 +331,6 @@ object SyntaxHighlighter {
 
     private const val HEX = "0123456789abcdef"
     private const val BRACKETS = "{}[]()"
+    private val BULLET = Regex("^\\s*([-*+]|\\d+[.)])\\s")
     private val INLINE = Regex("`[^`\\n]+`|!?\\[[^\\]\\n]*]\\([^)\\n]*\\)|\\*\\*[^*\\n]+\\*\\*|__[^_\\n]+__")
 }

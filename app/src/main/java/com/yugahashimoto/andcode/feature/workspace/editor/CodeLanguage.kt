@@ -69,7 +69,9 @@ data class CodeLanguage(
                 "extern",
             )
 
+        /** The screen shows these two in the user's language; the rest are proper names. */
         val PLAIN = CodeLanguage("Plain text", quotes = "", style = Style.PLAIN)
+        const val GIT_IGNORE_NAME = "Git ignore"
 
         val KOTLIN =
             CodeLanguage(
@@ -801,7 +803,7 @@ data class CodeLanguage(
                 ".bashrc" to SHELL,
                 ".zshrc" to SHELL,
                 ".profile" to SHELL,
-                ".gitignore" to SHELL.copy(name = "Git ignore"),
+                ".gitignore" to SHELL.copy(name = GIT_IGNORE_NAME),
                 ".env" to SHELL.copy(name = "Env"),
             )
 

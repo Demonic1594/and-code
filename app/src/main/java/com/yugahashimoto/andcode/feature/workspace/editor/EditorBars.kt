@@ -24,12 +24,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatIndentDecrease
 import androidx.compose.material.icons.automirrored.filled.FormatIndentIncrease
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.filled.KeyboardDoubleArrowUp
@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -149,7 +150,7 @@ fun EditorKeyBar(
             stringResource(R.string.editor_key_outdent),
             palette,
         ) { onKey(EditorKey.Outdent) }
-        IconKey(Icons.Default.KeyboardArrowLeft, stringResource(R.string.editor_key_left), palette) {
+        IconKey(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.editor_key_left), palette) {
             onKey(EditorKey.Move(EditorOps.Direction.LEFT))
         }
         IconKey(
@@ -160,7 +161,7 @@ fun EditorKeyBar(
         IconKey(Icons.Default.KeyboardArrowDown, stringResource(R.string.editor_key_down), palette) {
             onKey(EditorKey.Move(EditorOps.Direction.DOWN))
         }
-        IconKey(Icons.Default.KeyboardArrowRight, stringResource(R.string.editor_key_right), palette) {
+        IconKey(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.editor_key_right), palette) {
             onKey(EditorKey.Move(EditorOps.Direction.RIGHT))
         }
         TextKey("⇤", stringResource(R.string.editor_key_home), palette) { onKey(EditorKey.Move(EditorOps.Direction.HOME)) }
@@ -203,7 +204,8 @@ private fun TextKey(
                 .clip(KEY_SHAPE)
                 .background(palette.key)
                 .clickable(onClick = onClick)
-                .semantics {
+                // The label is the symbol itself; replacing the merged text stops "{ {" being read twice.
+                .clearAndSetSemantics {
                     contentDescription = description
                     role = Role.Button
                 }.padding(horizontal = 8.dp),
@@ -390,6 +392,8 @@ private fun Toggle(
     ) {
         Text(
             label,
+            // The symbol ("Aa", ".*") means nothing read aloud; the description says it.
+            modifier = Modifier.clearAndSetSemantics {},
             color = if (on) palette.foreground else palette.gutterActive,
             fontFamily = CodeFontFamily,
             fontSize = 13.sp,

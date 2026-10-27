@@ -276,7 +276,7 @@ fun CodeViewerScreen(
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            state.filePath.substringBeforeLast('/', "").ifEmpty { language.name },
+                            state.filePath.substringBeforeLast('/', "").ifEmpty { language.label() },
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.labelSmall,
@@ -394,6 +394,9 @@ fun CodeViewerScreen(
                     onReplace = {
                         val range = matches.getOrNull(currentMatch.coerceAtLeast(0)) ?: return@FindBar
                         edit(EditorOps.replaceMatch(field, range, query, replacement, options))
+                        // The next match is the first after the replacement, not the same index again:
+                        // a replacement that contains the query would otherwise be replaced in turn.
+                        currentMatch = -1
                     },
                     onReplaceAll = {
                         val (text, count) = EditorOps.replaceAll(field.text, query, replacement, options)
@@ -450,6 +453,15 @@ fun CodeViewerScreen(
     }
 }
 
+/** The language's name as shown: proper names as they are, the generic ones in the user's language. */
+@Composable
+private fun CodeLanguage.label(): String =
+    when (name) {
+        CodeLanguage.PLAIN.name -> stringResource(R.string.editor_language_plain)
+        CodeLanguage.GIT_IGNORE_NAME -> stringResource(R.string.editor_language_gitignore)
+        else -> name
+    }
+
 @Composable
 private fun StatusBar(
     state: CodeViewerUiState,
@@ -464,7 +476,7 @@ private fun StatusBar(
             listOfNotNull(
                 stringResource(R.string.editor_position, line, column),
                 if (selected > 0) pluralStringResource(R.plurals.editor_selected, selected, selected) else null,
-                language.name,
+                language.label(),
                 if (language.indent == "\t") {
                     stringResource(
                         R.string.editor_indent_tabs,
@@ -475,7 +487,7 @@ private fun StatusBar(
             ).joinToString("  ·  ")
         } else {
             val lines = remember(state.content) { lineStartsOf(state.content).size }
-            listOf(pluralStringResource(R.plurals.editor_lines, lines, lines), language.name).joinToString("  ·  ")
+            listOf(pluralStringResource(R.plurals.editor_lines, lines, lines), language.label()).joinToString("  ·  ")
         }
     Text(
         text,

@@ -118,4 +118,10 @@ class SyntaxHighlighterTest {
         val big = "x".repeat(SyntaxHighlighter.MAX_HIGHLIGHT_CHARS + 1)
         assertTrue(SyntaxHighlighter.tokenize(big, CodeLanguage.KOTLIN).isEmpty())
     }
+
+    @Test
+    fun `a hash after code is a comment in python but not inside a shell word`() {
+        assertEquals(listOf("NUMBER:1", "COMMENT:#c"), tokens("x=1#c", CodeLanguage.PYTHON))
+        assertTrue("COMMENT:#b" !in tokens("a#b", CodeLanguage.SHELL))
+    }
 }
