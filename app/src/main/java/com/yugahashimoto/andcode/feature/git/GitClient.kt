@@ -311,7 +311,7 @@ class GitClient(
         private const val ALL_PATHS = "':/' ':(exclude,glob)**/.andcode-attachments/**' ':(exclude,glob)**/*.andcode-save'"
         private const val LOG_FORMAT = "%H%x1f%h%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%D%x1f%s%x1e"
         private val HASH = Regex("^[0-9a-fA-F]{4,64}$")
-        private val STASH = Regex("^stash@\\{\\d+}$")
+        private val STASH = Regex("^stash@\\{\\d+\\}$")
 
         internal fun quote(value: String): String = WorkspaceShell.quote(value)
 
