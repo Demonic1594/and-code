@@ -34,10 +34,18 @@ import com.yugahashimoto.andcode.feature.settings.SettingsScreenV2
 import com.yugahashimoto.andcode.feature.settings.SettingsViewModel
 import com.yugahashimoto.andcode.feature.settings.SystemPromptScreen
 import com.yugahashimoto.andcode.feature.settings.VoiceSettingsScreen
+import com.yugahashimoto.andcode.feature.storage.StorageActions
+import com.yugahashimoto.andcode.feature.storage.StorageAreas
+import com.yugahashimoto.andcode.feature.storage.StorageScreen
+import com.yugahashimoto.andcode.feature.storage.StorageViewModel
 import com.yugahashimoto.andcode.feature.support.GitHubSupportSheetHost
 import com.yugahashimoto.andcode.feature.wakeword.VoskModelState
 import com.yugahashimoto.andcode.feature.wakeword.WakeWordSettingsPolicy
+import com.yugahashimoto.andcode.runtime.LocalRuntimeStatus
 import com.yugahashimoto.andcode.runtime.RuntimeRegistry
+import com.yugahashimoto.andcode.runtime.local.AntigravityInstallStatus
+import com.yugahashimoto.andcode.runtime.local.ClaudeInstallStatus
+import com.yugahashimoto.andcode.runtime.local.CodexInstallStatus
 import com.yugahashimoto.andcode.ui.components.systemPromptPresetLabel
 
 fun NavGraphBuilder.settingsNavGraph(
@@ -119,6 +127,7 @@ fun NavGraphBuilder.settingsNavGraph(
             savedPromptCount = preferences().savedPrompts.size,
             onOpenSavedPrompts = { navController.navigate(ROUTE_SETTINGS_SAVED_PROMPTS) },
             onOpenArchive = { navController.navigate(ROUTE_ARCHIVE) { launchSingleTop = true } },
+            onOpenStorage = { navController.navigate(ROUTE_SETTINGS_STORAGE) { launchSingleTop = true } },
             autoArchiveStaleEnabled = preferences().autoArchiveStaleEnabled,
             onAutoArchiveStaleEnabledChange = appPreferences::setAutoArchiveStaleEnabled,
             autoArchiveStaleDays = preferences().autoArchiveStaleDays,
@@ -538,6 +547,50 @@ fun NavGraphBuilder.settingsNavGraph(
             agent = com.yugahashimoto.andcode.runtime.LocalAgent.CODEX,
             onOpenBrowser = {},
             onBack = { navController.popBackStack() },
+        )
+    }
+
+    composable(ROUTE_SETTINGS_STORAGE) {
+        val app = context.applicationContext as com.yugahashimoto.andcode.AndCodeApplication
+        val storageViewModel: StorageViewModel =
+            androidx.lifecycle.viewmodel.compose.viewModel(
+                factory =
+                    com.yugahashimoto.andcode.ui.ViewModelFactory {
+                        StorageViewModel(
+                            areas = StorageAreas(app.filesDir, app.cacheDir),
+                            deviceSpace = {
+                                val stat = android.os.StatFs(app.filesDir.path)
+                                stat.totalBytes to stat.availableBytes
+                            },
+                            // Installs, updates and running agents write into the caches and staging folders;
+                            // runtimeWork covers chats, scheduled runs and installs alike.
+                            busy = {
+                                app.runtimeWork.active.value ||
+                                    app.localRuntimeManager.state.value.let {
+                                        it is LocalRuntimeStatus.Installing || it is LocalRuntimeStatus.Updating || it is LocalRuntimeStatus.Starting
+                                    } ||
+                                    app.claudeCodeController.state.value.install is ClaudeInstallStatus.Installing ||
+                                    app.codexController.state.value.install is CodexInstallStatus.Installing ||
+                                    app.antigravityController.state.value.install is AntigravityInstallStatus.Installing
+                            },
+                        )
+                    },
+            )
+        val storageState by storageViewModel.state.collectAsState()
+        StorageScreen(
+            state = storageState,
+            actions =
+                StorageActions(
+                    onBack = { navController.popBackStack() },
+                    onRescan = storageViewModel::rescan,
+                    onClean = storageViewModel::clean,
+                    onCleanAll = storageViewModel::cleanAll,
+                    onOpen = storageViewModel::open,
+                    onUp = storageViewModel::up,
+                    onClose = storageViewModel::close,
+                    onDelete = storageViewModel::delete,
+                    onConsumeNotice = storageViewModel::consumeNotice,
+                ),
         )
     }
 

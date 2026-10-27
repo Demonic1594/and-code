@@ -1657,4 +1657,54 @@
     </plurals>
     <string name="editor_language_plain">纯文本</string>
     <string name="editor_language_gitignore">Git 忽略文件</string>
+    <string name="storage_settings_row">存储</string>
+    <string name="storage_used_by_app">AndCode 已用空间</string>
+    <string name="storage_device_free">共 %2$s，可用 %1$s</string>
+    <string name="storage_other_apps">其他内容：%1$s</string>
+    <string name="storage_cleanup_title">清理</string>
+    <string name="storage_nothing_to_clean">目前没有可清理的内容。</string>
+    <string name="storage_free_up">释放 %1$s</string>
+    <string name="storage_freed">已释放 %1$s</string>
+    <string name="storage_clean_title">释放 %1$s？</string>
+    <string name="storage_clean_body">将删除缓存、日志和未完成的安装。应用和智能体会重新下载所需内容。</string>
+    <string name="storage_busy">正在安装、更新或有智能体在运行，请完成后再试。</string>
+    <string name="storage_breakdown">空间占用</string>
+    <string name="storage_largest">最大的文件</string>
+    <string name="storage_see_all">查看全部</string>
+    <string name="storage_browse_all">浏览所有文件</string>
+    <string name="storage_empty_folder">此文件夹为空</string>
+    <string name="storage_delete">删除</string>
+    <string name="storage_delete_title">删除 %1$s？</string>
+    <string name="storage_delete_body">将释放 %1$s，且无法撤销。</string>
+    <string name="storage_locked">由应用管理</string>
+    <string name="storage_area_projects">项目</string>
+    <string name="storage_area_projects_desc">你的工作区及其文件</string>
+    <string name="storage_area_attachments">附件</string>
+    <string name="storage_area_attachments_desc">聊天中发送的图片和文件</string>
+    <string name="storage_area_agents">智能体</string>
+    <string name="storage_area_agents_desc">Claude Code、Codex、OpenCode 和 Antigravity</string>
+    <string name="storage_area_agent_data">智能体数据</string>
+    <string name="storage_area_agent_data_desc">聊天记录和智能体设置</string>
+    <string name="storage_area_linux">Linux 环境</string>
+    <string name="storage_area_linux_desc">智能体运行所在的 Linux 系统</string>
+    <string name="storage_area_caches">缓存</string>
+    <string name="storage_area_caches_desc">下载和软件包缓存，需要时会重新获取</string>
+    <string name="storage_area_logs">日志</string>
+    <string name="storage_area_logs_desc">安装和崩溃日志</string>
+    <string name="storage_area_leftovers">安装残留</string>
+    <string name="storage_area_leftovers_desc">未完成的安装和更新</string>
+    <string name="storage_area_temp">临时文件</string>
+    <string name="storage_area_temp_desc">运行中智能体的临时空间</string>
+    <string name="storage_area_backup">更新备份</string>
+    <string name="storage_area_backup_desc">保留以回滚上一次更新</string>
+    <string name="storage_area_voice">语音模型</string>
+    <string name="storage_area_voice_desc">离线唤醒词识别</string>
+    <string name="storage_area_other">其他</string>
+    <string name="storage_area_other_desc">应用设置及其他所有内容</string>
+    <plurals name="storage_scanning">
+        <item quantity="other">正在统计… %d 个文件</item>
+    </plurals>
+    <plurals name="storage_items">
+        <item quantity="other">%d 项</item>
+    </plurals>
 </resources>
