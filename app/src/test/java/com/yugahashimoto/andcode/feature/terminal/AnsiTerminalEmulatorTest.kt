@@ -336,4 +336,55 @@ class AnsiTerminalEmulatorTest {
         terminal.feed("日本語 ok")
         assertEquals(listOf("日本語 ok"), terminal.texts())
     }
+
+    @Test
+    fun `absurd numeric parameters are clamped instead of overflowing`() {
+        // A cat of any file can put these on the screen; none of them may throw.
+        val counts = listOf("2147483647", "2147483648", "99999999999999999999", "-1", "0", "9999999")
+        val finals = listOf("@", "P", "X", "A", "B", "C", "D", "E", "F", "G", "H", "J", "K", "d", "m")
+        for (count in counts) {
+            for (final in finals) {
+                val terminal = emulator()
+                terminal.feed("abc\r\u001b[$count$final")
+                terminal.feed("Z")
+                assertTrue("ESC[$count$final", terminal.snapshot().lines.isNotEmpty())
+            }
+        }
+    }
+
+    @Test
+    fun `an insert of a huge count only blanks the line`() {
+        val terminal = emulator(columns = 10)
+        terminal.feed("abc\r\u001b[2147483647@Z")
+
+        val text = terminal.texts().single()
+        assertEquals(10, text.length)
+        assertEquals('Z', text[0])
+    }
+
+    @Test
+    fun `a cancel byte abandons a sequence in progress`() {
+        val csi = emulator()
+        csi.feed("a\u001b[31\u0018b")
+        assertEquals(listOf("ab"), csi.texts())
+        assertTrue(csi.snapshot().lines.single().spans.isEmpty())
+
+        val string = emulator()
+        string.feed("\u001b]0;ti\u001ahi")
+        assertEquals(listOf("hi"), string.texts())
+    }
+
+    @Test
+    fun `the number of distinct styles is bounded`() {
+        val terminal = emulator()
+        // Every character a different truecolour: more styles than the table is willing to keep.
+        for (index in 0 until 5_000) {
+            terminal.feed("\u001b[38;2;${index % 256};${index / 256};0mx")
+        }
+
+        val lines = terminal.snapshot().lines
+        assertEquals(5_000, lines.sumOf { it.text.length })
+        // Past the bound a style degrades to the default instead of growing the table.
+        assertTrue(lines.last().spans.isEmpty())
+    }
 }

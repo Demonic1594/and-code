@@ -810,8 +810,6 @@
 
     <string name="search_label">Search</string>
     <!-- Terminal -->
-    <string name="terminal_banner">OpenCode Terminal - PRoot Alpine Linux</string>
-    <string name="terminal_exit_code">exit code: %1$d</string>
     <string name="terminal_starting">Starting the terminal…</string>
     <string name="terminal_session_ended">Session ended (exit code %1$d)</string>
     <string name="terminal_not_installed">The Linux environment is not installed yet. Install the local runtime to use the terminal.</string>

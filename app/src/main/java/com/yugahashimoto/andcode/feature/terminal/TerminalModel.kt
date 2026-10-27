@@ -38,16 +38,25 @@ data class TerminalSnapshot(
     val revision: Long,
 )
 
-/** Keys the soft keyboard cannot type, as the bytes a terminal sends for them. */
-enum class TerminalKey(val sequence: String) {
-    ESCAPE("\u001b"),
-    TAB("\t"),
-    CTRL_C("\u0003"),
-    CTRL_D("\u0004"),
-    UP("\u001b[A"),
-    DOWN("\u001b[B"),
-    RIGHT("\u001b[C"),
-    LEFT("\u001b[D"),
+/**
+ * Keys the soft keyboard cannot type, as the bytes a terminal sends for them.
+ *
+ * @param editsLine whether the key acts on the shell's line editor (completion, history, cursor
+ *   movement). Text still sitting in the input field has to reach the shell first, or the key would
+ *   act on a line the shell has never seen.
+ */
+enum class TerminalKey(
+    val sequence: String,
+    val editsLine: Boolean,
+) {
+    ESCAPE("\u001b", editsLine = false),
+    TAB("\t", editsLine = true),
+    CTRL_C("\u0003", editsLine = false),
+    CTRL_D("\u0004", editsLine = false),
+    UP("\u001b[A", editsLine = true),
+    DOWN("\u001b[B", editsLine = true),
+    RIGHT("\u001b[C", editsLine = true),
+    LEFT("\u001b[D", editsLine = true),
 }
 
 /** The 16 ANSI colours plus the xterm 256-colour extension, as opaque ARGB ints. */

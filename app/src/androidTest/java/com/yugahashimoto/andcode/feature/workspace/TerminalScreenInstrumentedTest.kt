@@ -1,13 +1,18 @@
 package com.yugahashimoto.andcode.feature.workspace
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
@@ -15,11 +20,16 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.feature.terminal.StyledLine
 import com.yugahashimoto.andcode.feature.terminal.TerminalKey
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -45,25 +55,39 @@ class TerminalScreenInstrumentedTest {
 
     private var state by mutableStateOf(TerminalUiState(status = TerminalStatus.RUNNING))
 
+    /** What the screen is given to work with; shrinking it is what the soft keyboard does. */
+    private var heightDp by mutableStateOf(640)
+
     private fun show(initial: TerminalUiState) {
         state = initial
         composeRule.setContent {
             MaterialTheme {
-                TerminalScreen(
-                    state = state,
-                    onOpen = { columns, rows -> opened += columns to rows },
-                    onInputChange = { value ->
-                        inputs += value
-                        state = state.copy(currentInput = value)
-                    },
-                    onSubmit = { submits++ },
-                    onKey = { keys += it },
-                    onRestart = { restarts++ },
-                    onClear = { clears++ },
-                )
+                Box(Modifier.fillMaxWidth().height(heightDp.dp)) {
+                    TerminalScreen(
+                        state = state,
+                        onOpen = { columns, rows -> opened += columns to rows },
+                        onInputChange = { value ->
+                            inputs += value
+                            state = state.copy(currentInput = value)
+                        },
+                        onSubmit = { submits++ },
+                        onKey = { keys += it },
+                        onRestart = { restarts++ },
+                        onClear = { clears++ },
+                    )
+                }
             }
         }
     }
+
+    private fun lines(count: Int) = List(count) { StyledLine("line $it") }
+
+    private fun update(change: () -> Unit) {
+        composeRule.runOnIdle(change)
+        composeRule.waitForIdle()
+    }
+
+    private fun isVisible(text: String): Boolean = runCatching { composeRule.onNodeWithText(text).assertIsDisplayed() }.isSuccess
 
     private fun string(id: Int): String = composeRule.activity.getString(id)
 
@@ -152,6 +176,45 @@ class TerminalScreenInstrumentedTest {
         composeRule.onNodeWithContentDescription(string(R.string.cd_clear_terminal)).performClick()
 
         assertEquals(1, clears)
+    }
+
+    @Test
+    fun followsNewOutputWhileTheReaderIsAtTheEnd() {
+        show(TerminalUiState(lines = lines(200), cursorRow = 199, status = TerminalStatus.RUNNING))
+        composeRule.waitForIdle()
+        assertTrue(isVisible("line 199"))
+
+        update { state = state.copy(lines = lines(205), cursorRow = 204) }
+
+        assertTrue(isVisible("line 204"))
+    }
+
+    @Test
+    fun keepsFollowingWhenTheKeyboardShrinksTheScreen() {
+        show(TerminalUiState(lines = lines(200), cursorRow = 199, status = TerminalStatus.RUNNING))
+        composeRule.waitForIdle()
+
+        update { heightDp = 300 }
+        assertTrue("the end stays in view when the viewport shrinks", isVisible("line 199"))
+
+        update { state = state.copy(lines = lines(203), cursorRow = 202) }
+        assertTrue("output keeps being followed after the keyboard came up", isVisible("line 202"))
+    }
+
+    @Test
+    fun stopsFollowingOnceTheReaderScrollsUpAndResumesAtTheEnd() {
+        show(TerminalUiState(lines = lines(200), cursorRow = 199, status = TerminalStatus.RUNNING))
+        composeRule.waitForIdle()
+
+        composeRule.onNode(hasScrollAction()).performTouchInput { swipeDown() }
+        composeRule.waitForIdle()
+        update { state = state.copy(lines = lines(210), cursorRow = 209) }
+        assertFalse("a reader who scrolled up is not yanked back down", isVisible("line 209"))
+
+        repeat(6) { composeRule.onNode(hasScrollAction()).performTouchInput { swipeUp() } }
+        composeRule.waitForIdle()
+        update { state = state.copy(lines = lines(220), cursorRow = 219) }
+        assertTrue("scrolling back to the end resumes following", isVisible("line 219"))
     }
 
     private companion object {

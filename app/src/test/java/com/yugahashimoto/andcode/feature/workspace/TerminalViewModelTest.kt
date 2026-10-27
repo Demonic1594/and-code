@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.feature.workspace
 
 import com.yugahashimoto.andcode.core.runtime.RuntimeWorkTracker
 import com.yugahashimoto.andcode.feature.terminal.TerminalKey
+import com.yugahashimoto.andcode.runtime.local.LocalTerminalLauncher
 import com.yugahashimoto.andcode.runtime.local.TerminalOpenRequest
 import com.yugahashimoto.andcode.runtime.local.TerminalSession
 import com.yugahashimoto.andcode.runtime.local.TerminalSessionFactory
@@ -69,6 +70,8 @@ class TerminalViewModelTest {
 
     private class FakeFactory(
         private val failure: Throwable? = null,
+        /** Runs while "opening", the way the screen can be closed during the real blocking open. */
+        private val whileOpening: () -> Unit = {},
     ) : TerminalSessionFactory {
         val requests = mutableListOf<TerminalOpenRequest>()
         val sessions = mutableListOf<FakeSession>()
@@ -76,6 +79,7 @@ class TerminalViewModelTest {
         override fun open(request: TerminalOpenRequest): TerminalSession {
             requests += request
             failure?.let { throw it }
+            whileOpening()
             return FakeSession().also { sessions += it }
         }
     }
@@ -379,5 +383,88 @@ class TerminalViewModelTest {
 
             assertEquals(1, viewModel.state.value.cursorRow)
             assertEquals(3, viewModel.state.value.cursorColumn)
+        }
+
+    @Test
+    fun `sizes the emulator and the pty to the same bounds`() =
+        runTest(dispatcher) {
+            val small = FakeFactory()
+            viewModel(small).open(columns = 5, rows = 1)
+            val large = FakeFactory()
+            viewModel(large).open(columns = 500, rows = 500)
+            runCurrent()
+
+            assertEquals(
+                TerminalOpenRequest("/workspace/app", LocalTerminalLauncher.MIN_COLUMNS, LocalTerminalLauncher.MIN_ROWS),
+                small.requests.single(),
+            )
+            assertEquals(
+                TerminalOpenRequest("/workspace/app", LocalTerminalLauncher.MAX_COLUMNS, LocalTerminalLauncher.MAX_ROWS),
+                large.requests.single(),
+            )
+        }
+
+    @Test
+    fun `a key that edits the line sends the typed text first`() =
+        runTest(dispatcher) {
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory)
+            viewModel.open(60, 24)
+            runCurrent()
+
+            viewModel.updateInput("git sta")
+            viewModel.sendKey(TerminalKey.TAB)
+
+            assertEquals(listOf("git sta", "\t"), factory.sessions.single().written)
+            assertEquals("", viewModel.state.value.currentInput)
+        }
+
+    @Test
+    fun `a key that does not edit the line leaves the typed text alone`() =
+        runTest(dispatcher) {
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory)
+            viewModel.open(60, 24)
+            runCurrent()
+
+            viewModel.updateInput("half typed")
+            viewModel.sendKey(TerminalKey.CTRL_C)
+
+            assertEquals(listOf("\u0003"), factory.sessions.single().written)
+            assertEquals("half typed", viewModel.state.value.currentInput)
+        }
+
+    @Test
+    fun `a shell that opens after the screen was closed is ended, not leaked`() =
+        runTest(dispatcher) {
+            val work = RuntimeWorkTracker()
+            lateinit var viewModel: TerminalViewModel
+            val factory = FakeFactory(whileOpening = { viewModel.close() })
+            viewModel = viewModel(factory, work)
+
+            viewModel.open(60, 24)
+            runCurrent()
+
+            assertTrue(factory.sessions.single().closed)
+            assertFalse(work.active.value)
+        }
+
+    @Test
+    fun `clearing keeps the screen empty until the shell prints again`() =
+        runTest(dispatcher) {
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory)
+            viewModel.open(60, 24)
+            runCurrent()
+            factory.sessions.single().emit("before\r\n")
+            runCurrent()
+
+            viewModel.clear()
+            runCurrent()
+            assertEquals(listOf(""), viewModel.screenText())
+
+            factory.sessions.single().emit("after")
+            runCurrent()
+            assertEquals(listOf("after"), viewModel.screenText())
         }
 }

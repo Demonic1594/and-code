@@ -816,8 +816,6 @@
     <!-- Command palette & search -->
     <string name="search_label">Search</string>
     <!-- Terminal -->
-    <string name="terminal_banner">OpenCode Terminal - PRoot Alpine Linux</string>
-    <string name="terminal_exit_code">exit code: %1$d</string>
     <string name="terminal_starting">Запуск терминала…</string>
     <string name="terminal_session_ended">Сеанс завершён (код выхода %1$d)</string>
     <string name="terminal_not_installed">Среда Linux ещё не установлена. Установите локальную среду, чтобы пользоваться терминалом.</string>

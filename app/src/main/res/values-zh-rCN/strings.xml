@@ -807,8 +807,6 @@
     <!-- Command palette & search -->
     <string name="search_label">Search</string>
     <!-- Terminal -->
-    <string name="terminal_banner">OpenCode Terminal - PRoot Alpine Linux</string>
-    <string name="terminal_exit_code">exit code: %1$d</string>
     <string name="terminal_starting">正在启动终端…</string>
     <string name="terminal_session_ended">会话已结束（退出码 %1$d）</string>
     <string name="terminal_not_installed">尚未安装 Linux 环境。请安装本地运行环境以使用终端。</string>

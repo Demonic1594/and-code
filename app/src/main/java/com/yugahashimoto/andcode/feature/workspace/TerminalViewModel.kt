@@ -7,6 +7,7 @@ import com.yugahashimoto.andcode.core.runtime.RuntimeWorkTracker
 import com.yugahashimoto.andcode.feature.terminal.AnsiTerminalEmulator
 import com.yugahashimoto.andcode.feature.terminal.StyledLine
 import com.yugahashimoto.andcode.feature.terminal.TerminalKey
+import com.yugahashimoto.andcode.runtime.local.LocalTerminalLauncher
 import com.yugahashimoto.andcode.runtime.local.TerminalOpenRequest
 import com.yugahashimoto.andcode.runtime.local.TerminalSession
 import com.yugahashimoto.andcode.runtime.local.TerminalSessionFactory
@@ -68,9 +69,11 @@ class TerminalViewModel(
     private val _state = MutableStateFlow(TerminalUiState())
     val state: StateFlow<TerminalUiState> = _state.asStateFlow()
 
+    /** Guards [emulator], [session] and [closed], and orders every publish of the screen. */
     private val lock = Any()
     private var emulator: AnsiTerminalEmulator? = null
     private var session: TerminalSession? = null
+    private var closed = false
     private var sessionJob: Job? = null
     private var columns = 0
     private var rows = 0
@@ -81,9 +84,10 @@ class TerminalViewModel(
         rows: Int,
     ) {
         if (_state.value.status != TerminalStatus.IDLE) return
-        this.columns = columns
-        this.rows = rows
-        synchronized(lock) { emulator = AnsiTerminalEmulator(columns = columns, rows = rows) }
+        // The same bounds the pty is sized with, so what the shell wraps to is what is drawn.
+        this.columns = columns.coerceIn(LocalTerminalLauncher.MIN_COLUMNS, LocalTerminalLauncher.MAX_COLUMNS)
+        this.rows = rows.coerceIn(LocalTerminalLauncher.MIN_ROWS, LocalTerminalLauncher.MAX_ROWS)
+        synchronized(lock) { emulator = AnsiTerminalEmulator(columns = this.columns, rows = this.rows) }
         start()
     }
 
@@ -119,7 +123,9 @@ class TerminalViewModel(
     private suspend fun run() {
         val opened =
             try {
-                withContext(ioDispatcher) { sessions.open(TerminalOpenRequest(startDirectory, columns, rows)) }
+                withContext(ioDispatcher) {
+                    sessions.open(TerminalOpenRequest(startDirectory, columns, rows)).also(::adopt)
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: TerminalUnavailableException) {
@@ -130,7 +136,6 @@ class TerminalViewModel(
                 fail(TerminalFailure.START_FAILED, e.message)
                 return
             }
-        session = opened
         _state.update { it.copy(status = TerminalStatus.RUNNING) }
         try {
             withContext(ioDispatcher) { opened.output.collect(::receive) }
@@ -140,19 +145,49 @@ class TerminalViewModel(
             _state.update { it.copy(status = TerminalStatus.EXITED, exitCode = exit) }
         } finally {
             opened.close()
-            if (session === opened) session = null
+            synchronized(lock) { if (session === opened) session = null }
+        }
+    }
+
+    /**
+     * Takes ownership of a freshly opened [candidate]. Opening is blocking work that cannot be
+     * cancelled, so the screen may have been closed while it ran; a session that arrives after that
+     * is ended here instead of being left running with nothing to own it.
+     */
+    private fun adopt(candidate: TerminalSession) {
+        val accepted =
+            synchronized(lock) {
+                if (!closed) session = candidate
+                !closed
+            }
+        if (!accepted) {
+            candidate.close()
+            throw CancellationException("The terminal was closed while its shell was starting")
         }
     }
 
     private fun receive(chunk: String) {
-        val snapshot =
-            synchronized(lock) {
-                val terminal = emulator ?: return
-                terminal.feed(chunk)
-                terminal.snapshot()
+        publish { feed(chunk) }
+    }
+
+    /**
+     * Applies [change] to the emulator and publishes the result under the same lock, so a late
+     * snapshot can never overwrite a newer one (a `clear` racing a burst of output would otherwise
+     * bring the cleared text back).
+     */
+    private fun publish(change: AnsiTerminalEmulator.() -> Unit) {
+        synchronized(lock) {
+            val terminal = emulator ?: return
+            try {
+                terminal.change()
+            } catch (e: RuntimeException) {
+                // The stream is untrusted bytes; whatever it does, it must not take the app down.
+                Log.w(TAG, "Terminal output could not be interpreted", e)
             }
-        _state.update {
-            it.copy(lines = snapshot.lines, cursorRow = snapshot.cursorRow, cursorColumn = snapshot.cursorColumn)
+            val snapshot = terminal.snapshot()
+            _state.update {
+                it.copy(lines = snapshot.lines, cursorRow = snapshot.cursorRow, cursorColumn = snapshot.cursorColumn)
+            }
         }
     }
 
@@ -175,27 +210,30 @@ class TerminalViewModel(
     }
 
     fun sendKey(key: TerminalKey) {
-        runningSession()?.write(key.sequence)
+        val running = runningSession() ?: return
+        val typed = _state.value.currentInput
+        if (key.editsLine && typed.isNotEmpty()) {
+            running.write(typed)
+            _state.update { it.copy(currentInput = "") }
+        }
+        running.write(key.sequence)
     }
 
     /** Empties what is drawn. The shell is untouched and keeps printing below. */
     fun clear() {
-        val snapshot =
-            synchronized(lock) {
-                val terminal = emulator ?: return
-                terminal.clear()
-                terminal.snapshot()
-            }
-        _state.update {
-            it.copy(lines = snapshot.lines, cursorRow = snapshot.cursorRow, cursorColumn = snapshot.cursorColumn)
-        }
+        publish { this.clear() }
     }
 
-    private fun runningSession(): TerminalSession? = session.takeIf { _state.value.status == TerminalStatus.RUNNING }
+    private fun runningSession(): TerminalSession? = synchronized(lock) { session }.takeIf { _state.value.status == TerminalStatus.RUNNING }
 
     /** Ends the shell and releases the runtime lease. Called when the screen is left for good. */
     fun close() {
-        session?.close()
+        val ending =
+            synchronized(lock) {
+                closed = true
+                session
+            }
+        ending?.close()
         sessionJob?.cancel()
     }
 

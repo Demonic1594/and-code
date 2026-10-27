@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.feature.workspace
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -28,7 +29,11 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -54,6 +59,7 @@ import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.feature.terminal.StyledLine
 import com.yugahashimoto.andcode.feature.terminal.TerminalKey
 import com.yugahashimoto.andcode.feature.terminal.TerminalStyle
+import kotlinx.coroutines.launch
 
 private val TerminalBackground = Color(0xFF1A1A2E)
 private val AccentColor = Color(0xFF4EC9B0)
@@ -154,13 +160,6 @@ private fun TerminalOutput(
     val density = LocalDensity.current
     val cell = remember(density) { measurer.measure("M", OutputTextStyle).size }
 
-    // Follow the output only while the reader is at the bottom: scrolling up to read something must
-    // not be undone by the next line. `canScrollForward` still describes the layout from before the
-    // lines that triggered this effect, which is exactly the question being asked.
-    LaunchedEffect(state.lines) {
-        if (!listState.canScrollForward) listState.scrollToItem(state.lines.lastIndex)
-    }
-
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val horizontalPaddingPx = with(density) { OutputPadding.toPx() } * 2
         // The shell is told this size once, when it starts, so what it wraps lines to matches the
@@ -169,6 +168,28 @@ private fun TerminalOutput(
         val rows = constraints.maxHeight / cell.height
         LaunchedEffect(columns, rows) {
             if (columns > 0 && rows > 0) onOpen(columns, rows)
+        }
+
+        // Follow the output until the reader scrolls away from the end, and again once they scroll
+        // back to it. Only a drag changes this: the viewport also shrinks when the keyboard opens, and
+        // new lines arrive below the fold before they are scrolled to, and neither of those means the
+        // reader left the end - judging by "can scroll forward" at those moments would stop following
+        // exactly when the keyboard comes up to type the next command.
+        var followOutput by remember { mutableStateOf(true) }
+        LaunchedEffect(listState) {
+            var dragging = false
+            launch {
+                listState.interactionSource.interactions.collect { if (it is DragInteraction.Start) dragging = true }
+            }
+            snapshotFlow { listState.isScrollInProgress }.collect { scrolling ->
+                if (!scrolling && dragging) {
+                    dragging = false
+                    followOutput = !listState.canScrollForward
+                }
+            }
+        }
+        LaunchedEffect(state.lines, constraints.maxHeight) {
+            if (followOutput) listState.scrollToItem(state.lines.lastIndex)
         }
 
         val cursorRow = state.cursorRow.takeIf { state.status == TerminalStatus.RUNNING }
@@ -196,7 +217,9 @@ private fun TerminalKeyRow(
     onKey: (TerminalKey) -> Unit,
 ) {
     // Shared out evenly rather than scrolled: Ctrl+C is the key that matters most, and it must never
-    // be one swipe away from where the arrows are.
+    // be one swipe away from where the arrows are. "Esc" and "Tab" are key caps, not words - they read
+    // the same in every language - so, like "^C", they are not translated; the keys that are drawn as
+    // symbols get a spoken description.
     Row(
         modifier =
             Modifier

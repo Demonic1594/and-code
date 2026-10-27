@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.runtime.local
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,9 +17,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * A [TerminalSession] over a started [process]. Output and error are expected to be merged by the
  * caller (`redirectErrorStream`), which is also what a pty does.
+ *
+ * @param killTree ends [process] and everything it started; see [killProcessTree] for why signalling
+ *   the root alone is not enough for a PRoot guest
  */
 class ProcessTerminalSession(
     private val process: Process,
+    private val killTree: (Process) -> Unit = ::killProcessTree,
 ) : TerminalSession {
     private val mutableExitCode = MutableStateFlow<Int?>(null)
     override val exitCode: StateFlow<Int?> = mutableExitCode.asStateFlow()
@@ -95,11 +100,27 @@ class ProcessTerminalSession(
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
         input.shutdownNow()
-        // proot runs with --kill-on-exit, so ending it takes everything inside it down too.
-        process.destroyForcibly()
+        // Walking /proc and signalling the tree blocks, and close() is called from the UI thread.
+        Thread(
+            {
+                try {
+                    killTree(process)
+                } catch (e: RuntimeException) {
+                    Log.w(TAG, "Could not end the shell's process tree", e)
+                } finally {
+                    // Whatever the tree walk managed, the root must not outlive the session.
+                    process.destroyForcibly()
+                }
+            },
+            "terminal-close",
+        ).apply {
+            isDaemon = true
+            start()
+        }
     }
 
     private companion object {
+        const val TAG = "ProcessTerminalSession"
         const val READ_CHUNK = 4_096
         const val MAX_BATCH = 64 * 1024
         const val EXIT_UNKNOWN = -1

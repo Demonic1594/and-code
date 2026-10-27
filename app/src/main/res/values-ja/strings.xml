@@ -819,8 +819,6 @@
 
     <string name="search_label">検索</string>
     <!-- Terminal -->
-    <string name="terminal_banner">OpenCode ターミナル - PRoot Alpine Linux</string>
-    <string name="terminal_exit_code">終了コード: %1$d</string>
     <string name="terminal_starting">ターミナルを起動しています…</string>
     <string name="terminal_session_ended">セッションが終了しました（終了コード %1$d）</string>
     <string name="terminal_not_installed">Linux環境がまだインストールされていません。ターミナルを使うにはローカルランタイムをインストールしてください。</string>

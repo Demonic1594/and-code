@@ -26,9 +26,12 @@ import java.util.concurrent.CopyOnWriteArrayList
 class ProcessTerminalSessionTest {
     private val shell = File("/bin/sh")
 
-    private fun open(script: String): ProcessTerminalSession {
+    private fun open(
+        script: String,
+        killTree: (Process) -> Unit = {},
+    ): ProcessTerminalSession {
         assumeTrue("needs a POSIX shell", shell.canExecute())
-        return ProcessTerminalSession(ProcessBuilder(shell.path, "-c", script).redirectErrorStream(true).start())
+        return ProcessTerminalSession(ProcessBuilder(shell.path, "-c", script).redirectErrorStream(true).start(), killTree)
     }
 
     private fun CoroutineScope.collect(
@@ -185,5 +188,47 @@ class ProcessTerminalSessionTest {
             } finally {
                 session.close()
             }
+        }
+
+    @Test
+    fun `close ends the whole process tree before destroying the root`() =
+        runBlocking(Dispatchers.IO) {
+            val killed = CopyOnWriteArrayList<Boolean>()
+            // The root has to still be there to be able to walk its children.
+            val session = open("exec sleep 60", killTree = { process -> killed += process.isAlive })
+
+            session.close()
+
+            withTimeout(10_000) { session.exitCode.first { it != null } }
+            assertEquals(listOf(true), killed.toList())
+        }
+
+    @Test
+    fun `a failing tree walk still destroys the root`() =
+        runBlocking(Dispatchers.IO) {
+            val session = open("exec sleep 60", killTree = { error("no /proc today") })
+
+            session.close()
+
+            val exit = withTimeout(10_000) { session.exitCode.first { it != null } }
+            assertNotNull(exit)
+            assertFalse(session.isAlive)
+        }
+
+    @Test
+    fun `close never blocks the caller on the tree walk`() =
+        runBlocking(Dispatchers.IO) {
+            val release = java.util.concurrent.CountDownLatch(1)
+            val session = open("exec sleep 60", killTree = { release.await(10, java.util.concurrent.TimeUnit.SECONDS) })
+            try {
+                val started = System.nanoTime()
+                session.close()
+                val tookMillis = (System.nanoTime() - started) / 1_000_000
+
+                assertTrue("close() took $tookMillis ms", tookMillis < 2_000)
+            } finally {
+                release.countDown()
+            }
+            assertNotNull(withTimeout(10_000) { session.exitCode.first { it != null } })
         }
 }

@@ -183,11 +183,11 @@ fun NavGraphBuilder.workspaceNavGraph(
 
     composable(TERMINAL_ROUTE_PATTERN) { backStack ->
         val directory = backStack.arguments?.getString(TERMINAL_ARG_DIRECTORY)?.let { decodeRouteArg(it) }
-        // One shell per starting directory: reopening the same workspace's terminal must not resurrect
-        // another folder's session, and each is ended when its screen is popped.
+        // Scoped to this back stack entry: each terminal screen has its own shell, and it is ended
+        // when the entry is popped.
         val terminalViewModel: TerminalViewModel =
             viewModel(
-                key = "terminal-${directory.orEmpty()}",
+                key = "terminal",
                 factory =
                     ViewModelFactory {
                         TerminalViewModel(app.terminalSessions, app.runtimeWork, directory)

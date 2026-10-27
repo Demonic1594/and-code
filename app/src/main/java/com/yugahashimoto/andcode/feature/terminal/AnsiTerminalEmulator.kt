@@ -130,6 +130,7 @@ class AnsiTerminalEmulator(
     private fun csi(ch: Char) {
         when {
             ch == ESC -> mode = Mode.ESCAPE
+            ch == CAN || ch == SUB -> mode = Mode.GROUND
             ch in '@'..'~' -> {
                 mode = Mode.GROUND
                 dispatchCsi(ch, csiBuffer.toString())
@@ -142,7 +143,7 @@ class AnsiTerminalEmulator(
     /** Operating-system and device-control strings (window titles and the like) carry no text. */
     private fun string(ch: Char) {
         when (ch) {
-            BEL -> mode = Mode.GROUND
+            BEL, CAN, SUB -> mode = Mode.GROUND
             ESC -> mode = Mode.STRING_ESCAPE
         }
     }
@@ -162,7 +163,9 @@ class AnsiTerminalEmulator(
     ) {
         // Private modes (`?25l`, `?2004h`, `?1049h`...) switch features this emulator does not have.
         if (raw.isNotEmpty() && raw[0] in "?<=>") return
-        val params = raw.split(';', ':').map { it.toIntOrNull() }
+        // The stream is untrusted (a `cat` of any file will do): an absurd count must clamp, not
+        // overflow the arithmetic below. Digits beyond Int already parse as "absent".
+        val params = raw.split(';', ':').map { it.toIntOrNull()?.coerceIn(0, MAX_PARAMETER) }
         val first = params.firstOrNull()
         val count = max(1, first ?: 1)
         when (command) {
@@ -334,11 +337,18 @@ class AnsiTerminalEmulator(
             }
         }
         style = next
-        styleId =
-            styleIds.getOrPut(next) {
-                styleTable.add(next)
-                styleTable.lastIndex
-            }
+        styleId = styleIds[next] ?: internStyle(next)
+    }
+
+    /**
+     * Styles are interned so a cell costs one int. A stream that never repeats a colour (a truecolour
+     * gradient, or random bytes that happen to spell SGR codes) would grow the table without end, so
+     * past [MAX_STYLES] new styles are drawn in the default style instead.
+     */
+    private fun internStyle(next: TerminalStyle): Int {
+        if (styleTable.size >= MAX_STYLES) return DEFAULT_STYLE
+        styleTable.add(next)
+        return styleTable.lastIndex.also { styleIds[next] = it }
     }
 
     private class ExtendedColor(val value: Int?, val nextIndex: Int)
@@ -482,11 +492,15 @@ class AnsiTerminalEmulator(
 
         private const val ESC = '\u001b'
         private const val BEL = '\u0007'
+        private const val CAN = '\u0018'
+        private const val SUB = '\u001a'
         private const val DELETE = '\u007f'
         private const val VERTICAL_TAB = '\u000b'
         private const val FORM_FEED = '\u000c'
         private const val TAB_WIDTH = 8
         private const val MAX_CSI_LENGTH = 128
+        private const val MAX_PARAMETER = 9_999
+        private const val MAX_STYLES = 4_096
         private const val DEFAULT_STYLE = 0
         private const val EXTENDED_INDEXED = 5
         private const val EXTENDED_RGB = 2
