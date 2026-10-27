@@ -815,6 +815,18 @@
     <!-- Terminal -->
     <string name="terminal_banner">OpenCode Terminal - PRoot Alpine Linux</string>
     <string name="terminal_exit_code">exit code: %1$d</string>
+    <string name="terminal_starting">Iniciando el terminal…</string>
+    <string name="terminal_session_ended">Sesión finalizada (código de salida %1$d)</string>
+    <string name="terminal_not_installed">El entorno Linux aún no está instalado. Instala el runtime local para usar el terminal.</string>
+    <string name="terminal_start_failed">No se pudo iniciar el terminal.</string>
+    <string name="terminal_restart">Reiniciar</string>
+    <string name="terminal_input_hint">Comando o respuesta a un aviso</string>
+    <string name="cd_terminal_interrupt">Interrumpir (Ctrl+C)</string>
+    <string name="cd_terminal_end_of_input">Fin de entrada (Ctrl+D)</string>
+    <string name="cd_terminal_key_up">Flecha arriba</string>
+    <string name="cd_terminal_key_down">Flecha abajo</string>
+    <string name="cd_terminal_key_left">Flecha izquierda</string>
+    <string name="cd_terminal_key_right">Flecha derecha</string>
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">Agent</string>

@@ -171,7 +171,7 @@ fun NavGraphBuilder.workspaceNavGraph(
                 onNavigateUp = explorerViewModel::navigateUp,
                 onSearch = explorerViewModel::search,
                 onRefreshChanges = explorerViewModel::refreshChanges,
-                onOpenTerminal = { navController.navigate(ROUTE_TERMINAL) },
+                onOpenTerminal = { navController.navigate(terminalRoute(workspace.path)) },
                 onOpenChange = { change ->
                     if (change.isOpenable()) {
                         navController.navigate(codeViewerRoute(runtime.id, workspace.path, change.displayPath))
@@ -181,20 +181,26 @@ fun NavGraphBuilder.workspaceNavGraph(
         }
     }
 
-    composable(ROUTE_TERMINAL) {
+    composable(TERMINAL_ROUTE_PATTERN) { backStack ->
+        val directory = backStack.arguments?.getString(TERMINAL_ARG_DIRECTORY)?.let { decodeRouteArg(it) }
+        // One shell per starting directory: reopening the same workspace's terminal must not resurrect
+        // another folder's session, and each is ended when its screen is popped.
         val terminalViewModel: TerminalViewModel =
             viewModel(
-                key = "terminal",
+                key = "terminal-${directory.orEmpty()}",
                 factory =
                     ViewModelFactory {
-                        TerminalViewModel(app.commandRunner, app.runtimeWork)
+                        TerminalViewModel(app.terminalSessions, app.runtimeWork, directory)
                     },
             )
         val terminalState by terminalViewModel.state.collectAsState()
         TerminalScreen(
             state = terminalState,
-            onCommand = terminalViewModel::executeCommand,
+            onOpen = terminalViewModel::open,
             onInputChange = terminalViewModel::updateInput,
+            onSubmit = terminalViewModel::submit,
+            onKey = terminalViewModel::sendKey,
+            onRestart = terminalViewModel::restart,
             onClear = terminalViewModel::clear,
         )
     }

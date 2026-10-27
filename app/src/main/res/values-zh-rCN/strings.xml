@@ -809,6 +809,18 @@
     <!-- Terminal -->
     <string name="terminal_banner">OpenCode Terminal - PRoot Alpine Linux</string>
     <string name="terminal_exit_code">exit code: %1$d</string>
+    <string name="terminal_starting">正在启动终端…</string>
+    <string name="terminal_session_ended">会话已结束（退出码 %1$d）</string>
+    <string name="terminal_not_installed">尚未安装 Linux 环境。请安装本地运行环境以使用终端。</string>
+    <string name="terminal_start_failed">无法启动终端。</string>
+    <string name="terminal_restart">重新启动</string>
+    <string name="terminal_input_hint">输入命令或回应提示</string>
+    <string name="cd_terminal_interrupt">中断 (Ctrl+C)</string>
+    <string name="cd_terminal_end_of_input">输入结束 (Ctrl+D)</string>
+    <string name="cd_terminal_key_up">上箭头</string>
+    <string name="cd_terminal_key_down">下箭头</string>
+    <string name="cd_terminal_key_left">左箭头</string>
+    <string name="cd_terminal_key_right">右箭头</string>
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">Agent</string>

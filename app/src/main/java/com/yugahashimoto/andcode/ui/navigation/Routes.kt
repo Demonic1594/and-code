@@ -46,6 +46,15 @@ const val SCHEDULE_EDIT_ARG_ID = "scheduleId"
 const val SCHEDULE_EDIT_ROUTE_PATTERN = "$ROUTE_SCHEDULE_EDIT?$SCHEDULE_EDIT_ARG_ID={$SCHEDULE_EDIT_ARG_ID}"
 const val ROUTE_CODE_VIEWER = "code-viewer"
 const val ROUTE_TERMINAL = "terminal"
+const val TERMINAL_ARG_DIRECTORY = "directory"
+
+/** The directory is optional, so it is a query parameter: see [SCHEDULE_EDIT_ARG_ID]. */
+const val TERMINAL_ROUTE_PATTERN = "$ROUTE_TERMINAL?$TERMINAL_ARG_DIRECTORY={$TERMINAL_ARG_DIRECTORY}"
+
+/** The terminal, started in [directory] (a path inside the sandbox) when one is given. */
+fun terminalRoute(directory: String? = null): String =
+    if (directory.isNullOrBlank()) ROUTE_TERMINAL else "$ROUTE_TERMINAL?$TERMINAL_ARG_DIRECTORY=${encodeRouteArg(directory)}"
+
 const val ROUTE_GUEST_BROWSER = "guest-browser"
 const val GUEST_BROWSER_ARG_URL = "url"
 const val GUEST_BROWSER_ROUTE_PATTERN = "$ROUTE_GUEST_BROWSER?$GUEST_BROWSER_ARG_URL={$GUEST_BROWSER_ARG_URL}"

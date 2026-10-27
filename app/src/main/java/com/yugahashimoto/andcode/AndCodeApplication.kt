@@ -74,8 +74,10 @@ import com.yugahashimoto.andcode.runtime.local.LocalRuntimeReleaseClient
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeServiceController
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeTarget
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeUpdater
+import com.yugahashimoto.andcode.runtime.local.LocalTerminalSessionFactory
 import com.yugahashimoto.andcode.runtime.local.StartupCommandsRunner
 import com.yugahashimoto.andcode.runtime.local.SystemPromptStore
+import com.yugahashimoto.andcode.runtime.local.TerminalSessionFactory
 import com.yugahashimoto.andcode.runtime.local.VerifiedRuntimeDownloader
 import com.yugahashimoto.andcode.runtime.local.applyOpenCodeSystemPrompt
 import com.yugahashimoto.andcode.startup.CatalogReconcileInitializer
@@ -179,6 +181,9 @@ class AndCodeApplication : Application() {
         private set
 
     lateinit var commandRunner: LocalRuntimeCommandRunner
+        private set
+
+    lateinit var terminalSessions: TerminalSessionFactory
         private set
 
     lateinit var claudeCodeRuntime: ClaudeCodeRuntime
@@ -320,6 +325,7 @@ class AndCodeApplication : Application() {
                 accessCoordinator = accessCoordinator,
                 messages = AndroidLocalRuntimeMessages(this),
             )
+        terminalSessions = LocalTerminalSessionFactory(runtimeDirectory, installer::installedRuntime, accessCoordinator)
         val claudeMessages = AndroidClaudeMessages(this)
         claudeCodeRuntime =
             ClaudeCodeRuntime(

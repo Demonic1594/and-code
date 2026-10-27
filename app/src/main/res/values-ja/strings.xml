@@ -821,6 +821,18 @@
     <!-- Terminal -->
     <string name="terminal_banner">OpenCode ターミナル - PRoot Alpine Linux</string>
     <string name="terminal_exit_code">終了コード: %1$d</string>
+    <string name="terminal_starting">ターミナルを起動しています…</string>
+    <string name="terminal_session_ended">セッションが終了しました（終了コード %1$d）</string>
+    <string name="terminal_not_installed">Linux環境がまだインストールされていません。ターミナルを使うにはローカルランタイムをインストールしてください。</string>
+    <string name="terminal_start_failed">ターミナルを起動できませんでした。</string>
+    <string name="terminal_restart">再起動</string>
+    <string name="terminal_input_hint">コマンドを入力、またはプロンプトに応答</string>
+    <string name="cd_terminal_interrupt">中断（Ctrl+C）</string>
+    <string name="cd_terminal_end_of_input">入力の終了（Ctrl+D）</string>
+    <string name="cd_terminal_key_up">上矢印</string>
+    <string name="cd_terminal_key_down">下矢印</string>
+    <string name="cd_terminal_key_left">左矢印</string>
+    <string name="cd_terminal_key_right">右矢印</string>
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">エージェント</string>
