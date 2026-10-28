@@ -32,16 +32,20 @@ Status: **not started**. Written down to build later; nothing in the app has bee
   under a small "Input"/"Output" label — monospace, but no block surface, no way to copy without
   long-pressing, and the label does not stand apart from the content.
 -   `ChatDiffDialog` shows "Diff unavailable — this workspace isn't a Git repository"
-  (`diff_unavailable`) whenever `PatchDiffState.Unavailable` is set. That state is reached when
-  `OpenCodeBackend.sessionDiff` returns nothing: OpenCode needs a git project, `ClaudeCodeTarget`
-  diffs the workspace's own git (`vcsDiff`), Antigravity returns an empty list, and Codex
-  inherits the base default — which throws `unsupported`, caught by `openPatchDiff`'s
-  `runCatching`. A non-git workspace therefore gets a file list with no diff, on every on-device
-  agent.
-- Copy UI today is a plain `ContentCopy` icon with no feedback: DevTools has three
-  (`DevToolsSources.kt:179`, `DevToolsNetwork.kt:363`, `DevToolsElements.kt:404`), and
-  `RemoteConnectionScreen.kt:235` and `ProviderSettingsScreen.kt:262` copy with a toast. Nothing
-  anywhere shows a copied confirmation inline, and there is no shared composable.
+  (`diff_unavailable`) whenever `PatchDiffState.Unavailable` is set. Two paths lead there
+  (`openPatchDiff`, `ChatViewModel.kt:1598`): backends that are not `diffCapable` — Antigravity,
+  and Codex, which leaves the capability unset — return early without a round trip; and a
+  git-capable backend that comes back empty — OpenCode needs a git project, and
+  `ClaudeCodeTarget` diffs the workspace's own git (`vcsDiff`), which has nothing to say outside
+  one (Codex would also throw `unsupported` from the base default, but the early return means it
+  never gets that far). A non-git workspace therefore gets a file list with no diff, on every
+  on-device agent.
+- Copy UI today is a plain `ContentCopy` icon with no feedback, among other styles: DevTools has
+  three (`DevToolsSources.kt:179`, `DevToolsElements.kt:404` direct copies, and
+  `DevToolsNetwork.kt:363`, which opens the Copy URL / as cURL / response menu),
+  `RemoteConnectionScreen.kt:235` and `ProviderSettingsScreen.kt:262` copy with a toast, and
+  copy-as-Markdown toasts from the chat menu. Nothing anywhere shows a copied confirmation
+  inline, and there is no shared composable.
 
 ## Design
 
@@ -93,8 +97,10 @@ Projects                      + Add project  [search icon]
 - A shared `CopyButton` composable is introduced here: `Icons.Default.ContentCopy` →
   `Icons.Default.Check` for about 2 seconds after a tap, `ClipboardManager.setText`, a content
   description that also serves as the copied announcement, and a haptic tick when haptics are
-  on. The three DevTools copy buttons switch to it in the same PR — four call sites is enough to
-  justify one component, and they gain the feedback they currently lack.
+  on. The direct DevTools copy buttons (`DevToolsSources`, `DevToolsElements`) switch to it in
+  the same PR and gain the feedback they currently lack; the Network menu keeps its three
+  options and only its items get the same check feedback. ToolCard's two new buttons make five
+  uses in total — enough to justify one component.
 - The error text under Output is out of scope (left as is).
 
 ### 4. Diff without a Git repository (shadow snapshots)
@@ -108,8 +114,11 @@ Projects                      + Add project  [search icon]
   the start of each turn snapshots the tree; at review time the diff is
   `git diff <pre-turn commit> -- <the turn's file list>`, unified format, feeding the existing
   `parseUnifiedDiff`/`PatchDiffState.Loaded` path unchanged.
-- It kicks in only as a fallback: a backend that produced a diff is used as today. The reasoning
-  card and everything else about the activity bar stay untouched.
+- It kicks in only as a fallback, on **both** paths to `Unavailable`: the `diffCapable` early
+  return (Antigravity, Codex) must be revisited — a shadow-diff-capable target goes to the
+  snapshot instead of returning early — and a backend that came back empty falls through to the
+  snapshot too. A backend that produced a diff is used as today. The reasoning card and
+  everything else about the activity bar stay untouched.
 - Guard rails: a size cap per workspace (measured; suggested 200 MB of tracked blobs) and a
   per-turn wall clock for the snapshot command; past either, the snapshot is skipped and the
   review falls back to today's file list, honestly. Binary files show as counts only (git's
@@ -132,7 +141,8 @@ Projects                      + Add project  [search icon]
   add button; project filter field; strings in all locales.
 
 **Task 3 — code blocks with copy**
-- Introduce `CopyButton`; rework `ToolCard` Input/Output; switch the three DevTools call sites.
+- Introduce `CopyButton`; rework `ToolCard` Input/Output; switch the DevTools copy buttons to it
+  (the Network menu keeps its options, its items get the check feedback).
 
 **Task 4 — shadow snapshots**
 - The snapshot store (git-dir layout, caps, prune of pre-previous commits), the turn-boundary
