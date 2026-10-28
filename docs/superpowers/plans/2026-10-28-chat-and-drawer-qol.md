@@ -38,9 +38,10 @@ Status: **not started**. Written down to build later; nothing in the app has bee
   inherits the base default — which throws `unsupported`, caught by `openPatchDiff`'s
   `runCatching`. A non-git workspace therefore gets a file list with no diff, on every on-device
   agent.
-- Copy feedback exists in two hand-rolled places (`GitScreen.kt:761`,
-  `WorkspaceExplorerScreen.kt:1189`): a `ContentCopy` icon that swaps to `Check` after copying.
-  There is no shared composable.
+- Copy UI today is a plain `ContentCopy` icon with no feedback: DevTools has three
+  (`DevToolsSources.kt:179`, `DevToolsNetwork.kt:363`, `DevToolsElements.kt:404`), and
+  `RemoteConnectionScreen.kt:235` and `ProviderSettingsScreen.kt:262` copy with a toast. Nothing
+  anywhere shows a copied confirmation inline, and there is no shared composable.
 
 ## Design
 
@@ -89,11 +90,11 @@ Projects                      + Add project  [search icon]
   `CodeFontFamily`, same scroll behaviour as today (input scrolls horizontally, output scrolls
   both ways inside its 240 dp cap) and the same `TextDirection` fixes (LTR for input,
   content-resolved for output). The truncation note stays under Output.
-- A shared `CopyButton` composable is extracted and used here: `Icons.Default.ContentCopy` →
+- A shared `CopyButton` composable is introduced here: `Icons.Default.ContentCopy` →
   `Icons.Default.Check` for about 2 seconds after a tap, `ClipboardManager.setText`, a content
-  description that also serves as the copied announcement, and a haptic tick when haptics are on.
-  `GitScreen` and `WorkspaceExplorerScreen` switch to it in the same PR — three call sites is
-  enough to justify one component.
+  description that also serves as the copied announcement, and a haptic tick when haptics are
+  on. The three DevTools copy buttons switch to it in the same PR — four call sites is enough to
+  justify one component, and they gain the feedback they currently lack.
 - The error text under Output is out of scope (left as is).
 
 ### 4. Diff without a Git repository (shadow snapshots)
@@ -131,7 +132,7 @@ Projects                      + Add project  [search icon]
   add button; project filter field; strings in all locales.
 
 **Task 3 — code blocks with copy**
-- Extract `CopyButton`; rework `ToolCard` Input/Output; switch the two existing call sites.
+- Introduce `CopyButton`; rework `ToolCard` Input/Output; switch the three DevTools call sites.
 
 **Task 4 — shadow snapshots**
 - The snapshot store (git-dir layout, caps, prune of pre-previous commits), the turn-boundary
