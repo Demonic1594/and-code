@@ -1,0 +1,7 @@
+- The embedded terminal now runs a real interactive shell.
+- Edit local files from the code viewer; paste clipboard images into the composer.
+- Codex: per-turn reasoning effort and fast mode; image attachments work.
+- OpenCode V2 server API; custom providers can fetch their models.
+- Startup commands on runtime start; live token speed display.
+- Crash reports are opt-in; error text stays on the device.
+- Fixes: out-of-memory on long Antigravity chats, drafts lost on rotation, links in bold.
