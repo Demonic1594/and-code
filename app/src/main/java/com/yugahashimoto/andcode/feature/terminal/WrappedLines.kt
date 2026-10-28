@@ -5,8 +5,14 @@ package com.yugahashimoto.andcode.feature.terminal
  *
  * A program prints one line; the emulator breaks it at the screen width into several rows. An address
  * that crosses the break is whole in none of them, so searching row by row misses it (or reads half of
- * a port number as a port). A row that fills the width is taken to continue on the next row, which is
- * exactly what the emulator does when more text arrives after the last column.
+ * a port number as a port). A row that fills the width is taken to continue on the next row.
+ *
+ * That is an inference from the row's length, not a record of what the emulator did: it cannot tell a
+ * line that wrapped from one that happened to end exactly at the last column and was followed by a
+ * newline, so the latter is joined to the row after it as well. The cost is small - a port at the very
+ * end of such a line can be read together with digits that start the next line, and the stray
+ * candidate is dropped when nothing answers on it. Marking wrapped rows in the emulator would make it
+ * exact.
  */
 object WrappedLines {
     /**
