@@ -78,7 +78,7 @@ On-device agents run inside a Linux environment via PRoot. OpenCode, Claude Code
 - **Device files** — Grant all-files access and the whole phone (`/sdcard`, SD cards, USB drives) becomes browsable in the folder picker and reachable by the agent, opened in place instead of copied into the app
 - **Git support** — Browse status and review diffs from the GUI; use the embedded runtime terminal for other Git operations
 - **Diff viewer** — Review code changes inline before accepting
-- **Embedded terminal** — An interactive shell (real PTY) inside the on-device runtime: streamed output, stdin, Ctrl+C, colours, and it opens in the workspace you came from. Full-screen programs such as `vim` are not supported yet
+- **Embedded terminal** — An interactive shell (real PTY) inside the on-device runtime: streamed output, stdin, Ctrl+C, colours, and it opens in the workspace you came from. Dev servers started in it (Vite, `python -m http.server`, …) show up as chips that open the page in the in-app browser. Full-screen programs such as `vim` are not supported yet
 - **Pull request badges** — Pull requests opened in a chat stay pinned above the composer with their diff size and state (draft, open, conflict, merged, closed); tap to open them on GitHub
 - **Tool approvals** — Approve or reject dangerous tool operations
 - **Session management** — Create, resume, rename, and delete sessions

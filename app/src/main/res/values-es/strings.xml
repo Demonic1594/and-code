@@ -825,6 +825,9 @@
     <string name="cd_terminal_key_down">Flecha abajo</string>
     <string name="cd_terminal_key_left">Flecha izquierda</string>
     <string name="cd_terminal_key_right">Flecha derecha</string>
+    <string name="terminal_server_stopped">detenido</string>
+    <string name="cd_terminal_server_open">Abrir la aplicación que se ejecuta en el puerto %1$d</string>
+    <string name="cd_terminal_server_stopped">El puerto %1$d está detenido</string>
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">Agent</string>

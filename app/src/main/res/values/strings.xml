@@ -822,6 +822,9 @@
     <string name="cd_terminal_key_down">Down arrow</string>
     <string name="cd_terminal_key_left">Left arrow</string>
     <string name="cd_terminal_key_right">Right arrow</string>
+    <string name="terminal_server_stopped">stopped</string>
+    <string name="cd_terminal_server_open">Open the app running on port %1$d</string>
+    <string name="cd_terminal_server_stopped">Port %1$d is stopped</string>
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">Agent</string>

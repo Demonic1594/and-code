@@ -202,6 +202,7 @@ fun NavGraphBuilder.workspaceNavGraph(
             onKey = terminalViewModel::sendKey,
             onRestart = terminalViewModel::restart,
             onClear = terminalViewModel::clear,
+            onOpenServer = { url -> navController.navigate(guestBrowserRoute(url)) },
         )
     }
 

@@ -825,6 +825,9 @@
     <string name="cd_terminal_key_down">Seta para baixo</string>
     <string name="cd_terminal_key_left">Seta para a esquerda</string>
     <string name="cd_terminal_key_right">Seta para a direita</string>
+    <string name="terminal_server_stopped">parado</string>
+    <string name="cd_terminal_server_open">Abrir o app em execução na porta %1$d</string>
+    <string name="cd_terminal_server_stopped">A porta %1$d está parada</string>
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">Agent</string>

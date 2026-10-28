@@ -9,6 +9,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -17,6 +18,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
@@ -26,6 +28,8 @@ import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.feature.terminal.DevServer
+import com.yugahashimoto.andcode.feature.terminal.DevServerStatus
 import com.yugahashimoto.andcode.feature.terminal.StyledLine
 import com.yugahashimoto.andcode.feature.terminal.TerminalKey
 import org.junit.Assert.assertEquals
@@ -52,6 +56,7 @@ class TerminalScreenInstrumentedTest {
     private var submits = 0
     private var restarts = 0
     private var clears = 0
+    private val openedServers = CopyOnWriteArrayList<String>()
 
     private var state by mutableStateOf(TerminalUiState(status = TerminalStatus.RUNNING))
 
@@ -74,6 +79,7 @@ class TerminalScreenInstrumentedTest {
                         onKey = { keys += it },
                         onRestart = { restarts++ },
                         onClear = { clears++ },
+                        onOpenServer = { openedServers += it },
                     )
                 }
             }
@@ -113,6 +119,52 @@ class TerminalScreenInstrumentedTest {
         )
 
         composeRule.onNodeWithText("server listening on :3000").assertIsDisplayed()
+    }
+
+    @Test
+    fun aRunningServerIsOfferedAndOpensItsAddress() {
+        show(TerminalUiState(status = TerminalStatus.RUNNING, servers = listOf(DevServer(5173, DevServerStatus.RUNNING))))
+
+        composeRule.onNodeWithContentDescription(composeRule.activity.getString(R.string.cd_terminal_server_open, 5173)).apply {
+            assertIsDisplayed()
+            performClick()
+        }
+
+        assertEquals(listOf("http://localhost:5173/"), openedServers.toList())
+    }
+
+    @Test
+    fun aStoppedServerIsShownAsStoppedAndHasNothingToOpen() {
+        show(TerminalUiState(status = TerminalStatus.RUNNING, servers = listOf(DevServer(5173, DevServerStatus.STOPPED))))
+
+        composeRule.onNodeWithContentDescription(composeRule.activity.getString(R.string.cd_terminal_server_stopped, 5173)).apply {
+            assertIsDisplayed()
+            assertHasNoClickAction()
+        }
+        composeRule.onNodeWithText(string(R.string.terminal_server_stopped)).assertIsDisplayed()
+        assertTrue(openedServers.isEmpty())
+    }
+
+    @Test
+    fun severalServersAreEachOffered() {
+        show(
+            TerminalUiState(
+                status = TerminalStatus.RUNNING,
+                servers = listOf(DevServer(3000, DevServerStatus.RUNNING), DevServer(5173, DevServerStatus.RUNNING)),
+            ),
+        )
+
+        composeRule.onNodeWithTag("terminal-server-5173").performClick()
+        composeRule.onNodeWithTag("terminal-server-3000").performClick()
+
+        assertEquals(listOf("http://localhost:5173/", "http://localhost:3000/"), openedServers.toList())
+    }
+
+    @Test
+    fun noServersMeansNoServerRow() {
+        show(TerminalUiState(status = TerminalStatus.RUNNING))
+
+        composeRule.onNodeWithTag("terminal-server-5173").assertDoesNotExist()
     }
 
     @Test

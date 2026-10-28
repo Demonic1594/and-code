@@ -831,6 +831,9 @@
     <string name="cd_terminal_key_down">下矢印</string>
     <string name="cd_terminal_key_left">左矢印</string>
     <string name="cd_terminal_key_right">右矢印</string>
+    <string name="terminal_server_stopped">停止</string>
+    <string name="cd_terminal_server_open">ポート %1$d で動いているアプリを開く</string>
+    <string name="cd_terminal_server_stopped">ポート %1$d は停止しています</string>
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">エージェント</string>
