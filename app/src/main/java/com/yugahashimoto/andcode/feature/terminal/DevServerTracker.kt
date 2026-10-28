@@ -46,12 +46,22 @@ class DevServerTracker private constructor(
                 .filter { it.seenUp }
                 .map { DevServer(it.port, if (it.misses >= STOPPED_AFTER_MISSES) DevServerStatus.STOPPED else DevServerStatus.RUNNING) }
 
-    /** Starts watching ports the terminal mentioned. Programs can print any number of them; extras are ignored. */
+    /**
+     * Starts watching ports the terminal mentioned. Programs can print any number of them, so when the
+     * slots are full a new port takes the place of the oldest one that never answered - that is where
+     * echoed commands and cut-off fragments end up. A port that has answered is never pushed out; if
+     * every slot holds one, the new port is ignored.
+     */
     fun observe(mentioned: Collection<Int>): DevServerTracker {
         var next = entries
         for (port in mentioned) {
-            if (next.size >= MAX_TRACKED) break
-            if (next.none { it.port == port }) next = next + Entry(port, seenUp = false, misses = 0)
+            if (next.any { it.port == port }) continue
+            if (next.size >= MAX_TRACKED) {
+                val evicted = next.indexOfFirst { !it.seenUp }
+                if (evicted < 0) continue
+                next = next.filterIndexed { index, _ -> index != evicted }
+            }
+            next = next + Entry(port, seenUp = false, misses = 0)
         }
         return if (next === entries) this else DevServerTracker(next)
     }

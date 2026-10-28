@@ -10,6 +10,7 @@ import com.yugahashimoto.andcode.feature.terminal.DevServerDetector
 import com.yugahashimoto.andcode.feature.terminal.DevServerTracker
 import com.yugahashimoto.andcode.feature.terminal.StyledLine
 import com.yugahashimoto.andcode.feature.terminal.TerminalKey
+import com.yugahashimoto.andcode.feature.terminal.WrappedLines
 import com.yugahashimoto.andcode.runtime.local.DevServerProbe
 import com.yugahashimoto.andcode.runtime.local.LocalTerminalLauncher
 import com.yugahashimoto.andcode.runtime.local.LoopbackDevServerProbe
@@ -19,6 +20,7 @@ import com.yugahashimoto.andcode.runtime.local.TerminalSessionFactory
 import com.yugahashimoto.andcode.runtime.local.TerminalUnavailableException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -205,7 +207,7 @@ class TerminalViewModel(
      * bring the cleared text back).
      */
     private fun publish(change: AnsiTerminalEmulator.() -> Unit) {
-        val startProbing =
+        val probeToStart =
             synchronized(lock) {
                 val terminal = emulator ?: return
                 val snapshot =
@@ -222,43 +224,42 @@ class TerminalViewModel(
                 }
                 watchForServers(snapshot.lines)
             }
-        if (startProbing) launchProbe()
+        // Started outside the lock. It was created, and recorded in [probeJob], inside it, so a close or
+        // an exit that comes in between cancels it before it ever runs.
+        probeToStart?.start()
     }
 
     /**
-     * Looks for servers in the lines that appeared since the last call. Returns whether probing has to
-     * be started for them. Called with [lock] held.
+     * Looks for servers in the lines that appeared since the last call. Returns the probe loop to start
+     * when there is now something to probe and no loop is running. Called with [lock] held.
      */
-    private fun watchForServers(lines: List<StyledLine>): Boolean {
-        val mentioned = DevServerDetector.portsIn(freshTextOf(lines))
-        if (mentioned.isNotEmpty()) tracker = tracker.observe(mentioned)
-        val start = !probing && !closed && tracker.ports.isNotEmpty()
-        if (start) probing = true
-        return start
+    private fun watchForServers(lines: List<StyledLine>): Job? {
+        try {
+            val mentioned = DevServerDetector.portsIn(freshTextOf(lines))
+            if (mentioned.isNotEmpty()) tracker = tracker.observe(mentioned)
+        } catch (e: RuntimeException) {
+            // Finding servers is a convenience on top of untrusted output; if it breaks, the screen goes on.
+            Log.w(TAG, "Terminal output could not be searched for servers", e)
+        }
+        if (probing || closed || tracker.ports.isEmpty()) return null
+        probing = true
+        return viewModelScope.launch(start = CoroutineStart.LAZY) { probeServers() }.also { probeJob = it }
     }
 
     /**
-     * The text of the screen lines that were not there, or not like that, the last time this ran.
+     * The text of the lines the program printed that are new, or changed, since the last call.
      *
      * Only the end of the screen is searched, and only what changed in it: an address printed long ago
      * and still on screen must not bring back a server that has since been forgotten. The emulator
      * hands out the same [StyledLine] for a row until the row changes, so comparing by identity finds
-     * exactly the new and rewritten rows - a reprinted line is new even if its text is not.
-     * Called with [lock] held.
+     * exactly the new and rewritten rows - a reprinted line is new even if its text is not. Rows the
+     * screen width wrapped are put back together first ([WrappedLines]). Called with [lock] held.
      */
     private fun freshTextOf(lines: List<StyledLine>): List<String> {
         val tail = lines.takeLast(SCAN_TAIL_LINES)
         val seen = scannedLines
         scannedLines = identitySetOf(tail)
-        return tail.filter { it !in seen }.map { it.text }
-    }
-
-    private fun launchProbe() {
-        val job = viewModelScope.launch { probeServers() }
-        synchronized(lock) {
-            probeJob = job
-            if (closed) job.cancel()
-        }
+        return WrappedLines.join(tail, columns) { it !in seen }
     }
 
     /**

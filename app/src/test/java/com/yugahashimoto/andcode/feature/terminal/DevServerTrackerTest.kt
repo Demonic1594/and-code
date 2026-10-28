@@ -83,12 +83,49 @@ class DevServerTrackerTest {
     }
 
     @Test
-    fun `tracks no more than the limit and ignores the rest`() {
+    fun `tracks no more than the limit, keeping the newest candidates`() {
         val many = (1..DevServerTracker.MAX_TRACKED + 5).map { 3000 + it }
 
         val tracker = DevServerTracker().observe(many)
 
-        assertEquals(many.take(DevServerTracker.MAX_TRACKED), tracker.ports)
+        assertEquals(many.takeLast(DevServerTracker.MAX_TRACKED), tracker.ports)
+    }
+
+    @Test
+    fun `a new mention pushes out the oldest candidate that never answered`() {
+        // A fragment of an address cut by a chunk boundary names a port nobody listens on; it must not
+        // keep the real server's slot for half a minute.
+        val ports = (1..DevServerTracker.MAX_TRACKED).map { 3000 + it }
+        val tracker = DevServerTracker().observe(ports).up(3002)
+
+        val next = tracker.observe(listOf(9000))
+
+        assertTrue(3001 !in next.ports)
+        assertTrue(3002 in next.ports)
+        assertTrue(9000 in next.ports)
+        assertEquals(DevServerTracker.MAX_TRACKED, next.ports.size)
+    }
+
+    @Test
+    fun `a server that answered is never pushed out by a new mention`() {
+        val ports = (1..DevServerTracker.MAX_TRACKED).map { 3000 + it }
+        val tracker = DevServerTracker().observe(ports).up(*ports.toIntArray())
+
+        val next = tracker.observe(listOf(9000))
+
+        assertEquals(ports, next.ports)
+        assertEquals(ports, next.servers.map { it.port })
+    }
+
+    @Test
+    fun `a stopped server is not pushed out either`() {
+        val ports = (1..DevServerTracker.MAX_TRACKED).map { 3000 + it }
+        val tracker = DevServerTracker().observe(ports).up(*ports.toIntArray()).down(3001).down(3001)
+
+        val next = tracker.observe(listOf(9000))
+
+        assertTrue(3001 in next.ports)
+        assertTrue(9000 !in next.ports)
     }
 
     @Test

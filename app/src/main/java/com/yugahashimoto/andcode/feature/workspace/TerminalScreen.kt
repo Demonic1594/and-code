@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,6 +68,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -96,7 +98,7 @@ fun TerminalScreen(
     onRestart: () -> Unit,
     onClear: () -> Unit,
     /** Opens a server the shell started (its [DevServer.url]) in the in-app browser. */
-    onOpenServer: (url: String) -> Unit = {},
+    onOpenServer: (url: String) -> Unit,
 ) {
     val running = state.status == TerminalStatus.RUNNING
     // Whoever types, presses a key or clears wants to see what happens next, wherever they had
@@ -227,7 +229,9 @@ private fun TerminalServerChip(
         modifier =
             Modifier
                 .testTag("terminal-server-${server.port}")
-                .heightIn(min = 40.dp)
+                // The chip is drawn smaller than a finger; the touch target is not.
+                .minimumInteractiveComponentSize()
+                .heightIn(min = 32.dp)
                 .clip(shape)
                 .border(1.dp, color, shape)
                 // Only a server that answers has a page to open; a stopped one is just a status.
@@ -238,7 +242,8 @@ private fun TerminalServerChip(
     ) {
         Box(modifier = Modifier.size(8.dp).background(color, CircleShape))
         Spacer(modifier = Modifier.width(8.dp))
-        Text(text = ":${server.port}", color = color, style = OutputTextStyle)
+        // A port is a number, not text: in a right-to-left language the colon must stay in front of it.
+        Text(text = ":${server.port}", color = color, style = OutputTextStyle.copy(textDirection = TextDirection.Ltr))
         if (!running) {
             Spacer(modifier = Modifier.width(8.dp))
             Text(text = stringResource(R.string.terminal_server_stopped), color = color, style = OutputTextStyle)
