@@ -127,7 +127,7 @@ applied would still embed inert Google project identifiers in the fdroid build).
 Submitting to the official catalog means opening a merge request against
 [fdroiddata](https://gitlab.com/fdroid/fdroiddata). This has been done:
 [!48005](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/48005). The
-metadata below is a snapshot of the branch at the time of writing (v1.2.27);
+metadata below is a snapshot of the branch at the time of writing (v1.2.28);
 the live copy is the MR itself.
 
 ```yaml
@@ -136,8 +136,9 @@ AntiFeatures:
     en-US: can install and run proprietary agents at runtime (Anthropic Claude Code
       from downloads.claude.ai, Google Antigravity CLI), never required for core use
   NonFreeNet:
-    en-US: running agents talks to hosted, non-free LLM provider APIs, and the app
-      also calls the GitHub and GitLab APIs and Google OAuth for Antigravity; the
+    en-US: running agents talks to hosted, non-free LLM provider APIs, including ChatGPT/OpenAI
+      sign-in for Codex, and the app downloads the Codex binary from registry.npmjs.org,
+      calls the GitHub and GitLab APIs and uses Google OAuth for Antigravity; the
       optional GitHub OAuth sign-in is disabled in this build
   TetheredNet:
     en-US: the on-demand Vosk wake-word speech model is only ever fetched from alphacephei.com
@@ -157,9 +158,9 @@ Binaries:
   https://github.com/yuga-hashimoto/and-code/releases/download/v%v/and-code-v%v-fdroid-release.apk
 
 Builds:
-  - versionName: 1.2.27
-    versionCode: 66
-    commit: db8ed2e86e7f32b4b9151c0bd1d7ba974a1dcb5a
+  - versionName: 1.2.28
+    versionCode: 67
+    commit: 4a662c4a9b69f7c876bb32193c101c70536f0d25
     subdir: app
     sudo:
       - apt-get update
@@ -187,8 +188,8 @@ AllowedAPKSigningKeys: f036e07002d8c2e6a5a64000f1211398d4831ff37cf280456a9a26d2f
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.2.27
-CurrentVersionCode: 66
+CurrentVersion: 1.2.28
+CurrentVersionCode: 67
 ```
 
 This is the exact field order/quoting `fdroid rewritemeta` produces (it also

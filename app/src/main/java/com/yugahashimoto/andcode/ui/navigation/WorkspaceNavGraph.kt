@@ -178,7 +178,7 @@ fun NavGraphBuilder.workspaceNavGraph(
                 onNavigateUp = explorerViewModel::navigateUp,
                 onSearch = explorerViewModel::search,
                 onRefreshChanges = explorerViewModel::refreshChanges,
-                onOpenTerminal = { navController.navigate(ROUTE_TERMINAL) },
+                onOpenTerminal = { navController.navigate(terminalRoute(workspace.path)) },
                 onOpenSourceControl = { navController.navigate(ROUTE_GIT) },
                 onOpenChange = { change ->
                     if (change.isOpenable()) {
@@ -250,21 +250,28 @@ fun NavGraphBuilder.workspaceNavGraph(
         }
     }
 
-    composable(ROUTE_TERMINAL) {
+    composable(TERMINAL_ROUTE_PATTERN) { backStack ->
+        val directory = backStack.arguments?.getString(TERMINAL_ARG_DIRECTORY)?.let { decodeRouteArg(it) }
+        // Scoped to this back stack entry: each terminal screen has its own shell, and it is ended
+        // when the entry is popped.
         val terminalViewModel: TerminalViewModel =
             viewModel(
                 key = "terminal",
                 factory =
                     ViewModelFactory {
-                        TerminalViewModel(app.commandRunner, app.runtimeWork)
+                        TerminalViewModel(app.terminalSessions, app.runtimeWork, directory)
                     },
             )
         val terminalState by terminalViewModel.state.collectAsState()
         TerminalScreen(
             state = terminalState,
-            onCommand = terminalViewModel::executeCommand,
+            onOpen = terminalViewModel::open,
             onInputChange = terminalViewModel::updateInput,
+            onSubmit = terminalViewModel::submit,
+            onKey = terminalViewModel::sendKey,
+            onRestart = terminalViewModel::restart,
             onClear = terminalViewModel::clear,
+            onOpenServer = { url -> navController.navigate(guestBrowserRoute(url)) },
         )
     }
 

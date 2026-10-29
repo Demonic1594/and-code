@@ -538,9 +538,9 @@ class AntigravityRuntime(
         answers: List<List<String>>,
     ): Boolean = false
 
-    /** See [killAntigravityProcessTree] for why a plain `destroy()`/`destroyForcibly()` is not enough. */
+    /** See [killProcessTree] for why a plain `destroy()`/`destroyForcibly()` is not enough. */
     private fun terminate(process: Process) {
-        killAntigravityProcessTree(process)
+        killProcessTree(process)
         if (process.isAlive) process.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)
     }
 

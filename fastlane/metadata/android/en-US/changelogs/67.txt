@@ -1,3 +1,7 @@
-- New: an in-app browser with DevTools, a code editor, a Git panel, a storage manager, a usage page, changes review, an Inbox, rewind and artifacts.
-- Fix: the chat now stays live after you leave the app and come back, without reopening the session.
-- Fix: the Git panel no longer crashes when it opens.
+- The embedded terminal now runs a real interactive shell.
+- Edit local files from the code viewer; paste clipboard images into the composer.
+- Codex: per-turn reasoning effort and fast mode; image attachments work.
+- OpenCode V2 server API; custom providers can fetch their models.
+- Startup commands on runtime start; live token speed display.
+- Crash reports are opt-in; error text stays on the device.
+- Fixes: out-of-memory on long Antigravity chats, drafts lost on rotation, links in bold.

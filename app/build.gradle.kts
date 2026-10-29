@@ -133,8 +133,8 @@ android {
         applicationId = "com.yugahashimoto.andcode"
         minSdk = 26
         targetSdk = 35
-        versionCode = 67
-        versionName = "1.2.28"
+        versionCode = 68
+        versionName = "1.2.29"
         buildConfigField("String", "GITHUB_CLIENT_ID", "\"$githubClientId\"")
         // Added to the bundled runtime manifest's port when a runtime is installed. Loopback is
         // shared by every app on the device, so a debug build installed next to a release (see
