@@ -156,4 +156,30 @@ class ArtifactsTest {
         assertEquals("/elsewhere/a.md", workspaceRelativePath("/elsewhere/a.md", "/w/proj"))
         assertEquals("a.md", workspaceRelativePath("a.md", null))
     }
+
+    @Test
+    fun `an artifact inside the workspace is read relative to it`() {
+        assertEquals("/w/proj" to "app/index.html", artifactReadPair("/w/proj/app/index.html", "/w/proj/"))
+        assertEquals("/w/proj" to "a.md", artifactReadPair("/w/proj/a.md", "/w/proj"))
+    }
+
+    @Test
+    fun `an artifact outside the workspace is read from its own folder`() {
+        assertEquals(
+            "/tmp/opencode" to "words-overhaul.html",
+            artifactReadPair("/tmp/opencode/words-overhaul.html", "/workspace/solo-learning"),
+        )
+        assertEquals("/tmp" to "a.html", artifactReadPair("/tmp/a.html", "/workspace/proj/"))
+    }
+
+    @Test
+    fun `an artifact directly under the guest root is read from the root`() {
+        assertEquals("/" to "page.html", artifactReadPair("/page.html", "/workspace/proj"))
+    }
+
+    @Test
+    fun `a path that names no folder is passed through untouched`() {
+        assertEquals("/w/proj" to "notes.md", artifactReadPair("notes.md", "/w/proj"))
+        assertEquals("/w/proj" to "/tmp/", artifactReadPair("/tmp/", "/w/proj"))
+    }
 }
