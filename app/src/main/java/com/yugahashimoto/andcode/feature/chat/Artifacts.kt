@@ -163,6 +163,30 @@ fun workspaceRelativePath(
     return if (path.startsWith("$root/")) path.removePrefix("$root/") else path
 }
 
+/**
+ * The directory and path [com.yugahashimoto.andcode.runtime.OpenCodeBackend.readFile] should use
+ * for an artifact found at [artifactPath] in a chat working under [workspacePath].
+ *
+ * Inside the workspace that is ([workspacePath], the relative path), as always. An artifact the
+ * agent wrote *outside* it (`/tmp/…`) cannot be read that way: the disk-backed runtimes resolve a
+ * path that escapes their root and answer "File not found", and OpenCode's server answers a 500
+ * instead of a 404 (issue #36). The file's own folder plus its name is exactly the pair the file
+ * explorer sends when it browses that folder, so every backend serves it. A path that is neither
+ * inside the workspace nor absolute cannot name a folder, and is passed through untouched.
+ */
+internal fun artifactReadPair(
+    artifactPath: String,
+    workspacePath: String,
+): Pair<String, String> {
+    val relative = workspaceRelativePath(artifactPath, workspacePath)
+    val root = workspacePath.trimEnd('/').ifEmpty { "/" }
+    if (relative != artifactPath) return root to relative
+    if (!artifactPath.startsWith("/")) return root to relative
+    val name = artifactPath.substringAfterLast('/').takeIf { it.isNotBlank() } ?: return root to relative
+    val parent = artifactPath.removeSuffix(name).trimEnd('/').ifEmpty { "/" }
+    return parent to name
+}
+
 /** The artifact preview, from opening through the file being read. */
 sealed interface ArtifactPreviewState {
     val artifact: Artifact.File

@@ -1629,8 +1629,9 @@ class ChatViewModel(
     }
 
     /**
-     * Opens [artifact] in the preview: reads the file from the chat's workspace and shows it as
-     * what it is - a page, a drawing, a document, a picture. See [collectArtifacts].
+     * Opens [artifact] in the preview: reads the file - from the chat's workspace when it lies in
+     * it, else from its own folder - and shows it as what it is: a page, a drawing, a document, a
+     * picture. See [collectArtifacts] and [artifactReadPair].
      */
     fun openArtifact(artifact: Artifact.File) {
         _uiState.update { it.copy(artifactPreview = ArtifactPreviewState.Loading(artifact)) }
@@ -1641,7 +1642,8 @@ class ChatViewModel(
             return
         }
         viewModelScope.launch {
-            val result = runCatching { currentBackend.readFile(directory, workspaceRelativePath(artifact.path, directory)) }
+            val read = artifactReadPair(artifact.path, directory)
+            val result = runCatching { currentBackend.readFile(read.first, read.second) }
             _uiState.update {
                 // Dismissed, or another artifact opened, while the file was on its way.
                 if (it.artifactPreview?.artifact != artifact) return@update it
