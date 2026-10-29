@@ -834,6 +834,9 @@
     <string name="cd_terminal_key_down">سهم لأسفل</string>
     <string name="cd_terminal_key_left">سهم لليسار</string>
     <string name="cd_terminal_key_right">سهم لليمين</string>
+    <string name="terminal_server_stopped">متوقف</string>
+    <string name="cd_terminal_server_open">فتح التطبيق الذي يعمل على المنفذ %1$d</string>
+    <string name="cd_terminal_server_stopped">المنفذ %1$d متوقف</string>
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">Agent</string>

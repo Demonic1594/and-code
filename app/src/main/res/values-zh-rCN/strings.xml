@@ -819,6 +819,9 @@
     <string name="cd_terminal_key_down">下箭头</string>
     <string name="cd_terminal_key_left">左箭头</string>
     <string name="cd_terminal_key_right">右箭头</string>
+    <string name="terminal_server_stopped">已停止</string>
+    <string name="cd_terminal_server_open">打开运行在端口 %1$d 上的应用</string>
+    <string name="cd_terminal_server_stopped">端口 %1$d 已停止</string>
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">Agent</string>

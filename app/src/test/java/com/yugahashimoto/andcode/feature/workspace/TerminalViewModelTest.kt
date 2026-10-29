@@ -1,7 +1,11 @@
 package com.yugahashimoto.andcode.feature.workspace
 
 import com.yugahashimoto.andcode.core.runtime.RuntimeWorkTracker
+import com.yugahashimoto.andcode.feature.terminal.DevServer
+import com.yugahashimoto.andcode.feature.terminal.DevServerStatus
+import com.yugahashimoto.andcode.feature.terminal.DevServerTracker
 import com.yugahashimoto.andcode.feature.terminal.TerminalKey
+import com.yugahashimoto.andcode.runtime.local.DevServerProbe
 import com.yugahashimoto.andcode.runtime.local.LocalTerminalLauncher
 import com.yugahashimoto.andcode.runtime.local.TerminalOpenRequest
 import com.yugahashimoto.andcode.runtime.local.TerminalSession
@@ -15,6 +19,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -84,13 +90,31 @@ class TerminalViewModelTest {
         }
     }
 
+    /** Answers for the ports in [listening]; remembers every port it was asked about. */
+    private class FakeProbe : DevServerProbe {
+        val listening = mutableSetOf<Int>()
+        val asked = mutableListOf<Int>()
+
+        override suspend fun isListening(port: Int): Boolean {
+            asked += port
+            return port in listening
+        }
+    }
+
     private fun viewModel(
         factory: FakeFactory = FakeFactory(),
         work: RuntimeWorkTracker = RuntimeWorkTracker(),
         startDirectory: String? = "/workspace/app",
-    ): TerminalViewModel = TerminalViewModel(factory, work, startDirectory, ioDispatcher = dispatcher)
+        probe: DevServerProbe = FakeProbe(),
+    ): TerminalViewModel = TerminalViewModel(factory, work, startDirectory, probe, ioDispatcher = dispatcher)
 
     private fun TerminalViewModel.screenText(): List<String> = state.value.lines.map { it.text }
+
+    /** Lets one probe interval pass, so the next round of probes has run. */
+    private fun TestScope.nextProbeRound() {
+        advanceTimeBy(TerminalViewModel.SERVER_PROBE_INTERVAL_MILLIS)
+        runCurrent()
+    }
 
     @Test
     fun `waits for the screen to report its size before starting`() =
@@ -466,5 +490,313 @@ class TerminalViewModelTest {
             factory.sessions.single().emit("after")
             runCurrent()
             assertEquals(listOf("after"), viewModel.screenText())
+        }
+
+    @Test
+    fun `shows a server once the port it announced answers`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe().apply { listening += 5173 }
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(60, 24)
+            runCurrent()
+
+            factory.sessions.single().emit("  Local:   http://localhost:5173/\r\n")
+            runCurrent()
+
+            assertEquals(listOf(DevServer(5173, DevServerStatus.RUNNING)), viewModel.state.value.servers)
+            viewModel.close()
+        }
+
+    @Test
+    fun `does not show a port that was only typed and echoed`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe()
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(60, 24)
+            runCurrent()
+
+            factory.sessions.single().emit("$ curl http://localhost:8080/health\r\n")
+            runCurrent()
+
+            assertTrue(8080 in probe.asked)
+            assertTrue(viewModel.state.value.servers.isEmpty())
+            viewModel.close()
+        }
+
+    @Test
+    fun `finds an address even when the colour codes split it`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe().apply { listening += 5173 }
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(60, 24)
+            runCurrent()
+
+            // Vite bolds the port number inside the URL.
+            factory.sessions.single().emit("Local: \u001b[36mhttp://localhost:\u001b[1m5173\u001b[22m/\u001b[39m\r\n")
+            runCurrent()
+
+            assertEquals(listOf(5173), viewModel.state.value.servers.map { it.port })
+            viewModel.close()
+        }
+
+    @Test
+    fun `finds an address that arrives in two chunks`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe().apply { listening += 3000 }
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(60, 24)
+            runCurrent()
+
+            factory.sessions.single().emit("ready on http://local")
+            runCurrent()
+            factory.sessions.single().emit("host:3000\r\n")
+            runCurrent()
+
+            assertEquals(listOf(3000), viewModel.state.value.servers.map { it.port })
+            viewModel.close()
+        }
+
+    @Test
+    fun `lists every server the terminal announced`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe().apply { listening += setOf(3000, 5173) }
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(60, 24)
+            runCurrent()
+
+            factory.sessions.single().emit("api  http://localhost:3000\r\nweb  http://localhost:5173\r\n")
+            runCurrent()
+
+            assertEquals(listOf(3000, 5173), viewModel.state.value.servers.map { it.port })
+            viewModel.close()
+        }
+
+    @Test
+    fun `marks a server stopped when it stops answering and running again when it comes back`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe().apply { listening += 5173 }
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(60, 24)
+            runCurrent()
+            factory.sessions.single().emit("http://localhost:5173/\r\n")
+            runCurrent()
+
+            probe.listening.clear()
+            nextProbeRound()
+            assertEquals(DevServerStatus.RUNNING, viewModel.state.value.servers.single().status)
+            nextProbeRound()
+            assertEquals(DevServerStatus.STOPPED, viewModel.state.value.servers.single().status)
+
+            probe.listening += 5173
+            nextProbeRound()
+            assertEquals(DevServerStatus.RUNNING, viewModel.state.value.servers.single().status)
+            viewModel.close()
+        }
+
+    @Test
+    fun `forgets a server that stays down and then stops probing altogether`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe().apply { listening += 5173 }
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(60, 24)
+            runCurrent()
+            factory.sessions.single().emit("http://localhost:5173/\r\n")
+            runCurrent()
+
+            probe.listening.clear()
+            repeat(DevServerTracker.DROP_AFTER_MISSES) { nextProbeRound() }
+            assertTrue(viewModel.state.value.servers.isEmpty())
+
+            val askedSoFar = probe.asked.size
+            repeat(3) { nextProbeRound() }
+            assertEquals(askedSoFar, probe.asked.size)
+            viewModel.close()
+        }
+
+    @Test
+    fun `probes again when a forgotten server is announced again`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe().apply { listening += 5173 }
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(60, 24)
+            runCurrent()
+            factory.sessions.single().emit("http://localhost:5173/\r\n")
+            runCurrent()
+            probe.listening.clear()
+            repeat(DevServerTracker.DROP_AFTER_MISSES) { nextProbeRound() }
+
+            probe.listening += 5173
+            factory.sessions.single().emit("restarted: http://localhost:5173/\r\n")
+            runCurrent()
+            // The loop that gave up is still waiting out its last interval; it picks the port up on waking.
+            nextProbeRound()
+
+            assertEquals(DevServerStatus.RUNNING, viewModel.state.value.servers.single().status)
+            viewModel.close()
+        }
+
+    @Test
+    fun `an old announcement still on screen does not bring a forgotten server back`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe().apply { listening += 5173 }
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(60, 24)
+            runCurrent()
+            factory.sessions.single().emit("http://localhost:5173/\r\n")
+            runCurrent()
+            probe.listening.clear()
+            repeat(DevServerTracker.DROP_AFTER_MISSES) { nextProbeRound() }
+            val askedSoFar = probe.asked.size
+
+            factory.sessions.single().emit("GET / 200\r\nGET /app.js 200\r\n")
+            runCurrent()
+            repeat(3) { nextProbeRound() }
+
+            assertEquals(askedSoFar, probe.asked.size)
+            viewModel.close()
+        }
+
+    @Test
+    fun `never probes while the output names no server`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe()
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(60, 24)
+            runCurrent()
+
+            factory.sessions.single().emit("compiled successfully\r\n")
+            runCurrent()
+            repeat(5) { nextProbeRound() }
+
+            assertTrue(probe.asked.isEmpty())
+            viewModel.close()
+        }
+
+    @Test
+    fun `the servers go away with the shell that started them`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe().apply { listening += 5173 }
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(60, 24)
+            runCurrent()
+            factory.sessions.single().emit("http://localhost:5173/\r\n")
+            runCurrent()
+
+            factory.sessions.single().finish(0)
+            runCurrent()
+
+            assertEquals(TerminalStatus.EXITED, viewModel.state.value.status)
+            assertTrue(viewModel.state.value.servers.isEmpty())
+            val askedSoFar = probe.asked.size
+            repeat(3) { nextProbeRound() }
+            assertEquals(askedSoFar, probe.asked.size)
+        }
+
+    @Test
+    fun `closing the screen stops probing`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe().apply { listening += 5173 }
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(60, 24)
+            runCurrent()
+            factory.sessions.single().emit("http://localhost:5173/\r\n")
+            runCurrent()
+
+            viewModel.close()
+            runCurrent()
+
+            val askedSoFar = probe.asked.size
+            repeat(3) { nextProbeRound() }
+            assertEquals(askedSoFar, probe.asked.size)
+        }
+
+    @Test
+    fun `finds an address that the screen width wrapped onto two rows`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe().apply { listening += 8000 }
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(LocalTerminalLauncher.MIN_COLUMNS, 24)
+            runCurrent()
+
+            // python's banner; at 20 columns the url is split across two rows.
+            factory.sessions.single().emit("Serving HTTP on 0.0.0.0 port 8000 (http://0.0.0.0:8000/) ...\r\n")
+            runCurrent()
+
+            assertEquals(listOf(8000), viewModel.state.value.servers.map { it.port })
+            viewModel.close()
+        }
+
+    @Test
+    fun `does not take the front of a port for a port while its line is still arriving`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe().apply { listening += 8000 }
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(LocalTerminalLauncher.MIN_COLUMNS, 24)
+            runCurrent()
+
+            // The first 20 characters end inside the port: "8" is all that has arrived of "8000".
+            factory.sessions.single().emit("x http://localhost:8")
+            runCurrent()
+            assertTrue(probe.asked.isEmpty())
+
+            factory.sessions.single().emit("000/\r\n")
+            runCurrent()
+
+            assertEquals(listOf(8000), viewModel.state.value.servers.map { it.port })
+            assertTrue(8 !in probe.asked)
+            viewModel.close()
+        }
+
+    @Test
+    fun `a probe that fails is a server that does not answer`() =
+        runTest(dispatcher) {
+            val failing = DevServerProbe { throw IllegalStateException("probe broke") }
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = failing)
+            viewModel.open(60, 24)
+            runCurrent()
+
+            factory.sessions.single().emit("http://localhost:5173/\r\n")
+            runCurrent()
+            repeat(DevServerTracker.DROP_AFTER_MISSES) { nextProbeRound() }
+
+            assertEquals(TerminalStatus.RUNNING, viewModel.state.value.status)
+            assertTrue(viewModel.state.value.servers.isEmpty())
+            viewModel.close()
+        }
+
+    @Test
+    fun `a restarted shell starts with no servers`() =
+        runTest(dispatcher) {
+            val probe = FakeProbe().apply { listening += 5173 }
+            val factory = FakeFactory()
+            val viewModel = viewModel(factory, probe = probe)
+            viewModel.open(60, 24)
+            runCurrent()
+            factory.sessions.single().emit("http://localhost:5173/\r\n")
+            runCurrent()
+            factory.sessions.single().finish(0)
+            runCurrent()
+
+            viewModel.restart()
+            runCurrent()
+
+            assertEquals(TerminalStatus.RUNNING, viewModel.state.value.status)
+            assertTrue(viewModel.state.value.servers.isEmpty())
+            viewModel.close()
         }
 }

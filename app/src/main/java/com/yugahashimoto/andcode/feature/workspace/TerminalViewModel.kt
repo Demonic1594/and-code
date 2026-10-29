@@ -5,17 +5,28 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yugahashimoto.andcode.core.runtime.RuntimeWorkTracker
 import com.yugahashimoto.andcode.feature.terminal.AnsiTerminalEmulator
+import com.yugahashimoto.andcode.feature.terminal.DevServer
+import com.yugahashimoto.andcode.feature.terminal.DevServerDetector
+import com.yugahashimoto.andcode.feature.terminal.DevServerTracker
 import com.yugahashimoto.andcode.feature.terminal.StyledLine
 import com.yugahashimoto.andcode.feature.terminal.TerminalKey
+import com.yugahashimoto.andcode.feature.terminal.WrappedLines
+import com.yugahashimoto.andcode.runtime.local.DevServerProbe
 import com.yugahashimoto.andcode.runtime.local.LocalTerminalLauncher
+import com.yugahashimoto.andcode.runtime.local.LoopbackDevServerProbe
 import com.yugahashimoto.andcode.runtime.local.TerminalOpenRequest
 import com.yugahashimoto.andcode.runtime.local.TerminalSession
 import com.yugahashimoto.andcode.runtime.local.TerminalSessionFactory
 import com.yugahashimoto.andcode.runtime.local.TerminalUnavailableException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +34,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Collections
+import java.util.IdentityHashMap
 
 enum class TerminalStatus {
     /** Waiting for the screen to say how large it is. */
@@ -47,11 +60,17 @@ data class TerminalUiState(
     val failure: TerminalFailure? = null,
     val failureDetail: String? = null,
     val currentInput: String = "",
+    /** Servers the shell has started that answer on this device; empty once the shell ends. */
+    val servers: List<DevServer> = emptyList(),
 )
 
 /**
  * Owns one interactive shell for as long as the terminal screen is open. Leaving the screen ends
  * the shell and anything it started - a dev server does not outlive the screen that launched it.
+ *
+ * It also keeps an eye on the servers the shell starts: ports the output announces are probed, and
+ * the ones that answer are published as [TerminalUiState.servers] for the screen to open in the
+ * in-app browser.
  */
 class TerminalViewModel(
     private val sessions: TerminalSessionFactory,
@@ -64,6 +83,7 @@ class TerminalViewModel(
     private val runtimeWork: RuntimeWorkTracker,
     /** A directory in the sandbox to start in; null starts in the sandbox's home. */
     private val startDirectory: String? = null,
+    private val serverProbe: DevServerProbe = LoopbackDevServerProbe(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
     private val _state = MutableStateFlow(TerminalUiState())
@@ -75,6 +95,14 @@ class TerminalViewModel(
     private var session: TerminalSession? = null
     private var closed = false
     private var sessionJob: Job? = null
+
+    /** Guarded by [lock], like the fields that follow: what the shell announced, and what answered. */
+    private var tracker = DevServerTracker()
+    private var probing = false
+    private var probeJob: Job? = null
+
+    /** The screen lines already searched for addresses, compared by identity (see [freshTextOf]). */
+    private var scannedLines: Set<StyledLine> = identitySetOf(emptyList())
     private var columns = 0
     private var rows = 0
 
@@ -146,6 +174,9 @@ class TerminalViewModel(
         } finally {
             opened.close()
             synchronized(lock) { if (session === opened) session = null }
+            // Everything the shell started died with it; leaving its servers listed would offer links
+            // to pages that are gone.
+            endServerWatch()
         }
     }
 
@@ -176,20 +207,108 @@ class TerminalViewModel(
      * bring the cleared text back).
      */
     private fun publish(change: AnsiTerminalEmulator.() -> Unit) {
-        synchronized(lock) {
-            val terminal = emulator ?: return
-            val snapshot =
-                try {
-                    terminal.change()
-                    terminal.snapshot()
-                } catch (e: RuntimeException) {
-                    // The stream is untrusted bytes; whatever it does, it must not take the app down.
-                    Log.w(TAG, "Terminal output could not be interpreted", e)
-                    return
+        val probeToStart =
+            synchronized(lock) {
+                val terminal = emulator ?: return
+                val snapshot =
+                    try {
+                        terminal.change()
+                        terminal.snapshot()
+                    } catch (e: RuntimeException) {
+                        // The stream is untrusted bytes; whatever it does, it must not take the app down.
+                        Log.w(TAG, "Terminal output could not be interpreted", e)
+                        return
+                    }
+                _state.update {
+                    it.copy(lines = snapshot.lines, cursorRow = snapshot.cursorRow, cursorColumn = snapshot.cursorColumn)
                 }
-            _state.update {
-                it.copy(lines = snapshot.lines, cursorRow = snapshot.cursorRow, cursorColumn = snapshot.cursorColumn)
+                watchForServers(snapshot.lines)
             }
+        // Started outside the lock. It was created, and recorded in [probeJob], inside it, so a close or
+        // an exit that comes in between cancels it before it ever runs.
+        probeToStart?.start()
+    }
+
+    /**
+     * Looks for servers in the lines that appeared since the last call. Returns the probe loop to start
+     * when there is now something to probe and no loop is running. Called with [lock] held.
+     */
+    private fun watchForServers(lines: List<StyledLine>): Job? {
+        try {
+            val mentioned = DevServerDetector.portsIn(freshTextOf(lines))
+            if (mentioned.isNotEmpty()) tracker = tracker.observe(mentioned)
+        } catch (e: RuntimeException) {
+            // Finding servers is a convenience on top of untrusted output; if it breaks, the screen goes on.
+            Log.w(TAG, "Terminal output could not be searched for servers", e)
+        }
+        if (probing || closed || tracker.ports.isEmpty()) return null
+        probing = true
+        return viewModelScope.launch(start = CoroutineStart.LAZY) { probeServers() }.also { probeJob = it }
+    }
+
+    /**
+     * The text of the lines the program printed that are new, or changed, since the last call.
+     *
+     * Only the end of the screen is searched, and only what changed in it: an address printed long ago
+     * and still on screen must not bring back a server that has since been forgotten. The emulator
+     * hands out the same [StyledLine] for a row until the row changes, so comparing by identity finds
+     * exactly the new and rewritten rows - a reprinted line is new even if its text is not. Rows the
+     * screen width wrapped are put back together first ([WrappedLines]). Called with [lock] held.
+     */
+    private fun freshTextOf(lines: List<StyledLine>): List<String> {
+        val tail = lines.takeLast(SCAN_TAIL_LINES)
+        val seen = scannedLines
+        scannedLines = identitySetOf(tail)
+        return WrappedLines.join(tail, columns) { it !in seen }
+    }
+
+    /**
+     * Asks every port the shell announced whether it answers, now and then every
+     * [SERVER_PROBE_INTERVAL_MILLIS], for as long as there is a port worth asking about. Output that
+     * names no server never gets here, so a plain shell costs nothing.
+     */
+    private suspend fun probeServers() {
+        while (true) {
+            val ports =
+                synchronized(lock) {
+                    val tracked = tracker.ports
+                    // Deciding to stop and saying so happen under one lock, so a port announced in
+                    // between starts a new loop instead of waiting on one that is already ending.
+                    if (closed || tracked.isEmpty()) {
+                        probing = false
+                        return
+                    }
+                    tracked
+                }
+            val answers =
+                coroutineScope {
+                    ports.map { port -> async(ioDispatcher) { port to isAnswering(port) } }.awaitAll().toMap()
+                }
+            synchronized(lock) {
+                tracker = tracker.applyProbe(answers)
+                _state.update { it.copy(servers = tracker.servers) }
+            }
+            delay(SERVER_PROBE_INTERVAL_MILLIS)
+        }
+    }
+
+    private suspend fun isAnswering(port: Int): Boolean =
+        try {
+            serverProbe.isListening(port)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not probe port $port", e)
+            false
+        }
+
+    private fun endServerWatch() {
+        synchronized(lock) {
+            tracker = DevServerTracker()
+            probing = false
+            probeJob?.cancel()
+            probeJob = null
+            _state.update { it.copy(servers = emptyList()) }
         }
     }
 
@@ -233,6 +352,7 @@ class TerminalViewModel(
         val ending =
             synchronized(lock) {
                 closed = true
+                probeJob?.cancel()
                 session
             }
         ending?.close()
@@ -243,9 +363,17 @@ class TerminalViewModel(
         close()
     }
 
-    private companion object {
-        const val TAG = "TerminalViewModel"
-        const val TERMINAL_LEASE_TAG = "terminal"
-        const val ENTER = "\r"
+    companion object {
+        /** How often the servers the shell announced are asked whether they still answer. */
+        internal const val SERVER_PROBE_INTERVAL_MILLIS = 2_000L
+
+        /** How many of the newest screen lines are searched for server addresses after each burst of output. */
+        private const val SCAN_TAIL_LINES = 200
+        private const val TAG = "TerminalViewModel"
+        private const val TERMINAL_LEASE_TAG = "terminal"
+        private const val ENTER = "\r"
     }
 }
+
+private fun identitySetOf(lines: Collection<StyledLine>): Set<StyledLine> =
+    Collections.newSetFromMap(IdentityHashMap<StyledLine, Boolean>()).apply { addAll(lines) }

@@ -1,20 +1,32 @@
 package com.yugahashimoto.andcode.feature.workspace
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.DragInteraction
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -27,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,9 +49,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -52,10 +68,13 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.feature.terminal.DevServer
+import com.yugahashimoto.andcode.feature.terminal.DevServerStatus
 import com.yugahashimoto.andcode.feature.terminal.StyledLine
 import com.yugahashimoto.andcode.feature.terminal.TerminalKey
 import com.yugahashimoto.andcode.feature.terminal.TerminalStyle
@@ -78,6 +97,8 @@ fun TerminalScreen(
     onKey: (TerminalKey) -> Unit,
     onRestart: () -> Unit,
     onClear: () -> Unit,
+    /** Opens a server the shell started (its [DevServer.url]) in the in-app browser. */
+    onOpenServer: (url: String) -> Unit,
 ) {
     val running = state.status == TerminalStatus.RUNNING
     // Whoever types, presses a key or clears wants to see what happens next, wherever they had
@@ -99,6 +120,7 @@ fun TerminalScreen(
                 onClear()
             },
         )
+        TerminalServers(servers = state.servers, onOpen = onOpenServer)
         TerminalOutput(
             state = state,
             followOutput = followOutput,
@@ -170,6 +192,61 @@ private fun TerminalToolbar(
                 contentDescription = stringResource(R.string.cd_clear_terminal),
                 tint = Color.White.copy(alpha = 0.7f),
             )
+        }
+    }
+}
+
+@Composable
+private fun TerminalServers(
+    servers: List<DevServer>,
+    onOpen: (url: String) -> Unit,
+) {
+    if (servers.isEmpty()) return
+    // Scrolls sideways instead of wrapping: a few servers fit, and the output below keeps its height.
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = OutputPadding, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        servers.forEach { server -> TerminalServerChip(server = server, onOpen = { onOpen(server.url) }) }
+    }
+}
+
+@Composable
+private fun TerminalServerChip(
+    server: DevServer,
+    onOpen: () -> Unit,
+) {
+    val running = server.status == DevServerStatus.RUNNING
+    val color = if (running) AccentColor else Color.White.copy(alpha = 0.5f)
+    val description =
+        stringResource(if (running) R.string.cd_terminal_server_open else R.string.cd_terminal_server_stopped, server.port)
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier =
+            Modifier
+                .testTag("terminal-server-${server.port}")
+                // The chip is drawn smaller than a finger; the touch target is not.
+                .minimumInteractiveComponentSize()
+                .heightIn(min = 32.dp)
+                .clip(shape)
+                .border(1.dp, color, shape)
+                // Only a server that answers has a page to open; a stopped one is just a status.
+                .then(if (running) Modifier.clickable(role = Role.Button, onClick = onOpen) else Modifier)
+                .semantics(mergeDescendants = true) { contentDescription = description }
+                .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(modifier = Modifier.size(8.dp).background(color, CircleShape))
+        Spacer(modifier = Modifier.width(8.dp))
+        // A port is a number, not text: in a right-to-left language the colon must stay in front of it.
+        Text(text = ":${server.port}", color = color, style = OutputTextStyle.copy(textDirection = TextDirection.Ltr))
+        if (!running) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(text = stringResource(R.string.terminal_server_stopped), color = color, style = OutputTextStyle)
         }
     }
 }

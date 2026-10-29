@@ -828,6 +828,9 @@
     <string name="cd_terminal_key_down">Стрелка вниз</string>
     <string name="cd_terminal_key_left">Стрелка влево</string>
     <string name="cd_terminal_key_right">Стрелка вправо</string>
+    <string name="terminal_server_stopped">остановлен</string>
+    <string name="cd_terminal_server_open">Открыть приложение, запущенное на порту %1$d</string>
+    <string name="cd_terminal_server_stopped">Порт %1$d остановлен</string>
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">Agent</string>
