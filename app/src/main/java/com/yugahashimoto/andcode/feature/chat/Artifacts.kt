@@ -179,9 +179,10 @@ internal fun artifactReadPair(
     workspacePath: String,
 ): Pair<String, String> {
     val relative = workspaceRelativePath(artifactPath, workspacePath)
-    if (relative != artifactPath) return workspacePath to relative
-    if (!artifactPath.startsWith("/")) return workspacePath to relative
-    val name = artifactPath.substringAfterLast('/').takeIf { it.isNotBlank() } ?: return workspacePath to relative
+    val root = workspacePath.trimEnd('/').ifEmpty { "/" }
+    if (relative != artifactPath) return root to relative
+    if (!artifactPath.startsWith("/")) return root to relative
+    val name = artifactPath.substringAfterLast('/').takeIf { it.isNotBlank() } ?: return root to relative
     val parent = artifactPath.removeSuffix(name).trimEnd('/').ifEmpty { "/" }
     return parent to name
 }
