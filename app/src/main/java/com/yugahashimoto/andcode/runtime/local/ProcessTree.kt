@@ -10,11 +10,14 @@ package com.yugahashimoto.andcode.runtime.local
  * contending with every new one. PRoot's `--kill-on-exit` only cleans up when PRoot itself decides to
  * exit on its own terms; it is not a reaction to being killed from outside.
  *
+ * Not specific to Antigravity: anything launched as a PRoot guest process needs this to be stopped,
+ * the interactive terminal's shell (and the dev servers it started) included.
+ *
  * [processId], [processTreePostOrder] and [readDirectChildPids] already exist in this package for
  * `LocalRuntimeProcessLauncher`'s equivalent OpenCode/Claude cleanup; this reuses them rather than
  * re-walking `/proc` a second way.
  */
-internal fun killAntigravityProcessTree(process: Process) {
+internal fun killProcessTree(process: Process) {
     val rootPid = processId(process) ?: return
     processTreePostOrder(rootPid) { pid -> readDirectChildPids(pid) }
         .forEach { pid -> runCatching { android.os.Process.killProcess(pid.toInt()) } }

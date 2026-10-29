@@ -3,7 +3,7 @@ package com.yugahashimoto.andcode.runtime.local
 /**
  * Tells an intentional kill of an Antigravity session's process apart from a real crash.
  *
- * [killAntigravityProcessTree] sends SIGKILL, so a process that was stopped on purpose - the stop
+ * [killProcessTree] sends SIGKILL, so a process that was stopped on purpose - the stop
  * button ([AntigravityRuntime.abort]), or [AntigravityRuntime.send] itself replacing a still-running
  * process for the same session - exits with the same code (137, i.e. 128 + SIGKILL) as one that
  * actually died. Without this, every intentional stop was reported as `"agy exited with 137"`,

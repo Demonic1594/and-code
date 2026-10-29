@@ -845,8 +845,21 @@
     <string name="cd_delete">Delete</string>
 
     <!-- Terminal -->
-    <string name="terminal_banner">OpenCode Terminal - PRoot Alpine Linux</string>
-    <string name="terminal_exit_code">exit code: %1$d</string>
+    <string name="terminal_starting">Starting the terminal…</string>
+    <string name="terminal_session_ended">Session ended (exit code %1$d)</string>
+    <string name="terminal_not_installed">The Linux environment is not installed yet. Install the local runtime to use the terminal.</string>
+    <string name="terminal_start_failed">Could not start the terminal.</string>
+    <string name="terminal_restart">Restart</string>
+    <string name="terminal_input_hint">Command or reply to a prompt</string>
+    <string name="cd_terminal_interrupt">Interrupt (Ctrl+C)</string>
+    <string name="cd_terminal_end_of_input">End of input (Ctrl+D)</string>
+    <string name="cd_terminal_key_up">Up arrow</string>
+    <string name="cd_terminal_key_down">Down arrow</string>
+    <string name="cd_terminal_key_left">Left arrow</string>
+    <string name="cd_terminal_key_right">Right arrow</string>
+    <string name="terminal_server_stopped">stopped</string>
+    <string name="cd_terminal_server_open">Open the app running on port %1$d</string>
+    <string name="cd_terminal_server_stopped">Port %1$d is stopped</string>
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">Agent</string>

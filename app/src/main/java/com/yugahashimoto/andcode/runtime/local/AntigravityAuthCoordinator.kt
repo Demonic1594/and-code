@@ -409,10 +409,10 @@ class AntigravityAuthCoordinator(
     /**
      * Kills the whole guest process tree, blocking - only call this from a background coroutine.
      *
-     * See [killAntigravityProcessTree] for why a plain `destroy()`/`destroyForcibly()` is not enough.
+     * See [killProcessTree] for why a plain `destroy()`/`destroyForcibly()` is not enough.
      */
     private fun terminate(target: Process) {
-        killAntigravityProcessTree(target)
+        killProcessTree(target)
         if (target.isAlive) target.waitFor(GRACEFUL_KILL_TIMEOUT_MS, TimeUnit.MILLISECONDS)
     }
 
