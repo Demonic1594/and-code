@@ -55,7 +55,9 @@ number stays the source of truth; the estimate is a separate, clearly-labeled fi
 ### The estimate
 
 - A turn is estimable when it has tokens but its `cost` is null or `0.0`:
-  `estimate = (input·p_in + output·p_out + cacheRead·p_cr + cacheWrite·p_cw) / 1e6`.
+  `estimate = (input·p_in + (output + reasoning)·p_out + cacheRead·p_cr + cacheWrite·p_cw) / 1e6`
+  — reasoning tokens are billed at the output rate, the way providers that price thinking as
+  output do; Task 1's fixture tests pin this.
 - Lookup order: exact `providerId/modelId`; then — the case that matters for coding plans —
   when the exact entry is missing or priced all-zero, fall back to the **first-party** entry
   for the same model id (`zai`, `zhipuai`, `anthropic`, `openai`, …; a small fixed list of
@@ -88,7 +90,8 @@ fields).
 failure keeps the old copy; tests with a fake clock and a fake fetch.
 
 **Task 3 — wiring**: `TurnUsage.estimatedCost`, `summarizeSessionUsage` and the Usage page
-rows, the chat ⋮ usage row, the toggle in Settings; strings in all eight locales.
+rows, the chat ⋮ usage row, the toggle beside the range picker on the Usage screen; strings in
+all eight locales.
 
 **Task 4 — notices**: confirm the api.json data license in the anomalyco/models.dev repository
 first; if it is permissive, `THIRD_PARTY_NOTICES.md` gains the models.dev entry and the bundled
@@ -97,7 +100,9 @@ fetch-only (no bundled snapshot; estimates simply wait for the first successful 
 decision this task records. `THIRD_PARTY_SERVICES.md` (which already lists even build-time
 mirror hosts) gains the weekly models.dev GET, and PRIVACY.md's third-party-services section
 gains one line: prompts and tokens never leave the device; the refresh is a plain GET to
-models.dev with no identifiers.
+models.dev with no identifiers. Both documents are mirrored into `app/src/main/assets/legal/`
+with Japanese translations, and `LegalDisclosureComplianceTest` enforces byte equality — the
+task updates root, assets, and both ja files together.
 
 **Task 5 — checks**: `./gradlew detekt spotlessCheck :app:lintGithubDebug
   :app:testGithubDebugUnitTest`, i18n parity, screenshots of the Usage page with both figures,
