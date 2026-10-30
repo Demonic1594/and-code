@@ -308,7 +308,11 @@ internal fun ChatComposer(
                                     .contentReceiver(
                                         receiveContentListener =
                                             ReceiveContentListener { content ->
-                                                if (!content.hasMediaType(MediaType.Text) && content.hasMediaType(MediaType.Image)) {
+                                                if (shouldPasteImage(
+                                                        hasText = content.hasMediaType(MediaType.Text),
+                                                        hasImage = content.hasMediaType(MediaType.Image),
+                                                    )
+                                                ) {
                                                     onReceiveImageContent(content.clipEntry.clipData)
                                                     null // Consumed: the image became an attachment.
                                                 } else {
