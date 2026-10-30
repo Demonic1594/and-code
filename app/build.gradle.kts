@@ -10,6 +10,7 @@ plugins {
     id("androidx.baselineprofile")
     id("com.google.gms.google-services") apply false
     id("com.google.firebase.crashlytics") apply false
+    id("io.gitlab.arturbosch.detekt")
 }
 
 // The fdroid flavor's dependencies already exclude Firebase (see the "githubImplementation"
@@ -118,6 +119,23 @@ val hasReleaseSigning =
                 }
             resolved.isFile
         }
+
+detekt {
+    buildUponDefaultConfig = true
+    allRules = false
+    config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
+    // Shared with the root project: the file also carries the pre-existing findings this
+    // module was grandfathered past when detekt first started scanning it, so only new
+    // code is gated.
+    baseline = file("$rootDir/config/detekt/baseline.xml")
+}
+
+// Android registers one detekt task per compilation (detektMain, detektGithubDebug, ...), and
+// plain `detekt` is not wired to any of them. This aggregate runs them all, so CI can gate the
+// module with a single explicit task.
+tasks.register("detektApp") {
+    dependsOn(tasks.withType<io.gitlab.arturbosch.detekt.Detekt>())
+}
 
 android {
     namespace = "com.yugahashimoto.andcode"

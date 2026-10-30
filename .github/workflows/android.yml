@@ -33,7 +33,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Static analysis (detekt + spotless)
-        run: ./gradlew detekt spotlessCheck
+        run: ./gradlew detekt :app:detektApp spotlessCheck
 
   lint:
     runs-on: ubuntu-latest
