@@ -332,16 +332,17 @@ private fun SummaryCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-                priceListDateMillis?.let { millis ->
-                    Text(
-                        stringResource(
-                            R.string.usage_estimate_as_of,
-                            java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM).format(java.util.Date(millis)),
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    // The date belongs to the estimate: without one there is nothing to date.
+                    priceListDateMillis?.let { millis ->
+                        Text(
+                            stringResource(
+                                R.string.usage_estimate_as_of,
+                                java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM).format(java.util.Date(millis)),
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }

@@ -36,19 +36,29 @@ class PriceCatalogRepository(
     private val refreshMutex = Mutex()
     private var lastCheckAt = 0L
 
+    @Volatile
+    private var loaded = false
+
     init {
         // Off the caller's thread: this runs from Application.onCreate, and the seed alone is
-        // half a megabyte to read and decode. Consumers already follow the nullable flow.
-        scope.launch { withContext(ioDispatcher) { loadStored() } }
+        // half a megabyte to read and decode. Consumers already follow the nullable flow. The
+        // mutex keeps a refresh that finishes first from being overwritten by the slower seed.
+        scope.launch {
+            refreshMutex.withLock {
+                withContext(ioDispatcher) { loadStored() }
+            }
+            loaded = true
+        }
     }
 
     /**
      * Starts a refresh when the stored snapshot is due, off the caller's path. Seed-first: even
      * with no stored copy and no network, the bundled snapshot serves estimates with its date.
+     * The due check waits for the initial load, so a fresh stored copy is not re-fetched.
      */
     fun refreshIfDue() {
         val fetchedAt = mutableCatalog.value?.fetchedAt
-        if (fetchedAt != null && (now() - fetchedAt) < refreshIntervalMillis) return
+        if (loaded && fetchedAt != null && (now() - fetchedAt) < refreshIntervalMillis) return
         synchronized(this) {
             if (now() - lastCheckAt < CHECK_THROTTLE_MILLIS) return
             lastCheckAt = now()

@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.di
 
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.data.connection.SecureSettingsRepository
+import com.yugahashimoto.andcode.data.repository.PriceCatalogRepository
 import com.yugahashimoto.andcode.data.settings.AppPreferencesRepository
 import com.yugahashimoto.andcode.feature.activity.ActivityViewModel
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
