@@ -39,9 +39,13 @@ jobs:
       # into the task graph (18+ minutes and an out-of-memory Kotlin daemon on a 2-core
       # runner), so the app's sources are gated through the CLI at the same version instead:
       # pure parsing, no compilation, same config and baseline as the root project's detekt.
+      # Regenerating the baseline after grandfathering new findings: add --create-baseline to
+      # this same invocation locally (the CLI writes config/detekt/baseline.xml).
       - name: detekt the app sources
         run: |
-          curl -sL -o /tmp/detekt-cli.jar https://github.com/detekt/detekt/releases/download/v1.23.6/detekt-cli-1.23.6-all.jar
+          curl -sfL --retry 4 --retry-all-errors -o /tmp/detekt-cli.jar \
+            https://github.com/detekt/detekt/releases/download/v1.23.6/detekt-cli-1.23.6-all.jar
+          # Keep this version in step with the detekt plugin version in build.gradle.kts.
           java -jar /tmp/detekt-cli.jar \
             --input app/src \
             --config config/detekt/detekt.yml \
