@@ -28,8 +28,8 @@ suspend fun followUpPrompt(
             ?.info
     return PromptRequest(
         text = text,
-        providerId = last?.model?.providerId,
-        modelId = last?.model?.modelId,
+        providerId = last?.effectiveModel?.providerId?.takeIf { it.isNotEmpty() },
+        modelId = last?.effectiveModel?.modelId,
         agent = last?.agent,
     )
 }

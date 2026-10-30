@@ -133,7 +133,7 @@ class UsageRepository(
                     val tokens = info.tokens
                     TurnUsage(
                         time = info.time.created,
-                        model = info.model?.let { "${it.providerId}/${it.modelId}" }.orEmpty(),
+                        model = info.effectiveModel?.let { "${it.providerId}/${it.modelId}" }.orEmpty(),
                         input = tokens?.input ?: 0,
                         output = tokens?.output ?: 0,
                         reasoning = tokens?.reasoning ?: 0,

@@ -84,12 +84,24 @@ data class OpenCodeMessageInfo(
     val time: OpenCodeTime = OpenCodeTime(),
     val agent: String? = null,
     val model: OpenCodeModelReference? = null,
+    /**
+     * The nested `model` object is not the only shape a server sends: the local runtime's
+     * OpenCode (1.18.x) stores and serves `modelID`/`providerID` as top-level message fields,
+     * verified against its own sqlite store. [effectiveModel] reads either shape, so the usage
+     * breakdown and the reply-model lookup do not come back empty for every local turn.
+     */
+    @SerialName("modelID") private val topLevelModelId: String? = null,
+    @SerialName("providerID") private val topLevelProviderId: String? = null,
     val tokens: OpenCodeSessionTokens? = null,
     /** What the provider charged for this turn in USD, when the runtime reports it (OpenCode does). */
     val cost: Double? = null,
     /** Provider/session failure recorded on the message, e.g. `ApiError` with `statusCode` 429. */
     val error: OpenCodeMessageError? = null,
-)
+) {
+    /** The message's model, from the nested object when present, else the top-level fields. */
+    val effectiveModel: OpenCodeModelReference?
+        get() = model ?: topLevelModelId?.let { id -> OpenCodeModelReference(topLevelProviderId.orEmpty(), id) }
+}
 
 /**
  * Names the runtimes give an error that only records a turn being stopped on purpose — by the stop
