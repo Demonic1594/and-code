@@ -1,7 +1,6 @@
 package com.yugahashimoto.andcode.feature.chat
 
 import android.content.ClipData
-import android.content.ClipDescription
 import android.graphics.Bitmap
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -310,10 +309,7 @@ internal fun ChatComposer(
                                                 // Text wins over the image, the way shouldPasteImage
                                                 // already decides for the clipboard paths.
                                                 if (shouldPasteImage(
-                                                        hasText =
-                                                            clip.description.hasMimeType(
-                                                                android.content.ClipDescription.MIMETYPE_TEXT_PLAIN,
-                                                            ),
+                                                        hasText = clip.description.hasMimeType(TEXT_WILDCARD),
                                                         hasImage = true,
                                                     )
                                                 ) {
