@@ -24,9 +24,9 @@ class PriceCatalogSnapshotTest {
         val glm = parsed.priceOf("zai", "glm-5.3")
         assertTrue("zai/glm-5.3 missing from the snapshot", glm != null)
         assertTrue("zai/glm-5.3 is not priced", glm!!.output > 0.0)
-        // The coding-plan entry exists and is all zero, which is what the fallback reads past.
-        val plan = parsed.prices["zai-coding-plan"]?.get("glm-5.3")
-        assertEquals(ModelPrice(), plan)
+        // All-zero entries are dropped from the stored form, the way fromModelsDev drops them;
+        // the plan provider's models estimate through the first-party fallback instead.
+        assertEquals(null, parsed.prices["zai-coding-plan"]?.get("glm-5.3"))
         assertTrue("snapshot carries no fetch date", parsed.fetchedAt != null)
     }
 

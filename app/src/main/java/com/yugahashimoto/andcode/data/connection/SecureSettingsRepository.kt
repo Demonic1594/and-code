@@ -414,6 +414,11 @@ class SecureSettingsRepository(context: Context) :
         get() = preferences.getBoolean(KEY_AUTO_EXPAND_REASONING, false)
         set(value) = preferences.edit().putBoolean(KEY_AUTO_EXPAND_REASONING, value).apply()
 
+    /** Whether the usage page estimates unpriced turns at list prices; off also stops the weekly price-list fetch. */
+    var estimateAtListPrices: Boolean
+        get() = preferences.getBoolean(KEY_ESTIMATE_AT_LIST_PRICES, true)
+        set(value) = preferences.edit().putBoolean(KEY_ESTIMATE_AT_LIST_PRICES, value).apply()
+
     /**
      * Codex fast mode: null follows each model's own default, true or false is an explicit choice.
      * Stored as a removable key so "never chosen" and "chosen" stay distinct across restarts.
@@ -632,6 +637,7 @@ class SecureSettingsRepository(context: Context) :
         private const val KEY_SYNTAX_THEME = "syntax_theme"
         private const val KEY_TOOL_CALL_DETAIL_LEVEL = "tool_call_detail_level"
         private const val KEY_AUTO_EXPAND_REASONING = "auto_expand_reasoning"
+        private const val KEY_ESTIMATE_AT_LIST_PRICES = "estimate_at_list_prices"
         private const val KEY_CODEX_FAST_MODE = "codex_fast_mode"
         private const val KEY_SEND_BEHAVIOR = "send_behavior"
         private const val KEY_ENTER_TO_SEND = "enter_to_send"

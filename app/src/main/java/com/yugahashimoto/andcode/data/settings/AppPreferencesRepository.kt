@@ -45,6 +45,8 @@ data class AppPreferences(
     val autoExpandReasoning: Boolean = false,
     /** Codex fast mode: null follows each model's default, otherwise the user's explicit choice. */
     val codexFastMode: Boolean? = null,
+    /** List-price estimates on the usage page; off also stops the weekly price-list fetch. */
+    val estimateAtListPrices: Boolean = true,
     val sendBehavior: String = "interrupt",
     val enterToSend: Boolean = false,
     val hapticsEnabled: Boolean = true,
@@ -104,6 +106,7 @@ class AppPreferencesRepository(
                 toolCallDetailLevel = settings.toolCallDetailLevel,
                 autoExpandReasoning = settings.autoExpandReasoning,
                 codexFastMode = settings.codexFastMode,
+                estimateAtListPrices = settings.estimateAtListPrices,
                 sendBehavior = settings.sendBehavior,
                 enterToSend = settings.enterToSend,
                 hapticsEnabled = settings.hapticsEnabled,
@@ -320,6 +323,11 @@ class AppPreferencesRepository(
     fun setCodexFastMode(enabled: Boolean?) {
         settings.codexFastMode = enabled
         mutableState.update { it.copy(codexFastMode = enabled) }
+    }
+
+    fun setEstimateAtListPrices(enabled: Boolean) {
+        settings.estimateAtListPrices = enabled
+        mutableState.update { it.copy(estimateAtListPrices = enabled) }
     }
 
     fun setSendBehavior(behavior: String) {

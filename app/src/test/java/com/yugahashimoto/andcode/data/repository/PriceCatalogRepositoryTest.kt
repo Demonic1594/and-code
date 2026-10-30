@@ -47,6 +47,8 @@ class PriceCatalogRepositoryTest {
         test {
             val repo = repository(this, now = { 60_000L }, fetch = { error("not due") })
 
+            // The seed loads off the caller's thread; drive the scheduler to it.
+            advanceUntilIdle()
             val catalog = repo.catalog.value
 
             assertNotNull(catalog)
@@ -94,6 +96,8 @@ class PriceCatalogRepositoryTest {
                     },
                 )
 
+            // The initial load lands first; refreshIfDue ran before it in principle, but the
+            // refresh re-checks freshness under the mutex and finds nothing to do.
             repo.refreshIfDue()
             advanceUntilIdle()
 

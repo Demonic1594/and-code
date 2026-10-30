@@ -1477,6 +1477,7 @@ fun AndCodeApp(
                                             UsageViewModel(
                                                 repository = app.usage,
                                                 priceCatalogs = app.priceCatalogRepository,
+                                                preferences = app.settings,
                                                 activeChats = { app.catalogRepository.allSessions.value },
                                                 archivedChats = {
                                                     app.chatLifecycle.listArchived().map {

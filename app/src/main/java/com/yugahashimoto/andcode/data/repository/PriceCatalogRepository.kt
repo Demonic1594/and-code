@@ -41,7 +41,7 @@ class PriceCatalogRepository(
 
     init {
         // Off the caller's thread: this runs from Application.onCreate, and the seed alone is
-        // half a megabyte to read and decode. Consumers already follow the nullable flow. The
+        // roughly half a megabyte at most to read and decode. Consumers already follow the nullable flow. The
         // mutex keeps a refresh that finishes first from being overwritten by the slower seed.
         scope.launch {
             refreshMutex.withLock {
@@ -68,6 +68,11 @@ class PriceCatalogRepository(
 
     private suspend fun refresh() {
         refreshMutex.withLock {
+            // The initial load runs under this mutex too: by the time the lock is held, the
+            // stored copy is known — and if it turns out fresh, this refresh was requested
+            // before the load finished and there is nothing to do.
+            val known = mutableCatalog.value?.fetchedAt
+            if (known != null && (now() - known) < refreshIntervalMillis) return
             val text = withContext(ioDispatcher) { runCatching { fetch() }.getOrNull() } ?: return
             val parsed = PriceCatalog.fromModelsDev(text, now()) ?: return
             if (parsed.isEmpty) return

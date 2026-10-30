@@ -7,6 +7,7 @@ import com.yugahashimoto.andcode.data.repository.ChatUsage
 import com.yugahashimoto.andcode.data.repository.PriceCatalogRepository
 import com.yugahashimoto.andcode.data.repository.RuntimeSessionRef
 import com.yugahashimoto.andcode.data.repository.UsageRepository
+import com.yugahashimoto.andcode.data.settings.AppPreferencesRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -41,6 +42,7 @@ class UsageViewModel(
     private val activeChats: () -> List<RuntimeSessionRef>,
     private val archivedChats: suspend () -> List<RuntimeSessionRef>,
     private val priceCatalogs: PriceCatalogRepository? = null,
+    private val preferences: AppPreferencesRepository? = null,
     private val now: () -> Long = System::currentTimeMillis,
     private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
@@ -55,6 +57,9 @@ class UsageViewModel(
     private var catalog: PriceCatalog? = null
 
     init {
+        preferences?.state?.value?.estimateAtListPrices?.let { persisted ->
+            mutableState.update { it.copy(estimateAtListPrices = persisted) }
+        }
         // Seed the estimates at once and follow refreshes; opening the page is also the trigger
         // for a due refresh, off this path and never blocking the report.
         viewModelScope.launch {
@@ -65,7 +70,8 @@ class UsageViewModel(
                 publishJob = viewModelScope.launch { publish() }
             }
         }
-        priceCatalogs?.refreshIfDue()
+        // Estimates off also means no price-list fetch: the toggle is the download's off switch.
+        if (mutableState.value.estimateAtListPrices) priceCatalogs?.refreshIfDue()
         reload()
     }
 
@@ -85,6 +91,7 @@ class UsageViewModel(
     fun setEstimateAtListPrices(enabled: Boolean) {
         if (enabled == mutableState.value.estimateAtListPrices) return
         mutableState.update { it.copy(estimateAtListPrices = enabled) }
+        preferences?.setEstimateAtListPrices(enabled)
         publishJob?.cancel()
         publishJob = viewModelScope.launch { publish() }
     }

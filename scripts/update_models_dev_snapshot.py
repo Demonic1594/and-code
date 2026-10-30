@@ -49,7 +49,10 @@ def main() -> None:
                     entry[field] = round(float(cost.get(key, 0)), 6)
                 except (TypeError, ValueError):
                     pass
-            if entry:
+            # All-zero entries are dropped, matching PriceCatalog.fromModelsDev: a price of
+            # nothing carries no information the fallback cannot derive from the first-party
+            # provider, and dropping them keeps the bundled asset small.
+            if entry and any(entry.values()):
                 priced[model_id] = entry
         if priced:
             prices[provider_id] = priced
