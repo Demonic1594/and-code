@@ -198,11 +198,17 @@ class ClaudeCodeRuntime(
         }
     }
 
-    /** True when the PermissionRequest hook is present in the guest rootfs. */
-    fun permissionBridgeReady(): Boolean {
-        val rootfs = installedRuntimeProvider()?.rootfs ?: return false
-        return ClaudePermissionHooks.isInstalled(rootfs)
-    }
+    /**
+     * True when the PermissionRequest hook is present in the guest rootfs.
+     *
+     * Feeds [ClaudeCodeTarget.capabilities], which Compose reads on the main thread, so it only looks
+     * at the files. Going through [installedRuntimeProvider] instead takes the runtime write lock and
+     * extracts the command suite, and the main thread then sat parked behind a running install until
+     * the system raised an ANR. A hook file caught mid-write reads as not ready, never as an error.
+     */
+    fun permissionBridgeReady(): Boolean =
+        runCatching { ClaudePermissionHooks.isInstalled(File(runtimeDirectory, ACTIVE_ROOTFS)) }
+            .getOrDefault(false)
 
     fun respondToPermission(
         permissionId: String,
@@ -802,6 +808,9 @@ class ClaudeCodeRuntime(
 
     private companion object {
         val VERSION = Regex("\\d+\\.\\d+\\.\\d+")
+
+        /** The active sandbox's root, relative to the runtime directory (see LocalRuntimeInstaller). */
+        const val ACTIVE_ROOTFS = "environment/rootfs"
 
         /** Reserved key; no model alias can collide with it. */
         const val CLI_VERSION_KEY = "@cliVersion"
