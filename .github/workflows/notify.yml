@@ -28,7 +28,8 @@ jobs:
               embeds: [{title: "Discord notify is wired up",
                         description: "Manual test from \($repo).",
                         color: 7506394}]}')
-          curl -sf -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
+          curl -sf --max-time 30 --retry 4 --retry-all-errors \
+            -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
 
       - name: Commits pushed
         if: github.event_name == 'push'
@@ -39,6 +40,7 @@ jobs:
           if [ -z "$WEBHOOK" ]; then echo "No webhook secret; skipping."; exit 0; fi
           event="$GITHUB_EVENT_PATH"
 
+          # Skips only merge commits; squash/rebase merges will notify twice (push + PR merged).
           merge_of_pr=$(jq -r \
             '(.commits | length) == 1 and (.commits[0].message | startswith("Merge pull request #"))' \
             "$event")
@@ -60,9 +62,9 @@ jobs:
             url="https://github.com/$repo/compare/${before:0:12}...${after:0:12}"
           fi
 
-          desc=$(jq -r '
+          desc=$(jq -r --arg repo "$repo" '
             [.commits[]
-              | "[`\(.id[0:7])`](\(.html_url)) \((.message | split("\n")[0])[0:120]) — \(.author.username // .author.name)"]
+              | "[`\(.id[0:7])`](https://github.com/\($repo)/commit/\(.id)) \((.message | split("\n")[0])[0:120]) — \(.author.username // .author.name)"]
             | .[0:15] | join("\n")' "$event")
           if [ "$total" -gt 15 ]; then
             desc="$desc"$'\n'"…and $((total - 15)) more"
@@ -79,7 +81,8 @@ jobs:
               embeds: [{title: ($title | .[0:250]), url: $url,
                         description: ($desc | .[0:4000]), color: 7506394}]}')
 
-          curl -sf -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
+          curl -sf --max-time 30 --retry 4 --retry-all-errors \
+            -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
 
       - name: Pull request events
         if: github.event_name == 'pull_request'
@@ -121,4 +124,5 @@ jobs:
               embeds: [{title: ($title | .[0:250]), url: $url,
                         description: $desc, color: $color}]}')
 
-          curl -sf -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
+          curl -sf --max-time 30 --retry 4 --retry-all-errors \
+            -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
