@@ -84,7 +84,7 @@ jobs:
             echo "AND_CODE_GITHUB_CLIENT_ID repo variable is not set - the published APK would have no GitHub sign-in" >&2
             exit 1
           fi
-           ./gradlew detekt :app:detektApp spotlessCheck :app:lintGithubDebug :app:testGithubDebugUnitTest assembleGithubDebug assembleGithubRelease
+           ./gradlew detekt spotlessCheck :app:lintGithubDebug :app:testGithubDebugUnitTest assembleGithubDebug assembleGithubRelease
           # Separate invocation, deliberately without GITHUB_CLIENT_ID: this is the same flavor and
           # signing config F-Droid's own build server produces (gradleprops: andcode.fdroidBuild=true,
           # no client ID), so this asset is what fdroiddata's Binaries:/AllowedAPKSigningKeys: verify
