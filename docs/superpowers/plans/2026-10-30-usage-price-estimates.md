@@ -21,8 +21,12 @@ number stays the source of truth; the estimate is a separate, clearly-labeled fi
 
 - `UsageRepository.turnsOf` (`UsageRepository.kt:126-146`) takes each assistant turn's
   `info.cost` as-is; `TurnUsage.cost` is "USD, or null when the runtime does not report cost".
-- Only OpenCode fills `info.cost` (from models.dev). Claude Code reports tokens but never a
-  cost; Codex and Antigravity are `UNTRACKED_AGENTS` (`:123`) with no per-turn tokens either.
+- Two runtimes fill `info.cost`: OpenCode prices each turn from its models.dev catalog, and
+  Claude Code computes it from the CLI's own `total_cost_usd` deltas
+  (`ClaudeStreamJsonParser.parseResult` → `recordTurnUsage`, cumulative totals persisted by
+  `ClaudeCodeRuntime`). Codex and Antigravity are `UNTRACKED_AGENTS` (`:123`) with no per-turn
+  tokens either. For coding-plan providers it is OpenCode's number that reads 0 — the catalog
+  prices plan access at nothing per token.
 - `summarizeSessionUsage` (`SessionUsage.kt`) sums turn costs for the chat's ⋮ usage row;
   `UsageScreen` shows `totals.cost` and hides the row when null.
 - The app already knows each turn's `providerId/modelId` (`UsageRepository.kt:136`) and its
@@ -61,13 +65,18 @@ number stays the source of truth; the estimate is a separate, clearly-labeled fi
   (`estimatedCost: Double?`) and every surface labels them: the Usage page shows
   **Cost (reported)** and **≈ at list prices**, the chat's ⋮ usage row likewise, and the share
   text carries the same two figures with the catalog date.
-- A Settings toggle (Usage → **Estimate costs at list prices**, on by default) turns the whole
-  thing off for anyone who finds the second number noise.
+- A toggle (**Estimate costs at list prices**, on by default, placed on the Usage screen
+  itself beside the range picker — Settings has no Usage section) turns the whole thing off
+  for anyone who finds the second number noise.
 
 ### Out of the estimate's reach
 
 Codex and Antigravity turns stay untracked — they report no per-turn tokens to estimate from.
-Claude Code gains estimates (it reports tokens); that is the quiet win of this design.
+Claude Code turns are also outside it, for two reasons: they already carry the CLI's own cost,
+and their messages are built without a model reference at all (`ClaudeStreamJsonParser`
+constructs `OpenCodeMessageInfo` with no model), so the price lookup would have no key. Giving
+Claude Code messages a model stamp is its own small fix, noted here so the estimator's author
+knows why those rows estimate nothing, not because this plan does it.
 
 ## Tasks
 
@@ -85,9 +94,10 @@ rows, the chat ⋮ usage row, the toggle in Settings; strings in all eight local
 first; if it is permissive, `THIRD_PARTY_NOTICES.md` gains the models.dev entry and the bundled
 snapshot's provenance. If it is not permissive enough to bundle, the plan falls back to
 fetch-only (no bundled snapshot; estimates simply wait for the first successful refresh) — a
-decision this task records. The plan's data-flow docs (prompts/tokens never leave the device;
-one plain GET to models.dev when refreshing) noted in PRIVACY-relevant wording if the doc lists
-outbound requests.
+decision this task records. `THIRD_PARTY_SERVICES.md` (which already lists even build-time
+mirror hosts) gains the weekly models.dev GET, and PRIVACY.md's third-party-services section
+gains one line: prompts and tokens never leave the device; the refresh is a plain GET to
+models.dev with no identifiers.
 
 **Task 5 — checks**: `./gradlew detekt spotlessCheck :app:lintGithubDebug
   :app:testGithubDebugUnitTest`, i18n parity, screenshots of the Usage page with both figures,
