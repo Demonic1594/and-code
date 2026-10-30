@@ -28,6 +28,7 @@ import com.yugahashimoto.andcode.data.repository.ChatLifecycleRepository
 import com.yugahashimoto.andcode.data.repository.MessageSearchRepository
 import com.yugahashimoto.andcode.data.repository.ProviderCatalogCache
 import com.yugahashimoto.andcode.data.repository.PullRequestStatusRepository
+import com.yugahashimoto.andcode.data.repository.PriceCatalogRepository
 import com.yugahashimoto.andcode.data.repository.RuntimeActivityRepository
 import com.yugahashimoto.andcode.data.repository.RuntimeCatalogRepository
 import com.yugahashimoto.andcode.data.repository.SessionAutoArchiver
@@ -208,6 +209,10 @@ class AndCodeApplication : Application() {
     lateinit var opencodeDatabaseMaintenance: OpencodeDatabaseMaintenance
         private set
 
+    /** List prices for the usage page's estimates; see [PriceCatalogRepository]. */
+    lateinit var priceCatalogRepository: PriceCatalogRepository
+        private set
+
     lateinit var claudeCodeRuntime: ClaudeCodeRuntime
         private set
 
@@ -303,6 +308,34 @@ class AndCodeApplication : Application() {
         providerCredentials = LocalProviderCredentialStore(settings)
         customProviders = CustomProviderStore(settings)
         val httpClient = OkHttpClient()
+        // The list-price catalog behind the usage page's "≈ at list prices" estimates: seeded
+        // from the bundled models.dev snapshot, refreshed from the network at most weekly. The
+        // fetch is a plain GET with no identifiers (see PRIVACY.md).
+        priceCatalogRepository =
+            PriceCatalogRepository(
+                scope = applicationScope,
+                seedJson = {
+                    runCatching { assets.open("pricing/models-dev-snapshot.json").bufferedReader().use { it.readText() } }.getOrNull()
+                },
+                storageDir = File(filesDir, "pricing"),
+                fetch = {
+                    withContext(Dispatchers.IO) {
+                        runCatching {
+                            httpClient
+                                .newCall(
+                                    okhttp3.Request
+                                        .Builder()
+                                        .url("https://models.dev/api.json")
+                                        .header("Accept", "application/json")
+                                        .build(),
+                                ).execute()
+                                .use { response ->
+                                    if (response.isSuccessful) response.body?.string() else null
+                                }
+                        }.getOrNull()
+                    }
+                },
+            )
         // Application-scoped so that navigating away from voice settings does not abandon a model
         // download half-written.
         voskModels = VoskModelStore(this, applicationScope, httpClient)

@@ -148,6 +148,16 @@ test enforces the two stay byte-for-byte identical). An artifact absent from the
 a claim that it ships no NOTICE file — only that none of the standard `NOTICE`/`NOTICE.txt` entry
 names were found at the top level of its jar/aar or its nested `classes.jar`.
 
+## Bundled price catalog (models.dev snapshot)
+
+`app/src/main/assets/pricing/models-dev-snapshot.json` is a filtered snapshot of the
+[models.dev](https://models.dev) model-price database (provider, model, and per-million-token
+prices only, generated from `https://models.dev/api.json`): the seed of the Usage page's
+"≈ at list prices" estimates until the first weekly refresh replaces it on the device. The
+database and its code are MIT licensed — [anomalyco/models.dev](https://github.com/anomalyco/models.dev)
+(LICENSE, Copyright (c) 2025 models.dev). Attribution here satisfies the license; the snapshot
+contains no third-party code.
+
 ## Bundled fonts
 
 | Font | Version | License |

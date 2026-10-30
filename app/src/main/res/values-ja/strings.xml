@@ -1460,6 +1460,9 @@
     <string name="schedule_template_todos">TODO の棚卸し</string>
     <string name="schedule_template_security">毎月のセキュリティレビュー</string>
     <string name="chat_copy_too_long">このチャットはクリップボードに収まらないほど長いため、代わりにファイルとして共有します。</string>
+    <string name="usage_estimate_toggle">定価での推定コストを表示</string>
+    <string name="usage_estimate_value">≈ 定価 %1$s</string>
+    <string name="usage_estimate_as_of">価格情報の取得日: %1$s</string>
     <string name="chat_usage_cached">うち %1$s はキャッシュから</string>
     <string name="git_discard">変更を破棄</string>
     <string name="git_discard_title">変更を破棄しますか？</string>

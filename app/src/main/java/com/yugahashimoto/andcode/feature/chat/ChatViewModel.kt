@@ -8,6 +8,7 @@ import com.yugahashimoto.andcode.core.api.ConnectionQuality
 import com.yugahashimoto.andcode.core.api.ConnectionQualityMonitor
 import com.yugahashimoto.andcode.core.api.OpenCodeCommand
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
+import com.yugahashimoto.andcode.core.pricing.PriceCatalog
 import com.yugahashimoto.andcode.core.api.OpenCodeFileChange
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
 import com.yugahashimoto.andcode.core.api.OpenCodeMessageError
@@ -761,6 +762,11 @@ class ChatViewModel(
     private val onCodexFastModeChanged: (Boolean?) -> Unit = {},
     /** The user's saved Codex fast-mode choice, read when the ViewModel starts. */
     private val initialCodexFastMode: Boolean? = null,
+    /**
+     * The current price catalog, for the ⋮ usage row's "≈ at list prices" line on turns the
+     * runtime priced at nothing. Absent in tests; the app passes the repository's live value.
+     */
+    private val priceCatalog: () -> PriceCatalog? = { null },
 ) : ViewModel() {
     private val _uiState =
         MutableStateFlow(
@@ -1253,7 +1259,7 @@ class ChatViewModel(
                 // session number is therefore only a fallback for sessions whose messages carry
                 // no tokens at all (there it is ~0 anyway), never the primary source.
                 val messages = currentBackend.listMessages(sessionId)
-                val usage = summarizeSessionUsage(messages)
+                val usage = summarizeSessionUsage(messages, priceCatalog())
                 val used =
                     messages
                         .asReversed()

@@ -192,6 +192,49 @@ class UsageReportTest {
         assertEquals(1, UsageReport.build(listOf(untracked), UsageRange.ALL, now, zone).untrackedChats)
     }
 
+
+    @Test
+    fun `turns the runtime priced at nothing get a list-price estimate, reported ones do not`() {
+        val catalog =
+            com.yugahashimoto.andcode.core.pricing.PriceCatalog(
+                prices =
+                    mapOf(
+                        "zai" to
+                            mapOf(
+                                "glm-5.3" to
+                                    com.yugahashimoto.andcode.core.pricing.ModelPrice(input = 1.0, output = 2.0),
+                            ),
+                    ),
+            )
+        // Plan access: the runtime reports a literal zero; the model is priced elsewhere.
+        val planTurn = turn(0, input = 1_000_000, output = 500_000, cost = 0.0, model = "zai-coding-plan/glm-5.3")
+        // A paid turn's own number wins; no estimate is added for it.
+        val paidTurn = turn(0, input = 1_000_000, output = 0, cost = 3.0, model = "zai-coding-plan/glm-5.3")
+        // A turn with no model key cannot be priced.
+        val keyless = turn(0, input = 100, cost = null, model = "")
+
+        val report =
+            UsageReport.build(
+                listOf(chat("c1", turns = arrayOf(planTurn, paidTurn, keyless))),
+                UsageRange.ALL,
+                now,
+                catalog = catalog,
+            )
+
+        // 1M input + 0.5M output at the fallback (first-party) 1.0/2.0 per M.
+        assertEquals(2.0, report.totals.estimatedCost!!, 1e-9)
+        assertEquals(3.0, report.totals.cost!!, 1e-9)
+    }
+
+    @Test
+    fun `without a catalog nothing is estimated`() {
+        val turn = turn(0, input = 1_000_000, output = 0, cost = 0.0, model = "zai/glm-5.3")
+
+        val report = UsageReport.build(listOf(chat("c1", turns = arrayOf(turn))), UsageRange.ALL, now)
+
+        assertNull(report.totals.estimatedCost)
+    }
+
     @Test
     fun `turns with no time or no use are left out`() {
         fun message(

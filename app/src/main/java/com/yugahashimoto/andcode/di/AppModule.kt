@@ -6,6 +6,7 @@ import com.yugahashimoto.andcode.core.api.GitHubApiClient
 import com.yugahashimoto.andcode.data.connection.SecureSettingsRepository
 import com.yugahashimoto.andcode.data.repository.AndroidRuntimeActivityMessages
 import com.yugahashimoto.andcode.data.repository.AndroidRuntimeCatalogMessages
+import com.yugahashimoto.andcode.data.repository.PriceCatalogRepository
 import com.yugahashimoto.andcode.data.settings.DraftRepository
 import com.yugahashimoto.andcode.data.settings.DraftStore
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeMessages
@@ -60,6 +61,8 @@ val appModule =
         single { appFrom(androidContext()).commandRunner }
 
         single<OpencodeDatabaseMaintenance> { appFrom(androidContext()).opencodeDatabaseMaintenance }
+
+        single { appFrom(androidContext()).priceCatalogRepository }
 
         single { appFrom(androidContext()).localRuntimeManager }
 

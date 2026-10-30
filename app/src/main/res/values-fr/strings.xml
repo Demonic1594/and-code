@@ -1450,6 +1450,9 @@
     <string name="schedule_template_todos">Revue des TODO</string>
     <string name="schedule_template_security">Revue de sécurité mensuelle</string>
     <string name="chat_copy_too_long">Cette discussion est trop longue pour le presse-papiers ; elle est donc partagée sous forme de fichier.</string>
+    <string name="usage_estimate_toggle">Estimer au prix catalogue</string>
+    <string name="usage_estimate_value">≈ %1$s au prix catalogue</string>
+    <string name="usage_estimate_as_of">prix du %1$s</string>
     <string name="chat_usage_cached">%1$s depuis le cache</string>
     <string name="git_discard">Annuler les modifications</string>
     <string name="git_discard_title">Annuler les modifications ?</string>

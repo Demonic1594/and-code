@@ -22,6 +22,7 @@ val viewModelModule =
             val preferences: AppPreferencesRepository = get()
             val settings: SecureSettingsRepository = get()
             ChatViewModel(
+                priceCatalog = { get<PriceCatalogRepository>().catalog.value },
                 draftRepo = get(),
                 pullRequestStatuses = get(),
                 // Same Codex fast-mode wiring as the factory in ui/AndCodeApp.kt; keep the two in step.

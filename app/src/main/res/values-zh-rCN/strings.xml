@@ -1440,6 +1440,9 @@
     <string name="schedule_template_todos">TODO 清理</string>
     <string name="schedule_template_security">每月安全审查</string>
     <string name="chat_copy_too_long">这段聊天太长，无法复制到剪贴板，因此将以文件形式分享。</string>
+    <string name="usage_estimate_toggle">按牌价估算成本</string>
+    <string name="usage_estimate_value">≈ 牌价 %1$s</string>
+    <string name="usage_estimate_as_of">价格日期：%1$s</string>
     <string name="chat_usage_cached">其中 %1$s 来自缓存</string>
     <string name="git_discard">放弃更改</string>
     <string name="git_discard_title">放弃更改？</string>

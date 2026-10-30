@@ -1475,6 +1475,9 @@
     <string name="schedule_template_todos">TODO sweep</string>
     <string name="schedule_template_security">Monthly security review</string>
     <string name="chat_copy_too_long">This chat is too long for the clipboard, so it is being shared as a file instead.</string>
+    <string name="usage_estimate_toggle">Estimate at list prices</string>
+    <string name="usage_estimate_value">≈ %1$s at list prices</string>
+    <string name="usage_estimate_as_of">list prices as of %1$s</string>
     <string name="chat_usage_cached">%1$s served from cache</string>
     <string name="git_discard">Discard changes</string>
     <string name="git_discard_title">Discard changes?</string>
