@@ -1,0 +1,128 @@
+name: Discord Notify
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, reopened, closed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Manual test message
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          set -eu
+          if [ -z "$WEBHOOK" ]; then echo "No webhook secret; skipping."; exit 0; fi
+          payload=$(jq -n --arg repo "$GITHUB_REPOSITORY" \
+            '{username: "and-code",
+              embeds: [{title: "Discord notify is wired up",
+                        description: "Manual test from \($repo).",
+                        color: 7506394}]}')
+          curl -sf --max-time 30 --retry 4 --retry-all-errors \
+            -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
+
+      - name: Commits pushed
+        if: github.event_name == 'push'
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          set -eu
+          if [ -z "$WEBHOOK" ]; then echo "No webhook secret; skipping."; exit 0; fi
+          event="$GITHUB_EVENT_PATH"
+
+          # Skips only merge commits; squash/rebase merges will notify twice (push + PR merged).
+          merge_of_pr=$(jq -r \
+            '(.commits | length) == 1 and (.commits[0].message | startswith("Merge pull request #"))' \
+            "$event")
+          if [ "$merge_of_pr" = "true" ]; then
+            echo "Single merge commit from a PR; the PR embed covers it."
+            exit 0
+          fi
+
+          before=$(jq -r .before "$event")
+          after=$(jq -r .after "$event")
+          repo=$(jq -r .repository.full_name "$event")
+          branch=$(jq -r .ref "$event" | sed 's|^refs/heads/||')
+          pusher=$(jq -r '.pusher.name // .sender.login // "unknown"' "$event")
+          total=$(jq -r '.size // (.commits | length)' "$event")
+
+          if [[ "$before" =~ ^0+$ ]]; then
+            url="https://github.com/$repo/commit/$after"
+          else
+            url="https://github.com/$repo/compare/${before:0:12}...${after:0:12}"
+          fi
+
+          desc=$(jq -r --arg repo "$repo" '
+            [.commits[]
+              | "[`\(.id[0:7])`](https://github.com/\($repo)/commit/\(.id)) \((.message | split("\n")[0])[0:120]) — \(.author.username // .author.name)"]
+            | .[0:15] | join("\n")' "$event")
+          if [ "$total" -gt 15 ]; then
+            desc="$desc"$'\n'"…and $((total - 15)) more"
+          fi
+
+          unit=commits
+          [ "$total" -eq 1 ] && unit=commit
+
+          payload=$(jq -n \
+            --arg title "$pusher pushed $total $unit to $repo#$branch" \
+            --arg desc "$desc" \
+            --arg url "$url" \
+            '{username: "and-code",
+              embeds: [{title: ($title | .[0:250]), url: $url,
+                        description: ($desc | .[0:4000]), color: 7506394}]}')
+
+          curl -sf --max-time 30 --retry 4 --retry-all-errors \
+            -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
+
+      - name: Pull request events
+        if: github.event_name == 'pull_request'
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          set -eu
+          if [ -z "$WEBHOOK" ]; then echo "No webhook secret; skipping."; exit 0; fi
+          event="$GITHUB_EVENT_PATH"
+
+          action=$(jq -r .action "$event")
+          merged=$(jq -r .pull_request.merged "$event")
+          if [ "$action" = "closed" ] && [ "$merged" != "true" ]; then
+            exit 0
+          fi
+
+          repo=$(jq -r .repository.full_name "$event")
+          number=$(jq -r .pull_request.number "$event")
+          title=$(jq -r .pull_request.title "$event")
+          url=$(jq -r .pull_request.html_url "$event")
+          author=$(jq -r .pull_request.user.login "$event")
+          branch=$(jq -r .pull_request.head.ref "$event")
+
+          label="opened"
+          color=3066993
+          if [ "$merged" = "true" ]; then
+            label="merged"
+            color=10181046
+          elif [ "$action" = "reopened" ]; then
+            label="reopened"
+          fi
+
+          payload=$(jq -n \
+            --arg title "PR #$number $label: $title" \
+            --arg desc "by @$author from \`$branch\`" \
+            --arg url "$url" \
+            --argjson color "$color" \
+            '{username: "and-code",
+              embeds: [{title: ($title | .[0:250]), url: $url,
+                        description: $desc, color: $color}]}')
+
+          curl -sf --max-time 30 --retry 4 --retry-all-errors \
+            -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
