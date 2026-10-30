@@ -33,7 +33,20 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Static analysis (detekt + spotless)
-        run: ./gradlew detekt :app:detektApp spotlessCheck
+        run: ./gradlew detekt spotlessCheck
+
+      # The detekt Gradle plugin on an application module drags every variant's compilation
+      # into the task graph (18+ minutes and an out-of-memory Kotlin daemon on a 2-core
+      # runner), so the app's sources are gated through the CLI at the same version instead:
+      # pure parsing, no compilation, same config and baseline as the root project's detekt.
+      - name: detekt the app sources
+        run: |
+          curl -sL -o /tmp/detekt-cli.jar https://github.com/detekt/detekt/releases/download/v1.23.6/detekt-cli-1.23.6-all.jar
+          java -jar /tmp/detekt-cli.jar \
+            --input app/src \
+            --config config/detekt/detekt.yml \
+            --build-upon-default-config \
+            --baseline config/detekt/baseline.xml
 
   lint:
     runs-on: ubuntu-latest
