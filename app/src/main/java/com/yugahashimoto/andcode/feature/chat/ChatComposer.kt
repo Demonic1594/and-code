@@ -1,5 +1,7 @@
 package com.yugahashimoto.andcode.feature.chat
 
+import android.content.ClipData
+import android.content.ClipDescription
 import android.graphics.Bitmap
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -151,7 +153,7 @@ internal fun ChatComposer(
     onGalleryLaunch: () -> Unit,
     onPasteImage: () -> Unit,
     /** An image the keyboard itself delivered (Gboard's clipboard chip), as a clip to attach. */
-    onReceiveImageContent: (android.content.ClipData) -> Unit = {},
+    onReceiveImageContent: (ClipData) -> Unit = {},
 ) {
     val input = inputValue.text
     val voiceActive = isListening || isSpeechProcessing
@@ -604,3 +606,6 @@ private fun AttachButton(onClick: () -> Unit) {
         }
     }
 }
+
+/** Any text flavor counts as text, the way the clipboard paths treat it; text wins over an image. */
+private const val TEXT_WILDCARD = "text/*"
