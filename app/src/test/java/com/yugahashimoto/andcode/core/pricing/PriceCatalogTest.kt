@@ -40,7 +40,15 @@ class PriceCatalogTest {
         val catalog = PriceCatalog(prices = mapOf("zai" to mapOf("glm-5.3" to ModelPrice(input = 1.4, output = 4.4))))
 
         assertNull(catalog.priceOf("zai", "glm-9.9"))
-        assertNull(catalog.priceOf("nowhere", "glm-5.3"))
+        assertNull(catalog.priceOf("nowhere", "glm-9.9"))
+    }
+
+    @Test
+    fun `an unknown provider falls back to the first-party price`() {
+        val catalog = PriceCatalog(prices = mapOf("zai" to mapOf("glm-5.3" to ModelPrice(input = 1.4, output = 4.4))))
+
+        // A provider the catalog has never heard of still estimates, at the lab's own price.
+        assertEquals(1.4, catalog.priceOf("some-mirror", "glm-5.3")!!.input, 1e-9)
     }
 
     @Test
