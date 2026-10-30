@@ -318,12 +318,13 @@ class LocalRuntimeService : Service() {
         createChannel()
         // The platform can refuse the foreground promotion for a service the app started while it
         // was in the background. Giving up beats being killed for never calling startForeground.
-        inForeground =
-            runCatching { startForeground(NOTIFICATION_ID, notification(manager.status())) }
-                .onFailure { error -> Log.w(TAG, "Could not enter the foreground", error) }
-                .isSuccess
+        inForeground = enterForeground()
         if (!inForeground) return
-        syncWakeLock(manager.status(), runtimeWork.active.value)
+        syncWakeLock(manager.state.value, runtimeWork.active.value)
+        // The notification above shows the last known status. Refreshing it probes the server's port
+        // and reads metadata, which must not delay startForeground, so it is done here on a worker;
+        // the state collector below repaints the notification when the answer differs.
+        scope.launch(Dispatchers.IO) { manager.status() }
         scope.launch {
             manager.state.collectLatest { status ->
                 getSystemService(NotificationManager::class.java)
@@ -369,7 +370,12 @@ class LocalRuntimeService : Service() {
         // ACTION_START the platform refused to promote is still an explicit ask, and leaving the
         // flag set would strand the very next foreground return's restore attempt on it.
         if (clearsUserStoppedFlag(command)) app.settings.localRuntimeStoppedByUser = false
-        if (!inForeground) {
+        // Every startForegroundService() has to be answered by startForeground(), not only the one
+        // that created the service. After a Stop, Delete or idle stop this instance can outlive
+        // stopForeground() until its own stopSelf() lands, and a start arriving in that gap is held to
+        // the same few-second deadline: onCreate does not run again, so it is answered here.
+        if (!inForeground || !enterForeground()) {
+            inForeground = false
             stopSelf()
             return START_NOT_STICKY
         }
@@ -443,6 +449,19 @@ class LocalRuntimeService : Service() {
         }
         return START_STICKY
     }
+
+    /**
+     * Puts the service in the foreground with the last known status, touching no disk or network.
+     *
+     * Runs on the main thread inside the platform's deadline for answering startForegroundService().
+     * Asking [LocalRuntimeManager.status] here instead probed the server's port and read metadata
+     * first, so a slow device or a busy main thread could miss the deadline and the app was killed
+     * with ForegroundServiceDidNotStartInTimeException. False when the platform refuses.
+     */
+    private fun enterForeground(): Boolean =
+        runCatching { startForeground(NOTIFICATION_ID, notification(manager.state.value)) }
+            .onFailure { error -> Log.w(TAG, "Could not enter the foreground", error) }
+            .isSuccess
 
     override fun onDestroy() {
         autoRestartEnabled = false
