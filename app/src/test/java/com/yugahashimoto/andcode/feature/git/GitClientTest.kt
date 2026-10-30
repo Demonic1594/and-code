@@ -23,17 +23,37 @@ class GitClientTest {
     val temp = TemporaryFolder()
 
     private lateinit var repo: File
-    private val client =
-        GitClient { command, timeout ->
-            val process =
-                ProcessBuilder("sh", "-c", command)
-                    .redirectErrorStream(true)
-                    .apply { environment()["HOME"] = temp.root.absolutePath }
-                    .start()
-            val output = process.inputStream.bufferedReader().readText()
-            process.waitFor(timeout, TimeUnit.SECONDS)
-            LocalRuntimeCommandResult(process.exitValue(), output)
-        }
+    private val client = GitClient { command, timeout, window -> hostRun(command, timeout, window) }
+
+    /**
+     * The host's `sh`, with the output cut the way the on-device runner cuts it: [window]'s limit
+     * from its start or end, or [forcedLimit] in place of it to reproduce a small cap.
+     */
+    private fun hostRun(
+        command: String,
+        timeout: Long,
+        window: GitOutputWindow,
+        forcedLimit: Int? = null,
+        forceTail: Boolean = false,
+    ): LocalRuntimeCommandResult {
+        val process =
+            ProcessBuilder("sh", "-c", command)
+                .redirectErrorStream(true)
+                .apply { environment()["HOME"] = temp.root.absolutePath }
+                .start()
+        val output = process.inputStream.bufferedReader().readText()
+        process.waitFor(timeout, TimeUnit.SECONDS)
+        val limit = forcedLimit ?: window.maxCharacters
+        val kept = if (window.keepStart && !forceTail) output.take(limit) else output.takeLast(limit)
+        return LocalRuntimeCommandResult(process.exitValue(), kept, truncated = output.length > limit)
+    }
+
+    /** Adds one commit with [count] new files whose names are long enough to pass any small cap. */
+    private fun commitManyFiles(count: Int) {
+        val dirFile = File(repo, "many").apply { mkdirs() }
+        repeat(count) { File(dirFile, "a-fairly-long-file-name-number-$it.txt").writeText("$it\n") }
+        sh("git add -A && git commit -qm 'many files'")
+    }
 
     @Test
     fun `only a stash reference is accepted as one`() {
@@ -131,9 +151,9 @@ class GitClientTest {
             File(repo, "fresh.txt").writeText("brand new\n")
             val status = client.status(dir).getOrThrow().changes.associateBy { it.path }
 
-            val staged = client.diff(dir, status.getValue("a.txt"), staged = true).getOrThrow()
-            val unstaged = client.diff(dir, status.getValue("a.txt"), staged = false).getOrThrow()
-            val untracked = client.diff(dir, status.getValue("fresh.txt"), staged = false).getOrThrow()
+            val staged = client.diff(dir, status.getValue("a.txt"), staged = true).getOrThrow().text
+            val unstaged = client.diff(dir, status.getValue("a.txt"), staged = false).getOrThrow().text
+            val untracked = client.diff(dir, status.getValue("fresh.txt"), staged = false).getOrThrow().text
 
             assertTrue(staged, staged.contains("+staged") && !staged.contains("+unstaged"))
             assertTrue(unstaged, unstaged.contains("+unstaged") && !unstaged.contains("+staged"))
@@ -154,8 +174,117 @@ class GitClientTest {
             assertEquals('R', files.getValue("renamed.txt").status)
             assertEquals("old name.txt", files.getValue("renamed.txt").originalPath)
             assertEquals('A', files.getValue("z.txt").status)
-            assertTrue(client.commitFileDiff(dir, head.hash, "z.txt").getOrThrow().contains("+z"))
+            assertTrue(client.commitFileDiff(dir, head.hash, "z.txt").getOrThrow().text.contains("+z"))
+            assertFalse(details.filesIncomplete)
         }
+
+    @Test
+    fun `a commit with hundreds of files lists every one, each path once`() =
+        runBlocking {
+            commitManyFiles(400)
+            val head = client.log(dir).getOrThrow().first()
+
+            val details = client.commitDetails(dir, head.hash).getOrThrow()
+
+            assertEquals(400, details.files.size)
+            assertEquals(400, details.files.map { it.path }.toSet().size)
+            assertFalse(details.filesIncomplete)
+        }
+
+    @Test
+    fun `the old 4,000-character tail no longer turns statuses into paths`() =
+        runBlocking {
+            // The runner this crash came from: the last 4,000 characters, whatever was asked for.
+            val tailCapped =
+                GitClient {
+                        command,
+                        timeout,
+                        window,
+                    ->
+                    hostRun(command, timeout, window, forcedLimit = 4_000, forceTail = true)
+                }
+            commitManyFiles(400)
+            val head = client.log(dir).getOrThrow().first()
+
+            val details = tailCapped.commitDetails(dir, head.hash).getOrThrow()
+
+            assertTrue(details.filesIncomplete)
+            assertTrue(details.files.none { it.path.length <= 2 })
+            assertEquals(details.files.size, details.files.map { it.path }.toSet().size)
+        }
+
+    @Test
+    fun `a cut listing keeps its start and says it is incomplete`() =
+        runBlocking {
+            val headCapped = GitClient { command, timeout, window -> hostRun(command, timeout, window, forcedLimit = 4_000) }
+            commitManyFiles(400)
+            val head = client.log(dir).getOrThrow().first()
+
+            val details = headCapped.commitDetails(dir, head.hash).getOrThrow()
+
+            assertTrue(details.filesIncomplete)
+            assertTrue(details.files.isNotEmpty())
+            assertTrue(details.files.all { it.status == 'A' && it.path.startsWith("many/") })
+            // The record the cut went through is dropped, not shown as a shortened path.
+            assertTrue(details.files.all { it.path.endsWith(".txt") })
+        }
+
+    @Test
+    fun `a full page of history is read whole`() =
+        runBlocking {
+            repeat(GitClient.LOG_PAGE + 5) { sh("git commit -q --allow-empty -m 'commit number $it with a long enough subject line'") }
+
+            val page = client.log(dir).getOrThrow()
+
+            assertEquals(GitClient.LOG_PAGE, page.size)
+            assertEquals("commit number ${GitClient.LOG_PAGE + 4} with a long enough subject line", page.first().subject)
+        }
+
+    @Test
+    fun `a diff longer than the limit keeps its start and is flagged`() =
+        runBlocking {
+            val headCapped = GitClient { command, timeout, window -> hostRun(command, timeout, window, forcedLimit = 2_000) }
+            File(repo, "big.txt").writeText((1..2_000).joinToString("\n") { "line $it" })
+            sh("git add big.txt")
+            val change = client.status(dir).getOrThrow().changes.single { it.path == "big.txt" }
+
+            val diff = headCapped.diff(dir, change, staged = true).getOrThrow()
+
+            assertTrue(diff.truncated)
+            assertTrue(diff.text.startsWith("diff --git"))
+            assertFalse(client.diff(dir, change, staged = true).getOrThrow().truncated)
+        }
+
+    @Test
+    fun `a status cut between a rename's two paths has no original path`() {
+        val z = '\u0000'
+        val cut = GitClient.wholeRecords("## main${z}R  new.txt${z}old.tx", truncated = true)
+
+        val change = GitClient.parseStatus(cut).changes.single()
+
+        assertEquals("new.txt", change.path)
+        assertNull(change.originalPath)
+    }
+
+    @Test
+    fun `name-status reading stops at anything that is not a status`() {
+        val z = '\u0000'
+        val whole = GitClient.parseNameStatus("A${z}a.txt${z}R100${z}old.txt${z}new.txt${z}T${z}link${z}U${z}conflict.txt$z")
+        assertTrue(whole.complete)
+        assertEquals(listOf('A', 'R', 'T', 'U'), whole.files.map { it.status })
+        assertEquals("old.txt", whole.files[1].originalPath)
+
+        val cut = GitClient.parseNameStatus("ong-name.txt${z}A${z}b.txt$z")
+        assertFalse(cut.complete)
+        assertTrue(cut.files.isEmpty())
+
+        val warning = GitClient.parseNameStatus("A${z}a.txt${z}warning: inexact rename detection was skipped\n")
+        assertFalse(warning.complete)
+        assertEquals(listOf("a.txt"), warning.files.map { it.path })
+
+        val missingPath = GitClient.parseNameStatus("M$z")
+        assertFalse(missingPath.complete)
+    }
 
     @Test
     fun `branches can be created, listed, switched and deleted`() =

@@ -38,4 +38,17 @@ class LocalRuntimeCommandRunnerTest {
             runner.runShell("true", timeoutSeconds = 0L)
         }
     }
+
+    @Test
+    fun `reading from the start keeps the head and reports the cut`() {
+        val file = temporaryFolder.newFile("out.log").apply { writeText("héllo " + "x".repeat(100)) }
+
+        val (head, truncated) = LocalRuntimeCommandRunner.readHead(file, 7)
+        assertEquals("héllo x", head)
+        assertEquals(true, truncated)
+
+        val (whole, cut) = LocalRuntimeCommandRunner.readHead(file, 1_000)
+        assertEquals(file.readText(), whole)
+        assertEquals(false, cut)
+    }
 }

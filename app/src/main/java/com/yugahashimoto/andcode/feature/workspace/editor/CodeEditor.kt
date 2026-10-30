@@ -1,15 +1,14 @@
 package com.yugahashimoto.andcode.feature.workspace.editor
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -32,6 +31,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
@@ -191,21 +191,31 @@ fun CodeEditor(
                 },
     ) {
         val textViewport = maxWidth - gutterWidth
-        val viewportHeight = maxHeight
-        val layout = state.layout
-        val contentHeight = with(density) { ((layout?.size?.height ?: 0) + 2 * PAD_TOP.toPx()).toDp() }
-        Row(modifier = Modifier.fillMaxSize().verticalScroll(state.vertical)) {
-            Gutter(
-                lineStarts = lineStarts,
-                layout = layout,
-                cursor = cursor,
-                palette = palette,
-                style = gutterStyle,
-                scroll = state.vertical.value,
-                viewport = state.viewportHeight,
-                modifier = Modifier.width(gutterWidth).height(maxOf(contentHeight, viewportHeight)),
-                measurer = measurer,
-            )
+        val gutterWidthPx = with(density) { gutterWidth.toPx() }
+        // The gutter is drawn behind the row rather than laid out as a column of the text's height:
+        // a long document (wrapped prose above all) is taller than any height Compose constraints can
+        // carry (about 262,000 px), and a fixed-height gutter that tall broke the editor part way down.
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(state.vertical)
+                    .drawBehind {
+                        drawGutter(
+                            lineStarts = lineStarts,
+                            // Read here, not captured: the layout the text drew with this frame.
+                            layout = state.layout,
+                            cursor = cursor,
+                            palette = palette,
+                            style = gutterStyle,
+                            scroll = state.vertical.value,
+                            viewport = state.viewportHeight,
+                            width = gutterWidthPx,
+                            measurer = measurer,
+                        )
+                    },
+        ) {
+            Spacer(modifier = Modifier.width(gutterWidth))
             Box(modifier = Modifier.weight(1f).then(if (wrap) Modifier else Modifier.horizontalScroll(state.horizontal))) {
                 CompositionLocalProvider(LocalTextSelectionColors provides selectionColors) {
                     BasicTextField(
@@ -256,8 +266,7 @@ fun CodeEditor(
 }
 
 /** Line numbers drawn beside the text, one per logical line, only for the part on screen. */
-@Composable
-private fun Gutter(
+private fun DrawScope.drawGutter(
     lineStarts: IntArray,
     layout: TextLayoutResult?,
     cursor: Int,
@@ -265,31 +274,29 @@ private fun Gutter(
     style: TextStyle,
     scroll: Int,
     viewport: Int,
-    modifier: Modifier,
+    width: Float,
     measurer: androidx.compose.ui.text.TextMeasurer,
 ) {
+    // Down to the bottom of the screen even when the text is shorter than it.
+    drawRect(palette.gutter, Offset(0f, scroll.toFloat()), Size(width, viewport.toFloat()))
+    val result = layout ?: return
     val active = style.copy(color = palette.gutterActive)
-    Canvas(modifier = modifier.background(palette.gutter)) {
-        val result = layout ?: return@Canvas
-        val text = result.layoutInput.text.text
-        if (lineStarts.last() > text.length) return@Canvas
-        val top = PAD_TOP.toPx()
-        val firstVisual = result.getLineForVerticalPosition((scroll - top).coerceAtLeast(0f))
-        val firstOffset = result.getLineStart(firstVisual)
-        var line = lineStarts.binarySearch(firstOffset).let { if (it >= 0) it else -it - 2 }.coerceAtLeast(0)
-        val cursorLine = lineStarts.binarySearch(cursor.coerceIn(0, text.length)).let { if (it >= 0) it else -it - 2 }
-        val bottom = scroll + viewport
-        val right = size.width - 8.dp.toPx()
-        while (line < lineStarts.size) {
-            val y = result.getLineTop(result.getLineForOffset(lineStarts[line])) + top
-            if (y > bottom) break
-            val label = measurer.measure((line + 1).toString(), if (line == cursorLine) active else style)
-            val rowHeight =
-                result.getLineBottom(
-                    result.getLineForOffset(lineStarts[line]),
-                ) - result.getLineTop(result.getLineForOffset(lineStarts[line]))
-            drawText(label, topLeft = Offset(right - label.size.width, y + (rowHeight - label.size.height) / 2))
-            line++
-        }
+    val text = result.layoutInput.text.text
+    if (lineStarts.last() > text.length) return
+    val top = PAD_TOP.toPx()
+    val firstVisual = result.getLineForVerticalPosition((scroll - top).coerceAtLeast(0f))
+    val firstOffset = result.getLineStart(firstVisual)
+    var line = lineStarts.binarySearch(firstOffset).let { if (it >= 0) it else -it - 2 }.coerceAtLeast(0)
+    val cursorLine = lineStarts.binarySearch(cursor.coerceIn(0, text.length)).let { if (it >= 0) it else -it - 2 }
+    val bottom = scroll + viewport
+    val right = width - 8.dp.toPx()
+    while (line < lineStarts.size) {
+        val visual = result.getLineForOffset(lineStarts[line])
+        val y = result.getLineTop(visual) + top
+        if (y > bottom) break
+        val label = measurer.measure((line + 1).toString(), if (line == cursorLine) active else style)
+        val rowHeight = result.getLineBottom(visual) - result.getLineTop(visual)
+        drawText(label, topLeft = Offset(right - label.size.width, y + (rowHeight - label.size.height) / 2))
+        line++
     }
 }

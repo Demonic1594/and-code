@@ -1740,4 +1740,6 @@
     <plurals name="storage_items">
         <item quantity="other">%d 項目</item>
     </plurals>
+    <string name="git_files_incomplete">Git がこのコミットのファイルをすべて一覧にできなかったため、一覧が不完全な可能性があります。</string>
+    <string name="git_diff_truncated">この差分は長すぎてすべては表示できません。先頭部分を表示しています。</string>
 </resources>

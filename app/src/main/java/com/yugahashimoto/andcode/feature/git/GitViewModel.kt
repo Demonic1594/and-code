@@ -21,6 +21,8 @@ data class GitDiffView(
     val subtitle: String,
     val text: String? = null,
     val error: String? = null,
+    /** Only the start of a diff too long to show whole is in [text]. */
+    val truncated: Boolean = false,
 )
 
 data class GitUiState(
@@ -224,13 +226,21 @@ class GitViewModel(
 
     private fun showDiff(
         asked: Int,
-        result: Result<String>,
+        result: Result<GitDiffText>,
         fallback: String,
     ) {
         mutableState.update { state ->
             val diff = state.diff
             if (asked != request || diff == null) return@update state
-            state.copy(diff = diff.copy(text = result.getOrNull(), error = result.exceptionOrNull()?.safeMessage(fallback)))
+            val text = result.getOrNull()
+            state.copy(
+                diff =
+                    diff.copy(
+                        text = text?.text,
+                        truncated = text?.truncated == true,
+                        error = result.exceptionOrNull()?.safeMessage(fallback),
+                    ),
+            )
         }
     }
 

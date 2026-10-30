@@ -1785,4 +1785,6 @@
         <item quantity="many">%d عنصرًا</item>
         <item quantity="other">%d عنصر</item>
     </plurals>
+    <string name="git_files_incomplete">تعذّر على Git سرد كل ملفات هذا الالتزام، لذا قد تكون القائمة غير كاملة.</string>
+    <string name="git_diff_truncated">هذا الفرق أطول من أن يُعرض كاملًا. يُعرض جزؤه الأول.</string>
 </resources>

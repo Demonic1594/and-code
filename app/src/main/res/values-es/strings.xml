@@ -1746,4 +1746,6 @@
         <item quantity="many">%d elementos</item>
         <item quantity="other">%d elementos</item>
     </plurals>
+    <string name="git_files_incomplete">Git no pudo listar todos los archivos de este commit, así que la lista puede estar incompleta.</string>
+    <string name="git_diff_truncated">Este diff es demasiado largo para mostrarlo entero. Se muestra el principio.</string>
 </resources>
