@@ -57,6 +57,15 @@ internal fun ChatOverflowMenu(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                        // What the chat's turns would have cost at list prices, when the runtime
+                        // priced them at nothing (plan access). Beside, never instead of, the rest.
+                        it.estimatedCostUsd?.let { estimate ->
+                            Text(
+                                text = stringResource(R.string.usage_estimate_value, formatUsd(estimate)),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 },
                 leadingIcon = { Icon(Icons.Default.DataUsage, contentDescription = null) },

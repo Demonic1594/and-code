@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.di
 
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.data.connection.SecureSettingsRepository
+import com.yugahashimoto.andcode.data.repository.PriceCatalogRepository
 import com.yugahashimoto.andcode.data.settings.AppPreferencesRepository
 import com.yugahashimoto.andcode.feature.activity.ActivityViewModel
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
@@ -22,6 +23,12 @@ val viewModelModule =
             val preferences: AppPreferencesRepository = get()
             val settings: SecureSettingsRepository = get()
             ChatViewModel(
+                // Same toggle gate as the factory in ui/AndCodeApp.kt; keep the two in step.
+                priceCatalog = {
+                    get<PriceCatalogRepository>().catalog.value.takeIf {
+                        get<com.yugahashimoto.andcode.data.settings.AppPreferencesRepository>().state.value.estimateAtListPrices
+                    }
+                },
                 draftRepo = get(),
                 pullRequestStatuses = get(),
                 // Same Codex fast-mode wiring as the factory in ui/AndCodeApp.kt; keep the two in step.

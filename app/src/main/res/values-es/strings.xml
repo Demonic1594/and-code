@@ -1450,6 +1450,9 @@
     <string name="schedule_template_todos">Revisión de TODO</string>
     <string name="schedule_template_security">Revisión mensual de seguridad</string>
     <string name="chat_copy_too_long">Este chat es demasiado largo para el portapapeles, así que se compartirá como archivo.</string>
+    <string name="usage_estimate_toggle">Estimar a precio de lista</string>
+    <string name="usage_estimate_value">≈ %1$s a precio de lista</string>
+    <string name="usage_estimate_as_of">precios del %1$s</string>
     <string name="chat_usage_cached">%1$s desde la caché</string>
     <string name="git_discard">Descartar cambios</string>
     <string name="git_discard_title">¿Descartar los cambios?</string>

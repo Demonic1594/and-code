@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.feature.usage
 
+import com.yugahashimoto.andcode.core.pricing.PriceCatalog
 import com.yugahashimoto.andcode.data.repository.ChatUsage
 import com.yugahashimoto.andcode.data.repository.RuntimeSessionRef
 import com.yugahashimoto.andcode.data.repository.TurnUsage
@@ -28,6 +29,12 @@ data class UsageTotals(
     val cacheWrite: Long = 0,
     /** Null while no turn in the set carried a cost, as opposed to a known zero. */
     val cost: Double? = null,
+    /**
+     * What the same turns would have cost at list prices, for the turns whose reported cost was
+     * nothing or missing — the coding-plan case. Null when no turn could be estimated; never a
+     * substitute for [cost], which stays the runtime's own number.
+     */
+    val estimatedCost: Double? = null,
     val turns: Int = 0,
 ) {
     val tokens: Long get() = input + output + reasoning + cacheRead + cacheWrite
@@ -39,16 +46,22 @@ data class UsageTotals(
             return if (prompt == 0L) null else cacheRead.toDouble() / prompt
         }
 
-    operator fun plus(turn: TurnUsage) =
-        UsageTotals(
-            input = input + turn.input,
-            output = output + turn.output,
-            reasoning = reasoning + turn.reasoning,
-            cacheRead = cacheRead + turn.cacheRead,
-            cacheWrite = cacheWrite + turn.cacheWrite,
-            cost = if (turn.cost == null) cost else (cost ?: 0.0) + turn.cost,
-            turns = turns + 1,
-        )
+    operator fun plus(turn: TurnUsage) = plus(turn, estimate = null)
+
+    /** [plus] with the turn's list-price estimate, when a catalog could price it. */
+    fun plus(
+        turn: TurnUsage,
+        estimate: Double?,
+    ) = UsageTotals(
+        input = input + turn.input,
+        output = output + turn.output,
+        reasoning = reasoning + turn.reasoning,
+        cacheRead = cacheRead + turn.cacheRead,
+        cacheWrite = cacheWrite + turn.cacheWrite,
+        cost = if (turn.cost == null) cost else (cost ?: 0.0) + turn.cost,
+        estimatedCost = if (estimate == null) estimatedCost else (estimatedCost ?: 0.0) + estimate,
+        turns = turns + 1,
+    )
 }
 
 data class DayUsage(
@@ -105,6 +118,7 @@ data class UsageReport(
             range: UsageRange,
             now: Long,
             zone: ZoneId = ZoneId.systemDefault(),
+            catalog: PriceCatalog? = null,
         ): UsageReport {
             val today = dayOf(now, zone)
             val firstDay = range.days?.let { today.minusDays(it - 1L) }
@@ -113,6 +127,16 @@ data class UsageReport(
             fun dayOfTurn(turn: TurnUsage) = minOf(dayOf(turn.time, zone), today)
 
             fun inRange(turn: TurnUsage) = firstDay == null || !dayOfTurn(turn).isBefore(firstDay)
+
+            // Only a turn the runtime did not price (null) or priced at nothing (plan access,
+            // 0.0) gets an estimate; a turn with a real reported cost is the provider's number.
+            fun estimateOf(turn: TurnUsage): Double? {
+                if (catalog == null || (turn.cost != null && turn.cost > 0.0)) return null
+                if (turn.model.isEmpty()) return null
+                val provider = turn.model.substringBefore('/')
+                val model = turn.model.substringAfter('/')
+                return catalog.estimateOf(provider, model, turn.input, turn.output, turn.reasoning, turn.cacheRead, turn.cacheWrite)
+            }
 
             var totals = UsageTotals()
             val byDay = HashMap<LocalDate, UsageTotals>()
@@ -125,13 +149,14 @@ data class UsageReport(
                 var chatTotals = UsageTotals()
                 var last = 0L
                 chat.turns.filter(::inRange).forEach { turn ->
-                    totals += turn
-                    chatTotals += turn
+                    val estimate = estimateOf(turn)
+                    totals = totals.plus(turn, estimate)
+                    chatTotals = chatTotals.plus(turn, estimate)
                     last = maxOf(last, turn.time)
                     val day = dayOfTurn(turn)
-                    byDay[day] = (byDay[day] ?: UsageTotals()) + turn
-                    byModel.add(turn.model, turn, chatKey)
-                    byAgent.add(chat.ref.agent?.id.orEmpty(), turn, chatKey)
+                    byDay[day] = (byDay[day] ?: UsageTotals()).plus(turn, estimate)
+                    byModel.add(turn.model, turn, chatKey, estimate)
+                    byAgent.add(chat.ref.agent?.id.orEmpty(), turn, chatKey, estimate)
                 }
                 if (chatTotals.turns > 0) rows += ChatUsageRow(chat.ref, chatTotals, last)
             }
@@ -166,10 +191,11 @@ data class UsageReport(
             key: String,
             turn: TurnUsage,
             chat: String,
+            estimate: Double?,
         ) {
             val (sum, chats) = this[key] ?: (UsageTotals() to mutableSetOf())
             chats += chat
-            this[key] = (sum + turn) to chats
+            this[key] = sum.plus(turn, estimate) to chats
         }
 
         private fun HashMap<String, Pair<UsageTotals, MutableSet<String>>>.toShares(): List<UsageShare> =

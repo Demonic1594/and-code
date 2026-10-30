@@ -127,6 +127,7 @@ fun UsageScreen(
     state: UsageUiState,
     onRangeChange: (UsageRange) -> Unit,
     onIncludeArchivedChange: (Boolean) -> Unit,
+    onEstimateChange: (Boolean) -> Unit = {},
     onRefresh: () -> Unit,
     onOpenChat: (ChatUsageRow) -> Unit,
     onBack: () -> Unit,
@@ -154,7 +155,7 @@ fun UsageScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = Spacing.screenEdge, vertical = Spacing.sm),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            item { RangeRow(state, onRangeChange, onIncludeArchivedChange) }
+            item { RangeRow(state, onRangeChange, onIncludeArchivedChange, onEstimateChange) }
             item {
                 AnimatedVisibility(visible = state.loading) {
                     Column {
@@ -177,7 +178,7 @@ fun UsageScreen(
                 item { UsageNotes(report) }
                 return@LazyColumn
             }
-            item { SummaryCard(report) }
+            item { SummaryCard(report, state.priceListFetchedAt) }
             item { DailyChartCard(report) }
             item { TokenMixCard(report.totals) }
             if (report.models.isNotEmpty()) {
@@ -215,6 +216,7 @@ private fun RangeRow(
     state: UsageUiState,
     onRangeChange: (UsageRange) -> Unit,
     onIncludeArchivedChange: (Boolean) -> Unit,
+    onEstimateChange: (Boolean) -> Unit = {},
 ) {
     Column {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -234,6 +236,14 @@ private fun RangeRow(
                 modifier = Modifier.weight(1f),
             )
             Switch(checked = state.includeArchived, onCheckedChange = onIncludeArchivedChange)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                stringResource(R.string.usage_estimate_toggle),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Switch(checked = state.estimateAtListPrices, onCheckedChange = onEstimateChange)
         }
     }
 }
@@ -286,7 +296,10 @@ private fun EmptyUsage() {
 }
 
 @Composable
-private fun SummaryCard(report: UsageReport) {
+private fun SummaryCard(
+    report: UsageReport,
+    priceListDateMillis: Long? = null,
+) {
     val totals = report.totals
     SectionCard {
         Text(
@@ -302,14 +315,34 @@ private fun SummaryCard(report: UsageReport) {
                 modifier = Modifier.semantics { contentDescription = "%,d".format(Locale.getDefault(), totals.tokens) },
             )
             Spacer(Modifier.weight(1f))
-            totals.cost?.let { cost ->
-                Column(horizontalAlignment = Alignment.End) {
+            Column(horizontalAlignment = Alignment.End) {
+                totals.cost?.let { cost ->
                     Text(
                         stringResource(R.string.usage_cost),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(formatUsd(cost), style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                }
+                // The day's worth at list prices, for turns whose reported cost was nothing
+                // (plan access). Never replaces the reported number above it.
+                totals.estimatedCost?.let { estimate ->
+                    Text(
+                        stringResource(R.string.usage_estimate_value, formatUsd(estimate)),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    // The date belongs to the estimate: without one there is nothing to date.
+                    priceListDateMillis?.let { millis ->
+                        Text(
+                            stringResource(
+                                R.string.usage_estimate_as_of,
+                                java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM).format(java.util.Date(millis)),
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -386,6 +419,7 @@ private fun DailyChartCard(report: UsageReport) {
                         listOfNotNull(
                             stringResource(R.string.usage_tokens_value, formatUsageTokens(focus.totals.tokens)),
                             focus.totals.cost?.let(::formatUsd),
+                            focus.totals.estimatedCost?.let { stringResource(R.string.usage_estimate_value, formatUsd(it)) },
                             pluralStringResource(R.plurals.usage_turns, focus.totals.turns, focus.totals.turns),
                         ).joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
@@ -631,6 +665,7 @@ private fun ChatRow(
                         agentName(row.ref.agent?.id.orEmpty()),
                         pluralStringResource(R.plurals.usage_turns, row.totals.turns, row.totals.turns),
                         row.totals.cost?.let(::formatUsd),
+                        row.totals.estimatedCost?.let { stringResource(R.string.usage_estimate_value, formatUsd(it)) },
                     ).joinToString(" · "),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

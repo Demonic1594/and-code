@@ -177,6 +177,9 @@ agent/provider a manual chat message would; nothing about scheduling itself chan
 Any AI provider, MCP server, GitHub, or optional voice provider you connect to AndCode is a
 separate service governed by its own privacy policy and terms. See
 [THIRD_PARTY_SERVICES.md](THIRD_PARTY_SERVICES.md) for the current list and what each one receives.
+One periodic request the app itself makes: a plain, identifier-free download of the models.dev
+price list (at most weekly, for the Usage page's list-price estimates). Prompts, chat content,
+and tokens never leave the device with it.
 
 ## 11. Contact
 

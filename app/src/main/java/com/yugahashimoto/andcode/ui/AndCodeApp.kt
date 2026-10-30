@@ -294,6 +294,12 @@ fun AndCodeApp(
                 ViewModelFactory {
                     ChatViewModel(
                         backend = selectedRuntime,
+                        // The toggle owns the whole estimate feature, the chat menu's line included.
+                        priceCatalog = {
+                            app.priceCatalogRepository.catalog.value.takeIf {
+                                app.preferences.state.value.estimateAtListPrices
+                            }
+                        },
                         eventFlow = app.activityRepository.events,
                         onPermissionResolved = app.activityRepository::resolvePermission,
                         onQuestionResolved = app.notifications::cancelQuestion,
@@ -1475,6 +1481,8 @@ fun AndCodeApp(
                                         ViewModelFactory {
                                             UsageViewModel(
                                                 repository = app.usage,
+                                                priceCatalogs = app.priceCatalogRepository,
+                                                preferences = app.preferences,
                                                 activeChats = { app.catalogRepository.allSessions.value },
                                                 archivedChats = {
                                                     app.chatLifecycle.listArchived().map {
@@ -1489,6 +1497,7 @@ fun AndCodeApp(
                                 state = usageState,
                                 onRangeChange = usageViewModel::setRange,
                                 onIncludeArchivedChange = usageViewModel::setIncludeArchived,
+                                onEstimateChange = usageViewModel::setEstimateAtListPrices,
                                 onRefresh = usageViewModel::reload,
                                 onOpenChat = { row -> openSessionInChat(row.ref.session.id, row.ref.session.title, row.ref.runtimeId) },
                                 onBack = { navController.popBackStack() },

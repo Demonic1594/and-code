@@ -61,6 +61,8 @@ val appModule =
 
         single<OpencodeDatabaseMaintenance> { appFrom(androidContext()).opencodeDatabaseMaintenance }
 
+        single { appFrom(androidContext()).priceCatalogRepository }
+
         single { appFrom(androidContext()).localRuntimeManager }
 
         single { appFrom(androidContext()).localRuntimeController }

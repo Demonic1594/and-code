@@ -1465,6 +1465,9 @@
     <string name="schedule_template_todos">مراجعة TODO</string>
     <string name="schedule_template_security">مراجعة الأمان الشهرية</string>
     <string name="chat_copy_too_long">هذه المحادثة أطول من أن تتسع لها الحافظة، لذا تتم مشاركتها كملف بدلاً من ذلك.</string>
+    <string name="usage_estimate_toggle">تقدير التكلفة بأسعار القائمة</string>
+    <string name="usage_estimate_value">≈ %1$s بأسعار القائمة</string>
+    <string name="usage_estimate_as_of">الأسعار بتاريخ %1$s</string>
     <string name="chat_usage_cached">%1$s من ذاكرة التخزين المؤقت</string>
     <string name="git_discard">تجاهل التغييرات</string>
     <string name="git_discard_title">تجاهل التغييرات؟</string>

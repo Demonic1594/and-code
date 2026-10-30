@@ -1455,6 +1455,9 @@
     <string name="schedule_template_todos">Разбор TODO</string>
     <string name="schedule_template_security">Ежемесячная проверка безопасности</string>
     <string name="chat_copy_too_long">Чат слишком длинный для буфера обмена, поэтому он будет отправлен файлом.</string>
+    <string name="usage_estimate_toggle">Оценивать по прайс-листу</string>
+    <string name="usage_estimate_value">≈ %1$s по прайс-листу</string>
+    <string name="usage_estimate_as_of">цены от %1$s</string>
     <string name="chat_usage_cached">Из кэша: %1$s</string>
     <string name="git_discard">Отменить изменения</string>
     <string name="git_discard_title">Отменить изменения?</string>
