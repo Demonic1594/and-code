@@ -1,9 +1,15 @@
 package com.yugahashimoto.andcode.feature.chat
 
+import android.content.ClipData
 import android.graphics.Bitmap
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.content.MediaType
+import androidx.compose.foundation.content.ReceiveContentListener
+import androidx.compose.foundation.content.contentReceiver
+import androidx.compose.foundation.content.hasMediaType
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -89,6 +95,7 @@ import com.yugahashimoto.andcode.ui.components.VolumeMeter
 import com.yugahashimoto.andcode.ui.theme.AppShapes
 import com.yugahashimoto.andcode.ui.theme.Spacing
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ChatComposer(
     inputValue: TextFieldValue,
@@ -145,6 +152,8 @@ internal fun ChatComposer(
     onCameraLaunch: () -> Unit,
     onGalleryLaunch: () -> Unit,
     onPasteImage: () -> Unit,
+    /** An image the keyboard itself delivered (Gboard's clipboard chip), as a clip to attach. */
+    onReceiveImageContent: (ClipData) -> Unit = {},
 ) {
     val input = inputValue.text
     val voiceActive = isListening || isSpeechProcessing
@@ -290,6 +299,27 @@ internal fun ChatComposer(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
+                                    // The keyboard's own image paste (Gboard's clipboard chip) arrives
+                                    // as rich content through the input connection, not the clipboard;
+                                    // without a receiver the keyboard refuses ("does not support image
+                                    // pasting here") before the app is ever asked.
+                                    // Text still wins over an image, the way shouldPasteImage decides
+                                    // for the clipboard paths.
+                                    .contentReceiver(
+                                        receiveContentListener =
+                                            ReceiveContentListener { content ->
+                                                if (shouldPasteImage(
+                                                        hasText = content.hasMediaType(MediaType.Text),
+                                                        hasImage = content.hasMediaType(MediaType.Image),
+                                                    )
+                                                ) {
+                                                    onReceiveImageContent(content.clipEntry.clipData)
+                                                    null // Consumed: the image became an attachment.
+                                                } else {
+                                                    content
+                                                }
+                                            },
+                                    )
                                     .testTag("chat-message-input")
                                     .onPreviewKeyEvent { event ->
                                         val pasteImage =
