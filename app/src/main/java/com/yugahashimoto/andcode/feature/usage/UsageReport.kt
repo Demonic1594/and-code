@@ -27,7 +27,7 @@ data class UsageTotals(
     val reasoning: Long = 0,
     val cacheRead: Long = 0,
     val cacheWrite: Long = 0,
-/** Null while no turn in the set carried a cost, as opposed to a known zero. */
+    /** Null while no turn in the set carried a cost, as opposed to a known zero. */
     val cost: Double? = null,
     /**
      * What the same turns would have cost at list prices, for the turns whose reported cost was

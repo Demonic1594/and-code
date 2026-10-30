@@ -37,7 +37,9 @@ class PriceCatalogRepository(
     private var lastCheckAt = 0L
 
     init {
-        loadStored()
+        // Off the caller's thread: this runs from Application.onCreate, and the seed alone is
+        // half a megabyte to read and decode. Consumers already follow the nullable flow.
+        scope.launch { withContext(ioDispatcher) { loadStored() } }
     }
 
     /**

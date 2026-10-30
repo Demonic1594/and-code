@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.feature.chat
 
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
+import com.yugahashimoto.andcode.core.api.OpenCodeMessageInfo
 import com.yugahashimoto.andcode.core.pricing.PriceCatalog
 import java.util.Locale
 
@@ -33,7 +34,7 @@ internal fun summarizeSessionUsage(
     val costs = assistant.mapNotNull { it.info.cost }
 
     // Turns the runtime priced at nothing or not at all are the ones a catalog estimates.
-    fun estimateOf(info: com.yugahashimoto.andcode.core.api.OpenCodeMessageInfo): Double? {
+    fun estimateOf(info: OpenCodeMessageInfo): Double? {
         val price = catalog ?: return null
         if ((info.cost != null && info.cost > 0.0) || info.tokens == null) return null
         val model = info.effectiveModel ?: return null

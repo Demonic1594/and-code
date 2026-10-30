@@ -318,22 +318,21 @@ class AndCodeApplication : Application() {
                     runCatching { assets.open("pricing/models-dev-snapshot.json").bufferedReader().use { it.readText() } }.getOrNull()
                 },
                 storageDir = File(filesDir, "pricing"),
+                // The repository moves the call off the main thread; no second hop needed here.
                 fetch = {
-                    withContext(Dispatchers.IO) {
-                        runCatching {
-                            httpClient
-                                .newCall(
-                                    okhttp3.Request
-                                        .Builder()
-                                        .url("https://models.dev/api.json")
-                                        .header("Accept", "application/json")
-                                        .build(),
-                                ).execute()
-                                .use { response ->
-                                    if (response.isSuccessful) response.body?.string() else null
-                                }
-                        }.getOrNull()
-                    }
+                    runCatching {
+                        httpClient
+                            .newCall(
+                                okhttp3.Request
+                                    .Builder()
+                                    .url("https://models.dev/api.json")
+                                    .header("Accept", "application/json")
+                                    .build(),
+                            ).execute()
+                            .use { response ->
+                                if (response.isSuccessful) response.body?.string() else null
+                            }
+                    }.getOrNull()
                 },
             )
         // Application-scoped so that navigating away from voice settings does not abandon a model
