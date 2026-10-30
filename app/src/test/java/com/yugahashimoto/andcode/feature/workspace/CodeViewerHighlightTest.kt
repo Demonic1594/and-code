@@ -7,9 +7,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The code viewer highlights each visible line while composing, on the main thread. A minified file
- * can put a megabyte on one line, and tokenizing it into tens of thousands of styled spans there
- * showed up as an ANR in `highlightLine` in Crashlytics, so the work per line has to be bounded.
+ * The code viewer highlights each visible line while composing, on the main thread, and a minified
+ * file can put a megabyte on one line. A Crashlytics ANR had the main thread running the token regex
+ * over a line in `highlightLine`, so the tokenizing work done per line has to be bounded.
  */
 class CodeViewerHighlightTest {
     @Test
@@ -69,6 +69,16 @@ class CodeViewerHighlightTest {
         val result = highlightLine(line, OneDarkSyntax, "x")
 
         assertEquals(MAX_SEARCH_MARKS_ON_LONG_LINE, result.spanStyles.size)
+    }
+
+    @Test
+    fun `the search cap does not step down just past the line limit`() {
+        val atLimit = highlightLine("x".repeat(MAX_HIGHLIGHTED_LINE_CHARS), OneDarkSyntax, "x")
+        val pastLimit = highlightLine("x".repeat(MAX_HIGHLIGHTED_LINE_CHARS + 1), OneDarkSyntax, "x")
+
+        // A line at the limit marks every one of its matches; a line one character longer marks as many.
+        assertEquals(MAX_HIGHLIGHTED_LINE_CHARS, atLimit.spanStyles.size)
+        assertEquals(atLimit.spanStyles.size, pastLimit.spanStyles.size)
     }
 
     @Test

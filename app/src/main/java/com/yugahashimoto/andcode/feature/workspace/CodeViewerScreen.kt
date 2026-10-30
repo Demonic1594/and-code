@@ -420,20 +420,24 @@ private fun DiscardChangesDialog(
  * Longest line that is syntax-highlighted.
  *
  * Lines are highlighted while composing, on the main thread, and a minified file can put a megabyte
- * on one line. A Crashlytics ANR had the main thread in `TOKEN_REGEX.findAll(line)` for such a line:
- * the regex scans the whole line (and an unterminated string or block comment makes it rescan to
- * the end from each opening quote or comment opener), and every match then becomes a styled span. A longer line is
- * shown unstyled, with neither the regex nor the spans. Search matches on it are still marked, up to
- * [MAX_SEARCH_MARKS_ON_LONG_LINE].
+ * on one line. A Crashlytics ANR had the main thread in `TOKEN_REGEX.findAll(line)`; that the line
+ * was this long is inferred from the stack, not reproduced. The regex scans the whole line, and a
+ * string or block comment that is never closed (an unterminated string with many escaped quotes, or
+ * many comment openers) makes it rescan to the end of the line from each start, and every match then
+ * becomes a styled span. A longer line is shown unstyled, with neither the regex nor the spans.
+ * Search matches on it are still marked, up to [MAX_SEARCH_MARKS_ON_LONG_LINE].
  */
 internal const val MAX_HIGHLIGHTED_LINE_CHARS = 2_000
 
 /**
  * Most search matches marked on a line past [MAX_HIGHLIGHTED_LINE_CHARS]. Each mark is a span, and
- * a one-character query on a megabyte line has hundreds of thousands of matches; the viewer does not
- * scroll sideways to a far match, so marking them all buys nothing. Ordinary lines keep every mark.
+ * a one-character query on a megabyte line has hundreds of thousands of matches.
+ *
+ * It equals the line limit, which a one-character query already reaches on an ordinary line, so the
+ * number of marks does not step down as a line grows past the limit. Matches beyond it are not
+ * marked, wrapped or not; the line still counts as a match for navigation.
  */
-internal const val MAX_SEARCH_MARKS_ON_LONG_LINE = 500
+internal const val MAX_SEARCH_MARKS_ON_LONG_LINE = MAX_HIGHLIGHTED_LINE_CHARS
 
 internal fun highlightLine(
     line: String,
