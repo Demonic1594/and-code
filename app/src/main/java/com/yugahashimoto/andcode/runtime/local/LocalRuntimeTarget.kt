@@ -57,12 +57,6 @@ class LocalRuntimeTarget(
     override val agent: LocalAgent = LocalAgent.OPEN_CODE
     override val type: RuntimeType = RuntimeType.LOCAL
     override val kind: BackendKind = BackendKind.LOCAL
-
-    /**
-     * The local runtime is pinned to a V1 OpenCode build, so this stays `true` in practice. It still
-     * reads the detected protocol, so a V2 server behind the local port gets the same gating as a
-     * remote one. [LocalOpenCodeBackend.protocol] is null until the runtime is installed.
-     */
     override val capabilities: RuntimeCapabilities
         get() =
             RuntimeCapabilities(
@@ -75,6 +69,8 @@ class LocalRuntimeTarget(
                 configEditing = backend.protocol != OpenCodeProtocol.V2,
                 mcpOAuth = backend.protocol != OpenCodeProtocol.V2,
                 fileEditing = files != null,
+                // The OpenCode server's idle events are the settle signal this runtime is trusted on.
+                reliableIdleEvents = true,
             )
 
     private val mutableState = MutableStateFlow(mapStatus(runtimeManager.status()))

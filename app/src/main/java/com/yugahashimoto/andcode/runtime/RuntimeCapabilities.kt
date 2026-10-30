@@ -28,6 +28,17 @@ data class RuntimeCapabilities(
      */
     val abortsBeforeInterrupt: Boolean = false,
     /**
+     * True when the runtime's event stream reliably reports a turn's end (`session.idle`), so the
+     * chat's post-send transcript poll only has to cover the stream itself going down.
+     *
+     * The OpenCode HTTP backends (local and remote) push every state change over SSE, completion
+     * included, which left the poll's full-transcript fetch every 3 seconds as pure overhead next
+     * to it — on a transcript carrying base64 images that is megabytes per turn for nothing. The
+     * CLI bridge runtimes do not get this: their idle notification is best-effort (the poll's
+     * transcript read is what ends those turns), so they keep the aggressive cadence.
+     */
+    val reliableIdleEvents: Boolean = false,
+    /**
      * True when the backend can delete a message (and its parts) out of a session's transcript via
      * [com.yugahashimoto.andcode.runtime.OpenCodeBackend.deleteMessage].
      *

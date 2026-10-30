@@ -4,6 +4,7 @@ import com.yugahashimoto.andcode.core.api.OpenCodeEvent
 import com.yugahashimoto.andcode.core.api.OpenCodePart
 import com.yugahashimoto.andcode.core.api.PermissionRequest
 import com.yugahashimoto.andcode.core.api.QuestionRequest
+import com.yugahashimoto.andcode.core.api.coalesceStreamingUpdates
 import com.yugahashimoto.andcode.core.api.sessionIdOrNull
 import com.yugahashimoto.andcode.core.diagnostics.RunSignals
 import com.yugahashimoto.andcode.core.diagnostics.StallDiagnosis
@@ -138,7 +139,20 @@ class RuntimeActivityRepository(
     val state: StateFlow<RuntimeActivityState> = mutableState.asStateFlow()
 
     private val mutableEvents = MutableSharedFlow<OpenCodeEvent>(extraBufferCapacity = 128)
-    val events: SharedFlow<OpenCodeEvent> = mutableEvents.asSharedFlow()
+
+    /**
+     * The event stream as consumers should see it: [mutableEvents] coalesced per collector.
+     *
+     * A streaming reply arrives as dozens of `message.part.updated`/`delta` events per second,
+     * and every collector of this flow rebuilds state per event - the chat transcript, the
+     * drawer, the unread markers. Each collector gets its own
+     * [coalesceStreamingUpdates] stage, so floods fold to at most one update per part per
+     * window while barriers (permissions, questions, session status) still pass immediately
+     * and in order. Coalescing at the source - inside the reconnect loop - was tried first and
+     * reverted: an exception crossing the coalescer's channel boundary is recreated by
+     * coroutines' stack-trace recovery, and that broke the loop's retry accounting.
+     */
+    val events: Flow<OpenCodeEvent> = mutableEvents.coalesceStreamingUpdates()
 
     /**
      * Permission ids that have been answered somewhere in the app (notification action, activity

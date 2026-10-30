@@ -250,7 +250,6 @@ fun ChatHomeScreen(
     var showArtifacts by remember { mutableStateOf(false) }
     var activityGroupId by remember { mutableStateOf<String?>(null) }
     var selectedImage by remember { mutableStateOf<ChatImageSource?>(null) }
-    var legacyDownload by remember { mutableStateOf<ChatImageSource?>(null) }
     // A rewound chat shows only what comes before the point it was rewound to.
     val shownMessages = state.visibleMessages
     val timelineEntries = remember(shownMessages) { groupConversationTimeline(shownMessages) }
@@ -269,6 +268,13 @@ fun ChatHomeScreen(
     // very same rows, an equal list that would never re-run such an effect.
     val currentFindIndex = resolveFindIndex(findIndex, findMatches.size)
     val currentMatchRow = findMatches.getOrNull(currentFindIndex)
+
+    // The pre-Q save flow goes through the system file picker; holding the pending image as plain
+    // strings (the bitmap-bearing source is not saveable) survives the activity recreation the
+    // picker can cause, instead of silently no-oping the save afterwards.
+    var pendingSaveUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingSaveMime by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingSaveFilename by rememberSaveable { mutableStateOf<String?>(null) }
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
     var showSlashCommands by remember { mutableStateOf(false) }
@@ -283,8 +289,13 @@ fun ChatHomeScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val imageSaveLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/*")) { uri ->
-            val source = legacyDownload
-            legacyDownload = null
+            val source =
+                pendingSaveUrl?.let { url ->
+                    ChatImageSource(url = url, mime = pendingSaveMime ?: "image/*", filename = pendingSaveFilename)
+                }
+            pendingSaveUrl = null
+            pendingSaveMime = null
+            pendingSaveFilename = null
             if (uri != null && source != null) {
                 coroutineScope.launch {
                     val saved = saveChatImageToUri(context, source, uri)
@@ -1083,7 +1094,9 @@ fun ChatHomeScreen(
                         ).show()
                     }
                 } else {
-                    legacyDownload = it
+                    pendingSaveUrl = it.url
+                    pendingSaveMime = it.mime
+                    pendingSaveFilename = it.filename
                     imageSaveLauncher.launch(safeImageFilename(it))
                 }
             },

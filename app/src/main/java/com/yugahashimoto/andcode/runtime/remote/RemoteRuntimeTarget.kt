@@ -43,11 +43,6 @@ class RemoteRuntimeTarget(
     override val displayName: String = profile.name
     override val type: RuntimeType = RuntimeType.REMOTE
     override val kind: BackendKind = BackendKind.REMOTE
-
-    /**
-     * Read on each access because the protocol is only known after the first probe. V2 has no
-     * message delete, so the edit action is hidden there; V1 keeps the original set.
-     */
     override val capabilities: RuntimeCapabilities
         get() =
             RuntimeCapabilities(
@@ -60,6 +55,8 @@ class RemoteRuntimeTarget(
                 // V1 accepts config patches; V2 does not, so its config entry points stay hidden.
                 configEditing = backend.protocol != OpenCodeProtocol.V2,
                 mcpOAuth = backend.protocol != OpenCodeProtocol.V2,
+                // The OpenCode server's idle events are the settle signal this runtime is trusted on.
+                reliableIdleEvents = true,
             )
 
     private val mutableState = MutableStateFlow<RuntimeState>(RuntimeState.Disconnected)

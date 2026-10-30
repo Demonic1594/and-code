@@ -13,6 +13,7 @@ NATIVE_EXECUTABLES = {
     "libexec/proot/loader": "libopencode_android_proot_loader.so",
     "libexec/proot/loader32": "libopencode_android_proot_loader32.so",
 }
+# Optional libraries: copied when the pinned packages provide them.
 RUNTIME_LIBRARIES = {
     # pattern -> (destination name, required). The talloc SONAME tracks the package
     # version (e.g. libtalloc.so.2.4.3, or .2.5.0 after the 2.5.0 bump), so it is matched by
