@@ -1,6 +1,6 @@
 # Git panel: output cut at 4,000 characters crashes commit details, and cuts History and diffs
 
-Status: **not started**. Written down to fix later; nothing in the app has been changed.
+Status: **done** (Tasks 1–4). The terminal and ADB keep the old 4,000-character tail; that is still to be decided on its own.
 
 ## Symptom
 

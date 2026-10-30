@@ -16,6 +16,8 @@ data class LocalRuntimeProcessMetrics(
 data class LocalRuntimeCommandResult(
     val exitCode: Int,
     val output: String,
+    /** True when [output] is only part of what the command printed; see [LocalRuntimeCommandRunner.runShell]. */
+    val truncated: Boolean = false,
 )
 
 data class LocalRuntimeToolDefinition(

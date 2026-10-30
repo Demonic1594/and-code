@@ -211,7 +211,12 @@ fun NavGraphBuilder.workspaceNavGraph(
                     key = "git-${runtime.id}-${workspace.id}",
                     factory =
                         ViewModelFactory {
-                            GitViewModel(GitClient { command, timeout -> app.commandRunner.runShell(command, timeout) }, workspace.path)
+                            GitViewModel(
+                                GitClient { command, timeout, window ->
+                                    app.commandRunner.runShell(command, timeout, window.maxCharacters, window.keepStart)
+                                },
+                                workspace.path,
+                            )
                         },
                 )
             val gitState by gitViewModel.state.collectAsState()
@@ -343,7 +348,10 @@ private fun localWorkspaceShell(
     runtime: RuntimeTarget,
 ): WorkspaceShell? =
     if (runtime.type == RuntimeType.LOCAL) {
-        WorkspaceShell { command, timeout -> app.commandRunner.runShell(command, timeout) }
+        // Its listings (branches, recent commits) are parsed too, so they are read whole like the Git panel's.
+        WorkspaceShell { command, timeout ->
+            app.commandRunner.runShell(command, timeout, GitClient.LISTING.maxCharacters, GitClient.LISTING.keepStart)
+        }
     } else {
         null
     }

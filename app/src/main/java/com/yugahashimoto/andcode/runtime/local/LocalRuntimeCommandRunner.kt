@@ -48,12 +48,21 @@ class LocalRuntimeCommandRunner(
 
     fun run(definition: LocalRuntimeToolDefinition): LocalRuntimeCommandResult = runShell(definition.command)
 
+    /**
+     * Runs [commandText] in the guest. Only [maxOutputCharacters] of the output are kept: the last
+     * ones by default, which is what a diagnostic needs (its error is at the end), or the first ones
+     * when [keepStart] is set, which is what anything parsed needs (a listing cut from the front
+     * starts mid-record and is misread). The result says when output was cut.
+     */
     @Synchronized
     fun runShell(
         commandText: String,
         timeoutSeconds: Long = this.timeoutSeconds,
+        maxOutputCharacters: Int = this.maxOutputCharacters,
+        keepStart: Boolean = false,
     ): LocalRuntimeCommandResult {
         require(timeoutSeconds > 0L)
+        require(maxOutputCharacters > 0)
         // The runtime is resolved BEFORE the read lock is taken. In production the provider is
         // the installer's installedRuntime(), which acquires the WRITE lock on the very
         // coordinator shared with this runner - and ReentrantReadWriteLock cannot upgrade a
@@ -96,10 +105,9 @@ class LocalRuntimeCommandRunner(
                     runCatching { killManagedProcessTrees(runtimeDirectory, process) }
                     LocalRuntimeCommandResult(124, messages.commandTimedOut)
                 } else {
-                    LocalRuntimeCommandResult(
-                        exitCode = process.exitValue(),
-                        output = readOutputTail(outputFile),
-                    )
+                    val (output, truncated) =
+                        if (keepStart) readHead(outputFile, maxOutputCharacters) else readOutputTail(outputFile, maxOutputCharacters)
+                    LocalRuntimeCommandResult(exitCode = process.exitValue(), output = output, truncated = truncated)
                 }
             } finally {
                 outputFile.delete()
@@ -116,7 +124,10 @@ class LocalRuntimeCommandRunner(
      * the window's edge cannot shrink the tail below what was asked for; a split codepoint at the
      * very start decodes to one replacement character, which a tail this size absorbs.
      */
-    private fun readOutputTail(outputFile: File): String {
+    private fun readOutputTail(
+        outputFile: File,
+        maxOutputCharacters: Int,
+    ): Pair<String, Boolean> {
         val maxBytes = (maxOutputCharacters.toLong() * 4).coerceAtLeast(16L)
         RandomAccessFile(outputFile, "r").use { file ->
             val length = file.length()
@@ -124,11 +135,32 @@ class LocalRuntimeCommandRunner(
             file.seek(length - window)
             val bytes = ByteArray(window.toInt())
             file.readFully(bytes)
-            return bytes.decodeToString().takeLast(maxOutputCharacters)
+            val text = bytes.decodeToString()
+            return text.takeLast(maxOutputCharacters) to (window < length || text.length > maxOutputCharacters)
         }
     }
 
-    private companion object {
+    internal companion object {
+        /**
+         * The first [maxCharacters] of [file], and whether there was more. A multibyte character cut
+         * at the window's end decodes to one replacement character, which [take] then drops when the
+         * window holds more characters than asked for.
+         */
+        internal fun readHead(
+            file: File,
+            maxCharacters: Int,
+        ): Pair<String, Boolean> {
+            val maxBytes = (maxCharacters.toLong() * 4).coerceAtLeast(16L)
+            RandomAccessFile(file, "r").use { raf ->
+                val length = raf.length()
+                val window = maxBytes.coerceAtMost(length)
+                val bytes = ByteArray(window.toInt())
+                raf.readFully(bytes)
+                val text = bytes.decodeToString()
+                return text.take(maxCharacters) to (window < length || text.length > maxCharacters)
+            }
+        }
+
         /** Temp logs a killed app left behind are worthless after a day. */
         private const val STALE_LOG_MILLIS = 24L * 60L * 60L * 1000L
 

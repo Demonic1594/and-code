@@ -31,7 +31,7 @@ class GitViewModelTest {
     private lateinit var repo: File
 
     private val client by lazy {
-        GitClient(ioDispatcher = dispatcher) { command, timeout ->
+        GitClient(ioDispatcher = dispatcher) { command, timeout, _ ->
             val process =
                 ProcessBuilder("sh", "-c", command)
                     .redirectErrorStream(true)

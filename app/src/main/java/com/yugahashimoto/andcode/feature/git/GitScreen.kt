@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -955,7 +956,11 @@ private fun CommitScreen(
                 }
             }
             item { SectionHeader(stringResource(R.string.git_files_changed), details.files.size) }
-            items(details.files, key = { it.path }) { file ->
+            if (details.filesIncomplete) {
+                item { GitNotice(stringResource(R.string.git_files_incomplete)) }
+            }
+            // Keyed by position as well as path: a list that repeats a path must not crash the screen.
+            itemsIndexed(details.files, key = { index, file -> "$index:${file.path}" }) { _, file ->
                 ChangeRow(
                     change = GitFileChange(file.path, file.originalPath, file.status, ' '),
                     letter = file.status,
@@ -1029,6 +1034,9 @@ private fun DiffScreen(
                     )
                 else ->
                     LazyColumn(modifier = Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
+                        if (diff.truncated) {
+                            item { GitNotice(stringResource(R.string.git_diff_truncated)) }
+                        }
                         items(parsed.rows.size) { index -> DiffLine(parsed.rows[index]) }
                     }
             }
@@ -1080,4 +1088,15 @@ private fun DiffLine(row: DiffRow) {
             modifier = Modifier.padding(end = Spacing.lg),
         )
     }
+}
+
+/** A one-line note above a list or diff that is not shown whole. */
+@Composable
+private fun GitNotice(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+    )
 }

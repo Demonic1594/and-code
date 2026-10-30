@@ -79,6 +79,23 @@ data class GitCommitDetails(
     val commit: GitCommit,
     val body: String,
     val files: List<GitCommitFile>,
+    /** True when git's file list could not be read whole; the screen says the list is incomplete. */
+    val filesIncomplete: Boolean = false,
+)
+
+/** A diff's text, and whether it is only the first part of a diff too long to show. */
+data class GitDiffText(
+    val text: String,
+    val truncated: Boolean = false,
+)
+
+/**
+ * How much of a command's output to keep, and from which end: see
+ * [com.yugahashimoto.andcode.runtime.local.LocalRuntimeCommandRunner.runShell].
+ */
+data class GitOutputWindow(
+    val maxCharacters: Int,
+    val keepStart: Boolean,
 )
 
 /**
@@ -88,7 +105,7 @@ data class GitCommitDetails(
  */
 class GitClient(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val run: (command: String, timeoutSeconds: Long) -> LocalRuntimeCommandResult,
+    private val run: (command: String, timeoutSeconds: Long, window: GitOutputWindow) -> LocalRuntimeCommandResult,
 ) {
     suspend fun status(directory: String): Result<GitStatus> =
         exec(git(directory, "status --porcelain=v1 -b -z --untracked-files=all"), trim = false).map(::parseStatus)
@@ -101,7 +118,7 @@ class GitClient(
         directory: String,
         change: GitFileChange,
         staged: Boolean,
-    ): Result<String> {
+    ): Result<GitDiffText> {
         // A rename's old path goes in too, so git pairs the two and shows the edit, not a new file.
         val paths = listOfNotNull(change.path, change.originalPath).joinToString(" ") { top(it) }
         val command =
@@ -114,7 +131,7 @@ class GitClient(
                 staged -> git(directory, "diff --no-color --no-ext-diff --cached -M -- $paths")
                 else -> git(directory, "diff --no-color --no-ext-diff -- $paths")
             }
-        return exec(command, trim = false)
+        return diffText(command)
     }
 
     suspend fun stage(
@@ -177,9 +194,18 @@ class GitClient(
         val sha = validHash(hash) ?: return Result.failure(WorkspaceShellException("bad commit"))
         val header = exec(git(directory, "show -s --format='$LOG_FORMAT' $sha"), trim = false).getOrElse { return Result.failure(it) }
         val body = exec(git(directory, "show -s --format=%b $sha")).getOrDefault("")
-        val files = exec(git(directory, "show --format= --name-status -M -z --first-parent $sha"), trim = false).getOrDefault("")
+        // stderr is dropped here: the runner merges it into the output, and a warning such as
+        // "inexact rename detection was skipped" would land in the middle of the -z stream.
+        val files =
+            runRaw(
+                git(directory, "show --format= --name-status -M -z --first-parent $sha") + " 2>/dev/null",
+                DEFAULT_TIMEOUT_SECONDS,
+                LISTING,
+            )
         val commit = parseLog(header).firstOrNull() ?: return Result.failure(WorkspaceShellException("bad commit"))
-        return Result.success(GitCommitDetails(commit, body.trim(), parseNameStatus(files)))
+        val parsed = parseNameStatus(files?.output.orEmpty())
+        val incomplete = files == null || files.exitCode != 0 || files.truncated || !parsed.complete
+        return Result.success(GitCommitDetails(commit, body.trim(), parsed.files, filesIncomplete = incomplete))
     }
 
     /** One file's change in one commit; for a merge, against its first parent. */
@@ -188,10 +214,10 @@ class GitClient(
         hash: String,
         path: String,
         originalPath: String? = null,
-    ): Result<String> {
+    ): Result<GitDiffText> {
         val sha = validHash(hash) ?: return Result.failure(WorkspaceShellException("bad commit"))
         val paths = listOfNotNull(path, originalPath).joinToString(" ") { top(it) }
-        return exec(git(directory, "show --no-color --no-ext-diff --format= -M --first-parent $sha -- $paths"), trim = false)
+        return diffText(git(directory, "show --no-color --no-ext-diff --format= -M --first-parent $sha -- $paths"))
     }
 
     suspend fun branches(directory: String): Result<List<GitBranch>> =
@@ -286,13 +312,30 @@ class GitClient(
 
     private fun invalid(): Result<String> = Result.failure(InvalidRefException())
 
+    /** A diff, kept from its start (the file header and first hunks) and flagged when cut. */
+    private suspend fun diffText(command: String): Result<GitDiffText> =
+        withContext(ioDispatcher) {
+            val result = run(command, DEFAULT_TIMEOUT_SECONDS, DIFF)
+            if (result.exitCode == 0) {
+                Result.success(GitDiffText(result.output, result.truncated))
+            } else {
+                Result.failure(WorkspaceShellException(result.output.trim().ifEmpty { "exit code ${result.exitCode}" }))
+            }
+        }
+
+    private suspend fun runRaw(
+        command: String,
+        timeoutSeconds: Long,
+        window: GitOutputWindow,
+    ): LocalRuntimeCommandResult? = withContext(ioDispatcher) { runCatching { run(command, timeoutSeconds, window) }.getOrNull() }
+
     private suspend fun exec(
         command: String,
         timeoutSeconds: Long = DEFAULT_TIMEOUT_SECONDS,
         trim: Boolean = true,
     ): Result<String> =
         withContext(ioDispatcher) {
-            val result = run(command, timeoutSeconds)
+            val result = run(command, timeoutSeconds, LISTING)
             if (result.exitCode == 0) {
                 // status -z output starts with a space when the first file is only changed in the
                 // working tree, so parsed output is never trimmed.
@@ -306,6 +349,20 @@ class GitClient(
         private const val DEFAULT_TIMEOUT_SECONDS = 30L
         private const val NETWORK_TIMEOUT_SECONDS = 120L
         const val LOG_PAGE = 60
+
+        /**
+         * Everything git lists is parsed, and a listing cut from the front starts mid-record and is
+         * misread (the 4,000-character tail the shared runner used to keep is what crashed commit
+         * details). So output is kept from its start, up to a limit far above real listings (a
+         * 1,200-file commit is about 90,000 characters; a page of history about 15,000) that still
+         * bounds what one command can load into memory.
+         */
+        val LISTING = GitOutputWindow(maxCharacters = 2_000_000, keepStart = true)
+
+        /** A diff past this is shown from its start with a notice; the rest is not worth a phone's memory. */
+        val DIFF = GitOutputWindow(maxCharacters = 400_000, keepStart = true)
+
+        private val STATUS_CODE = Regex("[ACDMRTUXB]|[RC][0-9]{1,3}")
         private const val UNIT = '\u001f'
         private const val RECORD = '\u001e'
         private const val ALL_PATHS = "':/' ':(exclude,glob)**/.andcode-attachments/**' ':(exclude,glob)**/*.andcode-save'"
@@ -395,26 +452,39 @@ class GitClient(
                 )
             }
 
-        internal fun parseNameStatus(output: String): List<GitCommitFile> {
+        /** What [parseNameStatus] could read, and whether that was the whole list. */
+        internal data class NameStatus(
+            val files: List<GitCommitFile>,
+            val complete: Boolean,
+        )
+
+        /**
+         * Reads `--name-status -z` output. Only a real git status code is taken as one; anything else
+         * where a status should be (output that starts mid-path, or a warning git printed into the
+         * stream) stops the read and marks the list incomplete, rather than reading every following
+         * path as a status and every status as a path.
+         */
+        internal fun parseNameStatus(output: String): NameStatus {
             val fields = output.split('\u0000').filter { it.isNotEmpty() }
             val files = mutableListOf<GitCommitFile>()
             var index = 0
             while (index < fields.size) {
                 val status = fields[index].trim()
                 index++
-                val code = status.firstOrNull() ?: continue
+                if (!STATUS_CODE.matches(status)) return NameStatus(files, complete = false)
+                val code = status.first()
                 if (code == 'R' || code == 'C') {
-                    val from = fields.getOrNull(index) ?: break
-                    val to = fields.getOrNull(index + 1) ?: break
+                    val from = fields.getOrNull(index) ?: return NameStatus(files, complete = false)
+                    val to = fields.getOrNull(index + 1) ?: return NameStatus(files, complete = false)
                     files += GitCommitFile(code, to, from)
                     index += 2
                 } else {
-                    val path = fields.getOrNull(index) ?: break
+                    val path = fields.getOrNull(index) ?: return NameStatus(files, complete = false)
                     files += GitCommitFile(code, path)
                     index++
                 }
             }
-            return files
+            return NameStatus(files, complete = true)
         }
 
         internal fun parseBranches(output: String): List<GitBranch> =

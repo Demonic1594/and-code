@@ -1759,4 +1759,6 @@
         <item quantity="many">%d элементов</item>
         <item quantity="other">%d элемента</item>
     </plurals>
+    <string name="git_files_incomplete">Git не смог перечислить все файлы этого коммита, поэтому список может быть неполным.</string>
+    <string name="git_diff_truncated">Этот дифф слишком длинный, чтобы показать его целиком. Показано начало.</string>
 </resources>
