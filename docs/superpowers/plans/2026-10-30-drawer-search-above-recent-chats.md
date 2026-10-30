@@ -36,7 +36,10 @@ bound to `searchQuery`.
   Recent chats is collapsed — but typing into it should expand the section, otherwise the
   results are filtered into a list the user cannot see. The cheapest correct behavior: a
   non-blank `searchQuery` forces the section open (the collapse state stays as chosen once the
-  query is cleared).
+  query is cleared). The forced-open condition applies to both the `AnimatedVisibility`'s
+  `visible` **and** the header's `collapsed` argument — otherwise the content shows while the
+  chevron still says collapsed — and it must not write to `collapsedSections`, which is the
+  user's own choice.
 - Nothing else moves: the agents switcher, the Projects row, the Inbox row, and everything
   inside the section keep their order. The Projects-header redesign in
   `2026-10-28-chat-and-drawer-qol.md` touches the section directly above; the two compose —
