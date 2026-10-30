@@ -444,7 +444,15 @@ class GitClient(
                 val path = field.substring(3)
                 // A rename or copy is followed by the path it came from, as its own field.
                 val original =
-                    if (x == 'R' || x == 'C' || y == 'R' || y == 'C') fields.getOrNull(index)?.also { index++ } else null
+                    // A cut listing can end between a rename's two paths; an empty original path would be
+                    // the pathspec for the whole repository, so it is treated as missing.
+                    if (x == 'R' || x == 'C' || y == 'R' || y == 'C') {
+                        fields.getOrNull(
+                            index,
+                        )?.also { index++ }?.takeIf { it.isNotEmpty() }
+                    } else {
+                        null
+                    }
                 changes += GitFileChange(path = path, originalPath = original, index = x, worktree = y)
             }
             return GitStatus(branch, upstream, ahead, behind, noCommits, changes)

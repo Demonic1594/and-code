@@ -150,7 +150,9 @@ class LocalRuntimeCommandRunner(
         ): Pair<String, Boolean> {
             // One character past the limit tells whether there was more, without reading the rest.
             file.reader(Charsets.UTF_8).use { reader ->
-                val buffer = CharArray(maxCharacters + 1)
+                // Sized by the file too: UTF-8 never has more characters than bytes, and most output is
+                // far smaller than the limit.
+                val buffer = CharArray((minOf(maxCharacters.toLong(), file.length()) + 1).toInt())
                 var read = 0
                 while (read < buffer.size) {
                     val n = reader.read(buffer, read, buffer.size - read)

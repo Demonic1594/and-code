@@ -256,6 +256,17 @@ class GitClientTest {
         }
 
     @Test
+    fun `a status cut between a rename's two paths has no original path`() {
+        val z = '\u0000'
+        val cut = GitClient.wholeRecords("## main${z}R  new.txt${z}old.tx", truncated = true)
+
+        val change = GitClient.parseStatus(cut).changes.single()
+
+        assertEquals("new.txt", change.path)
+        assertNull(change.originalPath)
+    }
+
+    @Test
     fun `name-status reading stops at anything that is not a status`() {
         val z = '\u0000'
         val whole = GitClient.parseNameStatus("A${z}a.txt${z}R100${z}old.txt${z}new.txt${z}T${z}link${z}U${z}conflict.txt$z")
