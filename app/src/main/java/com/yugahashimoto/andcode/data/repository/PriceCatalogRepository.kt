@@ -40,9 +40,10 @@ class PriceCatalogRepository(
     private var loaded = false
 
     init {
-        // Off the caller's thread: this runs from Application.onCreate, and the seed alone is
-        // roughly half a megabyte at most to read and decode. Consumers already follow the nullable flow. The
-        // mutex keeps a refresh that finishes first from being overwritten by the slower seed.
+        // Off the caller's thread: this runs from Application.onCreate, and the seed is up to
+        // a few hundred kilobytes to read and decode. Consumers already follow the nullable
+        // flow. The mutex keeps a refresh that finishes first from being overwritten by the
+        // slower seed.
         scope.launch {
             refreshMutex.withLock {
                 withContext(ioDispatcher) { loadStored() }

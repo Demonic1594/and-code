@@ -5,6 +5,7 @@ import com.yugahashimoto.andcode.core.pricing.PriceCatalog
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -146,6 +147,8 @@ class PriceCatalogRepositoryTest {
                         fetched
                     },
                 )
+            // The stored copy loads off this thread too; drive the scheduler before reading.
+            advanceUntilIdle()
             assertEquals(stored, second.catalog.value)
             second.refreshIfDue()
             advanceUntilIdle()

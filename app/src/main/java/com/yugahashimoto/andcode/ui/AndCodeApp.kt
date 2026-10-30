@@ -294,7 +294,12 @@ fun AndCodeApp(
                 ViewModelFactory {
                     ChatViewModel(
                         backend = selectedRuntime,
-                        priceCatalog = { app.priceCatalogRepository.catalog.value },
+                        // The toggle owns the whole estimate feature, the chat menu's line included.
+                        priceCatalog = {
+                            app.priceCatalogRepository.catalog.value.takeIf {
+                                app.preferences.state.value.estimateAtListPrices
+                            }
+                        },
                         eventFlow = app.activityRepository.events,
                         onPermissionResolved = app.activityRepository::resolvePermission,
                         onQuestionResolved = app.notifications::cancelQuestion,
@@ -1477,7 +1482,7 @@ fun AndCodeApp(
                                             UsageViewModel(
                                                 repository = app.usage,
                                                 priceCatalogs = app.priceCatalogRepository,
-                                                preferences = app.settings,
+                                                preferences = app.preferences,
                                                 activeChats = { app.catalogRepository.allSessions.value },
                                                 archivedChats = {
                                                     app.chatLifecycle.listArchived().map {

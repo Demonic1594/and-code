@@ -92,6 +92,8 @@ class UsageViewModel(
         if (enabled == mutableState.value.estimateAtListPrices) return
         mutableState.update { it.copy(estimateAtListPrices = enabled) }
         preferences?.setEstimateAtListPrices(enabled)
+        // Back on: the catalog may have gone stale while off, so the page-open refresh runs now.
+        if (enabled) priceCatalogs?.refreshIfDue()
         publishJob?.cancel()
         publishJob = viewModelScope.launch { publish() }
     }
