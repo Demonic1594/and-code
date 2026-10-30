@@ -49,7 +49,7 @@ internal fun summarizeSessionUsage(
             info.tokens.cache?.write ?: 0L,
         )
     }
-    val estimates = if (catalog == null) emptyList() else assistant.mapNotNull(::estimateOf)
+    val estimates = if (catalog == null) emptyList() else assistant.mapNotNull { estimateOf(it.info) }
     return SessionUsage(
         inputTokens = withTokens.sumOf { it.input },
         outputTokens = withTokens.sumOf { it.output },
