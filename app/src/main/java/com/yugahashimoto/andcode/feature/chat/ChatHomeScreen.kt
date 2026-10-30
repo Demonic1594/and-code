@@ -337,6 +337,20 @@ fun ChatHomeScreen(
             if (bitmap != null) onImageAttachment(bitmap) else showAttachFailure()
         }
     }
+
+    /**
+     * Attaches an image the keyboard itself delivered. [permissionAnchor] is the delivery's
+     * platform payload, carried but never read: the platform revokes the keyboard's URI grant
+     * once that payload is garbage-collected, so it stays reachable for the whole asynchronous
+     * read — without it, a collection between delivery and read turns into an attach failure.
+     */
+    suspend fun attachDeliveredImages(
+        clip: android.content.ClipData,
+        permissionAnchor: Any?,
+    ) {
+        val uris = clip.imageUris(context.contentResolver)
+        if (uris.isEmpty()) showAttachFailure() else attachImageUris(uris)
+    }
     val galleryLauncher =
         rememberLauncherForActivityResult(
             ActivityResultContracts.PickMultipleVisualMedia(),
@@ -919,12 +933,11 @@ fun ChatHomeScreen(
                             if (uris.isEmpty()) showAttachFailure() else attachImageUris(uris)
                         }
                     },
-                    onReceiveImageContent = { clip ->
+                    onReceiveImageContent = { clip, permissionAnchor ->
                         // The keyboard delivered the image itself; the same import path as a
                         // clipboard paste, only the clip's origin differs.
                         coroutineScope.launch {
-                            val uris = clip.imageUris(context.contentResolver)
-                            if (uris.isEmpty()) showAttachFailure() else attachImageUris(uris)
+                            attachDeliveredImages(clip, permissionAnchor)
                         }
                     },
                 )

@@ -152,8 +152,13 @@ internal fun ChatComposer(
     onCameraLaunch: () -> Unit,
     onGalleryLaunch: () -> Unit,
     onPasteImage: () -> Unit,
-    /** An image the keyboard itself delivered (Gboard's clipboard chip), as a clip to attach. */
-    onReceiveImageContent: (ClipData) -> Unit = {},
+    /**
+     * An image the keyboard itself delivered (Gboard's clipboard chip), as a clip to attach.
+     * The second parameter is the delivery's platform payload: it carries the URI permission
+     * grant for keyboard-delivered content, which the platform revokes once the payload is
+     * garbage-collected — the receiver must hold it until the image has been read.
+     */
+    onReceiveImageContent: (clip: ClipData, permissionAnchor: Any?) -> Unit = { _, _ -> },
 ) {
     val input = inputValue.text
     val voiceActive = isListening || isSpeechProcessing
@@ -313,7 +318,7 @@ internal fun ChatComposer(
                                                         hasImage = content.hasMediaType(MediaType.Image),
                                                     )
                                                 ) {
-                                                    onReceiveImageContent(content.clipEntry.clipData)
+                                                    onReceiveImageContent(content.clipEntry.clipData, content.platformTransferableContent)
                                                     null // Consumed: the image became an attachment.
                                                 } else {
                                                     content
