@@ -6,8 +6,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.content.PredefinedTransferContentTypes
-import androidx.compose.foundation.content.ReceiveContent
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.receiveContent
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -302,18 +299,13 @@ internal fun ChatComposer(
                                     // as rich content through the input connection, not the clipboard;
                                     // without a receiver the keyboard refuses ("does not support image
                                     // pasting here") before the app is ever asked.
-                                    .receiveContent(
-                                        receiveContent =
-                                            ReceiveContent(transferContentTypes = PredefinedTransferContentTypes.ImageOnly) { content ->
-                                                val clip = content.clipEntry.clipData
-                                                // Text wins over the image, the way shouldPasteImage
-                                                // already decides for the clipboard paths.
-                                                if (shouldPasteImage(
-                                                        hasText = clip.description.hasMimeType(TEXT_WILDCARD),
-                                                        hasImage = true,
-                                                    )
-                                                ) {
-                                                    onReceiveImageContent(clip)
+                                    // Text still wins over an image, the way shouldPasteImage decides
+                                    // for the clipboard paths.
+                                    .contentReceiver(
+                                        receiveContentListener =
+                                            ReceiveContentListener { content ->
+                                                if (!content.hasMediaType(MediaType.Text) && content.hasMediaType(MediaType.Image)) {
+                                                    onReceiveImageContent(content.clipEntry.clipData)
                                                     null // Consumed: the image became an attachment.
                                                 } else {
                                                     content
@@ -602,6 +594,3 @@ private fun AttachButton(onClick: () -> Unit) {
         }
     }
 }
-
-/** Any text flavor counts as text, the way the clipboard paths treat it; text wins over an image. */
-private const val TEXT_WILDCARD = "text/*"
