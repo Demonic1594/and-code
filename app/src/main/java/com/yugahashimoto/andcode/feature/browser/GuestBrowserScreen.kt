@@ -1,11 +1,14 @@
 package com.yugahashimoto.andcode.feature.browser
 
 import android.annotation.SuppressLint
+import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -31,13 +35,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.yugahashimoto.andcode.BuildConfig
 import com.yugahashimoto.andcode.R
+
+private const val TAG = "GuestBrowser"
 
 /** In-app browser for pages served inside the guest runtime (e.g. http://127.0.0.1:PORT/). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,6 +59,7 @@ fun GuestBrowserScreen(
     var canGoBack by remember { mutableStateOf(false) }
     var canGoForward by remember { mutableStateOf(false) }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    var webViewUnavailable by remember { mutableStateOf(false) }
 
     BackHandler {
         val view = webView
@@ -74,45 +83,79 @@ fun GuestBrowserScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            GuestBrowserUrlBar(
-                urlInput = urlInput,
-                onUrlChange = { urlInput = it },
-                onGo = { webView?.loadUrl(normalizeUrl(urlInput)) },
-            )
+            if (!webViewUnavailable) {
+                GuestBrowserUrlBar(
+                    urlInput = urlInput,
+                    onUrlChange = { urlInput = it },
+                    onGo = { webView?.loadUrl(normalizeUrl(urlInput)) },
+                )
+            }
             if (progress in 1..99) {
                 LinearProgressIndicator(progress = { progress / 100f })
             }
-            AndroidView(
-                // WebView can draw its background outside its measured bounds, covering the URL
-                // field even while that field still accepts focus and keyboard input.
-                modifier = Modifier.weight(1f).clipToBounds(),
-                factory = { context ->
-                    // Lets the in-guest agent drive this WebView over CDP (the devtools abstract
-                    // socket is reachable from the guest, which shares the app's UID), so a page
-                    // can be shown to the user and operated by human and agent at the same time.
-                    WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
-                    WebView(context).apply {
-                        layoutParams =
-                            ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT,
+            if (webViewUnavailable) {
+                WebViewUnavailableNotice(modifier = Modifier.weight(1f).fillMaxWidth())
+            } else {
+                AndroidView(
+                    // WebView can draw its background outside its measured bounds, covering the URL
+                    // field even while that field still accepts focus and keyboard input.
+                    modifier = Modifier.weight(1f).clipToBounds(),
+                    factory = { context ->
+                        // Only starting the system WebView provider can fail for reasons the app cannot
+                        // fix; everything after it runs on a WebView that exists, so a failure there is
+                        // a real bug and must not leave a half-built view behind.
+                        val created =
+                            viewOrNull(
+                                create = {
+                                    // Lets the in-guest agent drive this WebView over CDP (the devtools abstract
+                                    // socket is reachable from the guest, which shares the app's UID), so a page
+                                    // can be shown to the user and operated by human and agent at the same time.
+                                    WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+                                    WebView(context)
+                                },
+                                onFailure = { error -> Log.w(TAG, "The system WebView could not start", error) },
                             )
-                        configure(
-                            onProgress = { progress = it },
-                            onNavigationStateChange = { url, back, forward ->
-                                urlInput = url
-                                canGoBack = back
-                                canGoForward = forward
-                            },
-                        )
-                        webView = this
-                        if (initialUrl.isNotBlank()) {
-                            loadUrl(normalizeUrl(initialUrl))
+                        if (created == null) {
+                            webViewUnavailable = true
+                            View(context)
+                        } else {
+                            created.apply {
+                                layoutParams =
+                                    ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                    )
+                                configure(
+                                    onProgress = { progress = it },
+                                    onNavigationStateChange = { url, back, forward ->
+                                        urlInput = url
+                                        canGoBack = back
+                                        canGoForward = forward
+                                    },
+                                )
+                                webView = this
+                                if (initialUrl.isNotBlank()) {
+                                    loadUrl(normalizeUrl(initialUrl))
+                                }
+                            }
                         }
-                    }
-                },
-            )
+                    },
+                )
+            }
         }
+    }
+}
+
+/** Shown instead of the page when the system WebView cannot start, which the app cannot repair. */
+@Composable
+private fun WebViewUnavailableNotice(modifier: Modifier = Modifier) {
+    Box(modifier = modifier.padding(24.dp), contentAlignment = Alignment.Center) {
+        Text(
+            text = stringResource(R.string.guest_browser_webview_unavailable),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
