@@ -191,7 +191,6 @@ fun CodeEditor(
                 },
     ) {
         val textViewport = maxWidth - gutterWidth
-        val layout = state.layout
         val gutterWidthPx = with(density) { gutterWidth.toPx() }
         // The gutter is drawn behind the row rather than laid out as a column of the text's height:
         // a long document (wrapped prose above all) is taller than any height Compose constraints can
@@ -204,7 +203,8 @@ fun CodeEditor(
                     .drawBehind {
                         drawGutter(
                             lineStarts = lineStarts,
-                            layout = layout,
+                            // Read here, not captured: the layout the text drew with this frame.
+                            layout = state.layout,
                             cursor = cursor,
                             palette = palette,
                             style = gutterStyle,

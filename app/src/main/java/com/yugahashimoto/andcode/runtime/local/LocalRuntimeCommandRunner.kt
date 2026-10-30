@@ -142,22 +142,22 @@ class LocalRuntimeCommandRunner(
 
     internal companion object {
         /**
-         * The first [maxCharacters] of [file], and whether there was more. A multibyte character cut
-         * at the window's end decodes to one replacement character, which [take] then drops when the
-         * window holds more characters than asked for.
+         * The first [maxCharacters] of [file], and whether there was more.
          */
         internal fun readHead(
             file: File,
             maxCharacters: Int,
         ): Pair<String, Boolean> {
-            val maxBytes = (maxCharacters.toLong() * 4).coerceAtLeast(16L)
-            RandomAccessFile(file, "r").use { raf ->
-                val length = raf.length()
-                val window = maxBytes.coerceAtMost(length)
-                val bytes = ByteArray(window.toInt())
-                raf.readFully(bytes)
-                val text = bytes.decodeToString()
-                return text.take(maxCharacters) to (window < length || text.length > maxCharacters)
+            // One character past the limit tells whether there was more, without reading the rest.
+            file.reader(Charsets.UTF_8).use { reader ->
+                val buffer = CharArray(maxCharacters + 1)
+                var read = 0
+                while (read < buffer.size) {
+                    val n = reader.read(buffer, read, buffer.size - read)
+                    if (n < 0) break
+                    read += n
+                }
+                return String(buffer, 0, minOf(read, maxCharacters)) to (read > maxCharacters)
             }
         }
 

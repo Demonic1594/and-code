@@ -225,6 +225,8 @@ class GitClientTest {
             assertTrue(details.filesIncomplete)
             assertTrue(details.files.isNotEmpty())
             assertTrue(details.files.all { it.status == 'A' && it.path.startsWith("many/") })
+            // The record the cut went through is dropped, not shown as a shortened path.
+            assertTrue(details.files.all { it.path.endsWith(".txt") })
         }
 
     @Test

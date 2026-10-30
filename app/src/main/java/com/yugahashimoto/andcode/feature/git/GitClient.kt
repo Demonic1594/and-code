@@ -108,7 +108,7 @@ class GitClient(
     private val run: (command: String, timeoutSeconds: Long, window: GitOutputWindow) -> LocalRuntimeCommandResult,
 ) {
     suspend fun status(directory: String): Result<GitStatus> =
-        exec(git(directory, "status --porcelain=v1 -b -z --untracked-files=all"), trim = false).map(::parseStatus)
+        exec(git(directory, "status --porcelain=v1 -b -z --untracked-files=all"), trim = false, dropCutRecord = true).map(::parseStatus)
 
     /**
      * The diff of one file: what is staged when [staged], what is not otherwise. A file git has never
@@ -203,7 +203,7 @@ class GitClient(
                 LISTING,
             )
         val commit = parseLog(header).firstOrNull() ?: return Result.failure(WorkspaceShellException("bad commit"))
-        val parsed = parseNameStatus(files?.output.orEmpty())
+        val parsed = parseNameStatus(files?.let { wholeRecords(it.output, it.truncated) }.orEmpty())
         val incomplete = files == null || files.exitCode != 0 || files.truncated || !parsed.complete
         return Result.success(GitCommitDetails(commit, body.trim(), parsed.files, filesIncomplete = incomplete))
     }
@@ -333,9 +333,13 @@ class GitClient(
         command: String,
         timeoutSeconds: Long = DEFAULT_TIMEOUT_SECONDS,
         trim: Boolean = true,
+        dropCutRecord: Boolean = false,
     ): Result<String> =
         withContext(ioDispatcher) {
-            val result = run(command, timeoutSeconds, LISTING)
+            val result =
+                run(command, timeoutSeconds, LISTING).let {
+                    if (dropCutRecord) it.copy(output = wholeRecords(it.output, it.truncated)) else it
+                }
             if (result.exitCode == 0) {
                 // status -z output starts with a space when the first file is only changed in the
                 // working tree, so parsed output is never trimmed.
@@ -363,6 +367,16 @@ class GitClient(
         val DIFF = GitOutputWindow(maxCharacters = 400_000, keepStart = true)
 
         private val STATUS_CODE = Regex("[ACDMRTUXB]|[RC][0-9]{1,3}")
+
+        /**
+         * A `-z` listing cut at the limit, without its last, half-read record: kept, a path cut
+         * short would show as a file that does not exist (or repeat a real one).
+         */
+        internal fun wholeRecords(
+            output: String,
+            truncated: Boolean,
+        ): String = if (truncated) output.substring(0, output.lastIndexOf('\u0000') + 1) else output
+
         private const val UNIT = '\u001f'
         private const val RECORD = '\u001e'
         private const val ALL_PATHS = "':/' ':(exclude,glob)**/.andcode-attachments/**' ':(exclude,glob)**/*.andcode-save'"

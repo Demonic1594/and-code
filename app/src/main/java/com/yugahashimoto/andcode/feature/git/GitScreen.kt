@@ -1033,11 +1033,12 @@ private fun DiffScreen(
                         modifier = Modifier.padding(Spacing.lg),
                     )
                 else ->
-                    LazyColumn(modifier = Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
-                        if (diff.truncated) {
-                            item { GitNotice(stringResource(R.string.git_diff_truncated)) }
+                    // The notice sits above the list, which scrolls sideways and would not wrap it.
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        if (diff.truncated) GitNotice(stringResource(R.string.git_diff_truncated))
+                        LazyColumn(modifier = Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
+                            items(parsed.rows.size) { index -> DiffLine(parsed.rows[index]) }
                         }
-                        items(parsed.rows.size) { index -> DiffLine(parsed.rows[index]) }
                     }
             }
         }
