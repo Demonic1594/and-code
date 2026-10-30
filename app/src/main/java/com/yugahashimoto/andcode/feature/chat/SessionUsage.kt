@@ -31,6 +31,7 @@ internal fun summarizeSessionUsage(
     val withTokens = assistant.mapNotNull { it.info.tokens }
     if (withTokens.isEmpty()) return null
     val costs = assistant.mapNotNull { it.info.cost }
+
     // Turns the runtime priced at nothing or not at all are the ones a catalog estimates.
     fun estimateOf(info: com.yugahashimoto.andcode.core.api.OpenCodeMessageInfo): Double? {
         val price = catalog ?: return null

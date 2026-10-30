@@ -26,9 +26,9 @@ import com.yugahashimoto.andcode.data.repository.AndroidRuntimeActivityMessages
 import com.yugahashimoto.andcode.data.repository.AndroidRuntimeCatalogMessages
 import com.yugahashimoto.andcode.data.repository.ChatLifecycleRepository
 import com.yugahashimoto.andcode.data.repository.MessageSearchRepository
+import com.yugahashimoto.andcode.data.repository.PriceCatalogRepository
 import com.yugahashimoto.andcode.data.repository.ProviderCatalogCache
 import com.yugahashimoto.andcode.data.repository.PullRequestStatusRepository
-import com.yugahashimoto.andcode.data.repository.PriceCatalogRepository
 import com.yugahashimoto.andcode.data.repository.RuntimeActivityRepository
 import com.yugahashimoto.andcode.data.repository.RuntimeCatalogRepository
 import com.yugahashimoto.andcode.data.repository.SessionAutoArchiver

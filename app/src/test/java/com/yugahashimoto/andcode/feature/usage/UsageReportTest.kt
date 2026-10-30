@@ -192,7 +192,6 @@ class UsageReportTest {
         assertEquals(1, UsageReport.build(listOf(untracked), UsageRange.ALL, now, zone).untrackedChats)
     }
 
-
     @Test
     fun `turns the runtime priced at nothing get a list-price estimate, reported ones do not`() {
         val catalog =

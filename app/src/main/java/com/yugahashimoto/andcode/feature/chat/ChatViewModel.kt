@@ -8,7 +8,6 @@ import com.yugahashimoto.andcode.core.api.ConnectionQuality
 import com.yugahashimoto.andcode.core.api.ConnectionQualityMonitor
 import com.yugahashimoto.andcode.core.api.OpenCodeCommand
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
-import com.yugahashimoto.andcode.core.pricing.PriceCatalog
 import com.yugahashimoto.andcode.core.api.OpenCodeFileChange
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
 import com.yugahashimoto.andcode.core.api.OpenCodeMessageError
@@ -29,6 +28,7 @@ import com.yugahashimoto.andcode.core.diagnostics.StallReason
 import com.yugahashimoto.andcode.core.diagnostics.diagnoseStall
 import com.yugahashimoto.andcode.core.diagnostics.inspectRun
 import com.yugahashimoto.andcode.core.diagnostics.provesRunProgress
+import com.yugahashimoto.andcode.core.pricing.PriceCatalog
 import com.yugahashimoto.andcode.core.util.safeMessage
 import com.yugahashimoto.andcode.data.repository.PullRequestStatusRepository
 import com.yugahashimoto.andcode.data.settings.Draft

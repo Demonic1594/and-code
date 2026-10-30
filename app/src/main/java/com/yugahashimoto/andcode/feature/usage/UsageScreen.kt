@@ -335,7 +335,10 @@ private fun SummaryCard(
                 }
                 priceListDateMillis?.let { millis ->
                     Text(
-                        stringResource(R.string.usage_estimate_as_of, java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM).format(java.util.Date(millis))),
+                        stringResource(
+                            R.string.usage_estimate_as_of,
+                            java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM).format(java.util.Date(millis)),
+                        ),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

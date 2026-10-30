@@ -55,10 +55,11 @@ data class PriceCatalog(
         cacheWrite: Long,
     ): Double? {
         val price = priceOf(providerId, modelId) ?: return null
-        return (input * price.input +
-            (output + reasoning) * price.output +
-            cacheRead * price.cacheRead +
-            cacheWrite * price.cacheWrite
+        return (
+            input * price.input +
+                (output + reasoning) * price.output +
+                cacheRead * price.cacheRead +
+                cacheWrite * price.cacheWrite
         ) / 1_000_000.0
     }
 
@@ -79,25 +80,34 @@ data class PriceCatalog(
         ): PriceCatalog? =
             runCatching {
                 val root = json.parseToJsonElement(text).let { it as? kotlinx.serialization.json.JsonObject } ?: return null
-                val prices = buildMap {
-                    for ((providerId, provider) in root) {
-                        if (providerId.startsWith("_")) continue
-                        val models = (provider as? kotlinx.serialization.json.JsonObject)?.get("models") as? kotlinx.serialization.json.JsonObject ?: continue
-                        val priced = buildMap {
-                            for ((modelId, model) in models) {
-                                val cost = (model as? kotlinx.serialization.json.JsonObject)?.get("cost") as? kotlinx.serialization.json.JsonObject ?: continue
-                                val price = ModelPrice(
-                                    input = cost.doubleOf("input") ?: 0.0,
-                                    output = cost.doubleOf("output") ?: 0.0,
-                                    cacheRead = cost.doubleOf("cache_read") ?: 0.0,
-                                    cacheWrite = cost.doubleOf("cache_write") ?: 0.0,
-                                )
-                                if (price.priced) put(modelId, price)
-                            }
+                val prices =
+                    buildMap {
+                        for ((providerId, provider) in root) {
+                            if (providerId.startsWith("_")) continue
+                            val models =
+                                (provider as? kotlinx.serialization.json.JsonObject)?.get(
+                                    "models",
+                                ) as? kotlinx.serialization.json.JsonObject ?: continue
+                            val priced =
+                                buildMap {
+                                    for ((modelId, model) in models) {
+                                        val cost =
+                                            (model as? kotlinx.serialization.json.JsonObject)?.get(
+                                                "cost",
+                                            ) as? kotlinx.serialization.json.JsonObject ?: continue
+                                        val price =
+                                            ModelPrice(
+                                                input = cost.doubleOf("input") ?: 0.0,
+                                                output = cost.doubleOf("output") ?: 0.0,
+                                                cacheRead = cost.doubleOf("cache_read") ?: 0.0,
+                                                cacheWrite = cost.doubleOf("cache_write") ?: 0.0,
+                                            )
+                                        if (price.priced) put(modelId, price)
+                                    }
+                                }
+                            if (priced.isNotEmpty()) put(providerId, priced)
                         }
-                        if (priced.isNotEmpty()) put(providerId, priced)
                     }
-                }
                 PriceCatalog(fetchedAt = fetchedAt, prices = prices)
             }.getOrNull()
 
