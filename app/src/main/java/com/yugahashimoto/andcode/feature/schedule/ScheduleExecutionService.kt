@@ -464,6 +464,13 @@ class ScheduleExecutionService : Service() {
         var progressMark: String? = null
         while (true) {
             delay(TRANSCRIPT_POLL_INTERVAL_MS)
+            // While the event stream is up and the runtime reports idle on its own
+            // (RuntimeCapabilities.reliableIdleEvents), this poll has nothing to add: the stream
+            // watcher settles the run and marks progress itself. Sleeping until the stream
+            // actually dies keeps a healthy hours-long run from re-reading its whole transcript —
+            // base64 attachments included — every 30 seconds. The first read after a stream death
+            // happens on this same tick, so the fallback loses no time.
+            if (state.streamFailure == null && target.capabilities.reliableIdleEvents) continue
             val messages =
                 runCatching { target.listMessages(run.sessionId) }
                     .onFailure { error -> Log.w(TAG, "Could not read the run transcript", error) }

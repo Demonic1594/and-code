@@ -25,15 +25,18 @@ class GitCloneRepository(
     fun clone(
         url: String,
         name: String,
-    ): GitCloneResult =
-        accessCoordinator.read {
-            val sanitizedName = name.trim().trimStart('.', '/').replace(Regex("[^a-zA-Z0-9._-]"), "_")
-            if (sanitizedName.isBlank() || sanitizedName.contains("..")) {
-                return@read GitCloneResult(1, "", "Invalid repository name: $name")
-            }
-            val runtime =
-                installedRuntimeProvider()
-                    ?: return@read GitCloneResult(127, "", "Runtime is not installed")
+    ): GitCloneResult {
+        val sanitizedName = name.trim().trimStart('.', '/').replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        if (sanitizedName.isBlank() || sanitizedName.contains("..")) {
+            return GitCloneResult(1, "", "Invalid repository name: $name")
+        }
+        // Resolved before the read lock for the same reason as in
+        // [LocalRuntimeCommandRunner.runShell]: the production provider takes the write lock on
+        // the shared coordinator, and a read-to-write upgrade deadlocks the calling thread.
+        val runtime =
+            installedRuntimeProvider()
+                ?: return GitCloneResult(127, "", "Runtime is not installed")
+        return accessCoordinator.read {
             val workspace = File(runtimeDirectory, "workspace").apply { mkdirs() }
             val prootTmp = File(runtimeDirectory, "proot-tmp").apply { mkdirs() }
             val target = "/workspace/$sanitizedName"
@@ -88,6 +91,9 @@ class GitCloneRepository(
                 if (!completed) {
                     process.destroyForcibly()
                     process.waitFor(2, TimeUnit.SECONDS)
+                    // A timed-out clone's guest git would otherwise keep writing into the shared
+                    // workspace with its tracer gone. See [killManagedProcessTrees].
+                    runCatching { killManagedProcessTrees(runtimeDirectory, process) }
                     GitCloneResult(124, target, "Clone timed out")
                 } else {
                     GitCloneResult(
@@ -100,6 +106,7 @@ class GitCloneRepository(
                 outputFile.delete()
             }
         }
+    }
 
     private fun shellQuote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
 }
