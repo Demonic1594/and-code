@@ -38,6 +38,45 @@ internal fun <T> openWithRecovery(
     return fallback()
 }
 
+/**
+ * Opens the app's encrypted files through [openWithRecovery] and remembers what that learned.
+ *
+ * Two facts must outlive a single call, and both exist because the app builds more than one
+ * repository on the same file (the Application and Koin each construct a settings repository):
+ *
+ * - A file that fell back keeps one shared fallback. Real preferences are shared per file, so two
+ *   callers must see each other's writes even in the degraded mode; separate fallbacks would let
+ *   one caller save a token the other never reads. It also means the repairs, which delete data,
+ *   are not run a second time for a file already known to be unavailable.
+ * - Once any file has opened, the master key is known to work, so a later failure is that file's own
+ *   problem. The key is shared by every encrypted file, and replacing it would destroy the files
+ *   that are fine.
+ *
+ * Calls are serialized so concurrent callers cannot repair the same file twice.
+ */
+internal class RecoveringOpener<T : Any>(
+    private val createFallback: (name: String) -> T,
+) {
+    private val fallbacks = HashMap<String, T>()
+    private var masterKeyProvenUsable = false
+
+    @Synchronized
+    fun open(
+        name: String,
+        create: () -> T,
+        discardStoredPreferences: () -> Unit,
+        discardMasterKey: () -> Unit,
+    ): T {
+        fallbacks[name]?.let { return it }
+        return openWithRecovery(
+            open = { create().also { masterKeyProvenUsable = true } },
+            discardStoredPreferences = discardStoredPreferences,
+            discardMasterKey = { if (!masterKeyProvenUsable) discardMasterKey() },
+            fallback = { createFallback(name).also { fallbacks[name] = it } },
+        )
+    }
+}
+
 private fun <T> tryOpen(open: () -> T): Result<T> =
     try {
         Result.success(open())

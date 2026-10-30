@@ -493,6 +493,12 @@ class SecureSettingsRepository(context: Context) : RuntimeConnectionStore, Unrea
         set(value) = preferences.edit().putInt(KEY_AUTO_ARCHIVE_MAX_SESSIONS, value).apply()
 
     companion object {
+        /**
+         * Reads the saved app language before the Application exists, so it opens the file itself.
+         * When the Keystore is unusable the repository keeps its settings in memory only (see
+         * [EncryptedPreferences]), so nothing is on disk to read and this returns "system": the
+         * language picker does not stick on such a device, like every other setting.
+         */
         fun readLanguage(context: Context): String =
             runCatching {
                 val masterKey =

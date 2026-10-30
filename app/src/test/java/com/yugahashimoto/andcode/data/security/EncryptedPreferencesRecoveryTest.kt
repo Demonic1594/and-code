@@ -58,7 +58,10 @@ class EncryptedPreferencesRecoveryTest {
     fun `a keystore that cannot be repaired falls back instead of crashing the app`() {
         assertEquals("in-memory", recover(failuresBeforeSuccess = Int.MAX_VALUE))
 
-        assertEquals("fallback", steps.last())
+        assertEquals(
+            listOf("open", "discardPreferences", "open", "discardPreferences", "discardMasterKey", "open", "fallback"),
+            steps,
+        )
     }
 
     @Test
@@ -66,12 +69,21 @@ class EncryptedPreferencesRecoveryTest {
         val result =
             recover(
                 failuresBeforeSuccess = 2,
-                discardPreferences = { throw java.io.IOException("cannot delete") },
-                discardMasterKey = { throw java.security.KeyStoreException("cannot delete") },
+                discardPreferences = {
+                    steps += "discardPreferences"
+                    throw java.io.IOException("cannot delete")
+                },
+                discardMasterKey = {
+                    steps += "discardMasterKey"
+                    throw java.security.KeyStoreException("cannot delete")
+                },
             )
 
         assertEquals("encrypted", result)
-        assertEquals(listOf("open", "open", "open"), steps)
+        assertEquals(
+            listOf("open", "discardPreferences", "open", "discardPreferences", "discardMasterKey", "open"),
+            steps,
+        )
     }
 
     @Test

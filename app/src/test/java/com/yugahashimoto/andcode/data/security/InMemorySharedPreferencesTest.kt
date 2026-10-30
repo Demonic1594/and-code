@@ -82,6 +82,27 @@ class InMemorySharedPreferencesTest {
     }
 
     @Test
+    fun `a clear wipes what was stored but keeps what the same batch puts, whatever the call order`() {
+        preferences.edit().putString("old", "1").commit()
+
+        preferences.edit().putString("kept", "2").clear().commit()
+
+        assertFalse(preferences.contains("old"))
+        assertEquals("2", preferences.getString("kept", null))
+    }
+
+    @Test
+    fun `an editor that was already committed does not replay its old changes`() {
+        val editor = preferences.edit().putString("a", "1")
+        editor.commit()
+        preferences.edit().remove("a").commit()
+
+        editor.commit()
+
+        assertFalse(preferences.contains("a"))
+    }
+
+    @Test
     fun `string sets are copied on the way in and on the way out`() {
         val source = mutableSetOf("a")
         preferences.edit().putStringSet("set", source).commit()

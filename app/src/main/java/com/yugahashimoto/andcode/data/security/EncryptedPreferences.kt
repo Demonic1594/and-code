@@ -10,31 +10,29 @@ import java.security.KeyStore
 /**
  * Opens the app's encrypted preference files without ever failing the caller.
  *
- * See [openWithRecovery] for why this must not throw. The preferences are encrypted with a master
- * key shared by every file, which is why the key is only discarded when no encrypted file has opened
- * in this process: a file that did open proves the key works, so a later failure is that file's own
- * problem and replacing the key would only destroy the files that are fine.
+ * See [openWithRecovery] for why this must not throw and [RecoveringOpener] for what is remembered
+ * between calls. This object is only the Android side: the Keystore and file operations.
  */
 object EncryptedPreferences {
     private const val TAG = "EncryptedPreferences"
     private const val ANDROID_KEYSTORE = "AndroidKeyStore"
 
-    @Volatile
-    private var masterKeyProvenUsable = false
+    private val opener =
+        RecoveringOpener<SharedPreferences> { name ->
+            Log.e(TAG, "Encrypted preferences '$name' are unavailable; settings will not be saved")
+            InMemorySharedPreferences()
+        }
 
     /** Returns the encrypted preferences [name], or an [InMemorySharedPreferences] if none can be had. */
     fun open(
         context: Context,
         name: String,
     ): SharedPreferences =
-        openWithRecovery(
-            open = { create(context, name) },
+        opener.open(
+            name = name,
+            create = { create(context, name) },
             discardStoredPreferences = { context.deleteSharedPreferences(name) },
-            discardMasterKey = { if (!masterKeyProvenUsable) deleteMasterKey() },
-            fallback = {
-                Log.e(TAG, "Encrypted preferences '$name' are unavailable; settings will not be saved")
-                InMemorySharedPreferences()
-            },
+            discardMasterKey = ::deleteMasterKey,
         )
 
     private fun create(
@@ -50,7 +48,7 @@ object EncryptedPreferences {
                 masterKey,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-            ).also { masterKeyProvenUsable = true }
+            )
         } catch (error: Exception) {
             Log.w(TAG, "Encrypted preferences '$name' failed to open", error)
             throw error
