@@ -919,6 +919,14 @@ fun ChatHomeScreen(
                             if (uris.isEmpty()) showAttachFailure() else attachImageUris(uris)
                         }
                     },
+                    onReceiveImageContent = { clip ->
+                        // The keyboard delivered the image itself; the same import path as a
+                        // clipboard paste, only the clip's origin differs.
+                        coroutineScope.launch {
+                            val uris = clip.imageUris(context.contentResolver)
+                            if (uris.isEmpty()) showAttachFailure() else attachImageUris(uris)
+                        }
+                    },
                 )
             }
         }

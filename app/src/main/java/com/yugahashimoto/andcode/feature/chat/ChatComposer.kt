@@ -2,8 +2,11 @@ package com.yugahashimoto.andcode.feature.chat
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.content.PredefinedTransferContentTypes
+import androidx.compose.foundation.content.ReceiveContent
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.receiveContent
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -89,6 +93,7 @@ import com.yugahashimoto.andcode.ui.components.VolumeMeter
 import com.yugahashimoto.andcode.ui.theme.AppShapes
 import com.yugahashimoto.andcode.ui.theme.Spacing
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ChatComposer(
     inputValue: TextFieldValue,
@@ -145,6 +150,8 @@ internal fun ChatComposer(
     onCameraLaunch: () -> Unit,
     onGalleryLaunch: () -> Unit,
     onPasteImage: () -> Unit,
+    /** An image the keyboard itself delivered (Gboard's clipboard chip), as a clip to attach. */
+    onReceiveImageContent: (android.content.ClipData) -> Unit = {},
 ) {
     val input = inputValue.text
     val voiceActive = isListening || isSpeechProcessing
@@ -290,6 +297,31 @@ internal fun ChatComposer(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
+                                    // The keyboard's own image paste (Gboard's clipboard chip) arrives
+                                    // as rich content through the input connection, not the clipboard;
+                                    // without a receiver the keyboard refuses ("does not support image
+                                    // pasting here") before the app is ever asked.
+                                    .receiveContent(
+                                        receiveContent =
+                                            ReceiveContent(transferContentTypes = PredefinedTransferContentTypes.ImageOnly) { content ->
+                                                val clip = content.clipEntry.clipData
+                                                // Text wins over the image, the way shouldPasteImage
+                                                // already decides for the clipboard paths.
+                                                if (shouldPasteImage(
+                                                        hasText =
+                                                            clip.description.hasMimeType(
+                                                                android.content.ClipDescription.MIMETYPE_TEXT_PLAIN,
+                                                            ),
+                                                        hasImage = true,
+                                                    )
+                                                ) {
+                                                    onReceiveImageContent(clip)
+                                                    null // Consumed: the image became an attachment.
+                                                } else {
+                                                    content
+                                                }
+                                            },
+                                    )
                                     .testTag("chat-message-input")
                                     .onPreviewKeyEvent { event ->
                                         val pasteImage =
