@@ -84,7 +84,7 @@ knows why those rows estimate nothing, not because this plan does it.
 
 **Task 1 — catalog core**: the filtered parser, lookup with the zero-price fallback, unit
 tests on a trimmed fixture (exact hit, all-zero plan entry → first-party fallback, miss, cache
-fields).
+fields, reasoning priced at the output rate).
 
 **Task 2 — updater**: background refresh with weekly staleness, atomic replace, date kept,
 failure keeps the old copy; tests with a fake clock and a fake fetch.
