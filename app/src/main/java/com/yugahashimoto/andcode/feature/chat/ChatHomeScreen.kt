@@ -350,6 +350,9 @@ fun ChatHomeScreen(
     ) {
         val uris = clip.imageUris(context.contentResolver)
         if (uris.isEmpty()) showAttachFailure() else attachImageUris(uris)
+        // A virtual call R8 cannot remove, keeping the payload — and its URI grant — reachable
+        // until the reads are done; the practical reachability fence for minSdk 26.
+        permissionAnchor?.hashCode()
     }
     val galleryLauncher =
         rememberLauncherForActivityResult(
