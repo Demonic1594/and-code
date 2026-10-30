@@ -19,12 +19,27 @@ class PlatformViewTest {
         // The WebView provider's resource registration failed on a vivo device and surfaced as a
         // RuntimeException wrapping a Resources.NotFoundException.
         val refusal = RuntimeException("failed to redirect ResourcesImpl", IllegalStateException("not found"))
-        val reported = mutableListOf<Exception>()
+        val reported = mutableListOf<Throwable>()
 
         val view = viewOrNull<Any>(create = { throw refusal }, onFailure = { reported += it })
 
         assertNull(view)
-        assertEquals(listOf<Exception>(refusal), reported)
+        assertEquals(listOf<Throwable>(refusal), reported)
+    }
+
+    @Test
+    fun `a provider whose native code fails to load is also a missing view`() {
+        // The provider's classes and libraries can fail to load, which arrives as a LinkageError.
+        val reported = mutableListOf<Throwable>()
+
+        val view =
+            viewOrNull<Any>(
+                create = { throw UnsatisfiedLinkError("libwebviewchromium.so") },
+                onFailure = { reported += it },
+            )
+
+        assertNull(view)
+        assertEquals(1, reported.size)
     }
 
     @Test

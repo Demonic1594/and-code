@@ -83,11 +83,13 @@ fun GuestBrowserScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            GuestBrowserUrlBar(
-                urlInput = urlInput,
-                onUrlChange = { urlInput = it },
-                onGo = { webView?.loadUrl(normalizeUrl(urlInput)) },
-            )
+            if (!webViewUnavailable) {
+                GuestBrowserUrlBar(
+                    urlInput = urlInput,
+                    onUrlChange = { urlInput = it },
+                    onGo = { webView?.loadUrl(normalizeUrl(urlInput)) },
+                )
+            }
             if (progress in 1..99) {
                 LinearProgressIndicator(progress = { progress / 100f })
             }
@@ -99,34 +101,44 @@ fun GuestBrowserScreen(
                     // field even while that field still accepts focus and keyboard input.
                     modifier = Modifier.weight(1f).clipToBounds(),
                     factory = { context ->
-                        viewOrNull(
-                            create = {
-                                // Lets the in-guest agent drive this WebView over CDP (the devtools abstract
-                                // socket is reachable from the guest, which shares the app's UID), so a page
-                                // can be shown to the user and operated by human and agent at the same time.
-                                WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
-                                WebView(context).apply {
-                                    layoutParams =
-                                        ViewGroup.LayoutParams(
-                                            ViewGroup.LayoutParams.MATCH_PARENT,
-                                            ViewGroup.LayoutParams.MATCH_PARENT,
-                                        )
-                                    configure(
-                                        onProgress = { progress = it },
-                                        onNavigationStateChange = { url, back, forward ->
-                                            urlInput = url
-                                            canGoBack = back
-                                            canGoForward = forward
-                                        },
+                        // Only starting the system WebView provider can fail for reasons the app cannot
+                        // fix; everything after it runs on a WebView that exists, so a failure there is
+                        // a real bug and must not leave a half-built view behind.
+                        val created =
+                            viewOrNull(
+                                create = {
+                                    // Lets the in-guest agent drive this WebView over CDP (the devtools abstract
+                                    // socket is reachable from the guest, which shares the app's UID), so a page
+                                    // can be shown to the user and operated by human and agent at the same time.
+                                    WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+                                    WebView(context)
+                                },
+                                onFailure = { error -> Log.w(TAG, "The system WebView could not start", error) },
+                            )
+                        if (created == null) {
+                            webViewUnavailable = true
+                            View(context)
+                        } else {
+                            created.apply {
+                                layoutParams =
+                                    ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
                                     )
-                                    webView = this
-                                    if (initialUrl.isNotBlank()) {
-                                        loadUrl(normalizeUrl(initialUrl))
-                                    }
+                                configure(
+                                    onProgress = { progress = it },
+                                    onNavigationStateChange = { url, back, forward ->
+                                        urlInput = url
+                                        canGoBack = back
+                                        canGoForward = forward
+                                    },
+                                )
+                                webView = this
+                                if (initialUrl.isNotBlank()) {
+                                    loadUrl(normalizeUrl(initialUrl))
                                 }
-                            },
-                            onFailure = { error -> Log.w(TAG, "The system WebView could not start", error) },
-                        ) ?: View(context).also { webViewUnavailable = true }
+                            }
+                        }
                     },
                 )
             }

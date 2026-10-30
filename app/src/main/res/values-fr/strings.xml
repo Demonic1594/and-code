@@ -1210,7 +1210,7 @@
     <string name="guest_browser_back">Retour</string>
     <string name="guest_browser_forward">Avancer</string>
     <string name="guest_browser_reload">Recharger</string>
-    <string name="guest_browser_webview_unavailable">Le navigateur intégré ne peut pas démarrer, car WebView n\'a pas pu se charger sur cet appareil. Mettre à jour ou réactiver Android System WebView peut résoudre le problème.</string>
+    <string name="guest_browser_webview_unavailable">Le navigateur invité ne peut pas démarrer, car WebView n\'a pas pu se charger sur cet appareil. Mettre à jour ou réactiver Android System WebView peut résoudre le problème.</string>
     <string name="setup_step_development_tools">Outils de développement</string>
     <string name="setup_development_tools_description">Installe uniquement le nécessaire par défaut, ou incluez la chaîne complète d’outils.</string>
     <string name="setup_required_tools_description">Linux, les agents sélectionnés, Git et les outils requis par AndCode. Ils sont toujours installés.</string>
