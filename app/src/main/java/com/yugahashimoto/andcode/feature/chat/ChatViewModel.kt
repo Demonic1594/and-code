@@ -1339,7 +1339,7 @@ class ChatViewModel(
                 .onSuccess { messages ->
                     val selectedModel =
                         messages.asReversed()
-                            .firstNotNullOfOrNull { it.info.model }
+                            .firstNotNullOfOrNull { it.info.effectiveModel }
                     _uiState.update { state ->
                         if (state.chatGeneration != generation) {
                             state
