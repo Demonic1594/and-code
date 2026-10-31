@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.security.MessageDigest
 
 /**
@@ -51,6 +52,22 @@ class ShadowSnapshots(
 
     /** Snapshots [workspace] as it is now and returns the snapshot's id, or null when it could not. */
     suspend fun snapshot(workspace: String): String? = lock.withLock { snapshotUnlocked(workspace) }
+
+    /**
+     * Like [snapshot], but gives up when another operation (a restore, from another chat) still holds
+     * the history after [lockWaitMillis]: a message must not wait that long for its restore point.
+     */
+    suspend fun snapshot(
+        workspace: String,
+        lockWaitMillis: Long,
+    ): String? {
+        withTimeoutOrNull(lockWaitMillis) { lock.lock() } ?: return null
+        return try {
+            snapshotUnlocked(workspace)
+        } finally {
+            lock.unlock()
+        }
+    }
 
     private suspend fun snapshotUnlocked(workspace: String): String? =
         withContext(ioDispatcher) {

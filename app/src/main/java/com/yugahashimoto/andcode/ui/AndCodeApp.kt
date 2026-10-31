@@ -92,9 +92,6 @@ import com.yugahashimoto.andcode.feature.workspace.WorkspaceViewModel
 import com.yugahashimoto.andcode.runtime.RuntimeState
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeOperationResult
-import com.yugahashimoto.andcode.runtime.local.ShadowSnapshots
-import com.yugahashimoto.andcode.runtime.local.ShadowTurnSnapshots
-import com.yugahashimoto.andcode.runtime.local.SharedPreferencesTurnSnapshotIndex
 import com.yugahashimoto.andcode.ui.components.LocalHapticsEnabled
 import com.yugahashimoto.andcode.ui.components.SessionStatus
 import com.yugahashimoto.andcode.ui.navigation.ClaudeSettingsActions
@@ -177,15 +174,7 @@ fun AndCodeApp(
     var showDiagnostics by remember { mutableStateOf(false) }
 
     val selectedRuntime by app.runtimeRegistry.selected.collectAsState()
-    val turnSnapshots =
-        remember {
-            ShadowTurnSnapshots(
-                ShadowSnapshots({ command, timeout, maxCharacters ->
-                    app.commandRunner.runShell(command, timeout, maxCharacters, keepStart = false)
-                }),
-                SharedPreferencesTurnSnapshotIndex(app),
-            )
-        }
+    val turnSnapshots = app.turnSnapshots
     val repositoryGit =
         remember {
             GitClient { command, timeout, window -> app.commandRunner.runShell(command, timeout, window.maxCharacters, window.keepStart) }

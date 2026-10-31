@@ -16,7 +16,7 @@ class ShadowTurnSnapshots(
         turn: Int,
         directory: String,
     ) {
-        shadow.snapshot(directory)?.let { index.put(sessionId, turn, it) }
+        shadow.snapshot(directory, RECORD_LOCK_WAIT_MILLIS)?.let { index.put(sessionId, turn, it) }
     }
 
     override fun has(
@@ -43,6 +43,11 @@ class ShadowTurnSnapshots(
         val from = index.get(sessionId, turn) ?: return null
         val to = index.get(sessionId, turn + 1) ?: shadow.snapshot(directory) ?: return null
         return shadow.diff(directory, from, to)
+    }
+
+    private companion object {
+        /** How long a message waits for a restore running elsewhere before going without a snapshot. */
+        const val RECORD_LOCK_WAIT_MILLIS = 2_000L
     }
 }
 
