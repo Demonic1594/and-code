@@ -1770,5 +1770,5 @@
     <string name="cd_share_server">共享端口 %1$d</string>
     <string name="cd_share_server_live">端口 %1$d 已共享</string>
     <string name="run_settings_ultracode">Ultracode</string>
-    <string name="run_settings_ultracode_description">Claude 会规划工作，并用多个智能体来执行。更周密，但速度更慢，也会更快用完你的额度。从你的下一条消息开始生效。</string>
+    <string name="run_settings_ultracode_description">Claude 会规划工作，并用多个智能体来执行。更周密，但速度更慢，也会更快用完你的额度。从你的下一条普通消息开始生效；接下来发送的斜杠命令或技能仍使用之前的设置。</string>
 </resources>

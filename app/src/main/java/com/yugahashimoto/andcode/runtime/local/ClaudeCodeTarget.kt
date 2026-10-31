@@ -34,6 +34,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -355,6 +357,10 @@ class ClaudeCodeTarget(
             }
         }
     }
+
+    // Only changes after the first value: the first is what the current catalog was built from.
+    override val providerCatalogChanges: Flow<Unit>
+        get() = runtime.workflowsAvailable().drop(1).map { }
 
     override suspend fun listProviders() = ClaudeModels.catalog(runtime.resolvedModels().value, runtime.workflowsAvailable().value)
 

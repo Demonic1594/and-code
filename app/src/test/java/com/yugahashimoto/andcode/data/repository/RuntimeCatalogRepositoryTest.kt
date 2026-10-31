@@ -21,6 +21,7 @@ import com.yugahashimoto.andcode.runtime.RuntimeType
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -174,6 +175,31 @@ class RuntimeCatalogRepositoryTest {
 
             assertEquals(listOf("opencode"), repository.state.value.providers.connected)
             assertTrue(repository.state.value.providers.all.any { it.id == "opencode" })
+        }
+
+    @Test
+    fun `a catalog change on the selected target reloads its providers`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val target = FakeTarget("mac")
+            val registry =
+                RuntimeRegistry(
+                    store = FakeStore(selectedRuntimeId = "mac"),
+                    localTarget = FakeTarget("local-android", RuntimeType.LOCAL),
+                    remoteFactory = { target },
+                )
+            val repository = RuntimeCatalogRepository(registry, TestScope(dispatcher))
+            advanceUntilIdle()
+
+            target.providersOverride =
+                ProviderCatalog(
+                    all = listOf(OpenCodeProvider(id = "other", name = "Other")),
+                    connected = listOf("other"),
+                )
+            target.catalogChanges.tryEmit(Unit)
+            advanceUntilIdle()
+
+            assertEquals(listOf("other"), repository.state.value.providers.connected)
         }
 
     @Test
@@ -495,6 +521,11 @@ class RuntimeCatalogRepositoryTest {
         override val displayName: String = id
         override val kind: BackendKind = if (type == RuntimeType.LOCAL) BackendKind.LOCAL else BackendKind.REMOTE
         override val state = MutableStateFlow<RuntimeState>(RuntimeState.Disconnected)
+
+        /** Emits to [providerCatalogChanges], as Claude Code does when Workflow availability changes. */
+        val catalogChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+        override val providerCatalogChanges: Flow<Unit> = catalogChanges
 
         /** What [listProviders] returns, when a test needs to change the catalogue mid-run. */
         var providersOverride: ProviderCatalog? = null

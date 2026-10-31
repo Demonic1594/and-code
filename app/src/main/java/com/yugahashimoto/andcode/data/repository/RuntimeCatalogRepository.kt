@@ -97,6 +97,11 @@ class RuntimeCatalogRepository(
         scope.launch {
             registry.targets.collectLatest { refreshAllSessions() }
         }
+        scope.launch {
+            registry.selected.collectLatest { target ->
+                target?.providerCatalogChanges?.collect { refreshProvidersOnly() }
+            }
+        }
     }
 
     fun refresh() {

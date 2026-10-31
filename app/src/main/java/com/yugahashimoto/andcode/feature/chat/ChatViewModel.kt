@@ -2028,6 +2028,7 @@ class ChatViewModel(
         val modelAtSend = _uiState.value.selectedModelId
         val agentAtSend = _uiState.value.selectedAgentId
         val variantAtSend = _uiState.value.selectedVariant
+        val ultracodeAtSend = selectedUltracodeAvailable && claudeUltracode
         val pendingPreviewsByFilename =
             pendingAttachments
                 .filter { it.mime.startsWith("image/") }
@@ -2189,7 +2190,7 @@ class ChatViewModel(
                         variant = variantAtSend,
                         attachments = modelAttachments,
                         serviceTier = serviceTierForPrompt(),
-                        ultracode = selectedUltracodeAvailable && claudeUltracode,
+                        ultracode = ultracodeAtSend,
                     ),
                 )
                 runCatching { currentBackend.session(targetSessionId).title }
