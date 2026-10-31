@@ -81,6 +81,33 @@ class PermissionHookScriptTest {
     }
 
     @Test
+    fun `the approval shows the command, not only the agent's description of it`() {
+        var label = ""
+        runHook(
+            """{"tool_name":"Bash","tool_input":{"command":"rm -rf build","description":"Clean the build"}}""",
+            response = """{"decision":"deny"}""",
+            onRequest = { request -> label = request.getValue("permissionLabel").jsonPrimitive.content },
+        )
+
+        assertEquals("Bash: Clean the build — rm -rf build", label)
+    }
+
+    @Test
+    fun `without jq the hook refuses rather than ask to approve what it cannot show`() {
+        val bin = folder.newFolder("bin")
+        listOf("cat", "mkdir").forEach { tool ->
+            val path = exec("sh", "-c", "command -v $tool").inputStream.bufferedReader().readText().trim()
+            java.nio.file.Files.createSymbolicLink(File(bin, tool).toPath(), File(path).toPath())
+        }
+
+        val answer = runHook(bashCall("rm -rf build"), env = mapOf("PATH" to bin.absolutePath), shell = "/bin/sh")
+
+        assertEquals("deny", answer.behavior())
+        assertTrue(answer.decision()["message"]?.jsonPrimitive?.content.orEmpty().contains("jq is missing"))
+        assertFalse(File(bridge, "pending").listFiles().orEmpty().any())
+    }
+
+    @Test
     fun `the hook falls back to the same declined text as the app`() {
         assertTrue(script.readText().contains(ClaudePermissionBridge.DECLINED_MESSAGE))
     }
@@ -96,10 +123,12 @@ class PermissionHookScriptTest {
         input: String,
         response: String? = null,
         env: Map<String, String> = emptyMap(),
+        onRequest: (JsonObject) -> Unit = {},
+        shell: String = "sh",
     ): JsonObject {
         val out = File(folder.root, "out-${System.nanoTime()}.txt")
         val process =
-            ProcessBuilder("sh", script.absolutePath)
+            ProcessBuilder(shell, script.absolutePath)
                 .redirectOutput(out)
                 .redirectError(ProcessBuilder.Redirect.INHERIT)
                 .apply {
@@ -111,15 +140,22 @@ class PermissionHookScriptTest {
         if (response != null) {
             val pending = File(bridge, "pending")
             val deadline = System.currentTimeMillis() + WAIT_MILLIS
-            var request: File? = null
+            var request: Pair<File, JsonObject>? = null
             while (request == null && System.currentTimeMillis() < deadline) {
-                request = pending.listFiles()?.firstOrNull { it.name.endsWith(".json") && it.length() > 0 }
+                // Read only once whole: the hook writes the file in place, so it can be seen half written.
+                request =
+                    pending.listFiles()?.firstNotNullOfOrNull { file ->
+                        file.takeIf { it.name.endsWith(".json") }
+                            ?.let { runCatching { it to Json.parseToJsonElement(it.readText()).jsonObject }.getOrNull() }
+                    }
                 if (request == null) Thread.sleep(POLL_MILLIS)
             }
             checkNotNull(request) { "the hook never wrote its request" }
+            onRequest(request.second)
             // Written aside and renamed in, as the app does, so the hook never reads half a file.
             val responses = File(bridge, "responses")
-            File(responses, "${request.name}.tmp").apply { writeText(response) }.renameTo(File(responses, request.name))
+            val name = request.first.name
+            File(responses, "$name.tmp").apply { writeText(response) }.renameTo(File(responses, name))
         }
         if (!process.waitFor(WAIT_MILLIS, TimeUnit.MILLISECONDS)) {
             process.destroyForcibly()

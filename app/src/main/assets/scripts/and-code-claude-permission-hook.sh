@@ -26,6 +26,7 @@ ALLOW='{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"b
 # the same call, which agents otherwise tend to do in a loop.
 DECLINED="The user declined this action. Do not retry the same call; adjust your approach or ask the user what they want."
 UNANSWERED="The user did not answer in time, so this action was not allowed. Do not retry it unchanged; continue another way or ask the user."
+NO_JQ="AndCode cannot show this request on the phone because jq is missing in its Linux environment, so it was not allowed. Ask the user to install jq in the AndCode terminal, then retry."
 
 # Prints a deny answer carrying [message] for the agent.
 deny() {
@@ -33,8 +34,7 @@ deny() {
     jq -cn --arg message "$1" \
       '{hookSpecificOutput:{hookEventName:"PermissionRequest",decision:{behavior:"deny",message:$message}}}'
   else
-    # Without jq no response message can be read, so [message] is one of the fixed texts above,
-    # which have nothing to escape.
+    # Only reached for the fixed texts above, which have nothing to escape.
     printf '%s\n' "{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"decision\":{\"behavior\":\"deny\",\"message\":\"$1\"}}}"
   fi
 }
@@ -46,25 +46,23 @@ if [ -z "$INPUT" ]; then
   exit 0
 fi
 
-# Prefer jq; fall back to a tiny python helper when present.
-if command -v jq >/dev/null 2>&1; then
-  TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // .toolName // empty')
-  SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // .sessionId // empty')
-  TOOL_INPUT=$(printf '%s' "$INPUT" | jq -c '.tool_input // .toolInput // {}')
-  HOOK_EVENT=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // .hookEventName // "PermissionRequest"')
-else
-  TOOL_NAME=$(printf '%s' "$INPUT" | sed -n 's/.*"tool_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
-  SESSION_ID=$(printf '%s' "$INPUT" | sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
-  TOOL_INPUT='{}'
-  HOOK_EVENT="PermissionRequest"
+# Without jq the request cannot be read whole, so the phone would be asked to approve a call it
+# cannot show, and an approval would run it unseen. Refuse instead; the app's Linux environments
+# come with jq.
+if ! command -v jq >/dev/null 2>&1; then
+  deny "$NO_JQ"
+  exit 0
 fi
+TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // .toolName // empty')
+SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // .sessionId // empty')
+TOOL_INPUT=$(printf '%s' "$INPUT" | jq -c '.tool_input // .toolInput // {}')
 
 if [ -z "$TOOL_NAME" ]; then
   TOOL_NAME="Tool"
 fi
 
 # Auto-allow remembered rules without waking the UI.
-if [ -f "$ALWAYS" ] && command -v jq >/dev/null 2>&1; then
+if [ -f "$ALWAYS" ]; then
   CMD=$(printf '%s' "$TOOL_INPUT" | jq -r '.command // empty')
   # Absent or null only: an explicit "command": "" is a command (an empty one), as on the app side.
   NO_CMD=$(printf '%s' "$TOOL_INPUT" | jq -r 'if .command == null then "yes" else "no" end')
@@ -104,32 +102,33 @@ if [ -z "$ANDROID_SESSION" ]; then
   ANDROID_SESSION="unknown"
 fi
 
+# The command is what runs, so the label always shows it: a description alone is the agent's own
+# words and could say anything.
 LABEL="$TOOL_NAME"
-if command -v jq >/dev/null 2>&1; then
-  DESC=$(printf '%s' "$TOOL_INPUT" | jq -r '.description // .command // empty' 2>/dev/null || true)
-  if [ -n "$DESC" ]; then
-    LABEL="$TOOL_NAME: $DESC"
-  fi
+DESC=$(printf '%s' "$TOOL_INPUT" | jq -r '.description // empty' 2>/dev/null || true)
+SHOWN_CMD=$(printf '%s' "$TOOL_INPUT" | jq -r '.command // empty' 2>/dev/null || true)
+if [ -n "$DESC" ] && [ -n "$SHOWN_CMD" ]; then
+  LABEL="$TOOL_NAME: $DESC — $SHOWN_CMD"
+elif [ -n "$SHOWN_CMD" ]; then
+  LABEL="$TOOL_NAME: $SHOWN_CMD"
+elif [ -n "$DESC" ]; then
+  LABEL="$TOOL_NAME: $DESC"
 fi
 
 REQUEST_FILE="$PENDING/$REQUEST_ID.json"
 RESPONSE_FILE="$RESPONSES/$REQUEST_ID.json"
 
-if command -v jq >/dev/null 2>&1; then
-  jq -n \
-    --arg kind "$KIND" \
-    --arg requestId "$REQUEST_ID" \
-    --arg androidSessionId "$ANDROID_SESSION" \
-    --arg claudeSessionId "$SESSION_ID" \
-    --arg toolName "$TOOL_NAME" \
-    --arg permissionLabel "$LABEL" \
-    --argjson toolInput "$TOOL_INPUT" \
-    --argjson createdAtMs "$(date +%s000)" \
-    '{v:1,kind:$kind,requestId:$requestId,androidSessionId:$androidSessionId,claudeSessionId:$claudeSessionId,toolName:$toolName,toolInput:$toolInput,permissionLabel:$permissionLabel,createdAtMs:$createdAtMs}' \
-    >"$REQUEST_FILE"
-else
-  printf '%s\n' "{\"v\":1,\"kind\":\"$KIND\",\"requestId\":\"$REQUEST_ID\",\"androidSessionId\":\"$ANDROID_SESSION\",\"claudeSessionId\":\"$SESSION_ID\",\"toolName\":\"$TOOL_NAME\",\"toolInput\":{},\"permissionLabel\":\"$LABEL\",\"createdAtMs\":0}" >"$REQUEST_FILE"
-fi
+jq -n \
+  --arg kind "$KIND" \
+  --arg requestId "$REQUEST_ID" \
+  --arg androidSessionId "$ANDROID_SESSION" \
+  --arg claudeSessionId "$SESSION_ID" \
+  --arg toolName "$TOOL_NAME" \
+  --arg permissionLabel "$LABEL" \
+  --argjson toolInput "$TOOL_INPUT" \
+  --argjson createdAtMs "$(date +%s000)" \
+  '{v:1,kind:$kind,requestId:$requestId,androidSessionId:$androidSessionId,claudeSessionId:$claudeSessionId,toolName:$toolName,toolInput:$toolInput,permissionLabel:$permissionLabel,createdAtMs:$createdAtMs}' \
+  >"$REQUEST_FILE"
 
 if [ "$KIND" = "question" ]; then
   WAIT_SEC="$QUESTION_TIMEOUT_SEC"
@@ -141,24 +140,14 @@ fi
 deadline=$(( $(date +%s) + WAIT_SEC ))
 while [ "$(date +%s)" -lt "$deadline" ]; do
   if [ -f "$RESPONSE_FILE" ]; then
-    if command -v jq >/dev/null 2>&1; then
-      DECISION=$(jq -r '.decision // "deny"' "$RESPONSE_FILE")
-      MESSAGE=$(jq -r '.message // empty' "$RESPONSE_FILE")
-      UPDATED=$(jq -c '.updatedInput // empty' "$RESPONSE_FILE")
-    else
-      DECISION=$(sed -n 's/.*"decision"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$RESPONSE_FILE" | head -n1)
-      MESSAGE=""
-      UPDATED=""
-    fi
+    DECISION=$(jq -r '.decision // "deny"' "$RESPONSE_FILE")
+    MESSAGE=$(jq -r '.message // empty' "$RESPONSE_FILE")
+    UPDATED=$(jq -c '.updatedInput // empty' "$RESPONSE_FILE")
     rm -f "$REQUEST_FILE" "$RESPONSE_FILE" 2>/dev/null || true
     if [ "$DECISION" = "allow" ]; then
-      if [ -n "$UPDATED" ] && [ "$UPDATED" != "null" ] && [ "$UPDATED" != "" ]; then
-        if command -v jq >/dev/null 2>&1; then
-          jq -cn --argjson updated "$UPDATED" \
-            '{hookSpecificOutput:{hookEventName:"PermissionRequest",decision:{behavior:"allow",updatedInput:$updated}}}'
-        else
-          printf '%s\n' "$ALLOW"
-        fi
+      if [ -n "$UPDATED" ] && [ "$UPDATED" != "null" ]; then
+        jq -cn --argjson updated "$UPDATED" \
+          '{hookSpecificOutput:{hookEventName:"PermissionRequest",decision:{behavior:"allow",updatedInput:$updated}}}'
       else
         printf '%s\n' "$ALLOW"
       fi
