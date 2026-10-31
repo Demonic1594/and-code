@@ -1,6 +1,6 @@
 # Agent harness improvements (from a Cursor comparison)
 
-Status: **not started**. Plans only; nothing in the app has been changed.
+Status: **in progress**. Item 3 (shadow snapshots) is done (#58); the rest is not started.
 
 ## Goal
 
@@ -45,7 +45,7 @@ and the last terminal output. Chosen items are attached to the prompt as text or
   terminal buffer.
 - Mobile fit: good only as a picker. Typing paths on a phone is the problem being removed.
 
-### 3. Undo for every agent (shadow snapshots)
+### 3. Undo for every agent (shadow snapshots) — done (#58)
 
 Feasible, medium. Before each agent turn, snapshot the workspace into a private git repository
 kept in the app's own directory (not the user's repo). "Undo to here" on a message restores the
