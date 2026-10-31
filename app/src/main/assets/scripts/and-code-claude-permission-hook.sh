@@ -50,7 +50,7 @@ if [ -f "$ALWAYS" ] && command -v jq >/dev/null 2>&1; then
     def wrappers: ["bash", "sh", "zsh", "dash", "ash", "env", "xargs", "sudo", "su", "eval", "exec",
       "nohup", "timeout", "nice", "python", "python3", "node", "perl", "ruby", "php", "lua"];
     ($c | test("[;&|`$<>()\\\\\n\r]")) as $unsafe |
-    (($c | words)[0] // "") as $first |
+    (($c | words)[0] // "" | split("/") | last // "") as $first |
     .rules[]? | select(.toolName == $t) |
     (.commandPrefix // "") as $p |
     if $c == "" then (if $p == "" then "yes" else empty end)

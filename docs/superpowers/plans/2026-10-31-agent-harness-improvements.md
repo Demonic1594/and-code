@@ -37,7 +37,9 @@ that chains, pipes, substitutes or redirects, or starts with a program that runs
 (`bash -c`, `env`, `xargs`, an interpreter), never matches a rule and is never remembered as one;
 rule words must equal the command's first words; and a call with a command never matches a
 tool-wide rule. Before this, the hook matched with a plain text prefix and a tool-wide Bash rule
-allowed every command. Per-project scope and Deny are still to do.
+allowed every command. Per-project scope and Deny are still to do. Known limit: word rules cannot
+see dangerous arguments further along (`find . -exec ... +`, `git -c ...`), so a Deny list or tool
+risk classes (section 9) are still needed before "always allow" is offered broadly.
 
 Feasible, easy. The approval sheet gets an "Always allow this command" action that stores a
 pattern (for example `git status`, `npm test`) per project. Matching calls skip the prompt.

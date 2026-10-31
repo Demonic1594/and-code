@@ -50,7 +50,7 @@ internal object ShellCommandRules {
     fun isSimple(command: String): Boolean =
         command.isNotBlank() &&
             command.none { it in unsafeCharacters } &&
-            words(command).firstOrNull() !in wrappers
+            words(command).firstOrNull()?.substringAfterLast('/') !in wrappers
 
     /** The rule to remember for [command], or null when it must not become a rule. */
     fun ruleFor(command: String): String? {
