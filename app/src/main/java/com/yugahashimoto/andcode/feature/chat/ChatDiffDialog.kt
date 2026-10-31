@@ -64,7 +64,8 @@ import com.yugahashimoto.andcode.ui.theme.Spacing
 fun ChatDiffDialog(
     state: PatchDiffState,
     onDismiss: () -> Unit,
-    onSendReview: (String) -> Unit = {},
+    /** Sends the review; calls `sent` once it went out, so a cancelled unlock keeps the comments. */
+    onSendReview: (review: String, sent: () -> Unit) -> Unit = { _, _ -> },
 ) {
     val comments = remember(state.partId) { mutableStateListOf<ReviewComment>() }
     val collapsed = remember(state.partId) { mutableStateListOf<String>() }
@@ -205,8 +206,7 @@ fun ChatDiffDialog(
                         )
                         Button(
                             onClick = {
-                                onSendReview(reviewCommentsMessage(comments.toList()))
-                                onDismiss()
+                                onSendReview(reviewCommentsMessage(comments.toList()), onDismiss)
                             },
                             modifier = Modifier.testTag("chat-review-send"),
                         ) {

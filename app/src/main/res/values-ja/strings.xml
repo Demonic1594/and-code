@@ -1764,7 +1764,7 @@
     <string name="app_lock_row_description">AndCode を開いたとき、またはバックグラウンドに 30 秒以上あった後に、指紋・顔・画面ロックを要求します。</string>
     <string name="app_lock_unavailable">この機能を使うには、このスマートフォンで指紋・顔・画面ロックを設定してください。</string>
     <string name="app_lock_on_send_row">メッセージの送信時にも要求する</string>
-    <string name="app_lock_on_send_row_description">メッセージを送信するたびに確認します。</string>
+    <string name="app_lock_on_send_row_description">アプリからメッセージ、レビュー、受信トレイの返信を送信するたびに確認します。</string>
     <string name="app_lock_prompt_title">AndCode のロックを解除</string>
     <string name="app_lock_locked_title">AndCode はロックされています</string>
     <string name="app_lock_unlock">ロック解除</string>

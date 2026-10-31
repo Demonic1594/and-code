@@ -1783,7 +1783,7 @@
     <string name="app_lock_row_description">Запрашивать отпечаток пальца, лицо или блокировку экрана при открытии AndCode или после более чем 30 секунд в фоне.</string>
     <string name="app_lock_unavailable">Чтобы использовать эту функцию, настройте на телефоне отпечаток пальца, лицо или блокировку экрана.</string>
     <string name="app_lock_on_send_row">Также запрашивать при отправке сообщения</string>
-    <string name="app_lock_on_send_row_description">Запрашивается перед отправкой каждого сообщения.</string>
+    <string name="app_lock_on_send_row_description">Запрашивается перед отправкой из приложения каждого сообщения, ревью или ответа во «Входящих».</string>
     <string name="app_lock_prompt_title">Разблокировать AndCode</string>
     <string name="app_lock_locked_title">AndCode заблокирован</string>
     <string name="app_lock_unlock">Разблокировать</string>

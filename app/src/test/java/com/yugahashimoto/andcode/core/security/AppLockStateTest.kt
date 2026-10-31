@@ -49,6 +49,21 @@ class AppLockStateTest {
     }
 
     @Test
+    fun `the earliest of the activity and process stops counts`() {
+        lock.setEnabled(true)
+        lock.unlock()
+
+        lock.onBackground() // the activity stops; the phone sleeps at once
+        now += 60_000L
+        lock.onBackground() // the delayed process stop, delivered on waking
+        now += 1_000L
+        lock.onForeground()
+        lock.onForeground() // the other source reporting the same return
+
+        assertTrue(lock.locked.value)
+    }
+
+    @Test
     fun `a foreground without a background before it never locks`() {
         lock.setEnabled(true)
         lock.unlock()

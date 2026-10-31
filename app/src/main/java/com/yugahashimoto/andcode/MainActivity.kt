@@ -165,6 +165,18 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    // The process-wide stop comes about a second late, and a phone locked within that second would
+    // count its sleep from waking; the activity's own stop is immediate. A rotation is not leaving.
+    override fun onStart() {
+        super.onStart()
+        app.appLock.onForeground()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (!isChangingConfigurations) app.appLock.onBackground()
+    }
+
     override fun onResume() {
         super.onResume()
         assistantActive = AssistantStatus.isActive(this)

@@ -1787,7 +1787,7 @@
     <string name="app_lock_row_description">Ask for your fingerprint, face or screen lock when AndCode opens, or after it was in the background for more than 30 seconds.</string>
     <string name="app_lock_unavailable">Set up a fingerprint, face or screen lock on this phone to use this.</string>
     <string name="app_lock_on_send_row">Also require it to send a message</string>
-    <string name="app_lock_on_send_row_description">Ask again before each message goes out.</string>
+    <string name="app_lock_on_send_row_description">Ask again before each message, review or Inbox reply you send from the app.</string>
     <string name="app_lock_prompt_title">Unlock AndCode</string>
     <string name="app_lock_locked_title">AndCode is locked</string>
     <string name="app_lock_unlock">Unlock</string>

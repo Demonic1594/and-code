@@ -1770,7 +1770,7 @@
     <string name="app_lock_row_description">Demande votre empreinte, votre visage ou le verrouillage de l\'écran à l\'ouverture d\'AndCode, ou après plus de 30 secondes en arrière-plan.</string>
     <string name="app_lock_unavailable">Configurez une empreinte, le visage ou un verrouillage de l\'écran sur ce téléphone pour utiliser cette option.</string>
     <string name="app_lock_on_send_row">Le demander aussi pour envoyer un message</string>
-    <string name="app_lock_on_send_row_description">Redemandé avant l\'envoi de chaque message.</string>
+    <string name="app_lock_on_send_row_description">Redemandé avant l\'envoi depuis l\'app de chaque message, revue ou réponse de la boîte de réception.</string>
     <string name="app_lock_prompt_title">Déverrouiller AndCode</string>
     <string name="app_lock_locked_title">AndCode est verrouillé</string>
     <string name="app_lock_unlock">Déverrouiller</string>

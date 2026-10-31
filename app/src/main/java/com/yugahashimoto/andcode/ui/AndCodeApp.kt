@@ -1183,9 +1183,15 @@ fun AndCodeApp(
                             LaunchedEffect(pendingHandoffPrompt, selectedRuntime?.id, handoffReady) {
                                 val pending = pendingHandoffPrompt
                                 if (pending != null && handoffReady && selectedRuntime?.id == pending.first) {
-                                    chatViewModel.sendMessage(pending.second)
-                                    pendingHandoffPrompt = null
                                     handoffReady = false
+                                    // Like any send, it asks for the unlock when the settings say so; a
+                                    // cancelled unlock keeps the handoff for the next time the sheet closes.
+                                    sendGate {
+                                        if (pendingHandoffPrompt == pending) {
+                                            chatViewModel.sendMessage(pending.second)
+                                            pendingHandoffPrompt = null
+                                        }
+                                    }
                                 }
                             }
                             // A pull request is usually merged or closed on GitHub, not from here, so the
@@ -1339,7 +1345,12 @@ fun AndCodeApp(
                                 enterToSend = preferences.enterToSend,
                                 autoExpandReasoning = preferences.autoExpandReasoning,
                                 onSendMessage = chatViewModel::sendMessage,
-                                onSendReview = { review -> sendGate { chatViewModel.sendReview(review) } },
+                                onSendReview = { review, sent ->
+                                    sendGate {
+                                        chatViewModel.sendReview(review)
+                                        sent()
+                                    }
+                                },
                                 canEditMessages = selectedRuntime?.capabilities?.editMessages == true,
                                 canRewind = selectedRuntime?.capabilities?.checkpoints == true,
                                 onRewind = chatViewModel::rewindTo,

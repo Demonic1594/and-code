@@ -1744,7 +1744,7 @@
     <string name="app_lock_row_description">AndCode 打开时，或在后台超过 30 秒后，要求验证指纹、面部或屏幕锁。</string>
     <string name="app_lock_unavailable">请先在此手机上设置指纹、面部或屏幕锁，才能使用此功能。</string>
     <string name="app_lock_on_send_row">发送消息时也需解锁</string>
-    <string name="app_lock_on_send_row_description">每条消息发送前都会再次询问。</string>
+    <string name="app_lock_on_send_row_description">在应用中发送每条消息、审阅或收件箱回复前都会再次询问。</string>
     <string name="app_lock_prompt_title">解锁 AndCode</string>
     <string name="app_lock_locked_title">AndCode 已锁定</string>
     <string name="app_lock_unlock">解锁</string>

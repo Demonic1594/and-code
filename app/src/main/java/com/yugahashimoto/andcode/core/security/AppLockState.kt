@@ -38,9 +38,13 @@ class AppLockState(
         mutableLocked.value = if (value) first || mutableLocked.value else false
     }
 
+    /**
+     * The app left the screen. Both the activity's stop and the process's (delayed) stop report it;
+     * the earliest one counts, so a phone put to sleep straight away still counts its sleep.
+     */
     @Synchronized
     fun onBackground() {
-        backgroundedAt = clock()
+        if (backgroundedAt == null) backgroundedAt = clock()
     }
 
     @Synchronized

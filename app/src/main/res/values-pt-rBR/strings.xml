@@ -1770,7 +1770,7 @@
     <string name="app_lock_row_description">Pede sua digital, rosto ou bloqueio de tela ao abrir o AndCode, ou depois de mais de 30 segundos em segundo plano.</string>
     <string name="app_lock_unavailable">Configure digital, rosto ou bloqueio de tela neste celular para usar isto.</string>
     <string name="app_lock_on_send_row">Exigir também para enviar uma mensagem</string>
-    <string name="app_lock_on_send_row_description">Pede novamente antes de enviar cada mensagem.</string>
+    <string name="app_lock_on_send_row_description">Pede novamente antes de enviar pelo app cada mensagem, revisão ou resposta da caixa de entrada.</string>
     <string name="app_lock_prompt_title">Desbloquear o AndCode</string>
     <string name="app_lock_locked_title">O AndCode está bloqueado</string>
     <string name="app_lock_unlock">Desbloquear</string>
