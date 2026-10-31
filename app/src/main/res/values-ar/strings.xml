@@ -1799,4 +1799,9 @@
     <string name="restore_files_banner_body">لم تتغير الرسائل. يعيد «تراجع» الملفات إلى ما كانت عليه.</string>
     <string name="restore_files_keep">إبقاء</string>
     <string name="restore_files_failed">تعذّرت استعادة الملفات.</string>
+    <string name="chat_menu_open_github">افتح على GitHub</string>
+    <string name="action_copied">تم النسخ</string>
+    <string name="tool_copy_block">نسخ %1$s</string>
+    <string name="cd_search_projects">البحث عن المشاريع</string>
+    <string name="drawer_project_search_hint">البحث عن المشاريع</string>
 </resources>

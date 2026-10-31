@@ -1734,4 +1734,9 @@
     <string name="restore_files_banner_body">消息没有变化。“撤销”会将文件恢复为原来的样子。</string>
     <string name="restore_files_keep">保留</string>
     <string name="restore_files_failed">无法恢复这些文件。</string>
+    <string name="chat_menu_open_github">在 GitHub 上打开</string>
+    <string name="action_copied">已复制</string>
+    <string name="tool_copy_block">复制 %1$s</string>
+    <string name="cd_search_projects">搜索项目</string>
+    <string name="drawer_project_search_hint">搜索项目</string>
 </resources>

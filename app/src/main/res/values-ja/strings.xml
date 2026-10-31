@@ -1754,4 +1754,9 @@
     <string name="restore_files_banner_body">メッセージは変わりません。「元に戻す」でファイルを戻す前の状態にします。</string>
     <string name="restore_files_keep">そのままにする</string>
     <string name="restore_files_failed">ファイルを戻せませんでした。</string>
+    <string name="chat_menu_open_github">GitHubで開く</string>
+    <string name="action_copied">コピーしました</string>
+    <string name="tool_copy_block">%1$s をコピー</string>
+    <string name="cd_search_projects">プロジェクトを検索</string>
+    <string name="drawer_project_search_hint">プロジェクトを検索</string>
 </resources>
