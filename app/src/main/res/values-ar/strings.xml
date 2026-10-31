@@ -106,6 +106,8 @@
     <string name="home_assistant">المساعد الرئيسي</string>
     <string name="set_default_assistant">تعيين كمساعد رقمي افتراضي</string>
     <string name="voice">الصوت</string>
+    <string name="cd_expand_composer">توسيع الرسالة</string>
+    <string name="cd_collapse_composer">طي الرسالة</string>
     <string name="mic_permission_required">مطلوب إذن الميكروفون لميزات الصوت</string>
     <string name="voice_response">قراءة الردود بصوت عالٍ</string>
     <string name="continuous_conversation">محادثة مستمرة</string>

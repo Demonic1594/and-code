@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
@@ -51,9 +52,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -166,6 +169,16 @@ internal fun ChatComposer(
     val input = inputValue.text
     val voiceActive = isListening || isSpeechProcessing
     var showAttachMenu by remember { mutableStateOf(false) }
+    // How many lines the message takes, so a long one can be opened full screen.
+    var inputLines by remember { mutableIntStateOf(1) }
+    var composerExpanded by rememberSaveable { mutableStateOf(false) }
+    if (composerExpanded) {
+        ExpandedComposer(
+            value = inputValue,
+            onValueChange = onInputValueChange,
+            onCollapse = { composerExpanded = false },
+        )
+    }
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val currentOnPasteImage by rememberUpdatedState(onPasteImage)
@@ -341,6 +354,7 @@ internal fun ChatComposer(
                                     },
                             minLines = 1,
                             maxLines = 4,
+                            onTextLayout = { layout -> inputLines = layout.lineCount },
                             textStyle =
                                 TextStyle(
                                     color = MaterialTheme.colorScheme.onSurface,
@@ -452,6 +466,19 @@ internal fun ChatComposer(
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         }
+                    if (shouldOfferExpandedComposer(inputLines)) {
+                        IconButton(
+                            onClick = { composerExpanded = true },
+                            modifier = Modifier.size(38.dp).testTag("chat-expand-composer"),
+                        ) {
+                            Icon(
+                                Icons.Default.OpenInFull,
+                                contentDescription = stringResource(R.string.cd_expand_composer),
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     Surface(
                         modifier =
                             Modifier
