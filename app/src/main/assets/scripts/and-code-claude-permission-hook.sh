@@ -51,7 +51,7 @@ if [ -f "$ALWAYS" ] && command -v jq >/dev/null 2>&1; then
       "su", "doas", "eval", "exec", "command", "time", "nohup", "timeout", "nice", "setsid", "stdbuf",
       "python", "node", "nodejs", "npx", "bun", "deno", "perl", "ruby", "php", "lua", "awk", "gawk"];
     def runsother: test("[=\"\u0027]") or (split("/") | last | sub("[-.0-9]+$"; "") | IN(wrappers[]));
-    ($c | test("[;&|`$<>()\\\\\n\r]")) as $unsafe |
+    ($c | test("[;&|`$<>()!\\\\\n\r]")) as $unsafe |
     (($c | words)[0] // "") as $first |
     .rules[]? | select(.toolName == $t) |
     (.commandPrefix // "") as $p |

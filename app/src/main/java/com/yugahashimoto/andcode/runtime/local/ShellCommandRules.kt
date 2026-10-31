@@ -16,7 +16,7 @@ internal object ShellCommandRules {
     /** How many leading words a remembered rule keeps. */
     private const val RULE_WORDS = 2
 
-    private val unsafeCharacters = charArrayOf(';', '&', '|', '`', '$', '<', '>', '(', ')', '\\', '\n', '\r')
+    private val unsafeCharacters = charArrayOf(';', '&', '|', '`', '$', '<', '>', '(', ')', '!', '\\', '\n', '\r')
 
     /** Programs that run another command or code given as arguments; keep in step with the hook. */
     private val wrappers =

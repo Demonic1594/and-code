@@ -34,6 +34,7 @@ class ShellCommandRulesTest {
             "git status `rm -rf ~`",
             "git status > /etc/passwd",
             "git status < input",
+            "! git status",
             "git status \\\nrm -rf ~",
         ).forEach { command ->
             assertFalse(command, ShellCommandRules.matches("git status", command))
