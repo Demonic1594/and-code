@@ -146,12 +146,13 @@ class DevServerSharing(
         var waited = 0L
         while (true) {
             val process = supervisor.processes.value.firstOrNull { it.spec.name == name }
-            val log = supervisor.logTail(name, LOG_CHARACTERS).orEmpty()
+            val tail = supervisor.logTail(name, LOG_CHARACTERS)
+            val log = tail.orEmpty()
             val current = mutableShares.value[port] ?: return
             when {
                 process == null || !process.isActive -> {
                     // Ended: by Stop all, its time limit, or a failure such as no network.
-                    if (current is ShareState.Live) mutableShares.update { it - port } else set(port, ShareState.Failed(lastLine(log)))
+                    ended(port, name, current, tail)
                     return
                 }
                 current is ShareState.Starting -> {
@@ -170,6 +171,22 @@ class DevServerSharing(
             delay(pause)
             waited += pause
         }
+    }
+
+    /** Drops a live share whose tunnel ended, or records why one that never went live failed. */
+    private suspend fun ended(
+        port: Int,
+        name: String,
+        current: ShareState,
+        tail: String?,
+    ) {
+        if (current is ShareState.Live) {
+            mutableShares.update { it - port }
+            return
+        }
+        // Its last words say why; a log that could not be read just then gets one more look.
+        val lastWords = tail ?: delay(pollMillis).let { supervisor.logTail(name, LOG_CHARACTERS) }
+        set(port, ShareState.Failed(lastLine(lastWords.orEmpty())))
     }
 
     /** Records [state] unless the share was stopped meanwhile, which a late update must not revive. */
