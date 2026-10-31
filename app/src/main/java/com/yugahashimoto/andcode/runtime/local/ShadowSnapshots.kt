@@ -4,6 +4,8 @@ import com.yugahashimoto.andcode.core.api.OpenCodeFileChange
 import com.yugahashimoto.andcode.feature.workspace.WorkspaceShell
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.security.MessageDigest
 
@@ -26,6 +28,13 @@ class ShadowSnapshots(
     private val root: String = ROOT,
 ) {
     /**
+     * One operation at a time, across every chat: a snapshot taken while a restore is rewriting the
+     * files (a message sent from another chat on the same folder) would record half of each, and the
+     * two would fight over git's index lock.
+     */
+    private val lock = Mutex()
+
+    /**
      * Runs one command. Starting the shell can throw (no runtime yet, no temp file); a snapshot is
      * best effort and must never fail the message it was taken for, so that becomes a failed result.
      */
@@ -41,7 +50,9 @@ class ShadowSnapshots(
         }
 
     /** Snapshots [workspace] as it is now and returns the snapshot's id, or null when it could not. */
-    suspend fun snapshot(workspace: String): String? =
+    suspend fun snapshot(workspace: String): String? = lock.withLock { snapshotUnlocked(workspace) }
+
+    private suspend fun snapshotUnlocked(workspace: String): String? =
         withContext(ioDispatcher) {
             val result = run(snapshotScript(root, workspace), SNAPSHOT_TIMEOUT_SECONDS, SMALL_OUTPUT)
             result.output.trim().lines().lastOrNull()?.trim()?.takeIf { result.exitCode == 0 && HASH.matches(it) }
@@ -53,10 +64,12 @@ class ShadowSnapshots(
         from: String,
         to: String,
     ): List<OpenCodeFileChange>? =
-        withContext(ioDispatcher) {
-            if (!HASH.matches(from) || !HASH.matches(to)) return@withContext null
-            val result = run("${git(root, workspace)} diff --no-color -U3 -M $from $to", DIFF_TIMEOUT_SECONDS, DIFF_OUTPUT)
-            if (result.exitCode != 0 || result.truncated) null else ClaudeWorkspaceGit.parseDiff(result.output)
+        lock.withLock {
+            withContext(ioDispatcher) {
+                if (!HASH.matches(from) || !HASH.matches(to)) return@withContext null
+                val result = run("${git(root, workspace)} diff --no-color -U3 -M $from $to", DIFF_TIMEOUT_SECONDS, DIFF_OUTPUT)
+                if (result.exitCode != 0 || result.truncated) null else ClaudeWorkspaceGit.parseDiff(result.output)
+            }
         }
 
     /**
@@ -69,7 +82,14 @@ class ShadowSnapshots(
         target: String,
     ): String? {
         if (!HASH.matches(target)) return null
-        val before = snapshot(workspace) ?: return null
+        return lock.withLock { restoreUnlocked(workspace, target) }
+    }
+
+    private suspend fun restoreUnlocked(
+        workspace: String,
+        target: String,
+    ): String? {
+        val before = snapshotUnlocked(workspace) ?: return null
         return withContext(ioDispatcher) {
             // HEAD is the snapshot just taken, so checkout knows which files are new since [target]
             // and removes them. It refuses, changing nothing, rather than delete an ignored or excluded

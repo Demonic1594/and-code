@@ -16,6 +16,7 @@ import com.yugahashimoto.andcode.runtime.RuntimeState
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import com.yugahashimoto.andcode.runtime.RuntimeType
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -209,11 +210,90 @@ class ChatViewModelPatchDiffTest {
             assertEquals(null, viewModel.uiState.value.fileRestore)
         }
 
+    private suspend fun kotlinx.coroutines.test.TestScope.restoredChat(snapshots: FakeSnapshots): Pair<ChatViewModel, FakeTarget> {
+        val backend = FakeTarget(diffCapable = false)
+        val viewModel =
+            ChatViewModel(
+                backend = backend,
+                eventFlow = backend.events,
+                turnSnapshots = snapshots,
+            ).also { advanceUntilIdle() }
+        viewModel.selectWorkspace("/workspace/app")
+        viewModel.sendMessage("Hello")
+        advanceUntilIdle()
+        backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
+        advanceUntilIdle()
+        viewModel.restoreFilesTo(viewModel.uiState.value.messages.first { it.isUser }.id)
+        return viewModel to backend
+    }
+
+    @Test
+    fun `nothing is sent while files are being restored, and sending works again after`() =
+        runTest(dispatcher) {
+            val snapshots = FakeSnapshots().apply { restoreGate = CompletableDeferred() }
+            val (viewModel, backend) = restoredChat(snapshots)
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.isRestoringFiles)
+            val sentBefore = backend.sent.size
+
+            viewModel.sendMessage("After the restore")
+            advanceUntilIdle()
+
+            assertEquals("nothing is sent mid-restore", sentBefore, backend.sent.size)
+
+            snapshots.restoreGate?.complete(Unit)
+            advanceUntilIdle()
+            viewModel.sendMessage("After the restore")
+            advanceUntilIdle()
+
+            assertEquals(sentBefore + 1, backend.sent.size)
+        }
+
+    @Test
+    fun `a new chat drops the undo of a restore made in the last one`() =
+        runTest(dispatcher) {
+            val (viewModel, _) = restoredChat(FakeSnapshots())
+            advanceUntilIdle()
+            assertEquals("undo-token", viewModel.uiState.value.fileRestore?.token)
+
+            viewModel.newSession()
+            advanceUntilIdle()
+
+            assertEquals(null, viewModel.uiState.value.fileRestore)
+        }
+
+    @Test
+    fun `a restore that finishes after leaving the chat shows no undo`() =
+        runTest(dispatcher) {
+            val snapshots = FakeSnapshots().apply { restoreGate = CompletableDeferred() }
+            val (viewModel, _) = restoredChat(snapshots)
+            advanceUntilIdle()
+
+            viewModel.newSession()
+            snapshots.restoreGate?.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(null, viewModel.uiState.value.fileRestore)
+            assertEquals(false, viewModel.uiState.value.isRestoringFiles)
+        }
+
+    @Test
+    fun `patch paths match on whole path segments only`() {
+        val changes = listOf(OpenCodeFileChange(file = "xa/Foo.kt"), OpenCodeFileChange(file = "a/Foo.kt"))
+
+        val kept = changesForPatch(changes, listOf("/workspace/app/a/Foo.kt"))
+
+        assertEquals(listOf("a/Foo.kt"), kept.map { it.displayPath })
+    }
+
     private class FakeSnapshots : TurnSnapshots {
         val recorded = mutableListOf<Triple<String, Int, String>>()
         val restored = mutableListOf<Int>()
         val undone = mutableListOf<String>()
         var changes: List<OpenCodeFileChange> = emptyList()
+
+        /** Holds a restore until completed, to act while it runs. */
+        var restoreGate: CompletableDeferred<Unit>? = null
 
         override suspend fun record(
             sessionId: String,
@@ -234,6 +314,7 @@ class ChatViewModelPatchDiffTest {
             directory: String,
         ): String {
             restored += turn
+            restoreGate?.await()
             return "undo-token"
         }
 
@@ -290,7 +371,11 @@ class ChatViewModelPatchDiffTest {
         override suspend fun sendMessage(
             sessionId: String,
             request: PromptRequest,
-        ) = Unit
+        ) {
+            sent += request
+        }
+
+        val sent = mutableListOf<PromptRequest>()
 
         override suspend fun abortSession(sessionId: String): Boolean = true
 

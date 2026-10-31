@@ -4,7 +4,8 @@ import com.yugahashimoto.andcode.core.api.OpenCodeFileChange
 
 /**
  * Snapshots of the workspace taken before each of the user's messages, for agents with no
- * checkpoints of their own. A turn is the 0-based position of the user message in the chat.
+ * checkpoints of their own. A turn is the 0-based position of the user message in the chat, so it
+ * assumes a reloaded transcript lists the same user messages as the live chat did.
  *
  * Absent (null in [ChatViewModel]) on runtimes that cannot be snapshotted - a remote server has no
  * shell on this device - and on those whose own checkpoints already rewind (legacy OpenCode).
