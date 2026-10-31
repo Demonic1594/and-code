@@ -129,6 +129,7 @@ class DevServerSharingTest {
             tunnel.exits.single().complete(1)
 
             until { sharing.shares.value[8000] is ShareState.Failed }
+            assertTrue("the read after the end failed once", unreadable.get() < 1)
             assertEquals("ERR failed to request quick Tunnel: no network", (sharing.shares.value[8000] as ShareState.Failed).reason)
         }
 
