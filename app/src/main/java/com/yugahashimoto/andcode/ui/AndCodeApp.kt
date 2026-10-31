@@ -178,7 +178,6 @@ fun AndCodeApp(
         remember {
             GitClient { command, timeout, window -> app.commandRunner.runShell(command, timeout, window.maxCharacters, window.keepStart) }
         }
-    val repositoryUrls = remember { mutableMapOf<String, String?>() }
     val runtimeTargets by app.runtimeRegistry.targets.collectAsState()
     val preferences by app.preferences.state.collectAsState()
     val antigravityState by app.antigravityController.state.collectAsState()
@@ -1196,22 +1195,19 @@ fun AndCodeApp(
                                 }
                             }
                             // The chat's GitHub repository, for the ⋮ menu: only an on-device runtime has a
-                            // shell to read the origin through. Looked up once per folder, when the chat opens.
+                            // shell to read the origin through. An open chat uses only its own folder (until
+                            // that is known nothing shows, rather than another project's link); a new chat
+                            // the project it is about to start in. Read each time, so a remote changed in
+                            // the terminal shows up.
                             val repositoryDirectory =
-                                (chatState.sessionDirectory ?: chatState.selectedWorkspacePath)
+                                (if (chatState.sessionId != null) chatState.sessionDirectory else chatState.selectedWorkspacePath)
                                     ?.takeIf { selectedRuntime?.kind == com.yugahashimoto.andcode.runtime.BackendKind.LOCAL }
                             val repositoryUrl by produceState<String?>(null, selectedRuntime?.id, repositoryDirectory) {
                                 // produceState keeps its value across key changes: clear it first, so
                                 // the previous chat's link never shows while this one is looked up.
                                 value = null
                                 val directory = repositoryDirectory ?: return@produceState
-                                val key = "${selectedRuntime?.id}:$directory"
-                                if (repositoryUrls.containsKey(key)) {
-                                    value = repositoryUrls[key]
-                                    return@produceState
-                                }
-                                // Starting the shell can throw; a failure only hides the item, and is not
-                                // cached, so a runtime that was not ready yet is asked again next time.
+                                // Starting the shell can throw; a failure only hides the item.
                                 val origin =
                                     try {
                                         repositoryGit.originUrl(directory)
@@ -1220,9 +1216,7 @@ fun AndCodeApp(
                                     } catch (error: Exception) {
                                         Result.failure(error)
                                     }
-                                origin.onSuccess { remote ->
-                                    value = gitHubRepositoryUrl(remote).also { repositoryUrls[key] = it }
-                                }
+                                origin.onSuccess { remote -> value = gitHubRepositoryUrl(remote) }
                             }
                             ChatHomeScreen(
                                 repositoryUrl = repositoryUrl,

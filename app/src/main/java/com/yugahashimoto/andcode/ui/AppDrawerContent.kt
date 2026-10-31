@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -286,14 +287,20 @@ fun AppDrawerContent(
                 // Projects as chips for the same reason; the full path is one tap away in Workspaces.
                 // Add and search sit on the header, so neither scrolls off with the chips.
                 DrawerSectionHeader(text = stringResource(R.string.drawer_projects_title), collapsible = false) {
+                    // Capped, so a long translation at a large font size cannot push the search icon out.
                     TextButton(
                         onClick = { onNavigate("workspaces") },
                         contentPadding = PaddingValues(horizontal = Spacing.sm),
-                        modifier = Modifier.height(32.dp),
+                        modifier = Modifier.height(32.dp).widthIn(max = 150.dp),
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(Spacing.xs))
-                        Text(stringResource(R.string.drawer_add_project), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                        Text(
+                            stringResource(R.string.drawer_add_project),
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                     if (workspaces.isNotEmpty()) {
                         IconButton(
