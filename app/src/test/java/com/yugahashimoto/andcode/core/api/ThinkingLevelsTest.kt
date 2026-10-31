@@ -15,6 +15,8 @@ class ThinkingLevelsTest {
     @Test
     fun `case is ignored for ordering and kept in the result`() {
         assertEquals(listOf("Low", "HIGH"), orderThinkingLevels(listOf("HIGH", "Low")))
+        // Keys that differ only in case are different values to send, so both stay.
+        assertEquals(listOf("low", "LOW"), orderThinkingLevels(listOf("low", "LOW")))
     }
 
     @Test
