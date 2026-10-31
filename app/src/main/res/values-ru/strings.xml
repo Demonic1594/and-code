@@ -1765,4 +1765,9 @@
     </plurals>
     <string name="git_files_incomplete">Git не смог перечислить все файлы этого коммита, поэтому список может быть неполным.</string>
     <string name="git_diff_truncated">Этот дифф слишком длинный, чтобы показать его целиком. Показано начало.</string>
+    <string name="chat_menu_open_github">Открыть на GitHub</string>
+    <string name="action_copied">Скопировано</string>
+    <string name="tool_copy_block">Скопировать %1$s</string>
+    <string name="cd_search_projects">Поиск проектов</string>
+    <string name="drawer_project_search_hint">Поиск проектов</string>
 </resources>

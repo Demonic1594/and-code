@@ -1752,4 +1752,9 @@
     </plurals>
     <string name="git_files_incomplete">O Git não conseguiu listar todos os arquivos deste commit, então a lista pode estar incompleta.</string>
     <string name="git_diff_truncated">Este diff é longo demais para ser exibido inteiro. Mostrando o início.</string>
+    <string name="chat_menu_open_github">Abrir no GitHub</string>
+    <string name="action_copied">Copiado</string>
+    <string name="tool_copy_block">Copiar %1$s</string>
+    <string name="cd_search_projects">Pesquisar projetos</string>
+    <string name="drawer_project_search_hint">Pesquisar projetos</string>
 </resources>

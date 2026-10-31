@@ -1,6 +1,6 @@
 # Four chat and drawer quality-of-life additions
 
-Status: **not started**. Written down to build later; nothing in the app has been changed.
+Status: **items 1-3 done**; item 4 (shadow snapshots) not started.
 
 1. The chat overflow menu gains **Open repository on GitHub**, only when the chat's project was
    cloned from GitHub.

@@ -26,6 +26,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -67,6 +68,8 @@ import com.yugahashimoto.andcode.feature.chat.ChatHomeScreen
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
 import com.yugahashimoto.andcode.feature.chat.SubagentInfo
 import com.yugahashimoto.andcode.feature.chat.buildHandoffPrompt
+import com.yugahashimoto.andcode.feature.git.GitClient
+import com.yugahashimoto.andcode.feature.git.gitHubRepositoryUrl
 import com.yugahashimoto.andcode.feature.inbox.InboxScreen
 import com.yugahashimoto.andcode.feature.inbox.InboxViewModel
 import com.yugahashimoto.andcode.feature.onboarding.AndroidSetupScreen
@@ -170,6 +173,11 @@ fun AndCodeApp(
     var showDiagnostics by remember { mutableStateOf(false) }
 
     val selectedRuntime by app.runtimeRegistry.selected.collectAsState()
+    val repositoryGit =
+        remember {
+            GitClient { command, timeout, window -> app.commandRunner.runShell(command, timeout, window.maxCharacters, window.keepStart) }
+        }
+    val repositoryUrls = remember { mutableMapOf<String, String?>() }
     val runtimeTargets by app.runtimeRegistry.targets.collectAsState()
     val preferences by app.preferences.state.collectAsState()
     val antigravityState by app.antigravityController.state.collectAsState()
@@ -1186,7 +1194,24 @@ fun AndCodeApp(
                                     }
                                 }
                             }
+                            // The chat's GitHub repository, for the ⋮ menu: only an on-device runtime has a
+                            // shell to read the origin through. Looked up once per folder, when the chat opens.
+                            val repositoryDirectory =
+                                (chatState.sessionDirectory ?: chatState.selectedWorkspacePath)
+                                    ?.takeIf { selectedRuntime?.kind == com.yugahashimoto.andcode.runtime.BackendKind.LOCAL }
+                            val repositoryUrl by produceState<String?>(null, selectedRuntime?.id, repositoryDirectory) {
+                                val directory = repositoryDirectory ?: return@produceState
+                                val key = "${selectedRuntime?.id}:$directory"
+                                value =
+                                    if (repositoryUrls.containsKey(key)) {
+                                        repositoryUrls[key]
+                                    } else {
+                                        repositoryGit.originUrl(directory).getOrNull()?.let(::gitHubRepositoryUrl)
+                                            .also { repositoryUrls[key] = it }
+                                    }
+                            }
                             ChatHomeScreen(
+                                repositoryUrl = repositoryUrl,
                                 findRequest = pendingFindRequest,
                                 onFindRequestConsumed = { pendingFindRequest = null },
                                 state = chatState,
