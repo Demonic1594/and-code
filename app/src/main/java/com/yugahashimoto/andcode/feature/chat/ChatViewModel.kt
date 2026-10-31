@@ -1547,7 +1547,8 @@ class ChatViewModel(
         val sessionId = state.sessionId
         val directory = snapshotDirectory()
         val turn = turnOf(state.messages, messageId)
-        if (snapshots == null || sessionId == null || directory == null || turn == null) return
+        if (snapshots == null || sessionId == null) return
+        if (directory == null || turn == null) return
         if (state.isRunning || state.isRestoringFiles) return
         _uiState.update { it.copy(isRestoringFiles = true) }
         viewModelScope.launch {
