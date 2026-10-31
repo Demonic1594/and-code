@@ -441,7 +441,9 @@ internal fun imageMime(
     url: String,
 ): String? {
     declaredMime?.takeIf { it.startsWith("image/") }?.let { return it }
-    parseDataImageUri(url)?.mime?.let { return it }
+    // A data URL has no file extension to read: the payload is base64, and looking for one inside it
+    // copied the whole payload (see dataImageMime).
+    if (url.startsWith("data:")) return dataImageMime(url)
     val extension = url.substringBefore('?').substringBefore('#').substringAfterLast('.').lowercase()
     return when (extension) {
         "png" -> "image/png"

@@ -619,16 +619,40 @@ private fun MarkdownBlockView(
 
 internal data class DataImage(val mime: String, val base64: String)
 
-internal fun parseDataImageUri(url: String): DataImage? {
-    if (!url.startsWith("data:")) return null
-    val payload = url.removePrefix("data:")
-    val comma = payload.indexOf(',')
+/** Longest `data:` header read when looking for the comma that ends it. */
+private const val DATA_URL_HEADER_LIMIT = 1024
+private const val DATA_URL_PREFIX = "data:"
+private const val BASE64_MARKER = ";base64"
+
+/**
+ * The MIME type of a base64 image `data:` URL, read from its header alone; null for anything else.
+ *
+ * A file part can carry a multi-megabyte payload, and finding its type used to copy that payload, up
+ * to twice per call: [parseDataImageUri] copied it to hand back the base64, and when that came back
+ * null (a part whose declared type is not an image, such as an `application/octet-stream` or PDF
+ * data URL) the extension fallback in [imageMime] copied it again through `lowercase()`, which is
+ * where a Crashlytics OOM asked for 76 MB. Only the first [DATA_URL_HEADER_LIMIT] characters are read.
+ */
+internal fun dataImageMime(url: CharSequence): String? {
+    if (!url.startsWith(DATA_URL_PREFIX)) return null
+    val end = minOf(url.length, DATA_URL_HEADER_LIMIT)
+    var comma = -1
+    for (index in DATA_URL_PREFIX.length until end) {
+        if (url[index] == ',') {
+            comma = index
+            break
+        }
+    }
     if (comma < 0) return null
-    val meta = payload.substring(0, comma)
-    if (!meta.endsWith(";base64")) return null
-    val mime = meta.removeSuffix(";base64")
-    if (!mime.startsWith("image/")) return null
-    return DataImage(mime, payload.substring(comma + 1))
+    val meta = url.subSequence(DATA_URL_PREFIX.length, comma).toString()
+    if (!meta.endsWith(BASE64_MARKER)) return null
+    return meta.removeSuffix(BASE64_MARKER).takeIf { it.startsWith("image/") }
+}
+
+internal fun parseDataImageUri(url: String): DataImage? {
+    val mime = dataImageMime(url) ?: return null
+    // The header was found above, so its comma is the first one. This is the only copy of the payload.
+    return DataImage(mime, url.substring(url.indexOf(',') + 1))
 }
 
 private fun decodeDataImage(url: String): android.graphics.Bitmap? {

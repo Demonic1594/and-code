@@ -2,9 +2,9 @@ package com.yugahashimoto.andcode.data.schedule
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.data.security.EncryptedPreferences
+import com.yugahashimoto.andcode.data.security.InMemorySharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,14 +19,14 @@ import kotlinx.coroutines.flow.update
 class ScheduleRepository(context: Context) {
     private val interruptedRunMessage = context.getString(R.string.schedule_run_interrupted)
     private val legacyPreferences = context.getSharedPreferences(LEGACY_PREFS_NAME, Context.MODE_PRIVATE)
-    private val preferences: SharedPreferences =
-        EncryptedSharedPreferences.create(
-            context,
-            PREFS_NAME,
-            MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
+
+    // Never throws: this runs in AndCodeApplication.onCreate, where a Keystore failure would crash
+    // the app on every launch. See EncryptedPreferences for how an unusable Keystore is handled.
+    private val preferences: SharedPreferences = EncryptedPreferences.open(context, PREFS_NAME)
+
+    // When the Keystore cannot back encrypted storage the preferences above only live in memory, so
+    // moving the plaintext legacy copy into them and deleting it would lose the schedules on exit.
+    private val keepsLegacyCopy = preferences is InMemorySharedPreferences
 
     private val mutableSchedules = MutableStateFlow(loadSchedules())
     val schedules: StateFlow<List<Schedule>> = mutableSchedules.asStateFlow()
@@ -183,7 +183,7 @@ class ScheduleRepository(context: Context) {
         return legacyPreferences.getString(KEY_SCHEDULES, null)?.let { encoded ->
             val decoded = ScheduleCodec.decodeSchedules(encoded)
             preferences.edit().putString(KEY_SCHEDULES, encoded).apply()
-            legacyPreferences.edit().remove(KEY_SCHEDULES).apply()
+            if (!keepsLegacyCopy) legacyPreferences.edit().remove(KEY_SCHEDULES).apply()
             decoded
         }.orEmpty()
     }
@@ -194,7 +194,7 @@ class ScheduleRepository(context: Context) {
         return legacyPreferences.getString(KEY_RUNS, null)?.let { encoded ->
             val decoded = ScheduleCodec.decodeRuns(encoded)
             preferences.edit().putString(KEY_RUNS, encoded).apply()
-            legacyPreferences.edit().remove(KEY_RUNS).apply()
+            if (!keepsLegacyCopy) legacyPreferences.edit().remove(KEY_RUNS).apply()
             decoded
         }.orEmpty()
     }

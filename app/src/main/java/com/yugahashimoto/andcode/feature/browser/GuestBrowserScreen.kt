@@ -3,6 +3,8 @@ package com.yugahashimoto.andcode.feature.browser
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
+import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -20,12 +22,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +48,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -61,6 +66,8 @@ internal data class PageLoadError(
     val url: String,
     val description: String,
 )
+
+private const val TAG = "GuestBrowser"
 
 /**
  * In-app browser for pages served inside the guest runtime (e.g. http://127.0.0.1:PORT/) and the
@@ -86,6 +93,7 @@ fun GuestBrowserScreen(
     var canGoBack by remember { mutableStateOf(false) }
     var canGoForward by remember { mutableStateOf(false) }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    var webViewUnavailable by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf<PageLoadError?>(null) }
     // The start screen gives way to the first page that loads, whoever loads it (the agent may).
     var pageStarted by remember { mutableStateOf(false) }
@@ -182,11 +190,26 @@ fun GuestBrowserScreen(
                                 // address bar even while that bar still accepts focus and keyboard input.
                                 modifier = Modifier.fillMaxSize().clipToBounds(),
                                 factory = { viewContext ->
-                                    // Lets the in-guest agent drive this WebView over CDP (the devtools abstract
-                                    // socket is reachable from the guest, which shares the app's UID), so a page
-                                    // can be shown to the user and operated by human and agent at the same time.
-                                    WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
-                                    WebView(viewContext).apply {
+                                    // Only starting the system WebView provider can fail for reasons the app
+                                    // cannot fix; everything after it runs on a WebView that exists, so a failure
+                                    // there is a real bug and must not leave a half-built view behind.
+                                    val created =
+                                        viewOrNull(
+                                            create = {
+                                                // Lets the in-guest agent drive this WebView over CDP (the devtools
+                                                // abstract socket is reachable from the guest, which shares the app's
+                                                // UID), so a page can be shown to the user and operated by human and
+                                                // agent at the same time.
+                                                WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+                                                WebView(viewContext)
+                                            },
+                                            onFailure = { error -> Log.w(TAG, "The system WebView could not start", error) },
+                                        )
+                                    if (created == null) {
+                                        webViewUnavailable = true
+                                        return@AndroidView View(viewContext)
+                                    }
+                                    created.apply {
                                         layoutParams =
                                             ViewGroup.LayoutParams(
                                                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -222,10 +245,11 @@ fun GuestBrowserScreen(
                                 },
                                 onRelease = { view ->
                                     bridge.detach()
-                                    view.destroy()
+                                    (view as? WebView)?.destroy()
                                 },
                             )
                             when {
+                                webViewUnavailable -> WebViewUnavailableNotice(modifier = Modifier.fillMaxSize())
                                 loadError != null ->
                                     PageErrorState(
                                         error = loadError!!,
@@ -292,6 +316,19 @@ fun GuestBrowserScreen(
             }
             SnackbarHost(snackbar, modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
         }
+    }
+}
+
+/** Shown instead of the page when the system WebView cannot start, which the app cannot repair. */
+@Composable
+private fun WebViewUnavailableNotice(modifier: Modifier = Modifier) {
+    Box(modifier = modifier.padding(24.dp), contentAlignment = Alignment.Center) {
+        Text(
+            text = stringResource(R.string.guest_browser_webview_unavailable),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
