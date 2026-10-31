@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.yugahashimoto.andcode.data.repository.UnreadSessionStore
+import com.yugahashimoto.andcode.data.security.EncryptedPreferences
 import com.yugahashimoto.andcode.feature.settings.GitHubAccountStore
 import com.yugahashimoto.andcode.feature.wakeword.WakeWordGrammar
 import com.yugahashimoto.andcode.runtime.RuntimeConnectionStore
@@ -15,12 +16,9 @@ class SecureSettingsRepository(context: Context) :
     UnreadSessionStore,
     AdbConnectionStore,
     GitHubAccountStore {
-    private val masterKey =
-        MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-
-    private val preferences: SharedPreferences = createPreferences(context, masterKey)
+    // Never throws: this runs in AndCodeApplication.onCreate, where a Keystore failure would crash
+    // the app on every launch. See EncryptedPreferences for how an unusable Keystore is handled.
+    private val preferences: SharedPreferences = EncryptedPreferences.open(context, PREFS_NAME)
 
     @Synchronized
     override fun connections(): List<ConnectionProfile> =
@@ -529,38 +527,11 @@ class SecureSettingsRepository(context: Context) :
 
     companion object {
         /**
-         * Some devices (seen on stock and OEM ROMs after an OS update, or a backup/restore that
-         * carried the prefs file to a new install without its Keystore-bound key) leave the stored
-         * keyset undecryptable with the current Keystore key: every read throws
-         * [android.security.KeyStoreException] wrapped in [javax.crypto.AEADBadTagException]. Left
-         * uncaught here this crashed [com.yugahashimoto.andcode.AndCodeApplication.onCreate] itself,
-         * bricking the app on every launch since nothing after this constructor ever ran. The
-         * ciphertext cannot be recovered, so this drops it and starts over with a fresh keyset -
-         * exactly what a first run does - rather than leave the user permanently locked out.
+         * Reads the saved app language before the Application exists, so it opens the file itself.
+         * When the Keystore is unusable the repository keeps its settings in memory only (see
+         * [EncryptedPreferences]), so nothing is on disk to read and this returns "system": the
+         * language picker does not stick on such a device, like every other setting.
          */
-        private fun createPreferences(
-            context: Context,
-            masterKey: MasterKey,
-        ): SharedPreferences =
-            runCatching { buildPreferences(context, masterKey) }
-                .recoverCatching {
-                    context.deleteSharedPreferences(PREFS_NAME)
-                    buildPreferences(context, masterKey)
-                }
-                .getOrThrow()
-
-        private fun buildPreferences(
-            context: Context,
-            masterKey: MasterKey,
-        ): SharedPreferences =
-            EncryptedSharedPreferences.create(
-                context,
-                PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-            )
-
         fun readLanguage(context: Context): String =
             runCatching {
                 val masterKey =

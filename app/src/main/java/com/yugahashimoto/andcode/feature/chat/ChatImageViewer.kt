@@ -334,7 +334,8 @@ fun safeImageFilename(source: ChatImageSource): String {
 
 private fun effectiveImageMime(source: ChatImageSource): String {
     if (source.mime.startsWith("image/") && source.mime != "image/*") return source.mime
-    parseDataImageUri(source.url)?.mime?.let { return it }
+    dataImageMime(source.url)?.let { return it }
+    if (source.url.startsWith("data:")) return "image/png"
     return when (source.url.substringBefore('?').substringAfterLast('.', "").lowercase()) {
         "jpg", "jpeg" -> "image/jpeg"
         "webp" -> "image/webp"

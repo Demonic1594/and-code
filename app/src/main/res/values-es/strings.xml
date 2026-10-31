@@ -1388,6 +1388,7 @@
     <string name="devtools_environment">Entorno</string>
     <string name="devtools_viewport">Ventana gráfica</string>
     <string name="devtools_user_agent">Agente de usuario</string>
+    <string name="guest_browser_webview_unavailable">El navegador invitado no puede iniciarse porque WebView no se pudo cargar en este dispositivo. Actualizar o volver a activar Android System WebView puede solucionarlo.</string>
     <string name="setup_step_development_tools">Herramientas de desarrollo</string>
     <string name="setup_development_tools_description">De forma predeterminada solo se instala lo necesario para ejecutar el entorno, o puedes incluir toda la cadena de desarrollo.</string>
     <string name="setup_required_tools_description">Linux, los agentes seleccionados, Git y las herramientas de soporte que usa AndCode. Siempre se instalan.</string>

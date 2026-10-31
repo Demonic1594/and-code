@@ -33,18 +33,25 @@ class CodexKeepAliveService : Service() {
         createChannel()
         // The platform can refuse the promotion for a service started while the app was in the
         // background; giving up beats being killed for never calling startForeground.
-        runCatching { startForeground(NOTIFICATION_ID, notification()) }
-            .onFailure { error ->
-                Log.w(TAG, "Could not enter the foreground", error)
-                stopSelf()
-            }
+        if (!enterForeground()) stopSelf()
     }
 
     override fun onStartCommand(
         intent: Intent?,
         flags: Int,
         startId: Int,
-    ): Int = START_NOT_STICKY
+    ): Int {
+        // Every startForegroundService() has to be answered by startForeground(), not only the one
+        // that created the service, so a start that reaches an instance already running is answered
+        // here too. Repeating the call only refreshes the same notification.
+        if (!enterForeground()) stopSelf()
+        return START_NOT_STICKY
+    }
+
+    private fun enterForeground(): Boolean =
+        runCatching { startForeground(NOTIFICATION_ID, notification()) }
+            .onFailure { error -> Log.w(TAG, "Could not enter the foreground", error) }
+            .isSuccess
 
     private fun createChannel() {
         val manager = getSystemService(NotificationManager::class.java) ?: return

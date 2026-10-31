@@ -473,6 +473,9 @@
     <ID>TopLevelPropertyNaming:ChatImageViewer.kt$private const val MAX_IMAGE_BASE64_CHARS = 34_952_536</ID>
     <ID>TopLevelPropertyNaming:ChatImageViewer.kt$private const val MAX_IMAGE_BYTES = 25 * 1024 * 1024</ID>
     <ID>TopLevelPropertyNaming:ChatImageViewer.kt$private const val VIEWER_MAX_DIMENSION = 4096</ID>
+    <ID>TopLevelPropertyNaming:ChatMessageComponents.kt$/** Longest `data:` header read when looking for the comma that ends it. */ private const val DATA_URL_HEADER_LIMIT = 1024</ID>
+    <ID>TopLevelPropertyNaming:ChatMessageComponents.kt$private const val BASE64_MARKER = ";base64"</ID>
+    <ID>TopLevelPropertyNaming:ChatMessageComponents.kt$private const val DATA_URL_PREFIX = "data:"</ID>
     <ID>TopLevelPropertyNaming:ChatTitles.kt$private const val SHORT_TITLE_MAX_CHARS = 40</ID>
     <ID>TopLevelPropertyNaming:ChatTitles.kt$private const val SHORT_TITLE_MAX_WORDS = 6</ID>
     <ID>TopLevelPropertyNaming:ChatTranscriptExport.kt$/** * Longest transcript put on the clipboard. The clipboard goes through binder, where a few hundred * kilobytes is already risky and around 1 MB crashes the app; anything longer is offered as a share. */ internal const val MAX_CLIPBOARD_TRANSCRIPT_CHARS = 200_000</ID>
