@@ -53,4 +53,18 @@ class ShellCommandRulesTest {
         assertFalse(ShellCommandRules.matches("", "git status"))
         assertFalse(ShellCommandRules.matches("   ", "git status"))
     }
+
+    @Test
+    fun `programs that run other code are never matched or remembered`() {
+        listOf("bash -c ls", "sh -c ls", "env ls", "xargs ls", "sudo ls", "python3 -c 1", "node -e 1").forEach { command ->
+            assertFalse(command, ShellCommandRules.matches(command.substringBefore(' '), command))
+            assertNull(command, ShellCommandRules.ruleFor(command))
+        }
+    }
+
+    @Test
+    fun `tabs separate words and a dollar sign is refused`() {
+        assertTrue(ShellCommandRules.matches("git status", "git\tstatus"))
+        assertFalse(ShellCommandRules.matches("echo", "echo \$HOME"))
+    }
 }

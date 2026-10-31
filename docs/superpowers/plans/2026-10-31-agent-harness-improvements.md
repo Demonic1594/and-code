@@ -31,19 +31,17 @@ Ordered by value for the phone user, not by effort.
 
 ### 1. Command allowlist with "always allow"
 
-Matching made shell-safe (`ShellCommandRules`): a command that chains, pipes, substitutes or
-redirects never matches a rule and is never remembered as one, and rule words must equal the
-command's first words. Wiring the rules into the prompt bypass, per-project scope and Deny are
-still to do.
+Matching made shell-safe, in the app (`ShellCommandRules`) and in the guest hook that actually
+skips the prompt (`and-code-claude-permission-hook.sh`, which reads `always-rules.json`): a command
+that chains, pipes, substitutes or redirects, or starts with a program that runs other code
+(`bash -c`, `env`, `xargs`, an interpreter), never matches a rule and is never remembered as one;
+rule words must equal the command's first words; and a call with a command never matches a
+tool-wide rule. Before this, the hook matched with a plain text prefix and a tool-wide Bash rule
+allowed every command. Per-project scope and Deny are still to do.
 
 Feasible, easy. The approval sheet gets an "Always allow this command" action that stores a
 pattern (for example `git status`, `npm test`) per project. Matching calls skip the prompt.
 Cursor's plain-English rules are not needed; prefix patterns cover most cases.
-
-The existing `ClaudePermissionBridge.isAlwaysAllowed` matches with `startsWith` on the first two
-tokens, so `git status; rm -rf x` would match an allowed `git status`. Nothing calls it today, but
-before it is wired into the prompt bypass, match on parsed arguments or refuse any command that
-contains shell operators (`;`, `&&`, `||`, `|`, newlines, `$(...)`, backticks).
 
 - Storage: per-project settings, not global. `ClaudePermissionBridge` keeps `always-rules.json`
   under its host root and `AlwaysRule` carries no project, so scope the bridge by project (or

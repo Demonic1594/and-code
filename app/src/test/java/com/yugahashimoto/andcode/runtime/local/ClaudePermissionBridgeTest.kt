@@ -162,6 +162,14 @@ class ClaudePermissionBridgeTest {
         assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"anything"}"""))
     }
 
+    @Test
+    fun `a tool-wide rule never covers a command`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        java.io.File(folder.root, "always-rules.json").writeText("""{"rules":[{"toolName":"Bash"}]}""")
+
+        assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"rm -rf ~"}"""))
+    }
+
     private fun approveAlways(
         bridge: ClaudePermissionBridge,
         command: String,
