@@ -56,10 +56,6 @@ import com.yugahashimoto.andcode.feature.activity.ActivityViewModel
 import com.yugahashimoto.andcode.feature.archive.ArchiveScreen
 import com.yugahashimoto.andcode.feature.archive.ArchiveViewModel
 import com.yugahashimoto.andcode.feature.assistant.SpeechRecognizerManager
-import com.yugahashimoto.andcode.feature.assistant.SpeechResult
-import com.yugahashimoto.andcode.feature.assistant.SpeechTranscriptAccumulator
-import com.yugahashimoto.andcode.feature.assistant.VoiceDictationOutcome
-import com.yugahashimoto.andcode.feature.assistant.VoiceDictationPolicy
 import com.yugahashimoto.andcode.feature.browser.GuestBrowserCommandWatcher
 import com.yugahashimoto.andcode.feature.chat.ChatHomeScreen
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
@@ -129,11 +125,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 /** How often the open chat asks GitHub whether its pull requests have moved on. */
 private const val PULL_REQUEST_REFRESH_INTERVAL_MS = 30_000L
-private const val VOICE_RESTART_DELAY_MS = 200L
 private const val NAV_FADE_MS = 180
 
 @Composable
@@ -414,58 +408,7 @@ fun AndCodeApp(
             return
         }
         chatViewModel.startListening()
-        voiceJob =
-            voiceScope.launch {
-                val transcript = SpeechTranscriptAccumulator()
-                // Wake-word detection records straight from the microphone, while this dictation
-                // records through SpeechRecognizer in another process. Left running, detection wins
-                // the platform's arbitration and the recogniser is handed silence.
-                val micToken = UUID.randomUUID().toString()
-                WakeWordService.holdMicrophone(micToken)
-                try {
-                    var silentSegments = 0
-                    while (true) {
-                        var outcome = VoiceDictationOutcome.RESTART
-                        speechManager.startListening(speechLocaleTag(context)).collect { result ->
-                            when (result) {
-                                SpeechResult.Ready,
-                                SpeechResult.Listening,
-                                -> Unit
-                                SpeechResult.Processing -> chatViewModel.showSpeechProcessing()
-                                is SpeechResult.PartialResult -> {
-                                    chatViewModel.updateSpeechPartial(transcript.preview(result.text))
-                                }
-                                is SpeechResult.Result -> {
-                                    silentSegments = 0
-                                    transcript.append(result.text)
-                                    chatViewModel.updateSpeechPartial(transcript.text)
-                                }
-                                is SpeechResult.Error -> {
-                                    silentSegments += 1
-                                    outcome =
-                                        VoiceDictationPolicy.outcomeFor(
-                                            code = result.code,
-                                            hasTranscript = transcript.text.isNotBlank(),
-                                            consecutiveFailures = silentSegments,
-                                        )
-                                    if (outcome == VoiceDictationOutcome.REPORT) {
-                                        chatViewModel.reportSpeechError(result.message)
-                                    }
-                                }
-                            }
-                        }
-                        if (outcome != VoiceDictationOutcome.RESTART) break
-                        delay(VOICE_RESTART_DELAY_MS)
-                        chatViewModel.startListening()
-                        if (transcript.text.isNotBlank()) {
-                            chatViewModel.updateSpeechPartial(transcript.text)
-                        }
-                    }
-                } finally {
-                    WakeWordService.releaseMicrophone(micToken)
-                    chatViewModel.stopListening()
-                }
-            }
+        voiceJob = voiceScope.launch { runVoiceDictation(speechManager, { speechLocaleTag(context) }, chatViewModel) }
     }
 
     val microphonePermissionLauncher =
@@ -548,65 +491,12 @@ fun AndCodeApp(
             if (uri == null) return@rememberLauncherForActivityResult
             voiceScope.launch {
                 runCatching {
-                    withContext(Dispatchers.IO) {
-                        val importer = com.yugahashimoto.andcode.runtime.local.AttachmentImporter(context)
-                        val runtimeWorkspaceRoot = java.io.File(context.filesDir, "runtime/workspace")
-                        // Only the on-device runtime mounts /workspace onto a local directory. A
-                        // remote runtime may also spell its workspace /workspace, but there is no
-                        // local mount to copy into, so its attachments are always sent as-is.
-                        val workspaceDir =
-                            if (selectedRuntime?.kind == com.yugahashimoto.andcode.runtime.BackendKind.LOCAL) {
-                                com.yugahashimoto.andcode.runtime.local.AttachmentSupport.hostWorkspace(
-                                    chatState.sessionDirectory ?: chatState.selectedWorkspacePath,
-                                    runtimeWorkspaceRoot,
-                                )
-                            } else {
-                                null
-                            }
-                        importer.importAll(uri).map { attachment ->
-                            // A MIME the provider rejects as a file part (zip, binaries, ...): drop a
-                            // copy into the workspace and let the agent read it from disk. If the
-                            // copy fails, fall back to sending the attachment as before.
-                            val workspacePath =
-                                workspaceDir
-                                    ?.takeIf {
-                                        !com.yugahashimoto.andcode.runtime.local.AttachmentSupport.isModelSendable(
-                                            attachment.mime,
-                                        )
-                                    }?.let { directory ->
-                                        runCatching { importer.writeToWorkspace(attachment, directory) }
-                                            .getOrNull()
-                                            ?.let {
-                                                com.yugahashimoto.andcode.runtime.local.AttachmentSupport
-                                                    .guestWorkspacePath(it, runtimeWorkspaceRoot)
-                                            }
-                                    }
-                            if (workspacePath != null) {
-                                attachment.copy(url = "", workspacePath = workspacePath) to null
-                            } else {
-                                val preview =
-                                    if (com.yugahashimoto.andcode.runtime.local.VideoAttachmentHelper.isImageMime(
-                                            attachment.mime,
-                                        )
-                                    ) {
-                                        runCatching {
-                                            val base64 =
-                                                attachment.url.substringAfter("base64,", missingDelimiterValue = "")
-                                            if (base64.isEmpty()) return@runCatching null
-                                            val bytes =
-                                                android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
-                                            com.yugahashimoto.andcode.core.util.decodeSampledBitmap(
-                                                bytes,
-                                                com.yugahashimoto.andcode.feature.chat.COMPOSER_PREVIEW_MAX_DIMENSION,
-                                            )
-                                        }.getOrNull()
-                                    } else {
-                                        null
-                                    }
-                                attachment to preview
-                            }
-                        }
-                    }
+                    importComposerAttachments(
+                        context = context,
+                        uri = uri,
+                        workspacePath = chatState.sessionDirectory ?: chatState.selectedWorkspacePath,
+                        localRuntime = selectedRuntime?.kind == com.yugahashimoto.andcode.runtime.BackendKind.LOCAL,
+                    )
                 }.onSuccess { attachments ->
                     attachments.forEach { (attachment, preview) ->
                         if (preview != null) {
