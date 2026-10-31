@@ -416,38 +416,71 @@ private fun DiscardChangesDialog(
     )
 }
 
-private fun highlightLine(
+/**
+ * Longest line that is syntax-highlighted.
+ *
+ * Lines are highlighted while composing, on the main thread, and a minified file can put a megabyte
+ * on one line. A Crashlytics ANR had the main thread in `TOKEN_REGEX.findAll(line)`; that the line
+ * was this long is inferred from the stack, not reproduced. The regex scans the whole line, and a
+ * string or block comment that is never closed (an unterminated string with many escaped quotes, or
+ * many comment openers) makes it rescan to the end of the line from each start, and every match then
+ * becomes a styled span. A longer line is shown unstyled, with neither the regex nor the spans.
+ * Search matches on it are still marked, up to [MAX_SEARCH_MARKS_ON_LONG_LINE].
+ */
+internal const val MAX_HIGHLIGHTED_LINE_CHARS = 2_000
+
+/**
+ * Most search matches marked on a line past [MAX_HIGHLIGHTED_LINE_CHARS]. Each mark is a span, and
+ * a one-character query on a megabyte line has hundreds of thousands of matches.
+ *
+ * It equals the line limit, which a one-character query already reaches on an ordinary line, so the
+ * number of marks does not step down as a line grows past the limit. Matches beyond it are not
+ * marked, wrapped or not; the line still counts as a match for navigation.
+ */
+internal const val MAX_SEARCH_MARKS_ON_LONG_LINE = MAX_HIGHLIGHTED_LINE_CHARS
+
+internal fun highlightLine(
     line: String,
     theme: SyntaxTheme,
     searchQuery: String,
 ): AnnotatedString =
     buildAnnotatedString {
-        var last = 0
-        for (match in TOKEN_REGEX.findAll(line)) {
-            if (match.range.first > last) append(line.substring(last, match.range.first))
-            val style =
-                when {
-                    match.groups[1] != null -> SpanStyle(color = theme.comment)
-                    match.groups[2] != null -> SpanStyle(color = theme.string)
-                    match.groups[3] != null -> SpanStyle(color = theme.keyword)
-                    else -> SpanStyle(color = theme.number)
-                }
-            withStyle(style) { append(match.value) }
-            last = match.range.last + 1
-        }
-        if (last < line.length) append(line.substring(last))
+        if (line.length <= MAX_HIGHLIGHTED_LINE_CHARS) appendHighlighted(line, theme) else append(line)
         if (searchQuery.isNotEmpty()) {
+            val markLimit = if (line.length > MAX_HIGHLIGHTED_LINE_CHARS) MAX_SEARCH_MARKS_ON_LONG_LINE else Int.MAX_VALUE
+            var marks = 0
             var idx = line.indexOf(searchQuery)
-            while (idx >= 0) {
+            while (idx >= 0 && marks < markLimit) {
                 addStyle(
                     SpanStyle(background = MatchHighlight, color = MatchHighlightForeground),
                     idx,
                     idx + searchQuery.length,
                 )
+                marks++
                 idx = line.indexOf(searchQuery, idx + searchQuery.length)
             }
         }
     }
+
+private fun AnnotatedString.Builder.appendHighlighted(
+    line: String,
+    theme: SyntaxTheme,
+) {
+    var last = 0
+    for (match in TOKEN_REGEX.findAll(line)) {
+        if (match.range.first > last) append(line.substring(last, match.range.first))
+        val style =
+            when {
+                match.groups[1] != null -> SpanStyle(color = theme.comment)
+                match.groups[2] != null -> SpanStyle(color = theme.string)
+                match.groups[3] != null -> SpanStyle(color = theme.keyword)
+                else -> SpanStyle(color = theme.number)
+            }
+        withStyle(style) { append(match.value) }
+        last = match.range.last + 1
+    }
+    if (last < line.length) append(line.substring(last))
+}
 
 /** Appended to the file name while there are edits that have not been saved. */
 private const val UNSAVED_MARK = " •"
