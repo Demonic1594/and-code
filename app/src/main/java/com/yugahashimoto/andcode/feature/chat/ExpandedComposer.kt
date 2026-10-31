@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.feature.chat
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,15 +17,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -32,16 +34,22 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.ui.theme.Spacing
 
-private object ExpandedComposerDefaults {
-    /** From this many lines (the composer shows at most four) it offers the message full screen. */
-    const val FROM_LINES = 4
-}
+/** The most lines the chat composer shows before it scrolls. */
+internal const val COMPOSER_MAX_LINES = 4
 
-/** Whether a message laid out in [lineCount] lines is long enough to offer the full-screen editor. */
-internal fun shouldOfferExpandedComposer(lineCount: Int): Boolean = lineCount >= ExpandedComposerDefaults.FROM_LINES
+/** Above this luminance a surface is light and wants dark system bar icons. */
+private const val LIGHT_SURFACE = 0.5f
+
+/**
+ * Whether a message laid out in [lineCount] lines fills the composer, so the full-screen editor is
+ * offered. The composer's layout reports at most [COMPOSER_MAX_LINES] lines, so this means "it is full".
+ */
+internal fun shouldOfferExpandedComposer(lineCount: Int): Boolean = lineCount >= COMPOSER_MAX_LINES
 
 /**
  * The message being written, full screen, for a long prompt the four-line composer can't show.
@@ -61,6 +69,18 @@ internal fun ExpandedComposer(
     ) {
         val focus = remember { FocusRequester() }
         LaunchedEffect(Unit) { focus.requestFocus() }
+        // The dialog has its own window, which the app theme's status bar setup never reaches: match
+        // its bar icons to this surface, or light icons vanish on a light theme.
+        val window = (LocalView.current.parent as? DialogWindowProvider)?.window
+        val lightBars = MaterialTheme.colorScheme.surface.luminance() > LIGHT_SURFACE
+        SideEffect {
+            window?.let {
+                WindowCompat.getInsetsController(it, it.decorView).apply {
+                    isAppearanceLightStatusBars = lightBars
+                    isAppearanceLightNavigationBars = lightBars
+                }
+            }
+        }
         Surface(
             modifier = Modifier.fillMaxSize().testTag("chat-expanded-composer"),
             color = MaterialTheme.colorScheme.surface,
@@ -68,13 +88,8 @@ internal fun ExpandedComposer(
             Column(modifier = Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xs),
-                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End,
                 ) {
-                    Text(
-                        text = stringResource(R.string.chat_message_placeholder),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f).padding(start = Spacing.sm),
-                    )
                     IconButton(onClick = onCollapse, modifier = Modifier.testTag("chat-collapse-composer")) {
                         Icon(Icons.Default.CloseFullscreen, contentDescription = stringResource(R.string.cd_collapse_composer))
                     }
@@ -88,7 +103,8 @@ internal fun ExpandedComposer(
                             .fillMaxWidth()
                             .verticalScroll(rememberScrollState())
                             .padding(horizontal = Spacing.md, vertical = Spacing.sm)
-                            .focusRequester(focus),
+                            .focusRequester(focus)
+                            .testTag("chat-expanded-input"),
                     textStyle =
                         TextStyle(
                             color = MaterialTheme.colorScheme.onSurface,

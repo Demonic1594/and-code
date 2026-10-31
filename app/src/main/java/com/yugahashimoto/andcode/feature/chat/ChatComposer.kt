@@ -353,7 +353,7 @@ internal fun ChatComposer(
                                         pasteImage
                                     },
                             minLines = 1,
-                            maxLines = 4,
+                            maxLines = COMPOSER_MAX_LINES,
                             onTextLayout = { layout -> inputLines = layout.lineCount },
                             textStyle =
                                 TextStyle(
@@ -395,62 +395,69 @@ internal fun ChatComposer(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                 ) {
-                    Box {
-                        AttachButton(onClick = { showAttachMenu = true })
-                        DropdownMenu(
-                            expanded = showAttachMenu,
-                            onDismissRequest = { showAttachMenu = false },
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.attach_file)) },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.InsertDriveFile,
-                                        contentDescription = stringResource(R.string.cd_attach_file),
-                                        modifier = Modifier.size(18.dp),
-                                    )
-                                },
-                                onClick = {
-                                    showAttachMenu = false
-                                    onAttach()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.attach_camera)) },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.CameraAlt,
-                                        contentDescription = stringResource(R.string.cd_camera),
-                                        modifier = Modifier.size(18.dp),
-                                    )
-                                },
-                                onClick = {
-                                    showAttachMenu = false
-                                    onCameraLaunch()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.attach_gallery)) },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.PhotoLibrary,
-                                        contentDescription = stringResource(R.string.cd_gallery),
-                                        modifier = Modifier.size(18.dp),
-                                    )
-                                },
-                                onClick = {
-                                    showAttachMenu = false
-                                    onGalleryLaunch()
-                                },
-                            )
+                    // The model chip takes what the buttons leave and ellipsizes, so on a narrow screen
+                    // it gives way rather than pushing the send button out.
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    ) {
+                        Box {
+                            AttachButton(onClick = { showAttachMenu = true })
+                            DropdownMenu(
+                                expanded = showAttachMenu,
+                                onDismissRequest = { showAttachMenu = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.attach_file)) },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.InsertDriveFile,
+                                            contentDescription = stringResource(R.string.cd_attach_file),
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    },
+                                    onClick = {
+                                        showAttachMenu = false
+                                        onAttach()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.attach_camera)) },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.CameraAlt,
+                                            contentDescription = stringResource(R.string.cd_camera),
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    },
+                                    onClick = {
+                                        showAttachMenu = false
+                                        onCameraLaunch()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.attach_gallery)) },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.PhotoLibrary,
+                                            contentDescription = stringResource(R.string.cd_gallery),
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    },
+                                    onClick = {
+                                        showAttachMenu = false
+                                        onGalleryLaunch()
+                                    },
+                                )
+                            }
                         }
+                        CompactContextButton(
+                            label = modelLabel,
+                            maxWidth = 168.dp,
+                            onClick = onModelChipClick,
+                        )
                     }
-                    CompactContextButton(
-                        label = modelLabel,
-                        maxWidth = 168.dp,
-                        onClick = onModelChipClick,
-                    )
-                    Spacer(Modifier.weight(1f))
                     if (isListening) {
                         VolumeMeter(amplitude = 0.5f, idle = true)
                     }
@@ -466,7 +473,9 @@ internal fun ChatComposer(
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         }
-                    if (shouldOfferExpandedComposer(inputLines)) {
+                    // Not while dictating: the dictated text replaces the field, and the stop button
+                    // would be hidden behind the full-screen editor.
+                    if (!voiceActive && shouldOfferExpandedComposer(inputLines)) {
                         IconButton(
                             onClick = { composerExpanded = true },
                             modifier = Modifier.size(38.dp).testTag("chat-expand-composer"),
