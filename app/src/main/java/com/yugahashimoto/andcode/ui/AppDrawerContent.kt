@@ -293,11 +293,13 @@ fun AppDrawerContent(
                     // Next to the list it filters. A query shows the results even in a collapsed
                     // section, without overwriting the collapse the user chose.
                     DrawerSearchField(query = searchQuery, onQueryChange = { searchQuery = it })
-                    val recentCollapsed = collapsedSections.contains("recent") && searchQuery.isBlank()
+                    val recentCollapsed = isRecentSectionCollapsed(collapsedSections, searchQuery)
                     DrawerSectionHeader(
                         text = stringResource(R.string.drawer_recent_chats),
                         collapsed = recentCollapsed,
-                        onToggle = { onToggleSection("recent") },
+                        // While a query holds the section open, a tap would flip the saved choice
+                        // with nothing to show for it until the query is cleared.
+                        onToggle = { if (searchQuery.isBlank()) onToggleSection("recent") },
                     )
                     AnimatedVisibility(visible = !recentCollapsed) {
                         Column {
@@ -971,3 +973,9 @@ private fun AppDrawerContentPreview() {
         )
     }
 }
+
+/** Whether Recent chats is shown collapsed: as the user left it, except that a query always opens it. */
+internal fun isRecentSectionCollapsed(
+    collapsedSections: Set<String>,
+    query: String,
+): Boolean = "recent" in collapsedSections && query.isBlank()

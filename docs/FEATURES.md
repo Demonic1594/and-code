@@ -18,7 +18,7 @@ page: [`TOKEN_EFFICIENCY.md`](TOKEN_EFFICIENCY.md).
 
 | Feature | Where | Notes |
 |---------|-------|-------|
-| Search chats | Drawer → search field above the chat list | Matches every word against the chat title and its project folder. |
+| Search chats | Drawer → search field above **Recent chats** | Matches every word against the chat title and its project folder. Typing opens Recent chats if it was collapsed; clearing the field puts it back as you left it. |
 | Search inside messages | Drawer → type in the search field → **Search messages for "…"** | Reads every chat's messages through its agent, a few chats at a time, and lists the chats that contain the text, best matches first, each with a line of context. **Include archived** adds the Archive. A chat that was not changed since the last search is not read again. Tapping a result opens the chat with the same text already in its find bar. |
 | Find in chat | Chat → 🔍 in the top bar | Highlights every row that contains the text, shows "3 of 12", and jumps between matches with ↑/↓, starting at the newest. Finds the reasoning and tool calls inside collapsed activity groups too. Back closes it. |
 | Pin chats | Long-press a chat in the drawer → pin icon | Pinned chats get their own section at the top. Long-press again to unpin. Auto-archive never touches a pinned chat, and up to two pinned chats also appear as launcher shortcuts. |

@@ -1,6 +1,6 @@
 # Drawer: the chat search field moves next to Recent chats
 
-Status: **done**.
+Status: **done** (built and unit-tested; the screenshots and on-device checks below were not run).
 
 ## Goal
 
