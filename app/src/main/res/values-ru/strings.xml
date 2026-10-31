@@ -1261,6 +1261,7 @@
     <string name="guest_browser_copy_link">Копировать ссылку</string>
     <string name="guest_browser_link_copied">Ссылка скопирована</string>
     <string name="guest_browser_open_external">Открыть в браузере</string>
+    <string name="guest_browser_agent_control">Разрешить агентам управлять этим браузером</string>
     <string name="guest_browser_close">Закрыть браузер</string>
     <string name="guest_browser_stop">Остановить загрузку</string>
     <string name="guest_browser_devtools">DevTools</string>

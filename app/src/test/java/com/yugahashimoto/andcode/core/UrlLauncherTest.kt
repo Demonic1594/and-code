@@ -30,4 +30,16 @@ class UrlLauncherTest {
         assertFalse(UrlLauncher.isOpenableUrl("http:example.com"))
         assertFalse(UrlLauncher.isOpenableUrl("1http://example.com"))
     }
+
+    @Test
+    fun `only https links to GitHub and its gists count as GitHub links`() {
+        assertTrue(isGitHubUrl("https://github.com/owner/repo/pull/1"))
+        assertTrue(isGitHubUrl("https://www.github.com/owner/repo"))
+        assertTrue(isGitHubUrl("https://gist.github.com/someone/abc"))
+        assertTrue(isGitHubUrl(" HTTPS://GitHub.com/owner "))
+        assertFalse(isGitHubUrl("http://github.com/owner/repo"))
+        assertFalse(isGitHubUrl("https://github.com.evil.example/owner"))
+        assertFalse(isGitHubUrl("https://raw.githubusercontent.com/owner/repo/main/a"))
+        assertFalse(isGitHubUrl("not a url"))
+    }
 }

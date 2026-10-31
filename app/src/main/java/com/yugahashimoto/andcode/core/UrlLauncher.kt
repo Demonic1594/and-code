@@ -12,6 +12,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
+import java.net.URI
 import java.util.Locale
 
 /**
@@ -83,12 +84,17 @@ private class SafeUriHandler(
 ) : UriHandler {
     override fun openUri(uri: String) {
         // A server on this device (a dev server the agent started) opens in the app's own browser,
-        // which can reach it; another app's browser usually cannot.
-        if (openLocal != null && isLocalServerUrl(uri)) openLocal(uri) else UrlLauncher.openUrl(context, uri)
+        // which can reach it; another app's browser usually cannot. GitHub links open there too, so
+        // a PR or issue the agent links to can be read without leaving the chat.
+        if (openLocal != null && (isLocalServerUrl(uri) || isGitHubUrl(uri))) {
+            openLocal(uri)
+        } else {
+            UrlLauncher.openUrl(context, uri)
+        }
     }
 }
 
-/** Where links to a server on this device open, when something on screen can show them. */
+/** Where links to a server on this device, and GitHub links, open when something on screen can show them. */
 val LocalServerUrlOpener = staticCompositionLocalOf<((String) -> Unit)?> { null }
 
 // The host must end where the URL's host ends: "localhost.example.com" and "127.0.0.1.nip.io" are
@@ -99,6 +105,17 @@ private val LOCAL_SERVER_URL =
         """https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1])(?::\d{2,5})?(?![\w\-@\\]|[.:]\w)(?:[/?#][^\s)\]>"'`]*)?""",
         RegexOption.IGNORE_CASE,
     )
+
+private object GitHubLinks {
+    val hosts = setOf("github.com", "www.github.com", "gist.github.com")
+}
+
+/** True for an https link to GitHub or its gists. */
+fun isGitHubUrl(url: String): Boolean =
+    runCatching {
+        val uri = URI(url.trim())
+        uri.scheme.equals("https", ignoreCase = true) && uri.host?.lowercase() in GitHubLinks.hosts
+    }.getOrDefault(false)
 
 /** True for a URL that points at a server on this device rather than the internet. */
 fun isLocalServerUrl(url: String): Boolean = LOCAL_SERVER_URL.matchEntire(url.trim()) != null

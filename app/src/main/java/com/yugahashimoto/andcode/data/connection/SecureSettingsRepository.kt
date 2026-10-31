@@ -441,6 +441,10 @@ class SecureSettingsRepository(context: Context) :
         get() = preferences.getBoolean(KEY_HAPTICS_ENABLED, true)
         set(value) = preferences.edit().putBoolean(KEY_HAPTICS_ENABLED, value).apply()
 
+    var agentBrowserControl: Boolean
+        get() = preferences.getBoolean(KEY_AGENT_BROWSER_CONTROL, true)
+        set(value) = preferences.edit().putBoolean(KEY_AGENT_BROWSER_CONTROL, value).apply()
+
     /**
      * The app lock's switches live in plain app-private preferences, not the encrypted ones: they are
      * not secret, and the encrypted file falls back to memory when the Keystore fails, which would
@@ -628,6 +632,7 @@ class SecureSettingsRepository(context: Context) :
         private const val KEY_SEND_BEHAVIOR = "send_behavior"
         private const val KEY_ENTER_TO_SEND = "enter_to_send"
         private const val KEY_HAPTICS_ENABLED = "haptics_enabled"
+        private const val KEY_AGENT_BROWSER_CONTROL = "agent_browser_control"
         private const val LOCK_PREFS_NAME = "andcode_app_lock"
         private const val KEY_BIOMETRIC_LOCK = "biometric_lock_enabled"
         private const val KEY_BIOMETRIC_LOCK_ON_SEND = "biometric_lock_on_send_enabled"

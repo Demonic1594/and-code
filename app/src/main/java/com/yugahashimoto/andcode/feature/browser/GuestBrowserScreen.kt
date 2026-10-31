@@ -77,6 +77,8 @@ private const val TAG = "GuestBrowser"
 @Composable
 fun GuestBrowserScreen(
     initialUrl: String,
+    agentControl: Boolean,
+    onAgentControlChange: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -98,6 +100,14 @@ fun GuestBrowserScreen(
     // The start screen gives way to the first page that loads, whoever loads it (the agent may).
     var pageStarted by remember { mutableStateOf(false) }
     var desktopMode by rememberSaveable { mutableStateOf(false) }
+
+    // The DevTools socket the agent drives this browser through exists only while the browser is on
+    // screen with agent control on; leaving puts it back to the build's default (on only in debug
+    // builds, for Chrome's inspector). It is process-wide, so it covers the app's other WebViews too.
+    DisposableEffect(agentControl) {
+        setWebDebugging(BuildConfig.DEBUG || agentControl)
+        onDispose { setWebDebugging(BuildConfig.DEBUG) }
+    }
     var findOpen by rememberSaveable { mutableStateOf(false) }
     var findQuery by rememberSaveable { mutableStateOf("") }
     var findMatch by remember { mutableStateOf(FindMatch()) }
@@ -203,8 +213,8 @@ fun GuestBrowserScreen(
                                                 // Lets the in-guest agent drive this WebView over CDP (the devtools
                                                 // abstract socket is reachable from the guest, which shares the app's
                                                 // UID), so a page can be shown to the user and operated by human and
-                                                // agent at the same time.
-                                                WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+                                                // agent at the same time. See the effect below for when it is on.
+                                                WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG || agentControl)
                                                 WebView(viewContext)
                                             },
                                             onFailure = { error -> Log.w(TAG, "The system WebView could not start", error) },
@@ -315,6 +325,8 @@ fun GuestBrowserScreen(
                                 }
                             },
                             onOpenExternal = { pageUrl()?.let { UrlLauncher.openUrl(context, it) } },
+                            agentControl = agentControl,
+                            onToggleAgentControl = { onAgentControlChange(!agentControl) },
                         ),
                 )
             }
@@ -369,6 +381,9 @@ private fun WebView.configure(
     // Guest pages (dev servers, dashboards, tool UIs) are interactive web apps that need JS.
     settings.javaScriptEnabled = true
     settings.domStorageEnabled = true
+    // Like Chrome: a tap on the page may start sound, also in a cross-origin embed (a YouTube player
+    // the page unmutes). With the default, a muted embed asked to unmute pauses instead.
+    settings.mediaPlaybackRequiresUserGesture = false
     // Pinch to zoom, without the legacy on-screen zoom buttons; the menu zooms in steps too.
     settings.setSupportZoom(true)
     settings.builtInZoomControls = true
@@ -431,4 +446,10 @@ private fun WebView.configure(
                 }
             }
         }
+}
+
+/** Turns the WebView DevTools socket on or off; a device without a working WebView has none. */
+private fun setWebDebugging(enabled: Boolean) {
+    runCatching { WebView.setWebContentsDebuggingEnabled(enabled) }
+        .onFailure { error -> Log.w(TAG, "WebView debugging could not be changed", error) }
 }

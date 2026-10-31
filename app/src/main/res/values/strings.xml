@@ -1277,6 +1277,7 @@
     <string name="guest_browser_copy_link">Copy link</string>
     <string name="guest_browser_link_copied">Link copied</string>
     <string name="guest_browser_open_external">Open in browser</string>
+    <string name="guest_browser_agent_control">Let agents control this browser</string>
     <string name="guest_browser_close">Close browser</string>
     <string name="guest_browser_stop">Stop loading</string>
     <string name="guest_browser_devtools">DevTools</string>

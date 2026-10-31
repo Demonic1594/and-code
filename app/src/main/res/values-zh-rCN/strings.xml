@@ -1252,6 +1252,7 @@
     <string name="guest_browser_copy_link">复制链接</string>
     <string name="guest_browser_link_copied">链接已复制</string>
     <string name="guest_browser_open_external">在浏览器中打开</string>
+    <string name="guest_browser_agent_control">允许智能体控制此浏览器</string>
     <string name="guest_browser_close">关闭浏览器</string>
     <string name="guest_browser_stop">停止加载</string>
     <string name="guest_browser_devtools">开发者工具</string>

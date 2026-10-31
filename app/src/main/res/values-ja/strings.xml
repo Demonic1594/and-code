@@ -1272,6 +1272,7 @@
     <string name="guest_browser_copy_link">リンクをコピー</string>
     <string name="guest_browser_link_copied">リンクをコピーしました</string>
     <string name="guest_browser_open_external">ブラウザで開く</string>
+    <string name="guest_browser_agent_control">エージェントにこのブラウザの操作を許可</string>
     <string name="guest_browser_close">ブラウザを閉じる</string>
     <string name="guest_browser_stop">読み込みを停止</string>
     <string name="guest_browser_devtools">DevTools</string>
