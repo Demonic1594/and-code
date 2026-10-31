@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.asStateFlow
  * recreated never unlocks it. It locks when the process starts with the lock on, and when the app
  * comes back after more than [graceMillis] away. The grace period lets the share sheet, a browser
  * sign-in or a quick look at another app pass without asking again.
+ *
+ * Called from the main thread (the foreground events, the unlock prompt) and at start-up; the methods
+ * are synchronized so a check and its update are never split by another call.
  */
 class AppLockState(
     private val clock: () -> Long = System::currentTimeMillis,
@@ -24,6 +27,7 @@ class AppLockState(
     private var backgroundedAt: Long? = null
 
     /** The setting changed, or was read for the first time. */
+    @Synchronized
     fun setEnabled(value: Boolean) {
         val first = !started
         started = true
@@ -32,16 +36,19 @@ class AppLockState(
         mutableLocked.value = if (value) first || mutableLocked.value else false
     }
 
+    @Synchronized
     fun onBackground() {
         backgroundedAt = clock()
     }
 
+    @Synchronized
     fun onForeground() {
         val since = backgroundedAt ?: return
         backgroundedAt = null
         if (enabled && clock() - since > graceMillis) mutableLocked.value = true
     }
 
+    @Synchronized
     fun unlock() {
         mutableLocked.value = false
         // Entering the PIN takes the user to the system's own screen, which counts as leaving the

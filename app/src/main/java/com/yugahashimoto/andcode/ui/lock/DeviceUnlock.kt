@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.ui.lock
 
 import android.content.Context
+import android.os.Build
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
@@ -14,7 +15,14 @@ object DeviceUnlock {
 
     /** Whether the device has any lock to ask for. Without one, the setting cannot be turned on. */
     fun isAvailable(context: Context): Boolean =
-        BiometricManager.from(context).canAuthenticate(AUTHENTICATORS) == BiometricManager.BIOMETRIC_SUCCESS
+        isSupported() && BiometricManager.from(context).canAuthenticate(AUTHENTICATORS) == BiometricManager.BIOMETRIC_SUCCESS
+
+    /**
+     * Android 9 and later. Before it, androidx.biometric shows its own fingerprint dialog, built
+     * with AppCompat, which crashes under this app's theme; a lock that crashes on opening would
+     * shut the user out of the app.
+     */
+    fun isSupported(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
 
     /** Shows the system prompt; [onResult] gets whether the user unlocked. */
     fun ask(

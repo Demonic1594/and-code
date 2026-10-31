@@ -740,6 +740,24 @@ class AndCodeApplication : Application() {
         scheduleDeferredInitialization()
     }
 
+    /** Keeps [appLock] in step with the setting and with the app leaving and returning. */
+    private fun observeAppLock() {
+        // Read now, not from the collector below: a launch that lands after the first frame would
+        // show the chats for a moment before locking them.
+        appLock.setEnabled(preferences.state.value.biometricLockEnabled)
+        applicationScope.launch {
+            preferences.state.map { it.biometricLockEnabled }.distinctUntilChanged().collect(appLock::setEnabled)
+        }
+        // On the main thread, at once: the lock must be decided in the same pass that brings the app
+        // back, before its first frame, or the chats would show for a moment.
+        applicationScope.launch(Dispatchers.Main.immediate) {
+            // drop(1): the first value is where the process starts, not a return to the app.
+            appForeground.foreground.drop(1).collect { foreground ->
+                if (foreground) appLock.onForeground() else appLock.onBackground()
+            }
+        }
+    }
+
     /**
      * Restarts the local runtime on every actual entry into the foreground - the app's own cold
      * start included, not just a later return after the 15-minute idle auto-stop shut it down while
@@ -774,21 +792,6 @@ class AndCodeApplication : Application() {
      * because [restoreIfConfigured][RuntimeAutoStartInitializer.restoreIfConfigured] itself is
      * skipped this time.
      */
-    private fun observeAppLock() {
-        // Read now, not from the collector below: a launch that lands after the first frame would
-        // show the chats for a moment before locking them.
-        appLock.setEnabled(preferences.state.value.biometricLockEnabled)
-        applicationScope.launch {
-            preferences.state.map { it.biometricLockEnabled }.distinctUntilChanged().collect(appLock::setEnabled)
-        }
-        applicationScope.launch {
-            // drop(1): the first value is where the process starts, not a return to the app.
-            appForeground.foreground.drop(1).collect { foreground ->
-                if (foreground) appLock.onForeground() else appLock.onBackground()
-            }
-        }
-    }
-
     private fun observeForegroundForRuntimeRestart() {
         val detector = ForegroundReturnDetector()
         applicationScope.launch {

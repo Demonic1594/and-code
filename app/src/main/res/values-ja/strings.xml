@@ -1762,4 +1762,5 @@
     <string name="app_lock_unlock">ロック解除</string>
     <string name="app_lock_send_prompt_title">送信するには本人確認が必要です</string>
     <string name="app_lock_voice_locked">送信するにはスマートフォンのロックを解除してください。アプリロックが有効です。</string>
+    <string name="app_lock_needs_android_9">Android 9 以降が必要です。</string>
 </resources>

@@ -68,6 +68,18 @@ class AppLockStateTest {
     }
 
     @Test
+    fun `a slow pin entry that returns before the unlock callback ends unlocked`() {
+        lock.setEnabled(true)
+        lock.unlock()
+        lock.onBackground()
+        now += 60_000L
+        lock.onForeground()
+        assertTrue("away longer than the grace period", lock.locked.value)
+        lock.unlock()
+        assertFalse(lock.locked.value)
+    }
+
+    @Test
     fun `turning it off unlocks`() {
         lock.setEnabled(true)
         lock.setEnabled(false)

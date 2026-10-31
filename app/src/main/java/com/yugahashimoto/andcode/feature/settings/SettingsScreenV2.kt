@@ -69,6 +69,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -79,12 +80,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.ui.lock.DeviceUnlock
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
@@ -940,11 +944,28 @@ private fun PrivacySettings(
     onLockOnSendEnabledChange: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
-    val available = remember { DeviceUnlock.isAvailable(context) }
+    // Read again on each return, so setting up a screen lock in system settings enables it at once.
+    var available by remember { mutableStateOf(DeviceUnlock.isAvailable(context)) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) available = DeviceUnlock.isAvailable(context)
+            }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
     SettingsToggleRow(
         icon = Icons.Default.Lock,
         title = stringResource(R.string.app_lock_row),
-        subtitle = stringResource(if (available) R.string.app_lock_row_description else R.string.app_lock_unavailable),
+        subtitle =
+            stringResource(
+                when {
+                    available -> R.string.app_lock_row_description
+                    !DeviceUnlock.isSupported() -> R.string.app_lock_needs_android_9
+                    else -> R.string.app_lock_unavailable
+                },
+            ),
         checked = lockEnabled && available,
         onCheckedChange = onLockEnabledChange,
         enabled = available,

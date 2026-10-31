@@ -6,8 +6,18 @@ Status: **built**. Decisions made while building:
   open over the lock screen). With the app lock on, it refuses to send while the phone itself is
   locked (`KeyguardManager.isDeviceLocked`), which is the barrier that matters there; once the phone
   is unlocked it sends as before. A per-send prompt is not added to it.
-- **Every send path is gated** when "also on send" is on: the composer, the review screen's
+- **In-app send paths are gated** when "also on send" is on: the composer, the review screen's
   **Send to agent** and the Inbox inline reply. Each keeps its text when the prompt is cancelled.
+- **Out-of-app paths are closed while the lock is on** (a hybrid of "gate them" and "leave them"):
+  notifications drop Reply and Allow/Reject and are private on the lock screen, the receivers refuse
+  actions left on older notifications, and the widget and Quick Settings prompt open the app
+  instead of sending. Gating them with a prompt would need an activity each; opening the locked app
+  gives the same protection with one code path.
+- **While locked, the app's content leaves the composition** (kept with `SaveableStateProvider`), so
+  its dialogs, popups, back handlers and keyboard focus cannot leak past the lock.
+- **Android 9 and later only.** On 8.x androidx.biometric uses an AppCompat dialog that crashes
+  under this app's theme; the switch is greyed out there with the reason.
+- **The lock is decided on the main thread** as the app returns, before its first frame.
 - **Entering the PIN leaves the app** (the system's own screen), so unlocking also clears the
   "backgrounded at" time; otherwise a slow PIN entry would lock again on return.
 - **Turning the lock on** locks the next fresh start and the next return after the grace period,

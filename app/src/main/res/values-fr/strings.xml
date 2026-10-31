@@ -1768,4 +1768,5 @@
     <string name="app_lock_unlock">Déverrouiller</string>
     <string name="app_lock_send_prompt_title">Confirmez votre identité pour envoyer</string>
     <string name="app_lock_voice_locked">Déverrouillez votre téléphone pour envoyer ceci. Le verrouillage de l\'application est activé.</string>
+    <string name="app_lock_needs_android_9">Nécessite Android 9 ou version ultérieure.</string>
 </resources>

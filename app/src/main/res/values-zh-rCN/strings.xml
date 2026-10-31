@@ -1740,6 +1740,7 @@
     <string name="app_lock_prompt_title">解锁 AndCode</string>
     <string name="app_lock_locked_title">AndCode 已锁定</string>
     <string name="app_lock_unlock">解锁</string>
-    <string name="app_lock_send_prompt_title">确认是您本人以发送</string>
+    <string name="app_lock_send_prompt_title">验证身份后发送</string>
     <string name="app_lock_voice_locked">请解锁手机后再发送。应用锁已开启。</string>
+    <string name="app_lock_needs_android_9">需要 Android 9 或更高版本。</string>
 </resources>

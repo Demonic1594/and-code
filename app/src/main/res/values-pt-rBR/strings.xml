@@ -1768,4 +1768,5 @@
     <string name="app_lock_unlock">Desbloquear</string>
     <string name="app_lock_send_prompt_title">Confirme sua identidade para enviar</string>
     <string name="app_lock_voice_locked">Desbloqueie o celular para enviar isto. O bloqueio do app está ativado.</string>
+    <string name="app_lock_needs_android_9">Requer Android 9 ou mais recente.</string>
 </resources>

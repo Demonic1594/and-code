@@ -17,6 +17,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -105,7 +106,7 @@ class MainActivity : FragmentActivity() {
                 }
             }
 
-            if (showInitialStarPrompt) {
+            if (!locked && showInitialStarPrompt) {
                 GitHubStarPromptDialog(
                     starCount = snapshot.stargazersCount,
                     secondPrompt = false,
@@ -121,7 +122,7 @@ class MainActivity : FragmentActivity() {
                 )
             }
 
-            if (secondPromptRequested) {
+            if (!locked && secondPromptRequested) {
                 GitHubStarPromptDialog(
                     starCount = snapshot.stargazersCount,
                     secondPrompt = true,
@@ -148,11 +149,18 @@ class MainActivity : FragmentActivity() {
                 setRecentsScreenshotEnabled(!preferences.biometricLockEnabled)
             }
         }
-        return { send ->
-            if (preferences.biometricLockEnabled && preferences.biometricLockOnSendEnabled && DeviceUnlock.isAvailable(this)) {
-                DeviceUnlock.ask(this, sendPromptTitle, null) { unlocked -> if (unlocked) send() }
-            } else {
-                send()
+        // One lambda for the life of the screen, reading the latest settings: a new one on every
+        // preference change would recompose everything below the composition local.
+        val latest by rememberUpdatedState(preferences)
+        val title by rememberUpdatedState(sendPromptTitle)
+        return remember {
+            { send ->
+                val asks = latest.biometricLockEnabled && latest.biometricLockOnSendEnabled
+                if (asks && DeviceUnlock.isAvailable(this)) {
+                    DeviceUnlock.ask(this, title, null) { unlocked -> if (unlocked) send() }
+                } else {
+                    send()
+                }
             }
         }
     }

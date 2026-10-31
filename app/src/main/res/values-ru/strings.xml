@@ -1781,4 +1781,5 @@
     <string name="app_lock_unlock">Разблокировать</string>
     <string name="app_lock_send_prompt_title">Подтвердите личность для отправки</string>
     <string name="app_lock_voice_locked">Разблокируйте телефон, чтобы отправить это. Включена блокировка приложения.</string>
+    <string name="app_lock_needs_android_9">Требуется Android 9 или новее.</string>
 </resources>

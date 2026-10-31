@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.RemoteInput
 import androidx.core.content.ContextCompat
+import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.MainActivity
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.api.PermissionRequest
@@ -73,9 +74,16 @@ class RuntimeNotificationHelper(private val context: Context) {
                 .setContentIntent(openIntent)
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .addAction(0, context.getString(R.string.allow_once), allowOnce)
-                .addAction(0, context.getString(R.string.always_allow), allowAlways)
-                .addAction(0, context.getString(R.string.reject), reject)
+                .apply {
+                    // Approving from the shade would let anyone holding the phone run a tool past
+                    // the app lock; with it on, the notification only opens the (locked) app.
+                    if (!appLocked()) {
+                        addAction(0, context.getString(R.string.allow_once), allowOnce)
+                        addAction(0, context.getString(R.string.always_allow), allowAlways)
+                        addAction(0, context.getString(R.string.reject), reject)
+                    }
+                }
+                .lockAware()
                 .build()
 
         safeNotify(permissionNotificationId(request.id), notification)
@@ -153,7 +161,8 @@ class RuntimeNotificationHelper(private val context: Context) {
                     ),
                 )
                 .setContentIntent(intent)
-                .addAction(replyAction(sessionId, runtimeId, statusNotificationId(sessionId, "done")))
+                .addReplyUnlessLocked(sessionId, runtimeId, statusNotificationId(sessionId, "done"))
+                .lockAware()
                 .setAutoCancel(true)
                 .build()
         safeNotify(statusNotificationId(sessionId, "done"), notification)
@@ -184,7 +193,7 @@ class RuntimeNotificationHelper(private val context: Context) {
                 .setContentIntent(intent)
                 .apply {
                     // A failed turn is often fixed by one more instruction ("try again with X").
-                    if (sessionId != null) addAction(replyAction(sessionId, runtimeId, statusNotificationId(sessionId, "err")))
+                    if (sessionId != null) addReplyUnlessLocked(sessionId, runtimeId, statusNotificationId(sessionId, "err"))
                 }
                 .setAutoCancel(true)
                 .build()
@@ -297,11 +306,27 @@ class RuntimeNotificationHelper(private val context: Context) {
                 .setContentTitle(context.getString(R.string.notification_reply_failed))
                 .setContentText(context.getString(R.string.notification_reply_failed_body))
                 .setContentIntent(openChatIntent(sessionId, runtimeId.orEmpty(), "replyfail"))
-                .addAction(replyAction(sessionId, runtimeId, notificationId))
+                .addReplyUnlessLocked(sessionId, runtimeId, notificationId)
+                .lockAware()
                 .setAutoCancel(true)
                 .build()
         safeNotify(notificationId, notification)
     }
+
+    /** Whether the app lock is on; then nothing in a notification may act for the user. */
+    private fun appLocked(): Boolean =
+        (context.applicationContext as? AndCodeApplication)?.preferences?.state?.value?.biometricLockEnabled == true
+
+    /** Reply from the shade sends a prompt; with the app lock on, the notification opens the app instead. */
+    private fun NotificationCompat.Builder.addReplyUnlessLocked(
+        sessionId: String,
+        runtimeId: String?,
+        notificationId: Int,
+    ): NotificationCompat.Builder = if (appLocked()) this else addAction(replyAction(sessionId, runtimeId, notificationId))
+
+    /** With the app lock on, the lock screen shows that something happened, not what. */
+    private fun NotificationCompat.Builder.lockAware(): NotificationCompat.Builder =
+        if (appLocked()) setVisibility(NotificationCompat.VISIBILITY_PRIVATE) else this
 
     private fun replyAction(
         sessionId: String,
