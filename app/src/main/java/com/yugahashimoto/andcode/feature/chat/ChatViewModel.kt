@@ -40,6 +40,7 @@ import com.yugahashimoto.andcode.runtime.local.StagedSystemPrompt
 import com.yugahashimoto.andcode.runtime.local.VideoAttachmentHelper
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -1539,6 +1540,16 @@ class ChatViewModel(
     private val restoreInFlight: Boolean
         get() = _uiState.value.isRestoringFiles || restoreJob?.isActive == true
 
+    /**
+     * Called last by the restore or undo coroutine: it is still active at that point, so it lets go
+     * of [restoreJob] first, or the prompts held for it would see a restore in flight and stay held.
+     */
+    private suspend fun finishRestoreJob() {
+        val self = currentCoroutineContext()[Job]
+        if (restoreJob === self) restoreJob = null
+        drainHeldPrompts()
+    }
+
     /** The folder the chat's snapshots are taken of: the session's, else the one picked for it. */
     private fun snapshotDirectory(sessionDirectory: String? = null): String? =
         _uiState.value.sessionDirectory ?: sessionDirectory ?: _uiState.value.selectedWorkspacePath
@@ -1578,7 +1589,7 @@ class ChatViewModel(
                         else -> it.copy(isRestoringFiles = false, fileRestore = FileRestore(sessionId, directory, token))
                     }
                 }
-                drainHeldPrompts()
+                finishRestoreJob()
             }
     }
 
@@ -1599,7 +1610,7 @@ class ChatViewModel(
                         else -> it.copy(isRestoringFiles = false, error = restoreFailedMessage)
                     }
                 }
-                drainHeldPrompts()
+                finishRestoreJob()
             }
     }
 
