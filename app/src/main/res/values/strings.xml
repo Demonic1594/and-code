@@ -1795,7 +1795,7 @@
     <string name="share_server_start">Start sharing</string>
     <string name="share_server_send">Send link</string>
     <string name="cd_share_server_qr">QR code for the link</string>
-    <string name="share_server_live_note">The link works while this server runs and stops when it stops, after two hours, or when you stop sharing.</string>
+    <string name="share_server_live_note">The link works while this server runs and stops when the server stops, the terminal closes, after two hours, or when you stop sharing.</string>
     <string name="share_server_stop">Stop sharing</string>
     <string name="share_server_retry">Try again</string>
     <string name="cd_share_server">Share port %1$d</string>

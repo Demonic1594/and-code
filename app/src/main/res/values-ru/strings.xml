@@ -1791,7 +1791,7 @@
     <string name="share_server_start">Открыть доступ</string>
     <string name="share_server_send">Отправить ссылку</string>
     <string name="cd_share_server_qr">QR-код ссылки</string>
-    <string name="share_server_live_note">Ссылка работает, пока работает этот сервер, и перестаёт работать, когда он останавливается, через два часа или когда вы закрываете доступ.</string>
+    <string name="share_server_live_note">Ссылка работает, пока работает этот сервер, и перестаёт работать, когда сервер останавливается, терминал закрывается, через два часа или когда вы закрываете доступ.</string>
     <string name="share_server_stop">Закрыть доступ</string>
     <string name="share_server_retry">Повторить</string>
     <string name="cd_share_server">Поделиться портом %1$d</string>

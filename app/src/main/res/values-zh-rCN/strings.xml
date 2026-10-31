@@ -1752,7 +1752,7 @@
     <string name="share_server_start">开始共享</string>
     <string name="share_server_send">发送链接</string>
     <string name="cd_share_server_qr">链接的二维码</string>
-    <string name="share_server_live_note">此服务器运行时链接有效；服务器停止、满两小时或你停止共享时，链接失效。</string>
+    <string name="share_server_live_note">此服务器运行时链接有效；服务器停止、终端关闭、满两小时或你停止共享时，链接失效。</string>
     <string name="share_server_stop">停止共享</string>
     <string name="share_server_retry">重试</string>
     <string name="cd_share_server">共享端口 %1$d</string>

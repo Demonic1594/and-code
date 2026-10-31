@@ -1817,7 +1817,7 @@
     <string name="share_server_start">بدء المشاركة</string>
     <string name="share_server_send">إرسال الرابط</string>
     <string name="cd_share_server_qr">رمز QR للرابط</string>
-    <string name="share_server_live_note">يعمل الرابط ما دام هذا الخادم يعمل، ويتوقف عند توقفه، أو بعد ساعتين، أو عند إيقاف المشاركة.</string>
+    <string name="share_server_live_note">يعمل الرابط ما دام هذا الخادم يعمل، ويتوقف عند توقف الخادم، أو عند إغلاق الطرفية، أو بعد ساعتين، أو عند إيقاف المشاركة.</string>
     <string name="share_server_stop">إيقاف المشاركة</string>
     <string name="share_server_retry">حاول مرة أخرى</string>
     <string name="cd_share_server">مشاركة المنفذ %1$d</string>

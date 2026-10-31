@@ -173,6 +173,22 @@ class DevServerSharingTest {
         }
 
     @Test
+    fun `an unexpected error ends the share instead of escaping`() =
+        runBlocking {
+            val tunnel = FakeTunnel()
+            val supervisor =
+                ProcessSupervisor(tunnel, temp.newFolder(), MemoryStore(), RuntimeWorkTracker(), scope, restartDelayMillis = 1)
+            val sharing =
+                DevServerSharing(supervisor, {}, scope, pollMillis = 10, answeringAddress = { error("probe broke") })
+
+            sharing.start(5173)
+
+            until { sharing.shares.value[5173] is ShareState.Failed }
+            assertEquals("probe broke", (sharing.shares.value[5173] as ShareState.Failed).reason)
+            assertTrue(tunnel.commands.isEmpty())
+        }
+
+    @Test
     fun `the API host in cloudflared's error is never taken for the link`() {
         val error = "ERR failed to request quick Tunnel: Post \"https://api.trycloudflare.com/tunnel\": dial tcp: no such host"
         assertNull(DevServerSharing.tunnelUrl(error))

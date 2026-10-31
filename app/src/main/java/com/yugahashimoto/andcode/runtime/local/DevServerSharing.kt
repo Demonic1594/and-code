@@ -77,6 +77,18 @@ class DevServerSharing(
     }
 
     private suspend fun run(port: Int) {
+        try {
+            share(port)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            // A log read racing its rotation, say: end this share, never the app with it.
+            supervisor.stop(processName(port))
+            set(port, ShareState.Failed(error.message ?: error.javaClass.simpleName))
+        }
+    }
+
+    private suspend fun share(port: Int) {
         val problem = startTunnel(port)
         if (problem != null) {
             set(port, problem)

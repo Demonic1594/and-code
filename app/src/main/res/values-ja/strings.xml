@@ -1772,7 +1772,7 @@
     <string name="share_server_start">共有を開始</string>
     <string name="share_server_send">リンクを送信</string>
     <string name="cd_share_server_qr">リンクの QR コード</string>
-    <string name="share_server_live_note">リンクはこのサーバーが動いている間有効で、サーバーの停止、2 時間の経過、または共有の停止で無効になります。</string>
+    <string name="share_server_live_note">リンクはこのサーバーが動いている間有効で、サーバーの停止、ターミナルを閉じたとき、2 時間の経過、または共有の停止で無効になります。</string>
     <string name="share_server_stop">共有を停止</string>
     <string name="share_server_retry">再試行</string>
     <string name="cd_share_server">ポート %1$d を共有</string>

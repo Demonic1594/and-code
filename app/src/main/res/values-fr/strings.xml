@@ -1778,7 +1778,7 @@
     <string name="share_server_start">Démarrer le partage</string>
     <string name="share_server_send">Envoyer le lien</string>
     <string name="cd_share_server_qr">Code QR du lien</string>
-    <string name="share_server_live_note">Le lien fonctionne tant que ce serveur tourne et s\'arrête quand il s\'arrête, au bout de deux heures ou quand vous arrêtez le partage.</string>
+    <string name="share_server_live_note">Le lien fonctionne tant que ce serveur tourne et s\'arrête quand le serveur s\'arrête, quand le terminal se ferme, au bout de deux heures ou quand vous arrêtez le partage.</string>
     <string name="share_server_stop">Arrêter le partage</string>
     <string name="share_server_retry">Réessayer</string>
     <string name="cd_share_server">Partager le port %1$d</string>
