@@ -181,7 +181,8 @@ class AndCodeVoiceSession(context: Context) :
         preferredWorkspace = settings.assistantWorkspacePath
             ?.takeIf { it.isNotBlank() }
             ?: "/workspace"
-        sessionId = settings.assistantSessionId.takeIf { settings.continuousConversation }
+        // On a locked phone with the app lock on, never pick up the last conversation where it left off.
+        sessionId = settings.assistantSessionId.takeIf { settings.continuousConversation && !lockedOut() }
         startEventCollection()
         startListening()
     }
@@ -367,6 +368,12 @@ class AndCodeVoiceSession(context: Context) :
 
     private fun sendToOpenCode(text: String) {
         val activeBackend = backend ?: return
+        // The assistant can open over the lock screen, where no unlock prompt can be shown. With
+        // the app lock on, a locked phone is the barrier: nothing is sent until it is unlocked.
+        if (lockedOut()) {
+            showError(context.getString(R.string.app_lock_voice_locked))
+            return
+        }
         assistantState.value = VoiceState.THINKING
         responseText.value = ""
         scope.launch {
@@ -447,9 +454,19 @@ class AndCodeVoiceSession(context: Context) :
         tts.stop()
     }
 
+    /** The app lock is on and the phone itself is locked, where no unlock prompt can be shown. */
+    private fun lockedOut(): Boolean =
+        settings.biometricLockEnabled &&
+            context.getSystemService(android.app.KeyguardManager::class.java)?.isDeviceLocked == true
+
     private fun respondPermission(response: PermissionResponse) {
         val activeBackend = backend ?: return
         val request = permissionRequest.value ?: return
+        // Approving a tool is acting for the user, like sending: not past the app lock on a locked phone.
+        if (lockedOut()) {
+            showError(context.getString(R.string.app_lock_voice_locked))
+            return
+        }
         scope.launch {
             runCatching {
                 activeBackend.respondToPermission(

@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.MainActivity
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.data.repository.RuntimeActivityState
@@ -171,6 +172,10 @@ class LiveRunNotifier(
                 .setWhen(content.since)
                 .setShowWhen(true)
                 .setProgress(0, 0, true)
+        // With the app lock on, the lock screen shows that something runs, not the chat or its step.
+        if ((context.applicationContext as? AndCodeApplication)?.preferences?.state?.value?.biometricLockEnabled == true) {
+            builder.setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+        }
         if (content.lines.isNotEmpty()) {
             builder.setStyle(
                 NotificationCompat.InboxStyle().also { style -> content.lines.forEach(style::addLine) },

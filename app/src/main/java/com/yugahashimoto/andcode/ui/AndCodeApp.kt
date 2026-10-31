@@ -94,6 +94,7 @@ import com.yugahashimoto.andcode.runtime.WorkspaceRef
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeOperationResult
 import com.yugahashimoto.andcode.ui.components.LocalHapticsEnabled
 import com.yugahashimoto.andcode.ui.components.SessionStatus
+import com.yugahashimoto.andcode.ui.lock.LocalSendGate
 import com.yugahashimoto.andcode.ui.navigation.ClaudeSettingsActions
 import com.yugahashimoto.andcode.ui.navigation.DRAWER_ROOT_ROUTES
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ANDROID_SETUP
@@ -154,6 +155,7 @@ fun AndCodeApp(
     snackbarHostState: SnackbarHostState? = null,
 ) {
     val context = LocalContext.current
+    val sendGate = LocalSendGate.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val app = context.applicationContext as AndCodeApplication
     val navController = rememberNavController()
@@ -1181,9 +1183,13 @@ fun AndCodeApp(
                             LaunchedEffect(pendingHandoffPrompt, selectedRuntime?.id, handoffReady) {
                                 val pending = pendingHandoffPrompt
                                 if (pending != null && handoffReady && selectedRuntime?.id == pending.first) {
-                                    chatViewModel.sendMessage(pending.second)
-                                    pendingHandoffPrompt = null
                                     handoffReady = false
+                                    // Consumed now, whatever the unlock does: a cancelled unlock drops the
+                                    // handoff rather than leave it to fire into whichever chat is open the
+                                    // next time the model sheet closes. Like any send, it asks for the
+                                    // unlock when the settings say so.
+                                    pendingHandoffPrompt = null
+                                    sendGate { chatViewModel.sendMessage(pending.second) }
                                 }
                             }
                             // A pull request is usually merged or closed on GitHub, not from here, so the
@@ -1337,7 +1343,12 @@ fun AndCodeApp(
                                 enterToSend = preferences.enterToSend,
                                 autoExpandReasoning = preferences.autoExpandReasoning,
                                 onSendMessage = chatViewModel::sendMessage,
-                                onSendReview = chatViewModel::sendReview,
+                                onSendReview = { review, sent ->
+                                    sendGate {
+                                        chatViewModel.sendReview(review)
+                                        sent()
+                                    }
+                                },
                                 canEditMessages = selectedRuntime?.capabilities?.editMessages == true,
                                 canRewind = selectedRuntime?.capabilities?.checkpoints == true,
                                 onRewind = chatViewModel::rewindTo,

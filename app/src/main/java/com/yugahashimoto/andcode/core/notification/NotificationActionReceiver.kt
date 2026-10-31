@@ -40,6 +40,12 @@ class NotificationActionReceiver : BroadcastReceiver() {
             }
             ACTION_REPLY -> {
                 val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, 0)
+                // A Reply left on a notification posted before the app lock was turned on would send
+                // past it. Stop stays: it only ends a run, which is the safe direction.
+                if (app.preferences.state.value.biometricLockEnabled) {
+                    app.notifications.cancel(notificationId)
+                    return
+                }
                 val text =
                     RemoteInput.getResultsFromIntent(intent)
                         ?.getCharSequence(KEY_REPLY)

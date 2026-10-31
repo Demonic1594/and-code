@@ -18,6 +18,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.yugahashimoto.andcode.AndCodeApplication
+import com.yugahashimoto.andcode.MainActivity
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.api.PromptRequest
 import com.yugahashimoto.andcode.core.locale.AppLanguage
@@ -49,6 +50,18 @@ class QuickInputActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // With the app lock on, a prompt from the home screen or Quick Settings must not reach an
+        // agent without the unlock: open the app instead, behind its lock.
+        if ((application as AndCodeApplication).preferences.state.value.biometricLockEnabled) {
+            startActivity(
+                Intent(
+                    this,
+                    MainActivity::class.java,
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            )
+            finish()
+            return
+        }
 
         val rootLayout =
             LinearLayout(this).apply {

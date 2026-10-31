@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.ui.components.SessionStatus
 import com.yugahashimoto.andcode.ui.components.StatusDot
+import com.yugahashimoto.andcode.ui.lock.LocalSendGate
 import com.yugahashimoto.andcode.ui.theme.AppShapes
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 import com.yugahashimoto.andcode.ui.theme.Spacing
@@ -192,12 +193,16 @@ internal fun FinishedRow(
     // the same frame, so the row is gone before it could see the send finish, and the same chat
     // finishing again later must not reopen with the old text. A failed reply gets it back.
     var inFlight by rememberSaveable(chat.sessionId) { mutableStateOf("") }
+    val sendGate = LocalSendGate.current
     val send = {
         if (draft.isNotBlank() && !sending) {
-            inFlight = draft
-            draft = ""
-            replying = false
-            onReply(inFlight)
+            // Nothing moves until the message really goes out, so a cancelled unlock keeps the draft.
+            sendGate {
+                inFlight = draft
+                draft = ""
+                replying = false
+                onReply(inFlight)
+            }
         }
     }
     LaunchedEffect(sending, replyFailed) {
