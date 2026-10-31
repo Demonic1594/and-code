@@ -78,13 +78,21 @@ def _visible_pids() -> list[str]:
         return []
 
 
+def _owned_by_me(pid: str) -> bool:
+    try:
+        return os.stat(f"/proc/{pid}").st_uid == os.getuid()
+    except (OSError, ValueError):
+        return False
+
+
 def _find_devtools_socket() -> str | None:
     try:
         with open("/proc/net/unix", encoding="ascii", errors="replace") as fh:
             listed = socket_names_from_proc_net_unix(fh.read())
     except OSError:
         listed = []
-    for name in listed:
+    # Other apps' WebViews may be listed too; this app's own processes come first.
+    for name in sorted(listed, key=lambda n: not _owned_by_me(n[len(DEVTOOLS_PREFIX):])):
         if _can_connect(name):
             return name
     # Android hides /proc/net/unix from apps. The socket is named after the app's process id, and
@@ -108,7 +116,7 @@ def choose_target(targets: list[dict]) -> dict | None:
     for page in pages:
         try:
             description = json.loads(page.get("description") or "{}")
-        except ValueError:
+        except (ValueError, TypeError):
             description = {}
         if isinstance(description, dict) and description.get("attached") and description.get("visible"):
             return page
@@ -242,7 +250,9 @@ class CdpSession:
         target = choose_target(self.list_targets())
         if target is None:
             raise CdpError(NO_PAGE)
-        ws_url = target["webSocketDebuggerUrl"]
+        ws_url = target.get("webSocketDebuggerUrl")
+        if not ws_url:
+            raise CdpError("The Guest Browser's page is already being inspected; close other DevTools and retry.")
         parsed = urlparse(ws_url)
         ws = _UnixWs(self._connect(), parsed.netloc or "localhost", parsed.path or "/")
         return _PageSession(ws)

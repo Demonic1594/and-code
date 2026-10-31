@@ -108,13 +108,18 @@ private val LOCAL_SERVER_URL =
 
 private object GitHubLinks {
     val hosts = setOf("github.com", "www.github.com", "gist.github.com")
+
+    /** Downloads, which the in-app browser cannot save: a release asset, a source archive, a raw file. */
+    val downloadPath = Regex("/(releases/download|archive|raw)/")
 }
 
-/** True for an https link to GitHub or its gists. */
+/** True for an https page on GitHub or its gists; downloads are left to the phone's browser. */
 fun isGitHubUrl(url: String): Boolean =
     runCatching {
         val uri = URI(url.trim())
-        uri.scheme.equals("https", ignoreCase = true) && uri.host?.lowercase() in GitHubLinks.hosts
+        uri.scheme == "https" &&
+            uri.host?.lowercase() in GitHubLinks.hosts &&
+            !GitHubLinks.downloadPath.containsMatchIn(uri.path.orEmpty())
     }.getOrDefault(false)
 
 /** True for a URL that points at a server on this device rather than the internet. */

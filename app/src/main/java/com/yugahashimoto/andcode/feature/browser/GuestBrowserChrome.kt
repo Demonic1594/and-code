@@ -72,6 +72,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -397,6 +399,12 @@ private fun BrowserMenu(
             leadingIcon = { Icon(Icons.Default.SmartToy, contentDescription = null) },
             trailingIcon = { Checkbox(checked = actions.agentControl, onCheckedChange = null) },
             onClick = actions.onToggleAgentControl,
+            // The checkbox only draws the state; the item carries it for TalkBack.
+            modifier =
+                Modifier.semantics {
+                    role = Role.Checkbox
+                    toggleableState = ToggleableState(actions.agentControl)
+                },
         )
     }
 }

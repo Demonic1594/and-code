@@ -101,12 +101,13 @@ fun GuestBrowserScreen(
     var pageStarted by remember { mutableStateOf(false) }
     var desktopMode by rememberSaveable { mutableStateOf(false) }
 
-    // The DevTools socket the agent drives this browser through exists only while the browser is on
-    // screen with agent control on; leaving puts it back to the build's default (on only in debug
-    // builds, for Chrome's inspector). It is process-wide, so it covers the app's other WebViews too.
+    // The DevTools socket the agent drives this browser through exists only while a Guest Browser is
+    // on screen with agent control on; afterwards it goes back to the build's default (on only in
+    // debug builds, for Chrome's inspector). It is process-wide, so it covers the app's other WebViews
+    // too, and counted, so a browser closing while another opens cannot switch it off under the new one.
     DisposableEffect(agentControl) {
-        setWebDebugging(BuildConfig.DEBUG || agentControl)
-        onDispose { setWebDebugging(BuildConfig.DEBUG) }
+        if (agentControl) AgentDebugging.acquire()
+        onDispose { if (agentControl) AgentDebugging.release() }
     }
     var findOpen by rememberSaveable { mutableStateOf(false) }
     var findQuery by rememberSaveable { mutableStateOf("") }
@@ -210,11 +211,10 @@ fun GuestBrowserScreen(
                                     val created =
                                         viewOrNull(
                                             create = {
-                                                // Lets the in-guest agent drive this WebView over CDP (the devtools
-                                                // abstract socket is reachable from the guest, which shares the app's
-                                                // UID), so a page can be shown to the user and operated by human and
-                                                // agent at the same time. See the effect below for when it is on.
-                                                WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG || agentControl)
+                                                // The in-guest agent drives this WebView over CDP (the devtools abstract
+                                                // socket is reachable from the guest, which shares the app's UID), so a
+                                                // page can be shown to the user and operated by human and agent at the
+                                                // same time. AgentDebugging, above, decides when that socket exists.
                                                 WebView(viewContext)
                                             },
                                             onFailure = { error -> Log.w(TAG, "The system WebView could not start", error) },
@@ -448,8 +448,26 @@ private fun WebView.configure(
         }
 }
 
-/** Turns the WebView DevTools socket on or off; a device without a working WebView has none. */
-private fun setWebDebugging(enabled: Boolean) {
-    runCatching { WebView.setWebContentsDebuggingEnabled(enabled) }
-        .onFailure { error -> Log.w(TAG, "WebView debugging could not be changed", error) }
+/**
+ * How many Guest Browsers on screen want the DevTools socket on for the agent. Main thread only (it
+ * is driven from composition effects), so a plain counter is enough.
+ */
+private object AgentDebugging {
+    private var holders = 0
+
+    fun acquire() {
+        holders++
+        apply()
+    }
+
+    fun release() {
+        holders = (holders - 1).coerceAtLeast(0)
+        apply()
+    }
+
+    /** Turns the socket on or off; a device without a working WebView has none. */
+    private fun apply() {
+        runCatching { WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG || holders > 0) }
+            .onFailure { error -> Log.w(TAG, "WebView debugging could not be changed", error) }
+    }
 }

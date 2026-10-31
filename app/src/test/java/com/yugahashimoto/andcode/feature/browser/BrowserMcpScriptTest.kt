@@ -17,7 +17,10 @@ class BrowserMcpScriptTest {
     @get:Rule
     val folder = TemporaryFolder()
 
-    private val script = File("src/main/assets/scripts/andcode-browser-mcp.py")
+    private val script =
+        listOf("src/main/assets/scripts/andcode-browser-mcp.py", "app/src/main/assets/scripts/andcode-browser-mcp.py")
+            .map(::File)
+            .first { it.isFile }
 
     @Before
     fun needsPython() {
@@ -47,10 +50,35 @@ class BrowserMcpScriptTest {
 
     @Test
     fun `the socket of this process is found when it listens`() {
+        assumeTrue("abstract sockets are Linux only", isLinux())
         val found =
             run(
                 """
                 import os, socket
+                s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                s.bind("\0" + m.DEVTOOLS_PREFIX + str(os.getpid()))
+                s.listen(1)
+                print(m._find_devtools_socket() == m.DEVTOOLS_PREFIX + str(os.getpid()))
+                """.trimIndent(),
+            )
+
+        assertEquals("True", found)
+    }
+
+    @Test
+    fun `the socket is found by process id when the socket list cannot be read`() {
+        assumeTrue("abstract sockets are Linux only", isLinux())
+        val found =
+            run(
+                """
+                import builtins, os, socket
+                real_open = builtins.open
+                def hidden(path, *args, **kwargs):
+                    if path == "/proc/net/unix":
+                        raise PermissionError(path)
+                    return real_open(path, *args, **kwargs)
+                m.open = hidden
+                m._visible_pids = lambda: ["1", str(os.getpid())]
                 s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
                 s.bind("\0" + m.DEVTOOLS_PREFIX + str(os.getpid()))
                 s.listen(1)
@@ -85,11 +113,12 @@ class BrowserMcpScriptTest {
             run(
                 """
                 print(m.choose_target([{"type": "page", "url": "first", "description": "not json"}])["url"])
+                print(m.choose_target([{"type": "page", "url": "odd", "description": 42}])["url"])
                 print(m.choose_target([{"type": "worker", "url": "w"}]))
                 """.trimIndent(),
             )
 
-        assertEquals("first\nNone", chosen)
+        assertEquals("first\nodd\nNone", chosen)
     }
 
     /** Loads the script as module `m` and runs [code], returning what it printed. */
@@ -104,11 +133,23 @@ class BrowserMcpScriptTest {
                         code + "\n",
                 )
             }
-        val process = ProcessBuilder("python3", "-I", driver.absolutePath).redirectErrorStream(true).start()
-        val output = process.inputStream.bufferedReader().readText()
-        check(process.waitFor(30, TimeUnit.SECONDS)) { "python3 timed out" }
+        val out = File(folder.root, "out.txt")
+        // -B: loading the script must not leave a __pycache__ beside it in the assets.
+        val process =
+            ProcessBuilder("python3", "-I", "-B", driver.absolutePath)
+                .redirectErrorStream(true)
+                .redirectOutput(out)
+                .start()
+        if (!process.waitFor(30, TimeUnit.SECONDS)) {
+            process.destroyForcibly()
+            error("python3 timed out")
+        }
+        val output = out.readText()
         check(process.exitValue() == 0) { output }
         driver.delete()
+        out.delete()
         return output.trim()
     }
+
+    private fun isLinux(): Boolean = System.getProperty("os.name").orEmpty().contains("Linux", ignoreCase = true)
 }

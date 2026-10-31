@@ -441,10 +441,6 @@ class SecureSettingsRepository(context: Context) :
         get() = preferences.getBoolean(KEY_HAPTICS_ENABLED, true)
         set(value) = preferences.edit().putBoolean(KEY_HAPTICS_ENABLED, value).apply()
 
-    var agentBrowserControl: Boolean
-        get() = preferences.getBoolean(KEY_AGENT_BROWSER_CONTROL, true)
-        set(value) = preferences.edit().putBoolean(KEY_AGENT_BROWSER_CONTROL, value).apply()
-
     /**
      * The app lock's switches live in plain app-private preferences, not the encrypted ones: they are
      * not secret, and the encrypted file falls back to memory when the Keystore fails, which would
@@ -455,6 +451,14 @@ class SecureSettingsRepository(context: Context) :
     var biometricLockEnabled: Boolean
         get() = lockPreferences.getBoolean(KEY_BIOMETRIC_LOCK, false)
         set(value) = lockPreferences.edit().putBoolean(KEY_BIOMETRIC_LOCK, value).apply()
+
+    /**
+     * Whether agents may drive the Guest Browser. A safety switch like the lock's, so it is kept in
+     * the same plain store: turned off, it must stay off even if the encrypted store cannot open.
+     */
+    var agentBrowserControl: Boolean
+        get() = lockPreferences.getBoolean(KEY_AGENT_BROWSER_CONTROL, true)
+        set(value) = lockPreferences.edit().putBoolean(KEY_AGENT_BROWSER_CONTROL, value).apply()
 
     var biometricLockOnSendEnabled: Boolean
         get() = lockPreferences.getBoolean(KEY_BIOMETRIC_LOCK_ON_SEND, false)
