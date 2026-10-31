@@ -1184,14 +1184,12 @@ fun AndCodeApp(
                                 val pending = pendingHandoffPrompt
                                 if (pending != null && handoffReady && selectedRuntime?.id == pending.first) {
                                     handoffReady = false
-                                    // Like any send, it asks for the unlock when the settings say so; a
-                                    // cancelled unlock keeps the handoff for the next time the sheet closes.
-                                    sendGate {
-                                        if (pendingHandoffPrompt == pending) {
-                                            chatViewModel.sendMessage(pending.second)
-                                            pendingHandoffPrompt = null
-                                        }
-                                    }
+                                    // Consumed now, whatever the unlock does: a cancelled unlock drops the
+                                    // handoff rather than leave it to fire into whichever chat is open the
+                                    // next time the model sheet closes. Like any send, it asks for the
+                                    // unlock when the settings say so.
+                                    pendingHandoffPrompt = null
+                                    sendGate { chatViewModel.sendMessage(pending.second) }
                                 }
                             }
                             // A pull request is usually merged or closed on GitHub, not from here, so the
