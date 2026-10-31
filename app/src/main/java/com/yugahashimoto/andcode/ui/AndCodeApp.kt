@@ -89,6 +89,9 @@ import com.yugahashimoto.andcode.feature.workspace.WorkspaceViewModel
 import com.yugahashimoto.andcode.runtime.RuntimeState
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeOperationResult
+import com.yugahashimoto.andcode.runtime.local.ShadowSnapshots
+import com.yugahashimoto.andcode.runtime.local.ShadowTurnSnapshots
+import com.yugahashimoto.andcode.runtime.local.SharedPreferencesTurnSnapshotIndex
 import com.yugahashimoto.andcode.ui.components.LocalHapticsEnabled
 import com.yugahashimoto.andcode.ui.components.SessionStatus
 import com.yugahashimoto.andcode.ui.navigation.ClaudeSettingsActions
@@ -170,6 +173,15 @@ fun AndCodeApp(
     var showDiagnostics by remember { mutableStateOf(false) }
 
     val selectedRuntime by app.runtimeRegistry.selected.collectAsState()
+    val turnSnapshots =
+        remember {
+            ShadowTurnSnapshots(
+                ShadowSnapshots({ command, timeout, maxCharacters ->
+                    app.commandRunner.runShell(command, timeout, maxCharacters, keepStart = true)
+                }),
+                SharedPreferencesTurnSnapshotIndex(app),
+            )
+        }
     val runtimeTargets by app.runtimeRegistry.targets.collectAsState()
     val preferences by app.preferences.state.collectAsState()
     val antigravityState by app.antigravityController.state.collectAsState()
@@ -294,6 +306,14 @@ fun AndCodeApp(
                 ViewModelFactory {
                     ChatViewModel(
                         backend = selectedRuntime,
+                        // Snapshots stand in for checkpoints on an on-device runtime that has none
+                        // of its own; legacy OpenCode rewinds through its server instead.
+                        turnSnapshots =
+                            turnSnapshots.takeIf {
+                                selectedRuntime?.kind == com.yugahashimoto.andcode.runtime.BackendKind.LOCAL &&
+                                    selectedRuntime?.capabilities?.checkpoints != true
+                            },
+                        restoreFailedMessage = context.getString(R.string.restore_files_failed),
                         // The toggle owns the whole estimate feature, the chat menu's line included.
                         priceCatalog = {
                             app.priceCatalogRepository.catalog.value.takeIf {
@@ -1300,6 +1320,10 @@ fun AndCodeApp(
                                 canRewind = selectedRuntime?.capabilities?.checkpoints == true,
                                 onRewind = chatViewModel::rewindTo,
                                 onUndoRewind = chatViewModel::undoRewind,
+                                canRestoreFiles = chatViewModel::canRestoreFiles,
+                                onRestoreFiles = chatViewModel::restoreFilesTo,
+                                onUndoFileRestore = chatViewModel::undoFileRestore,
+                                onDismissFileRestore = chatViewModel::dismissFileRestore,
                                 onEditLastMessage = chatViewModel::editLastUserMessage,
                                 onEditDraftConsumed = chatViewModel::consumeEditDraft,
                                 onPermission = chatViewModel::respondToPermission,

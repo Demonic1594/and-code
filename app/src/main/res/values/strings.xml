@@ -1769,4 +1769,12 @@
     </plurals>
     <string name="git_files_incomplete">Git could not list every file in this commit, so the list may be incomplete.</string>
     <string name="git_diff_truncated">This diff is too long to show whole. Showing its beginning.</string>
+    <string name="action_restore_files">Restore files to here</string>
+    <string name="restore_files_confirm_title">Restore the files to this message?</string>
+    <string name="restore_files_confirm_body">Files go back to how they were when you sent this message: changes made since are undone and files added since are removed. The messages stay. Dependency and build folders such as node_modules and build are not touched.</string>
+    <string name="restore_files_confirm">Restore files</string>
+    <string name="restore_files_banner_title">Files restored to an earlier message</string>
+    <string name="restore_files_banner_body">The messages are unchanged. Undo puts the files back as they were.</string>
+    <string name="restore_files_keep">Keep</string>
+    <string name="restore_files_failed">The files could not be put back.</string>
 </resources>

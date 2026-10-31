@@ -1765,4 +1765,12 @@
     </plurals>
     <string name="git_files_incomplete">Git не смог перечислить все файлы этого коммита, поэтому список может быть неполным.</string>
     <string name="git_diff_truncated">Этот дифф слишком длинный, чтобы показать его целиком. Показано начало.</string>
+    <string name="action_restore_files">Вернуть файлы к этому моменту</string>
+    <string name="restore_files_confirm_title">Вернуть файлы к этому сообщению?</string>
+    <string name="restore_files_confirm_body">Файлы возвращаются к состоянию на момент отправки этого сообщения: изменения, внесенные с тех пор, отменяются, а добавленные с тех пор файлы удаляются. Сообщения остаются. Папки зависимостей и сборки, такие как node_modules и build, не затрагиваются.</string>
+    <string name="restore_files_confirm">Вернуть файлы</string>
+    <string name="restore_files_banner_title">Файлы возвращены к более раннему сообщению</string>
+    <string name="restore_files_banner_body">Сообщения не изменились. «Отменить» вернет файлы в прежнее состояние.</string>
+    <string name="restore_files_keep">Оставить</string>
+    <string name="restore_files_failed">Не удалось вернуть файлы.</string>
 </resources>

@@ -1726,4 +1726,12 @@
     </plurals>
     <string name="git_files_incomplete">Git 无法列出此提交中的所有文件，因此列表可能不完整。</string>
     <string name="git_diff_truncated">此差异过长，无法完整显示。正在显示开头部分。</string>
+    <string name="action_restore_files">将文件恢复到此处</string>
+    <string name="restore_files_confirm_title">将文件恢复到此消息时的状态？</string>
+    <string name="restore_files_confirm_body">文件将恢复到您发送此消息时的状态：此后所做的更改将被撤销，此后添加的文件将被移除。消息保持不变。依赖项和构建文件夹（如 node_modules 和 build）不会被修改。</string>
+    <string name="restore_files_confirm">恢复文件</string>
+    <string name="restore_files_banner_title">已将文件恢复到较早的消息</string>
+    <string name="restore_files_banner_body">消息没有变化。“撤销”会将文件恢复为原来的样子。</string>
+    <string name="restore_files_keep">保留</string>
+    <string name="restore_files_failed">无法恢复这些文件。</string>
 </resources>

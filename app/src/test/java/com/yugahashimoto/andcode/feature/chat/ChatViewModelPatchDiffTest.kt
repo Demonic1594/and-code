@@ -126,6 +126,117 @@ class ChatViewModelPatchDiffTest {
             assertEquals(null, viewModel.uiState.value.patchDiff)
         }
 
+    @Test
+    fun `sending records a snapshot for the turn, in the chat's folder`() =
+        runTest(dispatcher) {
+            val backend = FakeTarget(diffCapable = false)
+            val snapshots = FakeSnapshots()
+            val viewModel = ChatViewModel(backend = backend, eventFlow = backend.events, turnSnapshots = snapshots).also { advanceUntilIdle() }
+            viewModel.selectWorkspace("/workspace/app")
+
+            viewModel.sendMessage("First")
+            advanceUntilIdle()
+            viewModel.sendMessage("Second")
+            advanceUntilIdle()
+
+            assertEquals(listOf(Triple("s1", 0, "/workspace/app"), Triple("s1", 1, "/workspace/app")), snapshots.recorded)
+        }
+
+    @Test
+    fun `without a runtime diff, a turn's changes come from its snapshots`() =
+        runTest(dispatcher) {
+            val backend = FakeTarget(diffCapable = false)
+            val snapshots = FakeSnapshots()
+            snapshots.changes =
+                listOf(
+                    OpenCodeFileChange(file = "A.kt", patch = "@@ -1 +1 @@\n-old\n+new"),
+                    OpenCodeFileChange(file = "Other.kt", patch = "@@ -1 +1 @@\n-a\n+b"),
+                )
+            val viewModel = ChatViewModel(backend = backend, eventFlow = backend.events, turnSnapshots = snapshots).also { advanceUntilIdle() }
+            viewModel.selectWorkspace("/workspace/app")
+            viewModel.sendMessage("Hello")
+            advanceUntilIdle()
+            val userMessageId = viewModel.uiState.value.messages.first { it.isUser }.id
+
+            viewModel.openPatchDiff(ChatPart.Patch("p1", listOf("/workspace/app/A.kt"), userMessageId))
+            advanceUntilIdle()
+
+            val diff = viewModel.uiState.value.patchDiff
+            assertTrue(diff is PatchDiffState.Loaded)
+            assertEquals(listOf("A.kt"), (diff as PatchDiffState.Loaded).changes.map { it.displayPath })
+            assertEquals(0, backend.sessionDiffCalls)
+        }
+
+    @Test
+    fun `files are restored to before a message and the restore can be undone`() =
+        runTest(dispatcher) {
+            val backend = FakeTarget(diffCapable = false)
+            val snapshots = FakeSnapshots()
+            val viewModel = ChatViewModel(backend = backend, eventFlow = backend.events, turnSnapshots = snapshots).also { advanceUntilIdle() }
+            viewModel.selectWorkspace("/workspace/app")
+            viewModel.sendMessage("Hello")
+            advanceUntilIdle()
+            backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+            val userMessageId = viewModel.uiState.value.messages.first { it.isUser }.id
+            assertTrue(viewModel.canRestoreFiles(userMessageId))
+
+            viewModel.restoreFilesTo(userMessageId)
+            advanceUntilIdle()
+
+            assertEquals(listOf(0), snapshots.restored)
+            assertEquals("undo-token", viewModel.uiState.value.fileRestore?.token)
+
+            viewModel.undoFileRestore()
+            advanceUntilIdle()
+
+            assertEquals(listOf("undo-token"), snapshots.undone)
+            assertEquals(null, viewModel.uiState.value.fileRestore)
+        }
+
+    private class FakeSnapshots : TurnSnapshots {
+        val recorded = mutableListOf<Triple<String, Int, String>>()
+        val restored = mutableListOf<Int>()
+        val undone = mutableListOf<String>()
+        var changes: List<OpenCodeFileChange> = emptyList()
+
+        override suspend fun record(
+            sessionId: String,
+            turn: Int,
+            directory: String,
+        ) {
+            recorded += Triple(sessionId, turn, directory)
+        }
+
+        override fun has(
+            sessionId: String,
+            turn: Int,
+        ): Boolean = recorded.any { it.first == sessionId && it.second == turn }
+
+        override suspend fun restore(
+            sessionId: String,
+            turn: Int,
+            directory: String,
+        ): String {
+            restored += turn
+            return "undo-token"
+        }
+
+        override suspend fun undoRestore(
+            directory: String,
+            token: String,
+        ): Boolean {
+            undone += token
+            return true
+        }
+
+        override suspend fun turnChanges(
+            sessionId: String,
+            turn: Int,
+            directory: String,
+        ): List<OpenCodeFileChange> = changes
+    }
+
     private class FakeTarget(diffCapable: Boolean) : RuntimeTarget {
         override val id: String = "fake"
         override val displayName: String = "Fake"
