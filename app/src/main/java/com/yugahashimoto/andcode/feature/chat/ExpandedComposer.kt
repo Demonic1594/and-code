@@ -39,15 +39,6 @@ import androidx.core.view.WindowCompat
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.ui.theme.Spacing
 
-/** Sizes shared by the chat composer and its full-screen editor. */
-internal object ComposerLimits {
-    /** The most lines the chat composer shows before it scrolls. */
-    const val MAX_LINES = 4
-
-    /** Above this luminance a surface is light and wants dark system bar icons. */
-    const val LIGHT_SURFACE = 0.5f
-}
-
 /**
  * Whether a message laid out in [lineCount] lines fills the composer, so the full-screen editor is
  * offered. The composer's layout reports at most [ComposerLimits.MAX_LINES] lines, so this means "it is full".
@@ -120,4 +111,13 @@ internal fun ExpandedComposer(
             }
         }
     }
+}
+
+/** Sizes shared by the chat composer and its full-screen editor. */
+internal object ComposerLimits {
+    /** The most lines the chat composer shows before it scrolls. */
+    const val MAX_LINES = 4
+
+    /** Above this luminance a surface is light and wants dark system bar icons. */
+    const val LIGHT_SURFACE = 0.5f
 }
