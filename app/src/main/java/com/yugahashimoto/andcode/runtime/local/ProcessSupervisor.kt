@@ -254,7 +254,10 @@ class ProcessSupervisor(
         }
     }
 
-    /** The last [maxCharacters] of [name]'s output, or null when it never ran or the name is not one. */
+    /**
+     * The last [maxCharacters] of [name]'s output; null when it never ran, the name is not one, or
+     * the log could not be read just now (a restart rotating it).
+     */
     fun logTail(
         name: String,
         maxCharacters: Int = DEFAULT_LOG_CHARACTERS,
@@ -263,10 +266,15 @@ class ProcessSupervisor(
         if (!SupervisedProcessSpec.isValidName(name)) return null
         val log = logFile(name)
         if (!log.isFile) return null
-        return readTail(log, maxCharacters)
+        // A restart may rotate the log, or the watcher trim it, between the check and the read.
+        return runCatching { readLogTail(log, maxCharacters) }.getOrNull()
     }
 
     fun logFile(name: String): File = File(logDirectory, "$name.log")
+
+    /** How a log's tail is read; a test swaps it, before any start, to make a read fail the way a rotation can. */
+    @Volatile
+    internal var readLogTail: (File, Int) -> String = { file, characters -> readTail(file, characters) }
 
     /** Whether [run] is still the one in charge of its name. Called holding [lock]. */
     private fun isCurrent(run: Run): Boolean = runs[run.spec.name] === run && !run.stopped
@@ -337,7 +345,10 @@ class ProcessSupervisor(
             val current = mutableProcesses.value.firstOrNull { it.spec.name == name }
             val wantsPort = current?.spec?.detectPort == true && current.port == null
             if (wantsPort && log.isFile) {
-                detectPort(readTail(log, PORT_SCAN_CHARACTERS))?.let { port -> setStatus(name) { it.copy(port = it.port ?: port) } }
+                // The log can go between the check and the read (a restart rotates it); an exception
+                // here would end the watcher, and in the app's scope the app with it.
+                val tail = runCatching { readLogTail(log, PORT_SCAN_CHARACTERS) }.getOrNull()
+                tail?.let(::detectPort)?.let { port -> setStatus(name) { it.copy(port = it.port ?: port) } }
             }
             if (log.length() > MAX_LOG_BYTES) trim(log)
             delay(WATCH_INTERVAL_MILLIS)
@@ -423,8 +434,10 @@ class ProcessSupervisor(
             maxCharacters: Int,
         ): String =
             RandomAccessFile(file, "r").use { raf ->
-                val window = (maxCharacters.toLong() * 4).coerceAtMost(raf.length())
-                raf.seek(raf.length() - window)
+                // Read the length once: a trim shrinking the file in between would seek before 0.
+                val length = raf.length()
+                val window = (maxCharacters.toLong() * 4).coerceAtMost(length)
+                raf.seek(length - window)
                 val bytes = ByteArray(window.toInt())
                 raf.readFully(bytes)
                 bytes.decodeToString().takeLast(maxCharacters)
