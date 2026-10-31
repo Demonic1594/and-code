@@ -57,6 +57,7 @@ class LocalRuntimeProcessLauncherTest {
             "root/.config/opencode/and-code-context.md",
             "root/.claude/CLAUDE.md",
             "root/.gemini/GEMINI.md",
+            "root/.codex/AGENTS.md",
         ).forEach { relativePath ->
             val context = File(rootfs, relativePath).readText()
             assertEquals(AGENT_CONTEXT_FIXTURE, context)
@@ -93,6 +94,7 @@ class LocalRuntimeProcessLauncherTest {
             "root/.config/opencode/and-code-context.md",
             "root/.claude/CLAUDE.md",
             "root/.gemini/GEMINI.md",
+            "root/.codex/AGENTS.md",
         ).forEach { relativePath ->
             assertEquals(updatedFixture, File(rootfs, relativePath).readText())
         }
@@ -170,6 +172,7 @@ class LocalRuntimeProcessLauncherTest {
             "root/.config/opencode/and-code-context.md",
             "root/.claude/CLAUDE.md",
             "root/.gemini/GEMINI.md",
+            "root/.codex/AGENTS.md",
         ).forEach { relativePath ->
             assertEquals(AGENT_CONTEXT_FIXTURE, File(rootfs, relativePath).readText())
         }
@@ -193,6 +196,7 @@ class LocalRuntimeProcessLauncherTest {
             "root/.config/opencode/and-code-context.md",
             "root/.claude/CLAUDE.md",
             "root/.gemini/GEMINI.md",
+            "root/.codex/AGENTS.md",
         ).forEach { relativePath ->
             assertEquals(AGENT_CONTEXT_FIXTURE, File(rootfs, relativePath).readText())
         }
@@ -215,6 +219,7 @@ class LocalRuntimeProcessLauncherTest {
             "root/.config/opencode/and-code-context.md",
             "root/.claude/CLAUDE.md",
             "root/.gemini/GEMINI.md",
+            "root/.codex/AGENTS.md",
         ).forEach { relativePath ->
             assertEquals(AGENT_CONTEXT_FIXTURE, File(rootfs, relativePath).readText())
         }
@@ -238,6 +243,7 @@ class LocalRuntimeProcessLauncherTest {
             "root/.config/opencode/and-code-context.md",
             "root/.claude/CLAUDE.md",
             "root/.gemini/GEMINI.md",
+            "root/.codex/AGENTS.md",
         ).forEach { relativePath ->
             assertEquals(AGENT_CONTEXT_FIXTURE, File(rootfs, relativePath).readText())
         }
@@ -263,6 +269,7 @@ class LocalRuntimeProcessLauncherTest {
         listOf(
             "root/.config/opencode/and-code-context.md",
             "root/.gemini/GEMINI.md",
+            "root/.codex/AGENTS.md",
         ).forEach { relativePath ->
             assertEquals(AGENT_CONTEXT_FIXTURE, File(rootfs, relativePath).readText())
         }
@@ -303,6 +310,7 @@ class LocalRuntimeProcessLauncherTest {
             "root/.config/opencode/and-code-context.md",
             "root/.claude/CLAUDE.md",
             "root/.gemini/GEMINI.md",
+            "root/.codex/AGENTS.md",
         ).forEach { relativePath ->
             assertEquals(AGENT_CONTEXT_FIXTURE, File(rootfs, relativePath).readText())
         }
@@ -324,6 +332,7 @@ class LocalRuntimeProcessLauncherTest {
             "root/.config/opencode/and-code-context.md",
             "root/.claude/CLAUDE.md",
             "root/.gemini/GEMINI.md",
+            "root/.codex/AGENTS.md",
         ).forEach { relativePath ->
             assertEquals(AGENT_CONTEXT_FIXTURE, File(rootfs, relativePath).readText())
         }
@@ -333,6 +342,7 @@ class LocalRuntimeProcessLauncherTest {
                 "root/.config/opencode/and-code-context.md",
                 "root/.claude/CLAUDE.md",
                 "root/.gemini/GEMINI.md",
+                "root/.codex/AGENTS.md",
             ),
             recordedPaths,
         )

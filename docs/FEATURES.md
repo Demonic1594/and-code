@@ -55,6 +55,7 @@ remote PC runtime the buttons stay hidden.
 | Pull / Push / Stash | Workspace → Changes | Pull is fast-forward only. Push uses `-u origin HEAD`, so a new branch's first push just works. Git's own error text is shown when something fails. |
 | Switch / create branch | Workspace → Changes → tap the branch name | This sheet existed before but was never connected. It now lists real branches and switches between them. |
 | Recent commits | Workspace → Changes | The last 15 commits. |
+| Servers that stay up | The agent runs `andcode-run start NAME -- COMMAND`; notification → **Stop all** | Dev servers and watchers an agent starts this way belong to the app, not to the agent's shell. They keep running after the turn, the chat or the agent ends, and the device stays awake while one runs (a notification names them). A crash is restarted up to five times. Each process stops after four hours unless given another limit, and at most five run at once. The agent reads their status, URL and log with `andcode-run list` and `andcode-run logs`. Every agent's built-in instructions (Claude Code, Codex, Gemini, OpenCode) tell it to use this instead of `nohup` or `&`, and to check the server answers before saying it works. They also spell out the single-file rule for artifacts. |
 
 The command runner now mounts `/workspace` the same way the agents see it. The terminal can reach
 it too.

@@ -124,6 +124,15 @@
         </service>
 
         <service
+            android:name=".runtime.local.SupervisedProcessService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps development servers the user's coding agent started running while the app is in the background, until they are stopped." />
+        </service>
+
+        <service
             android:name=".runtime.local.CodexKeepAliveService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
