@@ -113,6 +113,10 @@ fun GuestBrowserScreen(
         webView?.clearMatches()
     }
 
+    // The address the page actions act on. With no WebView (the system one could not start) the
+    // address bar's URL is still worth copying, sharing or opening in another browser.
+    fun pageUrl(): String? = (webView?.url ?: currentUrl).takeIf { it.isNotBlank() }
+
     fun open(raw: String) {
         val url = normalizeBrowserUrl(raw)
         editingAddress = false
@@ -295,13 +299,13 @@ fun GuestBrowserScreen(
                                 }
                             },
                             onCopyLink = {
-                                webView?.url?.takeIf { it.isNotBlank() }?.let { url ->
+                                pageUrl()?.let { url ->
                                     clipboard.setText(AnnotatedString(url))
                                     scope.launch { snackbar.showSnackbar(linkCopied) }
                                 }
                             },
                             onShare = {
-                                webView?.url?.takeIf { it.isNotBlank() }?.let { url ->
+                                pageUrl()?.let { url ->
                                     val send =
                                         Intent(Intent.ACTION_SEND).apply {
                                             type = "text/plain"
@@ -310,7 +314,7 @@ fun GuestBrowserScreen(
                                     runCatching { context.startActivity(Intent.createChooser(send, null)) }
                                 }
                             },
-                            onOpenExternal = { webView?.url?.let { UrlLauncher.openUrl(context, it) } },
+                            onOpenExternal = { pageUrl()?.let { UrlLauncher.openUrl(context, it) } },
                         ),
                 )
             }
