@@ -58,6 +58,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -844,147 +845,151 @@ fun ChatHomeScreen(
             }
 
             if (!runtimeNotReady) {
-                ChatComposer(
-                    inputValue = inputValue,
-                    onInputValueChange = {
-                        inputValue = it
-                        showSlashCommands = it.text.startsWith("/")
-                    },
-                    isRunning = state.isRunning,
-                    onSend = {
-                        // Held while a rewind or file restore lands: what the new message follows is not settled yet.
-                        val settled = !state.isRewinding && !state.isRestoringFiles
-                        if (settled && (input.isNotBlank() || state.attachments.isNotEmpty())) {
-                            haptics.perform(HapticEvent.CONFIRM)
-                            val text = SlashCommandRegistry.expandSavedPrompt(input, savedPrompts)
-                            // The composer clears only once the message actually goes out, so a
-                            // cancelled unlock leaves the text where it was.
-                            sendGate {
-                                onSendMessage(text)
-                                inputValue = TextFieldValue("")
-                                showSlashCommands = false
+                // Keyed to the chat, so one opened from elsewhere (a notification) starts with the
+                // composer's own state fresh: its full-screen editor closed.
+                key(state.sessionId) {
+                    ChatComposer(
+                        inputValue = inputValue,
+                        onInputValueChange = {
+                            inputValue = it
+                            showSlashCommands = it.text.startsWith("/")
+                        },
+                        isRunning = state.isRunning,
+                        onSend = {
+                            // Held while a rewind or file restore lands: what the new message follows is not settled yet.
+                            val settled = !state.isRewinding && !state.isRestoringFiles
+                            if (settled && (input.isNotBlank() || state.attachments.isNotEmpty())) {
+                                haptics.perform(HapticEvent.CONFIRM)
+                                val text = SlashCommandRegistry.expandSavedPrompt(input, savedPrompts)
+                                // The composer clears only once the message actually goes out, so a
+                                // cancelled unlock leaves the text where it was.
+                                sendGate {
+                                    onSendMessage(text)
+                                    inputValue = TextFieldValue("")
+                                    showSlashCommands = false
+                                }
                             }
-                        }
-                    },
-                    onAbort = onAbort,
-                    onMic = onMic,
-                    isListening = state.isListening,
-                    isSpeechProcessing = state.isSpeechProcessing,
-                    modelLabel =
-                        providers
-                            .firstOrNull { it.id == selectedProviderId }
-                            ?.models?.get(selectedModelId)
-                            ?.name
-                            ?: selectedModelId
-                            ?: stringResource(R.string.chat_model_short_default),
-                    onModelChipClick = {
-                        onRefreshCatalog()
-                        showModelPicker = true
-                    },
-                    agents = agents,
-                    selectedAgentId = selectedAgentId,
-                    onSelectAgent = onSelectAgent,
-                    onRefreshAgents = onRefreshAgents,
-                    agentsLoading = agentsLoading,
-                    // On one scale for every agent, weakest first, whatever order the server listed.
-                    thinkingOptions =
-                        orderThinkingLevels(
+                        },
+                        onAbort = onAbort,
+                        onMic = onMic,
+                        isListening = state.isListening,
+                        isSpeechProcessing = state.isSpeechProcessing,
+                        modelLabel =
                             providers
                                 .firstOrNull { it.id == selectedProviderId }
                                 ?.models?.get(selectedModelId)
-                                ?.variants?.keys.orEmpty(),
-                        ),
-                    selectedVariant = state.selectedVariant,
-                    onSelectVariant = onSelectVariant,
-                    fastModeAvailable = state.fastModeAvailable,
-                    fastModeEnabled = state.fastModeEnabled,
-                    fastModeDescription = state.fastModeDescription,
-                    onToggleFastMode = onToggleFastMode,
-                    ultracodeAvailable = state.ultracodeAvailable,
-                    ultracodeEnabled = state.ultracodeEnabled,
-                    onToggleUltracode = onToggleUltracode,
-                    attachments = state.attachments,
-                    onAttach = onAttach,
-                    onRemoveAttachment = onRemoveAttachment,
-                    autoAcceptPermissions = autoAcceptPermissions,
-                    supportsPermissions = supportsPermissions,
-                    claudePermissionMode = claudePermissionMode,
-                    onSelectClaudePermissionMode = onSelectClaudePermissionMode,
-                    antigravityPermissionMode = antigravityPermissionMode,
-                    onSelectAntigravityPermissionMode = onSelectAntigravityPermissionMode,
-                    systemPromptPresets = systemPromptPresets,
-                    selectedSystemPromptId = selectedSystemPromptId,
-                    onSelectSystemPrompt = onSelectSystemPrompt,
-                    onToggleAutoAccept = onToggleAutoAccept,
-                    sendBehavior = sendBehavior,
-                    enterToSend = enterToSend,
-                    contextTokensUsed = state.contextTokensUsed,
-                    contextLimit =
-                        providers
-                            .firstOrNull { it.id == selectedProviderId }
-                            ?.models?.get(selectedModelId)
-                            ?.limit?.context ?: 0L,
-                    tokensPerSecond = state.connectionQuality?.tokensPerSecond ?: 0.0,
-                    showSlashCommands = showSlashCommands,
-                    slashCommands = state.slashCommands,
-                    slashSkills = state.slashSkills,
-                    savedPrompts = savedPrompts,
-                    onSlashCommandSelect = { suggestion ->
-                        // A saved prompt expands to its text, left in the composer to send or tweak.
-                        // One that takes arguments ($ARGUMENTS, $1...) completes to its command instead,
-                        // so the user types the arguments and sending fills them in. Everything else
-                        // completes to its command name for the send path to route.
-                        val completed =
-                            when {
-                                suggestion is SlashSuggestion.Saved && !SlashCommandRegistry.hasPlaceholders(suggestion.prompt.text) ->
-                                    suggestion.prompt.text
-                                else -> suggestion.name + " "
-                            }
-                        inputValue = TextFieldValue(completed, TextRange(completed.length))
-                        showSlashCommands = false
-                    },
-                    githubRefs = githubRefs,
-                    pullRequests = state.pullRequests,
-                    onOpenUrl = onOpenUrl,
-                    onDismissPullRequest = onDismissPullRequest,
-                    // The composer thumbnails render the ViewModel's previews directly: a local
-                    // copy of the list drifted out of step with the attachments it stood for, so a
-                    // removal could drop the wrong image or leave a thumbnail with nothing behind it.
-                    attachedImages = state.imagePreviews,
-                    onRemoveImage = { previewIndex ->
-                        attachmentIndexForPreview(state.attachments, previewIndex)?.let(onRemoveAttachment)
-                    },
-                    onCameraLaunch = {
-                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
-                            == PackageManager.PERMISSION_GRANTED
-                        ) {
-                            cameraLauncher.launch(null)
-                        } else {
-                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                        }
-                    },
-                    onGalleryLaunch = {
-                        galleryLauncher.launch(
-                            androidx.activity.result.PickVisualMediaRequest(
-                                ActivityResultContracts.PickVisualMedia.ImageOnly,
+                                ?.name
+                                ?: selectedModelId
+                                ?: stringResource(R.string.chat_model_short_default),
+                        onModelChipClick = {
+                            onRefreshCatalog()
+                            showModelPicker = true
+                        },
+                        agents = agents,
+                        selectedAgentId = selectedAgentId,
+                        onSelectAgent = onSelectAgent,
+                        onRefreshAgents = onRefreshAgents,
+                        agentsLoading = agentsLoading,
+                        // On one scale for every agent, weakest first, whatever order the server listed.
+                        thinkingOptions =
+                            orderThinkingLevels(
+                                providers
+                                    .firstOrNull { it.id == selectedProviderId }
+                                    ?.models?.get(selectedModelId)
+                                    ?.variants?.keys.orEmpty(),
                             ),
-                        )
-                    },
-                    onPasteImage = {
-                        val clip = context.primaryClipOrNull()
-                        coroutineScope.launch {
-                            val uris = clip?.imageUris(context.contentResolver).orEmpty()
-                            if (uris.isEmpty()) showAttachFailure() else attachImageUris(uris)
-                        }
-                    },
-                    onReceiveImageContent = { clip, permissionAnchor ->
-                        // The keyboard delivered the image itself; the same import path as a
-                        // clipboard paste, only the clip's origin differs.
-                        coroutineScope.launch {
-                            attachDeliveredImages(clip, permissionAnchor)
-                        }
-                    },
-                )
+                        selectedVariant = state.selectedVariant,
+                        onSelectVariant = onSelectVariant,
+                        fastModeAvailable = state.fastModeAvailable,
+                        fastModeEnabled = state.fastModeEnabled,
+                        fastModeDescription = state.fastModeDescription,
+                        onToggleFastMode = onToggleFastMode,
+                        ultracodeAvailable = state.ultracodeAvailable,
+                        ultracodeEnabled = state.ultracodeEnabled,
+                        onToggleUltracode = onToggleUltracode,
+                        attachments = state.attachments,
+                        onAttach = onAttach,
+                        onRemoveAttachment = onRemoveAttachment,
+                        autoAcceptPermissions = autoAcceptPermissions,
+                        supportsPermissions = supportsPermissions,
+                        claudePermissionMode = claudePermissionMode,
+                        onSelectClaudePermissionMode = onSelectClaudePermissionMode,
+                        antigravityPermissionMode = antigravityPermissionMode,
+                        onSelectAntigravityPermissionMode = onSelectAntigravityPermissionMode,
+                        systemPromptPresets = systemPromptPresets,
+                        selectedSystemPromptId = selectedSystemPromptId,
+                        onSelectSystemPrompt = onSelectSystemPrompt,
+                        onToggleAutoAccept = onToggleAutoAccept,
+                        sendBehavior = sendBehavior,
+                        enterToSend = enterToSend,
+                        contextTokensUsed = state.contextTokensUsed,
+                        contextLimit =
+                            providers
+                                .firstOrNull { it.id == selectedProviderId }
+                                ?.models?.get(selectedModelId)
+                                ?.limit?.context ?: 0L,
+                        tokensPerSecond = state.connectionQuality?.tokensPerSecond ?: 0.0,
+                        showSlashCommands = showSlashCommands,
+                        slashCommands = state.slashCommands,
+                        slashSkills = state.slashSkills,
+                        savedPrompts = savedPrompts,
+                        onSlashCommandSelect = { suggestion ->
+                            // A saved prompt expands to its text, left in the composer to send or tweak.
+                            // One that takes arguments ($ARGUMENTS, $1...) completes to its command instead,
+                            // so the user types the arguments and sending fills them in. Everything else
+                            // completes to its command name for the send path to route.
+                            val completed =
+                                when {
+                                    suggestion is SlashSuggestion.Saved && !SlashCommandRegistry.hasPlaceholders(suggestion.prompt.text) ->
+                                        suggestion.prompt.text
+                                    else -> suggestion.name + " "
+                                }
+                            inputValue = TextFieldValue(completed, TextRange(completed.length))
+                            showSlashCommands = false
+                        },
+                        githubRefs = githubRefs,
+                        pullRequests = state.pullRequests,
+                        onOpenUrl = onOpenUrl,
+                        onDismissPullRequest = onDismissPullRequest,
+                        // The composer thumbnails render the ViewModel's previews directly: a local
+                        // copy of the list drifted out of step with the attachments it stood for, so a
+                        // removal could drop the wrong image or leave a thumbnail with nothing behind it.
+                        attachedImages = state.imagePreviews,
+                        onRemoveImage = { previewIndex ->
+                            attachmentIndexForPreview(state.attachments, previewIndex)?.let(onRemoveAttachment)
+                        },
+                        onCameraLaunch = {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
+                                == PackageManager.PERMISSION_GRANTED
+                            ) {
+                                cameraLauncher.launch(null)
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        onGalleryLaunch = {
+                            galleryLauncher.launch(
+                                androidx.activity.result.PickVisualMediaRequest(
+                                    ActivityResultContracts.PickVisualMedia.ImageOnly,
+                                ),
+                            )
+                        },
+                        onPasteImage = {
+                            val clip = context.primaryClipOrNull()
+                            coroutineScope.launch {
+                                val uris = clip?.imageUris(context.contentResolver).orEmpty()
+                                if (uris.isEmpty()) showAttachFailure() else attachImageUris(uris)
+                            }
+                        },
+                        onReceiveImageContent = { clip, permissionAnchor ->
+                            // The keyboard delivered the image itself; the same import path as a
+                            // clipboard paste, only the clip's origin differs.
+                            coroutineScope.launch {
+                                attachDeliveredImages(clip, permissionAnchor)
+                            }
+                        },
+                    )
+                }
             }
         }
 
