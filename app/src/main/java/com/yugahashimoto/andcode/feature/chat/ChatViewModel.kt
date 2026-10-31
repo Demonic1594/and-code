@@ -1822,7 +1822,7 @@ class ChatViewModel(
             // folder that is not a git repository), the turn's snapshots.
             val fromRuntime =
                 if (diffCapable) {
-                    runCatching { runtime?.sessionDiff(sessionId, directory, patch.messageId).orEmpty() }.getOrDefault(emptyList())
+                    snapshotCall(emptyList()) { runtime?.sessionDiff(sessionId, directory, patch.messageId).orEmpty() }
                 } else {
                     emptyList()
                 }

@@ -27,6 +27,7 @@ class ShadowSnapshots(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     /** Where the histories live; the guest's home in the app, a temporary folder in tests. */
     private val root: String = ROOT,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
     /**
      * One operation at a time, across every chat: a snapshot taken while a restore is rewriting the
@@ -34,6 +35,13 @@ class ShadowSnapshots(
      * two would fight over git's index lock.
      */
     private val lock = Mutex()
+
+    /**
+     * Workspaces whose last snapshot ran out of time, and until when sends skip them. A message
+     * waits for its snapshot, so a folder too big to snapshot in time would otherwise hold up every
+     * message by the whole time limit. Guarded by [lock].
+     */
+    private val skipUntil = mutableMapOf<String, Long>()
 
     /**
      * Runs one command. Starting the shell can throw (no runtime yet, no temp file); a snapshot is
@@ -63,7 +71,7 @@ class ShadowSnapshots(
     ): String? {
         withTimeoutOrNull(lockWaitMillis) { lock.lock() } ?: return null
         return try {
-            snapshotUnlocked(workspace)
+            if ((skipUntil[workspace] ?: 0L) > clock()) null else snapshotUnlocked(workspace)
         } finally {
             lock.unlock()
         }
@@ -75,6 +83,7 @@ class ShadowSnapshots(
             // restore would then find them changed and refuse.
             if (containsHistories(root, workspace)) return@withContext null
             val result = run(snapshotScript(root, workspace), SNAPSHOT_TIMEOUT_SECONDS, SMALL_OUTPUT)
+            if (result.exitCode == TIMED_OUT) skipUntil[workspace] = clock() + SKIP_AFTER_TIMEOUT_MILLIS else skipUntil.remove(workspace)
             result.output.trim().lines().lastOrNull()?.trim()?.takeIf { result.exitCode == 0 && HASH.matches(it) }
         }
 
@@ -123,7 +132,13 @@ class ShadowSnapshots(
             if (result.exitCode == 0) return@withContext before
             // Refused, nothing changed and this is a no-op. Cut short by the time limit, some files
             // may already be rewritten: put them back as they were just before.
-            run("${git(root, workspace)} checkout -q --no-overwrite-ignore --detach $before", RESTORE_TIMEOUT_SECONDS, SMALL_OUTPUT)
+            // The killed checkout may have left its lock behind, which would refuse this one too.
+            val lockFile = WorkspaceShell.quote("${gitDir(root, workspace)}/index.lock")
+            run(
+                "rm -f $lockFile; ${git(root, workspace)} checkout -q --no-overwrite-ignore --detach $before",
+                RESTORE_TIMEOUT_SECONDS,
+                SMALL_OUTPUT,
+            )
             null
         }
     }
@@ -133,6 +148,10 @@ class ShadowSnapshots(
         const val ROOT = "/root/.local/share/and-code/snapshots"
 
         private const val SNAPSHOT_TIMEOUT_SECONDS = 20L
+        private const val SKIP_AFTER_TIMEOUT_MILLIS = 5 * 60_000L
+
+        /** The command runner's exit code for a command it killed at its time limit. */
+        private const val TIMED_OUT = 124
         private const val DIFF_TIMEOUT_SECONDS = 20L
         private const val RESTORE_TIMEOUT_SECONDS = 30L
         private const val SMALL_OUTPUT = 4_000

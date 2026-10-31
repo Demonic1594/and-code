@@ -148,6 +148,31 @@ class ShadowSnapshotsTest {
         }
 
     @Test
+    fun `after a snapshot runs out of time, sends skip that folder for a while`() =
+        runBlocking {
+            var now = 0L
+            var calls = 0
+            val snapshots =
+                ShadowSnapshots(
+                    { _, _, _ ->
+                        calls++
+                        LocalRuntimeCommandResult(exitCode = 124, output = "timed out")
+                    },
+                    Dispatchers.Unconfined,
+                    root = "/snap",
+                    clock = { now },
+                )
+
+            assertNull(snapshots.snapshot("/workspace/big", lockWaitMillis = 100))
+            assertNull(snapshots.snapshot("/workspace/big", lockWaitMillis = 100))
+            assertEquals("the second send did not wait for another attempt", 1, calls)
+
+            now += 6 * 60_000L
+            snapshots.snapshot("/workspace/big", lockWaitMillis = 100)
+            assertEquals(2, calls)
+        }
+
+    @Test
     fun `each workspace gets its own history under the root`() {
         val a = ShadowSnapshots.gitDir("/snap", "/workspace/a")
         val b = ShadowSnapshots.gitDir("/snap", "/workspace/b")
