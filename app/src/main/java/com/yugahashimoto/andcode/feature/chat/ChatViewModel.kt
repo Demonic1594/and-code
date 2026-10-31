@@ -1550,6 +1550,18 @@ class ChatViewModel(
         drainHeldPrompts()
     }
 
+    /**
+     * Messages shown while offline, before they were sent. When they do go out they are sent again as
+     * new messages, so counting the placeholders would number every later turn one too high.
+     */
+    private val offlinePlaceholders = mutableSetOf<String>()
+
+    /** [messages] without the offline placeholders, as the turn numbers count them. */
+    private fun sentMessages(messages: List<ChatMessage>): List<ChatMessage> = messages.filterNot { it.id in offlinePlaceholders }
+
+    /** How many of the user's messages went out before the one being sent: its turn number. */
+    private fun sentTurns(): Int = keepRewind(_uiState.value).count { it.isUser && it.id !in offlinePlaceholders }
+
     /** The folder the chat's snapshots are taken of: the session's, else the one picked for it. */
     private fun snapshotDirectory(sessionDirectory: String? = null): String? =
         _uiState.value.sessionDirectory ?: sessionDirectory ?: _uiState.value.selectedWorkspacePath
@@ -1559,7 +1571,7 @@ class ChatViewModel(
         val state = _uiState.value
         val sessionId = state.sessionId
         val isUserMessage = state.messages.any { it.id == messageId && it.isUser }
-        val turn = turnOf(state.messages, messageId)
+        val turn = turnOf(sentMessages(state.messages), messageId)
         return turnSnapshots != null && sessionId != null && isUserMessage && turn != null &&
             turnSnapshots.has(sessionId, turn)
     }
@@ -1573,7 +1585,7 @@ class ChatViewModel(
         val snapshots = turnSnapshots
         val sessionId = state.sessionId
         val directory = snapshotDirectory()
-        val turn = turnOf(state.messages, messageId)
+        val turn = turnOf(sentMessages(state.messages), messageId)
         if (snapshots == null || sessionId == null) return
         if (directory == null || turn == null) return
         if (state.isRunning || restoreInFlight) return
@@ -1625,7 +1637,7 @@ class ChatViewModel(
     ): List<OpenCodeFileChange> {
         val snapshots = turnSnapshots ?: return emptyList()
         val directory = snapshotDirectory() ?: return emptyList()
-        val turn = turnOf(_uiState.value.messages, patch.messageId) ?: return emptyList()
+        val turn = turnOf(sentMessages(_uiState.value.messages), patch.messageId) ?: return emptyList()
         val changes = snapshotCall(null) { snapshots.turnChanges(sessionId, turn, directory) }.orEmpty()
         return changesForPatch(changes, patch.files)
     }
@@ -2027,6 +2039,7 @@ class ChatViewModel(
                     attachments = pendingAttachments,
                     imagePreviews = pendingPreviews,
                 )
+            offlinePlaceholders += userMessage.id
             _uiState.update {
                 it.copy(
                     messages = keepRewind(it) + userMessage,
@@ -2053,7 +2066,7 @@ class ChatViewModel(
         }
         val interrupting = _uiState.value.isRunning
         // The position this message takes among the user's messages, which names its snapshot.
-        val turnAtSend = keepRewind(_uiState.value).count { it.isUser }
+        val turnAtSend = sentTurns()
 
         val userMessage =
             ChatMessage(
@@ -2291,6 +2304,7 @@ class ChatViewModel(
                     isUser = true,
                     parts = listOf(ChatPart.Text(id = UUID.randomUUID().toString(), text = displayText)),
                 )
+            offlinePlaceholders += userMessage.id
             _uiState.update {
                 it.copy(
                     messages = keepRewind(it) + userMessage,
@@ -2311,7 +2325,7 @@ class ChatViewModel(
         val interrupting = _uiState.value.isRunning
         // A command is a turn like any message: without its own snapshot, the turn before it would
         // count the command's changes as its own.
-        val turnAtSend = keepRewind(_uiState.value).count { it.isUser }
+        val turnAtSend = sentTurns()
 
         val userMessage =
             ChatMessage(
