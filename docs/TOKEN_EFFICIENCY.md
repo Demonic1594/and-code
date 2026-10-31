@@ -58,7 +58,7 @@ Nothing is lost for Claude: 1568 px is its own resize target.
 | Browser + schedule MCP servers (15 tools) | ~1.2k tokens | They power the guest browser and scheduled tasks. Sent once per request and cached. |
 | Codex | – | Already uses persistent app-server threads and `turn/interrupt`; nothing to fix. |
 | OpenCode | – | The server owns its sessions, titles and compaction. AndCode only compacts at 90% context. |
-| Claude process restart on model / permission-mode / preset change | – | A model change invalidates the cache anyway. The CLI supports `set_model` and `set_permission_mode` control requests, which could avoid the restart. Left for a follow-up. |
+| Claude process restart on model / permission-mode / preset / Ultracode change | – | A model change invalidates the cache anyway. The CLI supports `set_model` and `set_permission_mode` control requests, which could avoid the restart. Ultracode is read only at startup (`--settings`); a turn that does not say whether it wants it (a notification reply, a skill, a schedule) keeps the session's last value, so only switching it restarts. Left for a follow-up. |
 
 ## Tips for users
 

@@ -353,8 +353,12 @@ data class PromptRequest(
      * forces standard speed. Built field by field for OpenCode, so it is never sent to that server.
      */
     val serviceTier: String? = null,
-    /** Claude Code only: run the session in ultracode. Never sent to OpenCode or Codex. */
-    val ultracode: Boolean = false,
+    /**
+     * Claude Code only: run the session in ultracode, or null to keep what the session last ran
+     * with. Replies from a notification, the Inbox, a schedule or a skill leave it null, so they do
+     * not restart an ultracode session without it. Never sent to OpenCode or Codex.
+     */
+    val ultracode: Boolean? = null,
 )
 
 @Serializable
