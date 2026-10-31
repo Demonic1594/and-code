@@ -82,7 +82,9 @@ class DevServerSharing(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
-            // A log read racing its rotation, say: end this share, never the app with it.
+            // A log read racing its rotation, say: end this share, never the app with it. A share
+            // already stopped leaves the tunnel alone: a new share on the same port may own it now.
+            if (!currentCoroutineContext().isActive) return
             supervisor.stop(processName(port))
             set(port, ShareState.Failed(error.message ?: error.javaClass.simpleName))
         }
