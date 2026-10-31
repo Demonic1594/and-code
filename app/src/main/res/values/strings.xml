@@ -1774,4 +1774,8 @@
     <string name="tool_copy_block">Copy %1$s</string>
     <string name="cd_search_projects">Search projects</string>
     <string name="drawer_project_search_hint">Search projects</string>
+    <string name="notification_channel_supervised">Running processes</string>
+    <string name="supervised_notification_title">Running processes (%1$d)</string>
+    <string name="supervised_notification_keeping_awake">Keeping the device awake</string>
+    <string name="supervised_stop_all">Stop all</string>
 </resources>

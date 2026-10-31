@@ -1757,4 +1757,8 @@
     <string name="tool_copy_block">Copiar %1$s</string>
     <string name="cd_search_projects">Pesquisar projetos</string>
     <string name="drawer_project_search_hint">Pesquisar projetos</string>
+    <string name="notification_channel_supervised">Processos em execução</string>
+    <string name="supervised_notification_title">Processos em execução (%1$d)</string>
+    <string name="supervised_notification_keeping_awake">Mantém o dispositivo ativo</string>
+    <string name="supervised_stop_all">Parar tudo</string>
 </resources>
