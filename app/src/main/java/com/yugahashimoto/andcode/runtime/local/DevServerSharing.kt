@@ -1,0 +1,162 @@
+package com.yugahashimoto.andcode.runtime.local
+
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+/** Where sharing one local server stands. */
+sealed interface ShareState {
+    /** Fetching and verifying `cloudflared`, the first time only. */
+    data object Installing : ShareState
+
+    /** The tunnel runs; its public address is not known yet. */
+    data object Starting : ShareState
+
+    data class Live(val url: String) : ShareState
+
+    /** The supervisor already runs as many processes as it allows. */
+    data object TooManyProcesses : ShareState
+
+    /** [reason] is the tunnel's own last words, or the installer's, for the user to read. */
+    data class Failed(val reason: String) : ShareState
+}
+
+/**
+ * Shares a server on this device with anyone who has the link, through a Cloudflare quick tunnel
+ * (`cloudflared tunnel --url`): no account, a random `trycloudflare.com` address, gone when stopped.
+ *
+ * The tunnel is a [ProcessSupervisor] process like any server the agents start, so it gets the same
+ * wake lock, notification with Stop all, time limit and log; the public address is read from that
+ * log. It is never restarted on its own: a tunnel that died should be visible, not quietly renamed.
+ */
+class DevServerSharing(
+    private val supervisor: ProcessSupervisor,
+    private val install: suspend () -> Unit,
+    private val scope: CoroutineScope,
+    private val pollMillis: Long = POLL_MILLIS,
+    private val startTimeoutMillis: Long = START_TIMEOUT_MILLIS,
+) {
+    private val mutableShares = MutableStateFlow<Map<Int, ShareState>>(emptyMap())
+
+    /** The servers being shared, by port. A port that is not here is not shared. */
+    val shares: StateFlow<Map<Int, ShareState>> = mutableShares.asStateFlow()
+
+    private val jobs = mutableMapOf<Int, Job>()
+
+    fun start(port: Int) {
+        if (port !in 1..MAX_PORT) return
+        synchronized(jobs) {
+            if (jobs[port]?.isActive == true) return
+            set(port, ShareState.Installing)
+            jobs[port] = scope.launch { run(port) }
+        }
+    }
+
+    fun stop(port: Int) {
+        synchronized(jobs) { jobs.remove(port)?.cancel() }
+        supervisor.stop(processName(port))
+        mutableShares.update { it - port }
+    }
+
+    /** Ends the shares of servers that stopped answering: a tunnel must not outlive what it points at. */
+    fun stopGone(stoppedPorts: Collection<Int>) {
+        stoppedPorts.filter { it in mutableShares.value }.forEach(::stop)
+    }
+
+    private suspend fun run(port: Int) {
+        try {
+            install()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            set(port, ShareState.Failed(error.message ?: error.javaClass.simpleName))
+            return
+        }
+        val name = processName(port)
+        val result = supervisor.start(tunnelSpec(port))
+        when (result) {
+            is StartResult.Started, is StartResult.AlreadyRunning -> Unit
+            is StartResult.LimitReached -> return set(port, ShareState.TooManyProcesses)
+            is StartResult.Failed -> return set(port, ShareState.Failed(result.reason))
+            else -> return set(port, ShareState.Failed(result.javaClass.simpleName))
+        }
+        set(port, ShareState.Starting)
+        watch(port, name)
+    }
+
+    /** Waits for the address, then keeps the state true to the process until it ends. */
+    private suspend fun watch(
+        port: Int,
+        name: String,
+    ) {
+        var waited = 0L
+        while (true) {
+            val process = supervisor.processes.value.firstOrNull { it.spec.name == name }
+            val log = supervisor.logTail(name, LOG_CHARACTERS).orEmpty()
+            val current = mutableShares.value[port] ?: return
+            when {
+                process == null || !process.isActive -> {
+                    // Ended: by Stop all, its time limit, or a failure such as no network.
+                    if (current is ShareState.Live) mutableShares.update { it - port } else set(port, ShareState.Failed(lastLine(log)))
+                    return
+                }
+                current is ShareState.Starting -> {
+                    val url = tunnelUrl(log)
+                    if (url != null) {
+                        set(port, ShareState.Live(url))
+                    } else if (waited >= startTimeoutMillis) {
+                        supervisor.stop(name)
+                        set(port, ShareState.Failed(lastLine(log)))
+                        return
+                    }
+                }
+            }
+            // Quick while waiting for the address; once it is live only the process's end matters.
+            val pause = if (current is ShareState.Live) pollMillis * LIVE_POLL_FACTOR else pollMillis
+            delay(pause)
+            waited += pause
+        }
+    }
+
+    private fun set(
+        port: Int,
+        state: ShareState,
+    ) {
+        mutableShares.update { it + (port to state) }
+    }
+
+    companion object {
+        private const val POLL_MILLIS = 500L
+        private const val LIVE_POLL_FACTOR = 4
+        private const val START_TIMEOUT_MILLIS = 45_000L
+        private const val LOG_CHARACTERS = 8_000
+        private const val MAX_PORT = 65_535
+
+        /** A quick tunnel is for trying something out, not for hosting: it ends after two hours. */
+        private const val MAX_SHARE_MINUTES = 120
+
+        private val TUNNEL_URL = Regex("""https://[a-z0-9-]+\.trycloudflare\.com(?![\w.-])""")
+
+        internal fun processName(port: Int) = "share-$port"
+
+        internal fun tunnelSpec(port: Int) =
+            SupervisedProcessSpec(
+                name = processName(port),
+                command = "cloudflared tunnel --no-autoupdate --url http://127.0.0.1:$port",
+                directory = "/root",
+                restart = RestartPolicy.NEVER,
+                maxRunMinutes = MAX_SHARE_MINUTES,
+            )
+
+        /** The public address cloudflared prints once the tunnel is up. */
+        internal fun tunnelUrl(log: String): String? = TUNNEL_URL.find(log)?.value
+
+        internal fun lastLine(log: String): String = log.lineSequence().map(String::trim).lastOrNull(String::isNotEmpty).orEmpty()
+    }
+}

@@ -1,6 +1,17 @@
 # Share a dev server the agent is running, for other people to test
 
-Status: **not started**. Written down to build later; nothing in the app has been changed.
+Status: **built**. Decisions made while building:
+
+- **The tunnel is a supervised process** (`share-<port>`, see the process supervisor plan), not a
+  service of its own. It gets the supervisor's wake lock, notification with Stop all, time limit
+  (two hours) and log for free; the public address is read from that log. It is never restarted on
+  its own: a tunnel that died shows as failed, not as a new address. This replaces tasks 2 and 7.
+- **No pinned version.** `CloudflaredReleaseClient` reads Cloudflare's latest release and pins the
+  download to the SHA-256 digest GitHub reports for the asset, the trust model the Antigravity
+  client already uses. A release without a digest is refused. arm64, armv7, x86_64 and x86 builds.
+- **The link ends with the server**: when the shared port stops answering, when the terminal's
+  shell ends, and when the terminal screen closes.
+- **The QR code** is drawn with zxing's `QRCodeWriter`, already a dependency for scanning.
 
 ## Goal
 

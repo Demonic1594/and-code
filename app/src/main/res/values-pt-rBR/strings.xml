@@ -1761,4 +1761,18 @@
     <string name="supervised_notification_title">Processos em execução (%1$d)</string>
     <string name="supervised_notification_keeping_awake">Continua rodando com a tela desligada</string>
     <string name="supervised_stop_all">Parar tudo</string>
+    <string name="share_server_title">Compartilhar porta %1$d</string>
+    <string name="share_server_installing">Preparando a ferramenta de compartilhamento (só na primeira vez)…</string>
+    <string name="share_server_starting">Iniciando o link…</string>
+    <string name="share_server_too_many">Há processos demais em execução. Pare um e tente novamente.</string>
+    <string name="share_server_failed">Não foi possível compartilhar: %1$s</string>
+    <string name="share_server_warning">Isso torna localhost:%1$d acessível a qualquer pessoa com o link, de qualquer lugar, enquanto continuar compartilhado. O link é aleatório, mas deixa de ser secreto quando você o envia.</string>
+    <string name="share_server_start">Começar a compartilhar</string>
+    <string name="share_server_send">Enviar link</string>
+    <string name="cd_share_server_qr">Código QR do link</string>
+    <string name="share_server_live_note">O link funciona enquanto este servidor estiver rodando e para quando ele parar, depois de duas horas ou quando você parar de compartilhar.</string>
+    <string name="share_server_stop">Parar de compartilhar</string>
+    <string name="share_server_retry">Tentar novamente</string>
+    <string name="cd_share_server">Compartilhar porta %1$d</string>
+    <string name="cd_share_server_live">A porta %1$d está compartilhada</string>
 </resources>

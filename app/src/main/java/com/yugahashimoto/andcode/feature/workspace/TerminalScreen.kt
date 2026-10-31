@@ -32,6 +32,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
@@ -45,6 +46,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -77,6 +79,7 @@ import com.yugahashimoto.andcode.feature.terminal.DevServerStatus
 import com.yugahashimoto.andcode.feature.terminal.StyledLine
 import com.yugahashimoto.andcode.feature.terminal.TerminalKey
 import com.yugahashimoto.andcode.feature.terminal.TerminalStyle
+import com.yugahashimoto.andcode.runtime.local.ShareState
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 import kotlinx.coroutines.launch
 
@@ -99,6 +102,8 @@ fun TerminalScreen(
     onClear: () -> Unit,
     /** Opens a server the shell started (its [DevServer.url]) in the in-app browser. */
     onOpenServer: (url: String) -> Unit,
+    /** Starts (true) or stops (false) the public link to a server's port. */
+    onSharing: (port: Int, share: Boolean) -> Unit = { _, _ -> },
 ) {
     val running = state.status == TerminalStatus.RUNNING
     // Whoever types, presses a key or clears wants to see what happens next, wherever they had
@@ -120,7 +125,20 @@ fun TerminalScreen(
                 onClear()
             },
         )
-        TerminalServers(servers = state.servers, onOpen = onOpenServer)
+        var sharingPort by rememberSaveable { mutableStateOf<Int?>(null) }
+        TerminalServers(servers = state.servers, shares = state.shares, onOpen = onOpenServer, onShare = { sharingPort = it })
+        sharingPort?.let { port ->
+            ShareServerSheet(
+                port = port,
+                state = state.shares[port],
+                onStart = { onSharing(port, true) },
+                onStop = {
+                    onSharing(port, false)
+                    sharingPort = null
+                },
+                onDismiss = { sharingPort = null },
+            )
+        }
         TerminalOutput(
             state = state,
             followOutput = followOutput,
@@ -199,7 +217,9 @@ private fun TerminalToolbar(
 @Composable
 private fun TerminalServers(
     servers: List<DevServer>,
+    shares: Map<Int, ShareState>,
     onOpen: (url: String) -> Unit,
+    onShare: (port: Int) -> Unit,
 ) {
     if (servers.isEmpty()) return
     // Scrolls sideways instead of wrapping: a few servers fit, and the output below keeps its height.
@@ -211,14 +231,23 @@ private fun TerminalServers(
                 .padding(horizontal = OutputPadding, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        servers.forEach { server -> TerminalServerChip(server = server, onOpen = { onOpen(server.url) }) }
+        servers.forEach { server ->
+            TerminalServerChip(
+                server = server,
+                shared = shares[server.port] is ShareState.Live,
+                onOpen = { onOpen(server.url) },
+                onShare = { onShare(server.port) },
+            )
+        }
     }
 }
 
 @Composable
 private fun TerminalServerChip(
     server: DevServer,
+    shared: Boolean,
     onOpen: () -> Unit,
+    onShare: () -> Unit,
 ) {
     val running = server.status == DevServerStatus.RUNNING
     val color = if (running) AccentColor else Color.White.copy(alpha = 0.5f)
@@ -247,6 +276,16 @@ private fun TerminalServerChip(
         if (!running) {
             Spacer(modifier = Modifier.width(8.dp))
             Text(text = stringResource(R.string.terminal_server_stopped), color = color, style = OutputTextStyle)
+        }
+    }
+    // Its own target beside the chip: opening and sharing are different decisions.
+    if (running) {
+        IconButton(onClick = onShare, modifier = Modifier.testTag("terminal-server-share-${server.port}")) {
+            Icon(
+                imageVector = Icons.Default.Share,
+                contentDescription = stringResource(if (shared) R.string.cd_share_server_live else R.string.cd_share_server, server.port),
+                tint = if (shared) AccentColor else Color.White.copy(alpha = 0.7f),
+            )
         }
     }
 }
