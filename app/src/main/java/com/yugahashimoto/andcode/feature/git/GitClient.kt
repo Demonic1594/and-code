@@ -181,6 +181,9 @@ class GitClient(
     /** The last commit's message, for amending it. */
     suspend fun lastCommitMessage(directory: String): Result<String> = exec(git(directory, "log -1 --format=%B"))
 
+    /** The `origin` remote's effective URL (with `url.*.insteadOf` rewrites applied), or a failure when there is none. */
+    suspend fun originUrl(directory: String): Result<String> = exec(git(directory, "remote get-url origin"))
+
     suspend fun log(
         directory: String,
         limit: Int = LOG_PAGE,

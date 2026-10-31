@@ -26,6 +26,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -67,6 +68,8 @@ import com.yugahashimoto.andcode.feature.chat.ChatHomeScreen
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
 import com.yugahashimoto.andcode.feature.chat.SubagentInfo
 import com.yugahashimoto.andcode.feature.chat.buildHandoffPrompt
+import com.yugahashimoto.andcode.feature.git.GitClient
+import com.yugahashimoto.andcode.feature.git.gitHubRepositoryUrl
 import com.yugahashimoto.andcode.feature.inbox.InboxScreen
 import com.yugahashimoto.andcode.feature.inbox.InboxViewModel
 import com.yugahashimoto.andcode.feature.onboarding.AndroidSetupScreen
@@ -118,6 +121,7 @@ import com.yugahashimoto.andcode.ui.navigation.settingsNavGraph
 import com.yugahashimoto.andcode.ui.navigation.workspaceNavGraph
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 import com.yugahashimoto.andcode.ui.theme.AppTheme
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -170,6 +174,10 @@ fun AndCodeApp(
     var showDiagnostics by remember { mutableStateOf(false) }
 
     val selectedRuntime by app.runtimeRegistry.selected.collectAsState()
+    val repositoryGit =
+        remember {
+            GitClient { command, timeout, window -> app.commandRunner.runShell(command, timeout, window.maxCharacters, window.keepStart) }
+        }
     val runtimeTargets by app.runtimeRegistry.targets.collectAsState()
     val preferences by app.preferences.state.collectAsState()
     val antigravityState by app.antigravityController.state.collectAsState()
@@ -1186,7 +1194,32 @@ fun AndCodeApp(
                                     }
                                 }
                             }
+                            // The chat's GitHub repository, for the ⋮ menu: only an on-device runtime has a
+                            // shell to read the origin through. An open chat uses only its own folder (until
+                            // that is known nothing shows, rather than another project's link); a new chat
+                            // the project it is about to start in. Read each time, so a remote changed in
+                            // the terminal shows up.
+                            val repositoryDirectory =
+                                (if (chatState.sessionId != null) chatState.sessionDirectory else chatState.selectedWorkspacePath)
+                                    ?.takeIf { selectedRuntime?.kind == com.yugahashimoto.andcode.runtime.BackendKind.LOCAL }
+                            val repositoryUrl by produceState<String?>(null, selectedRuntime?.id, repositoryDirectory) {
+                                // produceState keeps its value across key changes: clear it first, so
+                                // the previous chat's link never shows while this one is looked up.
+                                value = null
+                                val directory = repositoryDirectory ?: return@produceState
+                                // Starting the shell can throw; a failure only hides the item.
+                                val origin =
+                                    try {
+                                        repositoryGit.originUrl(directory)
+                                    } catch (error: CancellationException) {
+                                        throw error
+                                    } catch (error: Exception) {
+                                        Result.failure(error)
+                                    }
+                                origin.onSuccess { remote -> value = gitHubRepositoryUrl(remote) }
+                            }
                             ChatHomeScreen(
+                                repositoryUrl = repositoryUrl,
                                 findRequest = pendingFindRequest,
                                 onFindRequestConsumed = { pendingFindRequest = null },
                                 state = chatState,

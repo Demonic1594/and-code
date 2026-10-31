@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DataUsage
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -29,6 +30,8 @@ internal fun ChatOverflowMenu(
     onShare: () -> Unit,
     artifactCount: Int = 0,
     onArtifacts: () -> Unit = {},
+    repositoryUrl: String? = null,
+    onOpenRepository: (String) -> Unit = {},
     onCopy: () -> Unit,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
@@ -81,6 +84,15 @@ internal fun ChatOverflowMenu(
                 leadingIcon = { Icon(Icons.Outlined.AutoAwesome, contentDescription = null) },
                 onClick = onArtifacts,
                 modifier = Modifier.testTag("chat-menu-artifacts"),
+            )
+        }
+        // Only for a project cloned from GitHub; the lookup runs once when the chat opens.
+        repositoryUrl?.let { url ->
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.chat_menu_open_github)) },
+                leadingIcon = { Icon(Icons.Outlined.Public, contentDescription = null) },
+                onClick = { onOpenRepository(url) },
+                modifier = Modifier.testTag("chat-menu-open-github"),
             )
         }
         DropdownMenuItem(

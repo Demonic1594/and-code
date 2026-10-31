@@ -211,6 +211,8 @@ fun ChatHomeScreen(
     onReturnToParentSession: () -> Unit = {},
     githubRefs: List<GitHubReference> = emptyList(),
     onOpenUrl: (String) -> Unit = {},
+    /** The chat's repository on GitHub, when its folder was cloned from there; offered in the ⋮ menu. */
+    repositoryUrl: String? = null,
     onImageAttachment: (Bitmap) -> Unit = {},
     /** Fetches and opens the diff dialog for a tapped [ChatPart.Patch] card. */
     onOpenPatchDiff: (ChatPart.Patch) -> Unit = {},
@@ -567,6 +569,11 @@ fun ChatHomeScreen(
                                     onDismiss = { showChatMenu = false },
                                     usage = state.sessionUsage,
                                     artifactCount = artifacts.size,
+                                    repositoryUrl = repositoryUrl,
+                                    onOpenRepository = { url ->
+                                        showChatMenu = false
+                                        onOpenUrl(url)
+                                    },
                                     onArtifacts = {
                                         showChatMenu = false
                                         showArtifacts = true

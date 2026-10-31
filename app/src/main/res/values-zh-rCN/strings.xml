@@ -1726,4 +1726,9 @@
     </plurals>
     <string name="git_files_incomplete">Git 无法列出此提交中的所有文件，因此列表可能不完整。</string>
     <string name="git_diff_truncated">此差异过长，无法完整显示。正在显示开头部分。</string>
+    <string name="chat_menu_open_github">在 GitHub 上打开</string>
+    <string name="action_copied">已复制</string>
+    <string name="tool_copy_block">复制 %1$s</string>
+    <string name="cd_search_projects">搜索项目</string>
+    <string name="drawer_project_search_hint">搜索项目</string>
 </resources>
