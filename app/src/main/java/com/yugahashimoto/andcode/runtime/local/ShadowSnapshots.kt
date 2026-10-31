@@ -71,6 +71,9 @@ class ShadowSnapshots(
 
     private suspend fun snapshotUnlocked(workspace: String): String? =
         withContext(ioDispatcher) {
+            // A workspace holding the histories (`/root`, `/`) would snapshot them too, and every
+            // restore would then find them changed and refuse.
+            if (containsHistories(root, workspace)) return@withContext null
             val result = run(snapshotScript(root, workspace), SNAPSHOT_TIMEOUT_SECONDS, SMALL_OUTPUT)
             result.output.trim().lines().lastOrNull()?.trim()?.takeIf { result.exitCode == 0 && HASH.matches(it) }
         }
@@ -117,7 +120,11 @@ class ShadowSnapshots(
                     RESTORE_TIMEOUT_SECONDS,
                     SMALL_OUTPUT,
                 )
-            before.takeIf { result.exitCode == 0 }
+            if (result.exitCode == 0) return@withContext before
+            // Refused, nothing changed and this is a no-op. Cut short by the time limit, some files
+            // may already be rewritten: put them back as they were just before.
+            run("${git(root, workspace)} checkout -q --no-overwrite-ignore --detach $before", RESTORE_TIMEOUT_SECONDS, SMALL_OUTPUT)
+            null
         }
     }
 
@@ -149,6 +156,15 @@ class ShadowSnapshots(
                 ".andcode-attachments/",
                 "*.andcode-save",
             )
+
+        /** Whether [workspace] is [root] or one of its parents. */
+        internal fun containsHistories(
+            root: String,
+            workspace: String,
+        ): Boolean {
+            val folder = workspace.trimEnd('/')
+            return folder.isEmpty() || root == folder || root.startsWith("$folder/")
+        }
 
         /** One history per workspace, named by a hash of its path. */
         internal fun gitDir(

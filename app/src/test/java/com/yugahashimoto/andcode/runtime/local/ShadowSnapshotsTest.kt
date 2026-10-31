@@ -137,6 +137,17 @@ class ShadowSnapshotsTest {
         }
 
     @Test
+    fun `a workspace that holds the histories is never snapshotted`() =
+        runBlocking {
+            val (snapshots, _) = fixture()
+            assertNull(snapshots.snapshot(temp.root.path))
+            assertTrue(ShadowSnapshots.containsHistories(ShadowSnapshots.ROOT, "/root"))
+            assertTrue(ShadowSnapshots.containsHistories(ShadowSnapshots.ROOT, "/"))
+            assertFalse(ShadowSnapshots.containsHistories(ShadowSnapshots.ROOT, "/root/project"))
+            assertFalse(ShadowSnapshots.containsHistories(ShadowSnapshots.ROOT, "/ro"))
+        }
+
+    @Test
     fun `each workspace gets its own history under the root`() {
         val a = ShadowSnapshots.gitDir("/snap", "/workspace/a")
         val b = ShadowSnapshots.gitDir("/snap", "/workspace/b")

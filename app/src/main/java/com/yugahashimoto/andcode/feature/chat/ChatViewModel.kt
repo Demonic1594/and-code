@@ -1661,6 +1661,16 @@ class ChatViewModel(
         }
     }
 
+    /** Best effort: a turn without a snapshot only loses its restore point, never the message. */
+    private suspend fun recordTurnSnapshot(
+        sessionId: String,
+        turn: Int,
+        sessionDirectory: String?,
+    ) {
+        val directory = snapshotDirectory(sessionDirectory) ?: return
+        snapshotCall(Unit) { turnSnapshots?.record(sessionId, turn, directory) }
+    }
+
     /** A snapshot call that fails gives [fallback]; leaving the screen still cancels it. */
     private suspend fun <T> snapshotCall(
         fallback: T,
@@ -2095,15 +2105,7 @@ class ChatViewModel(
                     refreshContextUsage(targetSessionId)
                 }
                 if (interrupting) interruptRunningTurn(currentBackend, targetSessionId)
-                // Best effort: a turn without a snapshot only loses its restore point, never the message.
-                snapshotDirectory(session?.directory)?.let { directory ->
-                    try {
-                        turnSnapshots?.record(targetSessionId, turnAtSend, directory)
-                    } catch (error: CancellationException) {
-                        throw error
-                    } catch (_: Exception) {
-                    }
-                }
+                recordTurnSnapshot(targetSessionId, turnAtSend, session?.directory)
                 currentBackend.sendMessage(
                     targetSessionId,
                     PromptRequest(
@@ -2282,6 +2284,9 @@ class ChatViewModel(
             return
         }
         val interrupting = _uiState.value.isRunning
+        // A command is a turn like any message: without its own snapshot, the turn before it would
+        // count the command's changes as its own.
+        val turnAtSend = keepRewind(_uiState.value).count { it.isUser }
 
         val userMessage =
             ChatMessage(
@@ -2336,6 +2341,7 @@ class ChatViewModel(
                 }
 
                 if (interrupting) interruptRunningTurn(currentBackend, targetSessionId)
+                recordTurnSnapshot(targetSessionId, turnAtSend, session?.directory)
 
                 // The command endpoint on OpenCode runs the whole turn before answering, so it is
                 // fired in its own coroutine: the poll loop below (and the SSE stream) drive the UI
