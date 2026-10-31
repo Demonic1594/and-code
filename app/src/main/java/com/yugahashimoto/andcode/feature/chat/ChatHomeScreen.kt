@@ -86,6 +86,7 @@ import com.yugahashimoto.andcode.core.api.OpenCodeAgent
 import com.yugahashimoto.andcode.core.api.OpenCodeModel
 import com.yugahashimoto.andcode.core.api.OpenCodeProvider
 import com.yugahashimoto.andcode.core.api.PromptAttachment
+import com.yugahashimoto.andcode.core.api.orderThinkingLevels
 import com.yugahashimoto.andcode.data.settings.SavedPrompt
 import com.yugahashimoto.andcode.feature.workspace.GitHubReference
 import com.yugahashimoto.andcode.runtime.LocalAgent
@@ -875,11 +876,14 @@ fun ChatHomeScreen(
                     onSelectAgent = onSelectAgent,
                     onRefreshAgents = onRefreshAgents,
                     agentsLoading = agentsLoading,
+                    // On one scale for every agent, weakest first, whatever order the server listed.
                     thinkingOptions =
-                        providers
-                            .firstOrNull { it.id == selectedProviderId }
-                            ?.models?.get(selectedModelId)
-                            ?.variants?.keys?.toList() ?: emptyList(),
+                        orderThinkingLevels(
+                            providers
+                                .firstOrNull { it.id == selectedProviderId }
+                                ?.models?.get(selectedModelId)
+                                ?.variants?.keys.orEmpty(),
+                        ),
                     selectedVariant = state.selectedVariant,
                     onSelectVariant = onSelectVariant,
                     fastModeAvailable = state.fastModeAvailable,
