@@ -121,6 +121,7 @@ import com.yugahashimoto.andcode.ui.navigation.settingsNavGraph
 import com.yugahashimoto.andcode.ui.navigation.workspaceNavGraph
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 import com.yugahashimoto.andcode.ui.theme.AppTheme
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -1200,15 +1201,28 @@ fun AndCodeApp(
                                 (chatState.sessionDirectory ?: chatState.selectedWorkspacePath)
                                     ?.takeIf { selectedRuntime?.kind == com.yugahashimoto.andcode.runtime.BackendKind.LOCAL }
                             val repositoryUrl by produceState<String?>(null, selectedRuntime?.id, repositoryDirectory) {
+                                // produceState keeps its value across key changes: clear it first, so
+                                // the previous chat's link never shows while this one is looked up.
+                                value = null
                                 val directory = repositoryDirectory ?: return@produceState
                                 val key = "${selectedRuntime?.id}:$directory"
-                                value =
-                                    if (repositoryUrls.containsKey(key)) {
-                                        repositoryUrls[key]
-                                    } else {
-                                        repositoryGit.originUrl(directory).getOrNull()?.let(::gitHubRepositoryUrl)
-                                            .also { repositoryUrls[key] = it }
+                                if (repositoryUrls.containsKey(key)) {
+                                    value = repositoryUrls[key]
+                                    return@produceState
+                                }
+                                // Starting the shell can throw; a failure only hides the item, and is not
+                                // cached, so a runtime that was not ready yet is asked again next time.
+                                val origin =
+                                    try {
+                                        repositoryGit.originUrl(directory)
+                                    } catch (error: CancellationException) {
+                                        throw error
+                                    } catch (error: Exception) {
+                                        Result.failure(error)
                                     }
+                                origin.onSuccess { remote ->
+                                    value = gitHubRepositoryUrl(remote).also { repositoryUrls[key] = it }
+                                }
                             }
                             ChatHomeScreen(
                                 repositoryUrl = repositoryUrl,

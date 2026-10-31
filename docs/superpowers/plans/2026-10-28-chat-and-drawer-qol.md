@@ -1,6 +1,10 @@
 # Four chat and drawer quality-of-life additions
 
-Status: **items 1-3 done**; item 4 (shadow snapshots) not started.
+Status: **items 1-3 done**; item 4 (shadow snapshots) not started. Where the build differs from
+the design below: the DevTools Network copy menu keeps its menu without check feedback (it closes on
+selection, so there is nothing left on screen to show it); clearing the project filter keeps the
+field open, and the search icon closes it; the `CopyButton` state machine has no unit test (its
+timing is one `LaunchedEffect`; checked by hand); no device or screenshot checks were run.
 
 1. The chat overflow menu gains **Open repository on GitHub**, only when the chat's project was
    cloned from GitHub.

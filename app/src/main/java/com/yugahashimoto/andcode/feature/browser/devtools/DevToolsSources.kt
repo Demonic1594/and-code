@@ -23,6 +23,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -172,7 +173,12 @@ private fun SourceViewer(
                 modifier = Modifier.weight(1f),
             )
             if (text != null) {
-                CopyButton(text = { text }, contentDescription = stringResource(R.string.devtools_copy), iconSize = 24.dp)
+                CopyButton(
+                    text = { text },
+                    contentDescription = stringResource(R.string.devtools_copy),
+                    iconSize = 24.dp,
+                    tint = LocalContentColor.current,
+                )
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

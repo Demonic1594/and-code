@@ -34,6 +34,7 @@ import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryScrollableTabRow
@@ -398,7 +399,12 @@ private fun ElementDetailsPane(
             IconButton(onClick = { bridge.call("scrollIntoView", element.id) }) {
                 Icon(Icons.Default.CenterFocusStrong, contentDescription = stringResource(R.string.devtools_scroll_into_view))
             }
-            CopyButton(text = { element.outerHtml }, contentDescription = stringResource(R.string.devtools_copy_html), iconSize = 24.dp)
+            CopyButton(
+                text = { element.outerHtml },
+                contentDescription = stringResource(R.string.devtools_copy_html),
+                iconSize = 24.dp,
+                tint = LocalContentColor.current,
+            )
             IconButton(onClick = { bridge.call("remove", element.id) { onRemoved() } }) {
                 Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.devtools_delete_node))
             }
