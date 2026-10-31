@@ -1,6 +1,12 @@
 #!/bin/sh
 # AndCode PermissionRequest hook for Claude Code.
 # Reads hook JSON on stdin, asks the Android app via the file bridge, prints a decision.
+#
+# Claude Code reads a PermissionRequest answer only in this shape (checked against CLI 2.1.316):
+#   {"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}
+#   {"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"..."}}}
+# The PreToolUse field "permissionDecision" fails its validation, the answer is dropped, and a
+# session that cannot prompt then denies the call, so every approval made on the phone was lost.
 
 set -eu
 
@@ -14,6 +20,23 @@ TIMEOUT_SEC="${ANDCODE_PERMISSION_TIMEOUT_SEC:-300}"
 # itself applies (see ClaudePermissionHooks), so this script still gets to deny gracefully.
 QUESTION_TIMEOUT_SEC="${ANDCODE_QUESTION_TIMEOUT_SEC:-3540}"
 SLEEP_SEC=0.25
+
+ALLOW='{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}'
+# What the agent reads when a call is refused: say it was the user, and steer it away from retrying
+# the same call, which agents otherwise tend to do in a loop.
+DECLINED="The user declined this action. Do not retry the same call; adjust your approach or ask the user what they want."
+UNANSWERED="The user did not answer in time, so this action was not allowed. Do not retry it unchanged; continue another way or ask the user."
+
+# Prints a deny answer carrying [message] for the agent.
+deny() {
+  if command -v jq >/dev/null 2>&1; then
+    jq -cn --arg message "$1" \
+      '{hookSpecificOutput:{hookEventName:"PermissionRequest",decision:{behavior:"deny",message:$message}}}'
+  else
+    # Without jq the message cannot be escaped safely, so send the fixed text, which needs none.
+    printf '%s\n' "{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"decision\":{\"behavior\":\"deny\",\"message\":\"$DECLINED\"}}}"
+  fi
+}
 
 mkdir -p "$PENDING" "$RESPONSES"
 
@@ -64,7 +87,7 @@ if [ -f "$ALWAYS" ] && command -v jq >/dev/null 2>&1; then
     end
   ' "$ALWAYS" 2>/dev/null | head -n1 || true)
   if [ "$MATCH" = "yes" ]; then
-    printf '%s\n' "{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"AndCode always-allow rule\"}}"
+    printf '%s\n' "$ALLOW"
     exit 0
   fi
 fi
@@ -130,23 +153,17 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
     if [ "$DECISION" = "allow" ]; then
       if [ -n "$UPDATED" ] && [ "$UPDATED" != "null" ] && [ "$UPDATED" != "" ]; then
         if command -v jq >/dev/null 2>&1; then
-          jq -n --argjson updated "$UPDATED" \
-            '{hookSpecificOutput:{hookEventName:"PermissionRequest",permissionDecision:"allow",updatedInput:$updated}}'
+          jq -cn --argjson updated "$UPDATED" \
+            '{hookSpecificOutput:{hookEventName:"PermissionRequest",decision:{behavior:"allow",updatedInput:$updated}}}'
         else
-          printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","permissionDecision":"allow"}}'
+          printf '%s\n' "$ALLOW"
         fi
       else
-        printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","permissionDecision":"allow"}}'
+        printf '%s\n' "$ALLOW"
       fi
       exit 0
     fi
-    REASON=${MESSAGE:-User rejected this action}
-    if command -v jq >/dev/null 2>&1; then
-      jq -n --arg reason "$REASON" \
-        '{hookSpecificOutput:{hookEventName:"PermissionRequest",permissionDecision:"deny",permissionDecisionReason:$reason}}'
-    else
-      printf '%s\n' "{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"$REASON\"}}"
-    fi
+    deny "${MESSAGE:-$DECLINED}"
     exit 0
   fi
   # shellcheck disable=SC2039
@@ -154,5 +171,5 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
 done
 
 rm -f "$REQUEST_FILE" 2>/dev/null || true
-printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","permissionDecision":"deny","permissionDecisionReason":"User did not respond in time"}}'
+deny "$UNANSWERED"
 exit 0

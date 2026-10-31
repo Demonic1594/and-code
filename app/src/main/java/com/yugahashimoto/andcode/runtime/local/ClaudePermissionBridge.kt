@@ -185,7 +185,7 @@ class ClaudePermissionBridge(
             StoredResponse(
                 decision = decision,
                 remember = rememberFlag,
-                message = message ?: if (decision == "deny") "User rejected this action" else null,
+                message = message ?: if (decision == "deny") DECLINED_MESSAGE else null,
             ),
         )
         return true
@@ -343,5 +343,13 @@ class ClaudePermissionBridge(
     companion object {
         const val GUEST_BRIDGE_PATH = "/root/.andcode/claude-bridge"
         const val HOST_DIR_NAME = "claude-bridge"
+
+        /**
+         * What the agent reads when the user rejects a call: that it was the user, and not to retry
+         * the same call, which agents otherwise tend to do in a loop. The guest hook sends the same
+         * text when it has no message of its own.
+         */
+        const val DECLINED_MESSAGE =
+            "The user declined this action. Do not retry the same call; adjust your approach or ask the user what they want."
     }
 }
