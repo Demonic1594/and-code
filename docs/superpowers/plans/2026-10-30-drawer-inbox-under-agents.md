@@ -1,6 +1,6 @@
 # Drawer: the Inbox row moves under the agents switcher
 
-Status: **not started**. Written down to build later; nothing in the app has been changed.
+Status: **done** (built and unit-tested; the screenshots and on-device checks below were not run).
 
 ## Goal
 

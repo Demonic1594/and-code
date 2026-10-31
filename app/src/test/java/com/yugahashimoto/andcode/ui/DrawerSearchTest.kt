@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.ui
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -26,5 +27,15 @@ class DrawerSearchTest {
     fun `every word must match, across title and project folder`() {
         assertEquals(listOf("3"), filterDrawerSessions(sessions, "webapp redesign").map { it.id })
         assertEquals(listOf("2"), filterDrawerSessions(sessions, "docs").map { it.id })
+    }
+
+    @Test
+    fun `a query opens a collapsed Recent chats section without changing the saved choice`() {
+        val collapsed = setOf("recent")
+        assertTrue(isRecentSectionCollapsed(collapsed, ""))
+        assertTrue(isRecentSectionCollapsed(collapsed, "   "))
+        assertFalse(isRecentSectionCollapsed(collapsed, "fix"))
+        assertFalse(isRecentSectionCollapsed(emptySet(), "fix"))
+        assertFalse(isRecentSectionCollapsed(emptySet(), ""))
     }
 }
