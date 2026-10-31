@@ -81,6 +81,39 @@ class ShadowSnapshotsTest {
         }
 
     @Test
+    fun `restore refuses rather than delete ignored files in the way`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            File(workspace, ".gitignore").writeText("*.env\n")
+            File(workspace, "data").writeText("was a file\n")
+            val before = requireNotNull(snapshots.snapshot(workspace.path))
+            File(workspace, "data").delete()
+            File(workspace, "data/node_modules/pkg").mkdirs()
+            File(workspace, "data/node_modules/pkg/index.js").writeText("installed\n")
+            File(workspace, "data/precious.env").writeText("SECRET=1\n")
+
+            val undo = snapshots.restore(workspace.path, before)
+
+            assertNull("the restore fails instead of wiping data/", undo)
+            assertEquals("SECRET=1\n", File(workspace, "data/precious.env").readText())
+            assertEquals("installed\n", File(workspace, "data/node_modules/pkg/index.js").readText())
+        }
+
+    @Test
+    fun `a lock left by a killed command does not block later snapshots`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            File(workspace, "a.txt").writeText("one\n")
+            requireNotNull(snapshots.snapshot(workspace.path))
+            val lock = File(ShadowSnapshots.gitDir(File(temp.root, "snapshots").path, workspace.path), "index.lock")
+            lock.writeText("")
+            lock.setLastModified(System.currentTimeMillis() - 10 * 60 * 1000)
+            File(workspace, "a.txt").writeText("two\n")
+
+            assertNotNull(snapshots.snapshot(workspace.path))
+        }
+
+    @Test
     fun `excluded folders never enter a snapshot`() =
         runBlocking {
             val (snapshots, workspace) = fixture()

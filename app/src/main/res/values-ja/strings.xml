@@ -1748,7 +1748,7 @@
     <string name="git_diff_truncated">この差分は長すぎてすべては表示できません。先頭部分を表示しています。</string>
     <string name="action_restore_files">ここまでファイルを戻す</string>
     <string name="restore_files_confirm_title">このメッセージの時点にファイルを戻しますか？</string>
-    <string name="restore_files_confirm_body">ファイルは、このメッセージを送信した時点の状態に戻ります。それ以降の変更は元に戻され、それ以降に追加されたファイルは削除されます。メッセージは残ります。node_modules や build などの依存関係やビルド用のフォルダには影響しません。</string>
+    <string name="restore_files_confirm_body">ファイルは、このメッセージを送信した時点の状態に戻ります。それ以降に行われた変更は元に戻され、それ以降に追加されたファイルは削除されます。メッセージはそのまま残ります。node_modules や build などの依存関係やビルド用のフォルダ、Git で無視されているファイル、およびネストされた Git リポジトリはスナップショットの対象外となるため、そのまま残されます。</string>
     <string name="restore_files_confirm">ファイルを戻す</string>
     <string name="restore_files_banner_title">以前のメッセージの時点にファイルを戻しました</string>
     <string name="restore_files_banner_body">メッセージは変わりません。「元に戻す」でファイルを戻す前の状態にします。</string>

@@ -848,8 +848,9 @@ fun ChatHomeScreen(
                     },
                     isRunning = state.isRunning,
                     onSend = {
-                        // Held while a rewind lands: which messages the new one follows is not settled yet.
-                        if (!state.isRewinding && (input.isNotBlank() || state.attachments.isNotEmpty())) {
+                        // Held while a rewind or file restore lands: what the new message follows is not settled yet.
+                        val settled = !state.isRewinding && !state.isRestoringFiles
+                        if (settled && (input.isNotBlank() || state.attachments.isNotEmpty())) {
                             haptics.perform(HapticEvent.CONFIRM)
                             onSendMessage(SlashCommandRegistry.expandSavedPrompt(input, savedPrompts))
                             inputValue = TextFieldValue("")

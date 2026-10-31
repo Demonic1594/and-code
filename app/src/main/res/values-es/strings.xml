@@ -1754,7 +1754,7 @@
     <string name="git_diff_truncated">Este diff es demasiado largo para mostrarlo entero. Se muestra el principio.</string>
     <string name="action_restore_files">Restaurar archivos hasta aquí</string>
     <string name="restore_files_confirm_title">¿Restaurar los archivos a este mensaje?</string>
-    <string name="restore_files_confirm_body">Los archivos vuelven al estado en el que se encontraban cuando enviaste este mensaje: los cambios realizados desde entonces se deshacen y los archivos añadidos desde entonces se eliminan. Los mensajes se conservan. Las carpetas de dependencias y de compilación, como node_modules y build, no se modifican.</string>
+    <string name="restore_files_confirm_body">Los archivos vuelven al estado en el que se encontraban cuando enviaste este mensaje: los cambios realizados desde entonces se deshacen y los archivos añadidos desde entonces se eliminan. Los mensajes se conservan. Las carpetas de dependencias y de compilación, como node_modules y build, los archivos ignorados por Git y los repositorios Git anidados no se incluyen en la instantánea, por lo que se mantienen tal y como están.</string>
     <string name="restore_files_confirm">Restaurar archivos</string>
     <string name="restore_files_banner_title">Archivos restaurados a un mensaje anterior</string>
     <string name="restore_files_banner_body">Los mensajes no han cambiado. Deshacer devuelve los archivos a como estaban.</string>

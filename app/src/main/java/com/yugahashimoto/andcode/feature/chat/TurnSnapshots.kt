@@ -85,6 +85,6 @@ internal fun changesForPatch(
     val wanted = files.map { it.trimStart('/') }
     return changes.filter { change ->
         val path = change.displayPath.trimStart('/')
-        path.isNotEmpty() && wanted.any { it.endsWith(path) || path.endsWith(it) }
+        path.isNotEmpty() && wanted.any { it == path || it.endsWith("/$path") || path.endsWith("/$it") }
     }
 }

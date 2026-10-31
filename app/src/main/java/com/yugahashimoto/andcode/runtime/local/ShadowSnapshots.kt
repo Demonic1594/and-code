@@ -71,9 +71,15 @@ class ShadowSnapshots(
         if (!HASH.matches(target)) return null
         val before = snapshot(workspace) ?: return null
         return withContext(ioDispatcher) {
-            // The index holds the snapshot just taken, so read-tree knows which files are new since
-            // [target] and removes them, and leaves untracked (excluded) files alone.
-            val result = run("${git(root, workspace)} read-tree -u --reset $target", RESTORE_TIMEOUT_SECONDS, SMALL_OUTPUT)
+            // HEAD is the snapshot just taken, so checkout knows which files are new since [target]
+            // and removes them. It refuses, changing nothing, rather than delete an ignored or excluded
+            // file in its way (a folder that must become a file again, say), which read-tree would.
+            val result =
+                run(
+                    "${git(root, workspace)} checkout -q --no-overwrite-ignore --detach $target",
+                    RESTORE_TIMEOUT_SECONDS,
+                    SMALL_OUTPUT,
+                )
             before.takeIf { result.exitCode == 0 }
         }
     }
@@ -123,6 +129,8 @@ class ShadowSnapshots(
         ): String =
             "git --git-dir=${WorkspaceShell.quote(gitDir(root, workspace))} --work-tree=${WorkspaceShell.quote(workspace)}" +
                 " -c core.quotepath=off -c core.hooksPath=/dev/null -c commit.gpgsign=false" +
+                // Snapshots left behind by a restore are on no branch; never let gc prune them.
+                " -c gc.auto=0" +
                 " -c user.name=AndCode -c user.email=andcode@localhost"
 
         internal fun snapshotScript(
@@ -133,6 +141,8 @@ class ShadowSnapshots(
             val exclude = EXCLUDED.joinToString(" ") { WorkspaceShell.quote(it) }
             return listOf(
                 "set -e",
+                // A lock left by a command that was killed at its time limit would fail every later one.
+                "find $dir -maxdepth 1 -name index.lock -mmin +1 -delete 2>/dev/null || true",
                 "if [ ! -d $dir ]; then mkdir -p $dir && git init -q --bare $dir && git --git-dir=$dir config core.bare false" +
                     " && printf '%s\\n' $exclude > $dir/info/exclude; fi",
                 // `:/` is the top of the work tree, wherever the shell happens to be.

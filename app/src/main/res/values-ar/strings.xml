@@ -1793,7 +1793,7 @@
     <string name="git_diff_truncated">هذا الفرق أطول من أن يُعرض كاملًا. يُعرض جزؤه الأول.</string>
     <string name="action_restore_files">استعادة الملفات إلى هنا</string>
     <string name="restore_files_confirm_title">هل تريد استعادة الملفات إلى هذه الرسالة؟</string>
-    <string name="restore_files_confirm_body">تعود الملفات إلى الحالة التي كانت عليها عند إرسال هذه الرسالة: يتم التراجع عن التغييرات التي أُجريت منذ ذلك الحين، وتُزال الملفات التي أُضيفت منذ ذلك الحين. أما الرسائل فتبقى كما هي. ولا يتم المساس بمجلدات التبعيات والبناء مثل node_modules و build.</string>
+    <string name="restore_files_confirm_body">تعود الملفات إلى الحالة التي كانت عليها عند إرسال هذه الرسالة: يتم التراجع عن التغييرات التي أُجريت منذ ذلك الحين، ويتم إزالة الملفات التي أُضيفت منذ ذلك الحين. أما الرسائل فتبقى كما هي. لا يتم تضمين مجلدات التبعيات ومجلدات البناء مثل node_modules و build، والملفات المُستبعدة بواسطة git، ومستودعات git المتداخلة في اللقطة، لذا تُترك كما هي.</string>
     <string name="restore_files_confirm">استعادة الملفات</string>
     <string name="restore_files_banner_title">تمت استعادة الملفات إلى رسالة سابقة</string>
     <string name="restore_files_banner_body">لم تتغير الرسائل. يعيد «تراجع» الملفات إلى ما كانت عليه.</string>

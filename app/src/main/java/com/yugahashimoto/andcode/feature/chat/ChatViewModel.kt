@@ -1342,6 +1342,10 @@ class ChatViewModel(
                 sessionDirectory = null,
                 rewoundFrom = if (switchingSession) null else it.rewoundFrom,
                 isRewinding = if (switchingSession) false else it.isRewinding,
+                // A restore's Undo belongs to the chat it was made in; offered in another, it would
+                // throw away whatever was done there since.
+                fileRestore = if (switchingSession) null else it.fileRestore,
+                isRestoringFiles = if (switchingSession) false else it.isRestoringFiles,
                 isRunning = if (switchingSession) false else it.isRunning,
                 isThinking = if (switchingSession) false else it.isThinking,
                 // The opened chat's usage is unknown until its first refresh lands; keeping the
@@ -1502,6 +1506,8 @@ class ChatViewModel(
                 dismissedTodoBarId = null,
                 rewoundFrom = null,
                 isRewinding = false,
+                fileRestore = null,
+                isRestoringFiles = false,
                 error = null,
             )
         }
@@ -1552,13 +1558,16 @@ class ChatViewModel(
         if (state.isRunning || state.isRestoringFiles) return
         _uiState.update { it.copy(isRestoringFiles = true) }
         viewModelScope.launch {
-            val token = runCatching { snapshots.restore(sessionId, turn, directory) }.getOrNull()
+            val token = snapshotCall(null) { snapshots.restore(sessionId, turn, directory) }
             _uiState.update {
                 when {
+                    // The chat changed meanwhile: its Undo must not appear in another one.
+                    it.sessionId != sessionId -> it.copy(isRestoringFiles = false)
                     token == null -> it.copy(isRestoringFiles = false, error = restoreFailedMessage)
                     else -> it.copy(isRestoringFiles = false, fileRestore = FileRestore(sessionId, directory, token))
                 }
             }
+            drainHeldPrompts()
         }
     }
 
@@ -1566,17 +1575,18 @@ class ChatViewModel(
     fun undoFileRestore() {
         val snapshots = turnSnapshots ?: return
         val restore = _uiState.value.fileRestore ?: return
-        if (_uiState.value.isRestoringFiles) return
+        if (_uiState.value.isRestoringFiles || restore.sessionId != _uiState.value.sessionId) return
         _uiState.update { it.copy(isRestoringFiles = true) }
         viewModelScope.launch {
-            val undone = runCatching { snapshots.undoRestore(restore.directory, restore.token) }.getOrDefault(false)
+            val undone = snapshotCall(false) { snapshots.undoRestore(restore.directory, restore.token) }
             _uiState.update {
-                if (undone) {
-                    it.copy(isRestoringFiles = false, fileRestore = null)
-                } else {
-                    it.copy(isRestoringFiles = false, error = restoreFailedMessage)
+                when {
+                    undone -> it.copy(isRestoringFiles = false, fileRestore = null)
+                    it.sessionId != restore.sessionId -> it.copy(isRestoringFiles = false)
+                    else -> it.copy(isRestoringFiles = false, error = restoreFailedMessage)
                 }
             }
+            drainHeldPrompts()
         }
     }
 
@@ -1592,7 +1602,7 @@ class ChatViewModel(
         val snapshots = turnSnapshots ?: return emptyList()
         val directory = snapshotDirectory() ?: return emptyList()
         val turn = turnOf(_uiState.value.messages, patch.messageId) ?: return emptyList()
-        val changes = runCatching { snapshots.turnChanges(sessionId, turn, directory) }.getOrNull().orEmpty()
+        val changes = snapshotCall(null) { snapshots.turnChanges(sessionId, turn, directory) }.orEmpty()
         return changesForPatch(changes, patch.files)
     }
 
@@ -1651,7 +1661,20 @@ class ChatViewModel(
         }
     }
 
-    /** Sends what queued up while a rewind was landing, now that the transcript is settled. */
+    /** A snapshot call that fails gives [fallback]; leaving the screen still cancels it. */
+    private suspend fun <T> snapshotCall(
+        fallback: T,
+        block: suspend () -> T,
+    ): T =
+        try {
+            block()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            fallback
+        }
+
+    /** Sends what queued up while a rewind or file restore was landing, now that things are settled. */
     private fun drainHeldPrompts() {
         val state = _uiState.value
         if (state.isConnected && offlineMessageQueue.value.isNotEmpty()) {
@@ -1910,7 +1933,7 @@ class ChatViewModel(
     ) {
         // A rewind or its undo in flight decides which messages the next one follows; the screen
         // holds the composer until it lands.
-        if (_uiState.value.isRewinding) return
+        if (_uiState.value.isRewinding || _uiState.value.isRestoringFiles) return
         val normalized = text.trim()
         val pendingAttachments = if (fromComposer) _uiState.value.attachments else emptyList()
         val messageIdsBeforeSend = _uiState.value.messages.map { it.id }.toSet()
@@ -2226,7 +2249,7 @@ class ChatViewModel(
         command: String,
         arguments: String,
     ) {
-        if (_uiState.value.isRewinding) return
+        if (_uiState.value.isRewinding || _uiState.value.isRestoringFiles) return
         val currentBackend = backend
         if (currentBackend == null) {
             _uiState.update { it.copy(error = "OpenCode connection is not configured") }
@@ -3331,7 +3354,7 @@ class ChatViewModel(
 
     private fun drainQueue() {
         // Held, not dropped: send() refuses while a rewind lands, and the rewind drains after.
-        if (_uiState.value.isRewinding) return
+        if (_uiState.value.isRewinding || _uiState.value.isRestoringFiles) return
         val queued = messageQueue.value
         if (queued.isEmpty()) return
         messageQueue.value = queued.drop(1)
@@ -3339,7 +3362,7 @@ class ChatViewModel(
     }
 
     private fun drainOfflineQueue() {
-        if (_uiState.value.isRewinding) return
+        if (_uiState.value.isRewinding || _uiState.value.isRestoringFiles) return
         val queued = offlineMessageQueue.value
         if (queued.isEmpty()) return
         offlineMessageQueue.value = emptyList()

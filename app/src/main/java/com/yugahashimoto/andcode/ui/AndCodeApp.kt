@@ -181,7 +181,7 @@ fun AndCodeApp(
         remember {
             ShadowTurnSnapshots(
                 ShadowSnapshots({ command, timeout, maxCharacters ->
-                    app.commandRunner.runShell(command, timeout, maxCharacters, keepStart = true)
+                    app.commandRunner.runShell(command, timeout, maxCharacters, keepStart = false)
                 }),
                 SharedPreferencesTurnSnapshotIndex(app),
             )
