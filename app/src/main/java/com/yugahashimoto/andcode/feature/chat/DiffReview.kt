@@ -1,5 +1,10 @@
 package com.yugahashimoto.andcode.feature.chat
 
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
+
 /** One rendered row of a unified diff. */
 data class DiffRow(
     val kind: Kind,
@@ -101,6 +106,51 @@ data class ReviewComment(
     val row: DiffRow,
     val text: String,
 )
+
+private object ReviewCommentFields {
+    /** file, rowIndex, row kind, row text, old line, new line, comment text. */
+    const val COUNT = 7
+}
+
+/**
+ * Keeps unsent review comments in saved state, so the app lock taking the screen away (which drops
+ * the composition but keeps its saved state) does not lose them. Each comment is flattened to
+ * strings, numbers and nulls, which any saved-state registry accepts.
+ */
+internal val ReviewCommentsSaver: Saver<SnapshotStateList<ReviewComment>, Any> =
+    listSaver(
+        save = { comments ->
+            comments.flatMap { comment ->
+                listOf(
+                    comment.file,
+                    comment.rowIndex,
+                    comment.row.kind.name,
+                    comment.row.text,
+                    comment.row.oldLine,
+                    comment.row.newLine,
+                    comment.text,
+                )
+            }
+        },
+        restore = { flat ->
+            flat
+                .chunked(ReviewCommentFields.COUNT)
+                .map { fields ->
+                    ReviewComment(
+                        file = fields[0] as String,
+                        rowIndex = fields[1] as Int,
+                        row =
+                            DiffRow(
+                                kind = DiffRow.Kind.valueOf(fields[2] as String),
+                                text = fields[3] as String,
+                                oldLine = fields[4] as Int?,
+                                newLine = fields[5] as Int?,
+                            ),
+                        text = fields[6] as String,
+                    )
+                }.toMutableStateList()
+        },
+    )
 
 /**
  * The message that hands review comments back to the agent, in file and line order.

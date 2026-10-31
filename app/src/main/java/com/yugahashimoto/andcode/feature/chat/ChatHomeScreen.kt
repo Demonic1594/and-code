@@ -100,6 +100,7 @@ import com.yugahashimoto.andcode.ui.components.SessionStatus
 import com.yugahashimoto.andcode.ui.components.StatusChip
 import com.yugahashimoto.andcode.ui.components.StatusDot
 import com.yugahashimoto.andcode.ui.components.rememberHaptics
+import com.yugahashimoto.andcode.ui.lock.LocalSendGate
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -186,7 +187,7 @@ fun ChatHomeScreen(
     autoExpandReasoning: Boolean = false,
     onSendMessage: (String) -> Unit,
     /** Sends the diff review's comments without the composer's draft or attachments. */
-    onSendReview: (String) -> Unit = {},
+    onSendReview: (review: String, sent: () -> Unit) -> Unit = { _, _ -> },
     /** False for a runtime that cannot delete a message server-side, so "Edit & resend" is hidden. */
     canEditMessages: Boolean = false,
     /** Removes the last user message (and its reply) and hands its text back via [state]'s edit draft. */
@@ -296,6 +297,7 @@ fun ChatHomeScreen(
             if (showChatMenu || showArtifacts) collectArtifacts(shownMessages) else emptyList()
         }
     val haptics = rememberHaptics()
+    val sendGate = LocalSendGate.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val imageSaveLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/*")) { uri ->
@@ -852,9 +854,14 @@ fun ChatHomeScreen(
                         val settled = !state.isRewinding && !state.isRestoringFiles
                         if (settled && (input.isNotBlank() || state.attachments.isNotEmpty())) {
                             haptics.perform(HapticEvent.CONFIRM)
-                            onSendMessage(SlashCommandRegistry.expandSavedPrompt(input, savedPrompts))
-                            inputValue = TextFieldValue("")
-                            showSlashCommands = false
+                            val text = SlashCommandRegistry.expandSavedPrompt(input, savedPrompts)
+                            // The composer clears only once the message actually goes out, so a
+                            // cancelled unlock leaves the text where it was.
+                            sendGate {
+                                onSendMessage(text)
+                                inputValue = TextFieldValue("")
+                                showSlashCommands = false
+                            }
                         }
                     },
                     onAbort = onAbort,

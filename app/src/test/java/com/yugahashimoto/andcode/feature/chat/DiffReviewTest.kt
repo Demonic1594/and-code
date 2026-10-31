@@ -1,5 +1,7 @@
 package com.yugahashimoto.andcode.feature.chat
 
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.saveable.SaverScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -101,5 +103,20 @@ class DiffReviewTest {
                 "\n3. `b.kt` line 3 (`val vm = viewModel<LoginViewModel>()`): rename this",
             message,
         )
+    }
+
+    @Test
+    fun `review comments survive being saved and restored`() {
+        val comments =
+            mutableStateListOf(
+                ReviewComment("app/A.kt", 3, DiffRow(DiffRow.Kind.ADDED, "val x = 1", null, 12), "Why 1?"),
+                ReviewComment("app/B.kt", 0, DiffRow(DiffRow.Kind.REMOVED, "old()", 4, null), "Keep this"),
+            )
+        val scope = SaverScope { true }
+
+        val saved = with(ReviewCommentsSaver) { scope.save(comments) }
+        val restored = ReviewCommentsSaver.restore(saved!!)
+
+        assertEquals(comments.toList(), restored!!.toList())
     }
 }

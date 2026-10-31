@@ -50,6 +50,10 @@ data class AppPreferences(
     val sendBehavior: String = "interrupt",
     val enterToSend: Boolean = false,
     val hapticsEnabled: Boolean = true,
+    /** Ask for the device's biometric or screen lock when the app opens or comes back. */
+    val biometricLockEnabled: Boolean = false,
+    /** Also ask before each message is sent; only meaningful with [biometricLockEnabled]. */
+    val biometricLockOnSendEnabled: Boolean = false,
     val pinnedSessionIds: Set<String> = emptySet(),
     /**
      * When a chat was last restored from the Archive. Auto-archive counts that as activity, so a
@@ -110,6 +114,8 @@ class AppPreferencesRepository(
                 sendBehavior = settings.sendBehavior,
                 enterToSend = settings.enterToSend,
                 hapticsEnabled = settings.hapticsEnabled,
+                biometricLockEnabled = settings.biometricLockEnabled,
+                biometricLockOnSendEnabled = settings.biometricLockOnSendEnabled,
                 pinnedSessionIds = settings.pinnedSessionIds,
                 restoredSessionTimes = settings.restoredSessionTimes,
                 savedPrompts = SavedPromptCodec.decode(settings.savedPromptsJson),
@@ -343,6 +349,16 @@ class AppPreferencesRepository(
     fun setHapticsEnabled(enabled: Boolean) {
         settings.hapticsEnabled = enabled
         mutableState.update { it.copy(hapticsEnabled = enabled) }
+    }
+
+    fun setBiometricLockEnabled(enabled: Boolean) {
+        settings.biometricLockEnabled = enabled
+        mutableState.update { it.copy(biometricLockEnabled = enabled) }
+    }
+
+    fun setBiometricLockOnSendEnabled(enabled: Boolean) {
+        settings.biometricLockOnSendEnabled = enabled
+        mutableState.update { it.copy(biometricLockOnSendEnabled = enabled) }
     }
 
     fun setSessionPinned(

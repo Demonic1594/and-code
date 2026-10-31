@@ -35,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,9 +65,12 @@ import com.yugahashimoto.andcode.ui.theme.Spacing
 fun ChatDiffDialog(
     state: PatchDiffState,
     onDismiss: () -> Unit,
-    onSendReview: (String) -> Unit = {},
+    /** Sends the review; calls `sent` once it went out, so a cancelled unlock keeps the comments. */
+    onSendReview: (review: String, sent: () -> Unit) -> Unit = { _, _ -> },
 ) {
-    val comments = remember(state.partId) { mutableStateListOf<ReviewComment>() }
+    // Saved, not just remembered: the app lock removes this dialog from the composition while it is
+    // locked, and the comments have to be there again after the unlock.
+    val comments = rememberSaveable(state.partId, saver = ReviewCommentsSaver) { mutableStateListOf<ReviewComment>() }
     val collapsed = remember(state.partId) { mutableStateListOf<String>() }
     var editing by remember(state.partId) { mutableStateOf<ReviewComment?>(null) }
     var confirmingDiscard by remember(state.partId) { mutableStateOf(false) }
@@ -205,8 +209,7 @@ fun ChatDiffDialog(
                         )
                         Button(
                             onClick = {
-                                onSendReview(reviewCommentsMessage(comments.toList()))
-                                onDismiss()
+                                onSendReview(reviewCommentsMessage(comments.toList()), onDismiss)
                             },
                             modifier = Modifier.testTag("chat-review-send"),
                         ) {
