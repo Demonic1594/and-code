@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.RandomAccessFile
@@ -215,8 +217,12 @@ class ProcessSupervisor(
      */
     suspend fun restart(name: String): StartResult {
         val spec = mutableProcesses.value.firstOrNull { it.spec.name == name }?.spec ?: return StartResult.Failed("no process named $name")
-        stopRun(name) { true }?.job?.let { job -> withTimeoutOrNull(STOP_WAIT_MILLIS) { job.join() } }
-        return start(spec)
+        // Once the old one is stopped the new one must start, even if the caller is cancelled
+        // meanwhile (the bridge stops polling when the app goes idle).
+        return withContext(NonCancellable) {
+            stopRun(name) { true }?.job?.let { job -> withTimeoutOrNull(STOP_WAIT_MILLIS) { job.join() } }
+            start(spec)
+        }
     }
 
     /** Forgets a process that is no longer running, from the list and from the saved ones. */

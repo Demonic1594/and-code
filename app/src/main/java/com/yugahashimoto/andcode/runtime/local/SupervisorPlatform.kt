@@ -52,6 +52,8 @@ private class ProotProcessHandle(
      * its guest processes detach (see [killManagedProcessTrees]) and are no longer its children.
      */
     override fun kill() {
+        // An exited process's pid may already belong to another child of the app.
+        if (!process.isAlive) return
         val tree = processId(process)?.let { root -> processTreePostOrder(root) { pid -> readDirectChildPids(pid) } }.orEmpty()
         // SIGTERM to the server itself too, not only to proot, so it can shut down cleanly.
         tree.forEach { pid -> runCatching { android.os.Process.sendSignal(pid.toInt(), SIGTERM) } }

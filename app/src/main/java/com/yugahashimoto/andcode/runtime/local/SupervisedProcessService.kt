@@ -70,8 +70,10 @@ class SupervisedProcessService : Service() {
             scope.launch(Dispatchers.IO) { supervisor.stopAll() }
             return START_NOT_STICKY
         }
-        // Every startForegroundService() must be answered with startForeground().
-        if (!enterForeground(supervisor.processes.value.filter { it.isActive })) stopSelf()
+        // Every startForegroundService() must be answered with startForeground(), even when the
+        // last process ended in the meantime; then it stops again at once.
+        val running = supervisor.processes.value.filter { it.isActive }
+        if (!enterForeground(running) || running.isEmpty()) stopSelf(startId)
         return START_NOT_STICKY
     }
 
