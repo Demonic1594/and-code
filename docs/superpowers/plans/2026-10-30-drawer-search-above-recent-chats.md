@@ -1,6 +1,6 @@
 # Drawer: the chat search field moves next to Recent chats
 
-Status: **not started**. Written down to build later; nothing in the app has been changed.
+Status: **done**.
 
 ## Goal
 
