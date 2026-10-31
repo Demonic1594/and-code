@@ -1752,6 +1752,14 @@
     </plurals>
     <string name="git_files_incomplete">Git n\'a pas pu lister tous les fichiers de ce commit ; la liste est peut-être incomplète.</string>
     <string name="git_diff_truncated">Ce diff est trop long pour être affiché en entier. Seul le début est affiché.</string>
+    <string name="action_restore_files">Restaurer les fichiers jusqu\'ici</string>
+    <string name="restore_files_confirm_title">Restaurer les fichiers à ce message ?</string>
+    <string name="restore_files_confirm_body">Les fichiers sont restaurés dans l\'état où ils se trouvaient au moment où vous avez envoyé ce message : les modifications apportées depuis sont annulées et les fichiers ajoutés depuis sont supprimés. Les messages sont conservés. Les dossiers de dépendances et de compilation, tels que node_modules et build, les fichiers ignorés par Git et les dépôts Git imbriqués ne sont pas inclus dans l\'instantané ; ils restent donc inchangés.</string>
+    <string name="restore_files_confirm">Restaurer les fichiers</string>
+    <string name="restore_files_banner_title">Fichiers restaurés à un message antérieur</string>
+    <string name="restore_files_banner_body">Les messages restent inchangés. Annuler remet les fichiers comme ils étaient.</string>
+    <string name="restore_files_keep">Conserver</string>
+    <string name="restore_files_failed">Les fichiers n\'ont pas pu être restaurés.</string>
     <string name="chat_menu_open_github">Ouvrir sur GitHub</string>
     <string name="action_copied">Copié</string>
     <string name="tool_copy_block">Copier %1$s</string>

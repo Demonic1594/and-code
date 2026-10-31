@@ -261,3 +261,47 @@ internal fun RewindBanner(
         }
     }
 }
+
+/**
+ * Shown after the files were put back to an earlier message from its snapshot: the messages stay,
+ * so it only says what happened to the files, with Undo. Dismissing it keeps the restore.
+ */
+@Composable
+internal fun FileRestoreBanner(
+    busy: Boolean,
+    onUndo: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Surface(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.md, vertical = Spacing.xs)
+                .testTag("chat-file-restore-banner")
+                .semantics { liveRegion = LiveRegionMode.Polite },
+        shape = AppShapes.lg,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = Spacing.md, end = Spacing.xs, top = Spacing.xs, bottom = Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(20.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.restore_files_banner_title),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = stringResource(R.string.restore_files_banner_body),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+            TextButton(onClick = onUndo, enabled = !busy) { Text(stringResource(R.string.code_undo)) }
+            TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.restore_files_keep)) }
+        }
+    }
+}
