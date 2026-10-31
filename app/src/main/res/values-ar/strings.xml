@@ -1791,4 +1791,9 @@
     </plurals>
     <string name="git_files_incomplete">تعذّر على Git سرد كل ملفات هذا الالتزام، لذا قد تكون القائمة غير كاملة.</string>
     <string name="git_diff_truncated">هذا الفرق أطول من أن يُعرض كاملًا. يُعرض جزؤه الأول.</string>
+    <string name="chat_menu_open_github">افتح على GitHub</string>
+    <string name="action_copied">تم النسخ</string>
+    <string name="tool_copy_block">نسخ %1$s</string>
+    <string name="cd_search_projects">البحث عن المشاريع</string>
+    <string name="drawer_project_search_hint">البحث عن المشاريع</string>
 </resources>
