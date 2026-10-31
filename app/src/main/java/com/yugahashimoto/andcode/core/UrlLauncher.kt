@@ -109,8 +109,12 @@ private val LOCAL_SERVER_URL =
 private object GitHubLinks {
     val hosts = setOf("github.com", "www.github.com", "gist.github.com")
 
-    /** Downloads, which the in-app browser cannot save: a release asset, a source archive, a raw file. */
-    val downloadPath = Regex("/(releases/download|archive|raw)/")
+    /**
+     * Downloads, which the in-app browser cannot save: a release asset (also the latest release's), a
+     * source archive, a raw file. Matched right after the owner and repository (or gist), so a
+     * repository named `archive` or a folder named `raw` is still a page.
+     */
+    val downloadPath = Regex("^/[^/]+/[^/]+/(releases/(latest/)?download|archive|raw)/")
 }
 
 /** True for an https page on GitHub or its gists; downloads are left to the phone's browser. */

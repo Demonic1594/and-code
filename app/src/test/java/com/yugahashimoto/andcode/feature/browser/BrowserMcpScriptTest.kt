@@ -24,7 +24,12 @@ class BrowserMcpScriptTest {
 
     @Before
     fun needsPython() {
-        assumeTrue("needs python3", runCatching { run("print('ok')") == "ok" }.getOrDefault(false))
+        // Only whether python3 starts: a broken script must fail the tests, not skip them.
+        val starts =
+            runCatching {
+                ProcessBuilder("python3", "-c", "pass").start().waitFor(30, TimeUnit.SECONDS)
+            }.getOrDefault(false)
+        assumeTrue("needs python3", starts)
     }
 
     @Test
@@ -108,7 +113,7 @@ class BrowserMcpScriptTest {
     }
 
     @Test
-    fun `without a visible page the first page is used and without pages none`() {
+    fun `a lone page is used even when not reported on screen, and without pages none`() {
         val chosen =
             run(
                 """
@@ -119,6 +124,28 @@ class BrowserMcpScriptTest {
             )
 
         assertEquals("first\nodd\nNone", chosen)
+    }
+
+    @Test
+    fun `an ambiguous choice is refused rather than guessed`() {
+        val refused =
+            run(
+                """
+                import json
+                shown = json.dumps({"attached": True, "visible": True})
+                for targets in (
+                    [{"type": "page", "url": "a", "description": shown}, {"type": "page", "url": "b", "description": shown}],
+                    [{"type": "page", "url": "a"}, {"type": "page", "url": "b"}],
+                ):
+                    try:
+                        m.choose_target(targets)
+                        print("chosen")
+                    except m.CdpError as error:
+                        print(str(error) == m.AMBIGUOUS)
+                """.trimIndent(),
+            )
+
+        assertEquals("True\nTrue", refused)
     }
 
     /** Loads the script as module `m` and runs [code], returning what it printed. */

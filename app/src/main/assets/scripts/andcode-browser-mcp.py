@@ -33,6 +33,10 @@ NOT_REACHABLE = (
     "in its menu. Call browser_show with a URL to open it."
 )
 NO_PAGE = "The Guest Browser has no page loaded. Call browser_show or browser_navigate with a URL."
+AMBIGUOUS = (
+    "More than one of the app's web pages could be the Guest Browser (another one may be closing). "
+    "Wait a moment and retry, or close the other page."
+)
 
 
 def socket_names_from_proc_net_unix(text: str) -> list[str]:
@@ -107,20 +111,28 @@ def _find_devtools_socket() -> str | None:
 def choose_target(targets: list[dict]) -> dict | None:
     """The Guest Browser's page among the app's WebView targets.
 
-    The app has other WebViews (an artifact preview, say), so prefer the page DevTools reports as
-    attached and visible, which is the browser on screen, and fall back to the first page.
+    The app has other WebViews (an artifact preview, say). DevTools marks the page on screen as
+    attached and visible, which is the browser. Two pages on screen at once (one fading out while
+    the other opens), or several with none on screen, cannot be told apart: raise rather than drive
+    the wrong one, and the agent can retry.
     """
     pages = [t for t in targets if t.get("type") in ("document", "page")]
     if not pages:
         return None
-    for page in pages:
-        try:
-            description = json.loads(page.get("description") or "{}")
-        except (ValueError, TypeError):
-            description = {}
-        if isinstance(description, dict) and description.get("attached") and description.get("visible"):
-            return page
-    return pages[0]
+    on_screen = [page for page in pages if _on_screen(page)]
+    if len(on_screen) == 1:
+        return on_screen[0]
+    if not on_screen and len(pages) == 1:
+        return pages[0]
+    raise CdpError(AMBIGUOUS)
+
+
+def _on_screen(page: dict) -> bool:
+    try:
+        description = json.loads(page.get("description") or "{}")
+    except (ValueError, TypeError):
+        return False
+    return isinstance(description, dict) and bool(description.get("attached") and description.get("visible"))
 
 
 class CdpError(RuntimeError):

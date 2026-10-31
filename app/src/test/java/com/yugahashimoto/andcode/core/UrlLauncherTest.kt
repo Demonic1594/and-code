@@ -44,5 +44,10 @@ class UrlLauncherTest {
         assertFalse(isGitHubUrl("https://github.com/o/r/releases/download/v1/app.apk"))
         assertFalse(isGitHubUrl("https://github.com/o/r/archive/refs/heads/main.zip"))
         assertFalse(isGitHubUrl("https://github.com/o/r/raw/main/README.md"))
+        assertFalse(isGitHubUrl("https://github.com/o/r/releases/latest/download/app.apk"))
+        assertFalse(isGitHubUrl("https://gist.github.com/someone/abc/raw/file.txt"))
+        // A repository named "archive", or a folder named "raw", is a page like any other.
+        assertTrue(isGitHubUrl("https://github.com/r-lib/archive/issues/1"))
+        assertTrue(isGitHubUrl("https://github.com/o/r/tree/main/raw/data"))
     }
 }
