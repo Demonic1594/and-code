@@ -441,13 +441,20 @@ class SecureSettingsRepository(context: Context) :
         get() = preferences.getBoolean(KEY_HAPTICS_ENABLED, true)
         set(value) = preferences.edit().putBoolean(KEY_HAPTICS_ENABLED, value).apply()
 
+    /**
+     * The app lock's switches live in plain app-private preferences, not the encrypted ones: they are
+     * not secret, and the encrypted file falls back to memory when the Keystore fails, which would
+     * turn the lock off at the next start without a word.
+     */
+    private val lockPreferences: SharedPreferences = context.getSharedPreferences(LOCK_PREFS_NAME, Context.MODE_PRIVATE)
+
     var biometricLockEnabled: Boolean
-        get() = preferences.getBoolean(KEY_BIOMETRIC_LOCK, false)
-        set(value) = preferences.edit().putBoolean(KEY_BIOMETRIC_LOCK, value).apply()
+        get() = lockPreferences.getBoolean(KEY_BIOMETRIC_LOCK, false)
+        set(value) = lockPreferences.edit().putBoolean(KEY_BIOMETRIC_LOCK, value).apply()
 
     var biometricLockOnSendEnabled: Boolean
-        get() = preferences.getBoolean(KEY_BIOMETRIC_LOCK_ON_SEND, false)
-        set(value) = preferences.edit().putBoolean(KEY_BIOMETRIC_LOCK_ON_SEND, value).apply()
+        get() = lockPreferences.getBoolean(KEY_BIOMETRIC_LOCK_ON_SEND, false)
+        set(value) = lockPreferences.edit().putBoolean(KEY_BIOMETRIC_LOCK_ON_SEND, value).apply()
 
     var pinnedSessionIds: Set<String>
         get() = preferences.getStringSet(KEY_PINNED_SESSIONS, emptySet()).orEmpty()
@@ -621,6 +628,7 @@ class SecureSettingsRepository(context: Context) :
         private const val KEY_SEND_BEHAVIOR = "send_behavior"
         private const val KEY_ENTER_TO_SEND = "enter_to_send"
         private const val KEY_HAPTICS_ENABLED = "haptics_enabled"
+        private const val LOCK_PREFS_NAME = "andcode_app_lock"
         private const val KEY_BIOMETRIC_LOCK = "biometric_lock_enabled"
         private const val KEY_BIOMETRIC_LOCK_ON_SEND = "biometric_lock_on_send_enabled"
         private const val KEY_PINNED_SESSIONS = "pinned_sessions"

@@ -966,9 +966,10 @@ private fun PrivacySettings(
                     else -> R.string.app_lock_unavailable
                 },
             ),
-        checked = lockEnabled && available,
+        checked = lockEnabled,
         onCheckedChange = onLockEnabledChange,
-        enabled = available,
+        // A lock turned on before the phone's own lock was removed can still be turned off.
+        enabled = available || lockEnabled,
     )
     if (lockEnabled && available) {
         SettingsDivider()

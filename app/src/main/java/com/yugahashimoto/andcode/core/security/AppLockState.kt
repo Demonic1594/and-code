@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.core.security
 
+import android.os.SystemClock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,7 +17,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * are synchronized so a check and its update are never split by another call.
  */
 class AppLockState(
-    private val clock: () -> Long = System::currentTimeMillis,
+    /** Time since boot, sleep included: changing the phone's clock can neither skip nor force the lock. */
+    private val clock: () -> Long = SystemClock::elapsedRealtime,
     private val graceMillis: Long = DEFAULT_GRACE_MILLIS,
 ) {
     private val mutableLocked = MutableStateFlow(false)

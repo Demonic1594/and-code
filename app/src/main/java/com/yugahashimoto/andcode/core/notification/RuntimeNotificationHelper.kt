@@ -128,6 +128,7 @@ class RuntimeNotificationHelper(private val context: Context) {
                 .setContentIntent(openIntent)
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .lockAware()
                 .build()
 
         safeNotify(questionNotificationId(request.id), notification)
@@ -231,6 +232,7 @@ class RuntimeNotificationHelper(private val context: Context) {
                 .setContentIntent(intent)
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .lockAware()
                 .build()
         safeNotify(statusNotificationId(scheduleId, "schedule-miss"), notification)
     }
@@ -268,6 +270,7 @@ class RuntimeNotificationHelper(private val context: Context) {
                 .setStyle(NotificationCompat.BigTextStyle().bigText("$title\n$reason"))
                 .setContentIntent(intent)
                 .setAutoCancel(true)
+                .lockAware()
                 .build()
         safeNotify(statusNotificationId(sessionId, "stalled"), notification)
     }
