@@ -41,6 +41,11 @@ data class SupervisedProcessSpec(
     val restart: RestartPolicy = RestartPolicy.ON_CRASH,
     /** Stopped after this long, so a forgotten server cannot hold the wake lock for days; null is no limit. */
     val maxRunMinutes: Int? = DEFAULT_MAX_RUN_MINUTES,
+    /**
+     * Whether to read the port from the output. Off for a process that prints someone else's address
+     * (a tunnel names the server it forwards to), which would otherwise claim that server's port.
+     */
+    val detectPort: Boolean = true,
 ) {
     companion object {
         const val DEFAULT_MAX_RUN_MINUTES = 240
@@ -330,7 +335,8 @@ class ProcessSupervisor(
         while (true) {
             val log = logFile(name)
             val current = mutableProcesses.value.firstOrNull { it.spec.name == name }
-            if (current?.port == null && log.isFile) {
+            val wantsPort = current?.spec?.detectPort == true && current.port == null
+            if (wantsPort && log.isFile) {
                 detectPort(readTail(log, PORT_SCAN_CHARACTERS))?.let { port -> setStatus(name) { it.copy(port = it.port ?: port) } }
             }
             if (log.length() > MAX_LOG_BYTES) trim(log)

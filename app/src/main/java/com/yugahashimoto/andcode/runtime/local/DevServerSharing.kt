@@ -3,11 +3,13 @@ package com.yugahashimoto.andcode.runtime.local
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /** Where sharing one local server stands. */
@@ -41,6 +43,11 @@ class DevServerSharing(
     private val scope: CoroutineScope,
     private val pollMillis: Long = POLL_MILLIS,
     private val startTimeoutMillis: Long = START_TIMEOUT_MILLIS,
+    /**
+     * Which loopback address the server answers on. A server bound to `localhost` may be IPv6 only
+     * (Vite under recent Node often is); a tunnel pointed at the other family would serve a 502.
+     */
+    private val answeringAddress: suspend (port: Int) -> String? = LoopbackDevServerProbe()::answeringAddress,
 ) {
     private val mutableShares = MutableStateFlow<Map<Int, ShareState>>(emptyMap())
 
@@ -70,25 +77,57 @@ class DevServerSharing(
     }
 
     private suspend fun run(port: Int) {
-        try {
-            install()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Exception) {
-            set(port, ShareState.Failed(error.message ?: error.javaClass.simpleName))
-            return
+        val problem = startTunnel(port)
+        if (problem != null) {
+            set(port, problem)
+        } else if (currentCoroutineContext().isActive) {
+            set(port, ShareState.Starting)
+            watch(port, processName(port))
+        } else {
+            // Stopped while it was being started: take the tunnel down again rather than leave a
+            // public link that nothing on screen knows about.
+            supervisor.stop(processName(port))
         }
-        val name = processName(port)
-        val result = supervisor.start(tunnelSpec(port))
-        when (result) {
-            is StartResult.Started, is StartResult.AlreadyRunning -> Unit
-            is StartResult.LimitReached -> return set(port, ShareState.TooManyProcesses)
-            is StartResult.Failed -> return set(port, ShareState.Failed(result.reason))
-            else -> return set(port, ShareState.Failed(result.javaClass.simpleName))
-        }
-        set(port, ShareState.Starting)
-        watch(port, name)
     }
+
+    /** Installs cloudflared and starts the tunnel; what went wrong, or null when it runs. */
+    private suspend fun startTunnel(port: Int): ShareState? {
+        val installed =
+            try {
+                install()
+                null
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                ShareState.Failed(error.message ?: error.javaClass.simpleName)
+            }
+        val address = answeringAddress(port)
+        return when {
+            installed != null -> installed
+            address == null -> ShareState.Failed("nothing answers on port $port")
+            else -> problemOf(supervisor.start(tunnelSpec(port, address)), tunnelSpec(port, address))
+        }
+    }
+
+    private fun problemOf(
+        result: StartResult,
+        spec: SupervisedProcessSpec,
+    ): ShareState? =
+        when (result) {
+            is StartResult.Started -> null
+            // Only our own tunnel under this name counts; anything else must not be shown as its link.
+            is StartResult.AlreadyRunning ->
+                if (result.process.spec.command == spec.command) {
+                    null
+                } else {
+                    ShareState.Failed(
+                        "${spec.name} is already used by another process",
+                    )
+                }
+            is StartResult.LimitReached -> ShareState.TooManyProcesses
+            is StartResult.Failed -> ShareState.Failed(result.reason)
+            else -> ShareState.Failed(result.javaClass.simpleName)
+        }
 
     /** Waits for the address, then keeps the state true to the process until it ends. */
     private suspend fun watch(
@@ -141,18 +180,27 @@ class DevServerSharing(
         /** A quick tunnel is for trying something out, not for hosting: it ends after two hours. */
         private const val MAX_SHARE_MINUTES = 120
 
-        private val TUNNEL_URL = Regex("""https://[a-z0-9-]+\.trycloudflare\.com(?![\w.-])""")
+        // A quick tunnel's own address: not the API host cloudflared names in its errors
+        // ("Post https://api.trycloudflare.com/tunnel"), and not followed by a path.
+        private val TUNNEL_URL = Regex("""https://(?!api\.)[a-z0-9-]+\.trycloudflare\.com(?![\w./-])""")
 
         internal fun processName(port: Int) = "share-$port"
 
-        internal fun tunnelSpec(port: Int) =
-            SupervisedProcessSpec(
+        /** Always a loopback literal, never `localhost`: what the tunnel exposes is this device only. */
+        internal fun tunnelSpec(
+            port: Int,
+            address: String = "127.0.0.1",
+        ): SupervisedProcessSpec {
+            val host = if (address.contains(':')) "[$address]" else address
+            return SupervisedProcessSpec(
                 name = processName(port),
-                command = "cloudflared tunnel --no-autoupdate --url http://127.0.0.1:$port",
+                command = "cloudflared tunnel --no-autoupdate --url http://$host:$port",
                 directory = "/root",
                 restart = RestartPolicy.NEVER,
                 maxRunMinutes = MAX_SHARE_MINUTES,
+                detectPort = false,
             )
+        }
 
         /** The public address cloudflared prints once the tunnel is up. */
         internal fun tunnelUrl(log: String): String? = TUNNEL_URL.find(log)?.value

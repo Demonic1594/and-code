@@ -12,6 +12,14 @@ Status: **built**. Decisions made while building:
 - **The link ends with the server**: when the shared port stops answering, when the terminal's
   shell ends, and when the terminal screen closes.
 - **The QR code** is drawn with zxing's `QRCodeWriter`, already a dependency for scanning.
+- **More than one server can be shared at once** (one tunnel per port), replacing the "one tunnel
+  at a time" limit below: with the supervisor holding each tunnel there was no reason to refuse it.
+  The supervisor's cap on running processes still applies.
+- **The tunnel points at the loopback address the server answers on** (`127.0.0.1`, else `[::1]`),
+  never `localhost`, so an IPv6-only dev server is reachable and nothing beyond this device is.
+- **Agents can read a link**: the tunnel is a supervised process, so `andcode-run list` and
+  `andcode-run logs` show it to the agents. They could start a tunnel themselves anyway, so this
+  grants nothing new, but a shared link should be treated as known to the agent.
 
 ## Goal
 

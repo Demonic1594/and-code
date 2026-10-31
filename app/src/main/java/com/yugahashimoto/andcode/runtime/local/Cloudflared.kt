@@ -1,6 +1,8 @@
 package com.yugahashimoto.andcode.runtime.local
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -86,11 +88,18 @@ class CloudflaredInstaller(
     private val releases: CloudflaredReleaseClient = CloudflaredReleaseClient(),
     private val downloader: VerifiedRuntimeDownloader = VerifiedRuntimeDownloader(),
 ) {
+    /** Two ports shared at once on first use must not install over each other. */
+    private val installing = Mutex()
+
     fun installed(): Boolean = rootfs()?.let { File(it, BINARY).canExecute() } == true
 
     /** Installs it when missing; throws with a message for the user when it cannot. */
-    suspend fun ensureInstalled() {
-        if (installed()) return
+    suspend fun ensureInstalled() =
+        installing.withLock {
+            if (!installed()) install()
+        }
+
+    private suspend fun install() {
         val guest = requireNotNull(rootfs()) { "the local runtime is not installed" }
         val release = releases.latest(abi)
         val cache = File(runtimeDirectory, "cache").apply { mkdirs() }
@@ -99,10 +108,14 @@ class CloudflaredInstaller(
         withContext(Dispatchers.IO) {
             val destination = File(guest, BINARY)
             destination.parentFile?.mkdirs()
-            val candidate = File(destination.parentFile, "cloudflared.new")
-            download.copyTo(candidate, overwrite = true)
-            require(candidate.setExecutable(true, false)) { "could not make cloudflared executable" }
-            require(candidate.renameTo(destination)) { "could not install cloudflared" }
+            val candidate = File.createTempFile("cloudflared", ".new", destination.parentFile)
+            try {
+                download.copyTo(candidate, overwrite = true)
+                require(candidate.setExecutable(true, false)) { "could not make cloudflared executable" }
+                require(candidate.renameTo(destination)) { "could not install cloudflared" }
+            } finally {
+                candidate.delete()
+            }
             download.delete()
         }
     }

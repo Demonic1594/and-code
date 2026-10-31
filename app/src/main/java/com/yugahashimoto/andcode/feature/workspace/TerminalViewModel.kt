@@ -114,8 +114,15 @@ class TerminalViewModel(
     init {
         sharing?.let { links ->
             viewModelScope.launch {
-                links.shares.collect { all -> _state.update { it.copy(shares = all.filterKeys { port -> port in sharedPorts }) } }
+                links.shares.collect { all -> publishShares(all) }
             }
+        }
+    }
+
+    /** Only this terminal's shares, read under [lock] like every write to [sharedPorts]. */
+    private fun publishShares(all: Map<Int, ShareState>) {
+        synchronized(lock) {
+            _state.update { it.copy(shares = all.filterKeys { port -> port in sharedPorts }) }
         }
     }
 
@@ -124,6 +131,8 @@ class TerminalViewModel(
         val links = sharing ?: return
         synchronized(lock) { sharedPorts += port }
         links.start(port)
+        // Already shared (a retry, or before), the flow may not emit again: show what it holds now.
+        publishShares(links.shares.value)
     }
 
     fun stopSharing(port: Int) {

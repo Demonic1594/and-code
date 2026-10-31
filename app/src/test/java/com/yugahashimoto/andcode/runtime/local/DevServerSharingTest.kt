@@ -56,11 +56,12 @@ class DevServerSharingTest {
 
     private fun sharing(
         tunnel: FakeTunnel,
+        address: String? = "127.0.0.1",
         install: suspend () -> Unit = {},
     ): DevServerSharing {
         val supervisor =
             ProcessSupervisor(tunnel, temp.newFolder(), MemoryStore(), RuntimeWorkTracker(), scope, restartDelayMillis = 1)
-        return DevServerSharing(supervisor, install, scope, pollMillis = 10, startTimeoutMillis = 2_000)
+        return DevServerSharing(supervisor, install, scope, pollMillis = 10, startTimeoutMillis = 2_000, answeringAddress = { address })
     }
 
     private class MemoryStore : SupervisorStore {
@@ -107,7 +108,7 @@ class DevServerSharingTest {
     fun `an install that fails is reported without starting anything`() =
         runBlocking {
             val tunnel = FakeTunnel()
-            val sharing = sharing(tunnel) { error("no network") }
+            val sharing = sharing(tunnel, install = { error("no network") })
 
             sharing.start(3000)
 
@@ -146,6 +147,36 @@ class DevServerSharingTest {
 
             until { sharing.shares.value[5173] == null }
         }
+
+    @Test
+    fun `a server listening on IPv6 only is reached over IPv6`() =
+        runBlocking {
+            val tunnel = FakeTunnel()
+            val sharing = sharing(tunnel, address = "::1")
+
+            sharing.start(5173)
+
+            until { tunnel.commands.isNotEmpty() }
+            assertTrue(tunnel.commands.single().endsWith("--url http://[::1]:5173"))
+        }
+
+    @Test
+    fun `nothing is exposed when nothing answers on the port`() =
+        runBlocking {
+            val tunnel = FakeTunnel()
+            val sharing = sharing(tunnel, address = null)
+
+            sharing.start(4000)
+
+            until { sharing.shares.value[4000] is ShareState.Failed }
+            assertTrue(tunnel.commands.isEmpty())
+        }
+
+    @Test
+    fun `the API host in cloudflared's error is never taken for the link`() {
+        val error = "ERR failed to request quick Tunnel: Post \"https://api.trycloudflare.com/tunnel\": dial tcp: no such host"
+        assertNull(DevServerSharing.tunnelUrl(error))
+    }
 
     @Test
     fun `the address is read from cloudflared's output and nothing else`() {

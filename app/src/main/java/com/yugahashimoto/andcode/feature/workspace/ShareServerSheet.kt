@@ -53,8 +53,8 @@ internal fun ShareServerSheet(
             Text(stringResource(R.string.share_server_title, port), style = MaterialTheme.typography.titleLarge)
             when (state) {
                 null -> NotStarted(port, onStart)
-                ShareState.Installing -> Waiting(stringResource(R.string.share_server_installing))
-                ShareState.Starting -> Waiting(stringResource(R.string.share_server_starting))
+                ShareState.Installing -> Waiting(stringResource(R.string.share_server_installing), onStop)
+                ShareState.Starting -> Waiting(stringResource(R.string.share_server_starting), onStop)
                 is ShareState.Live -> Live(state.url, onStop)
                 ShareState.TooManyProcesses -> Problem(stringResource(R.string.share_server_too_many), onStart, onStop)
                 is ShareState.Failed -> Problem(stringResource(R.string.share_server_failed, state.reason), onStart, onStop)
@@ -74,11 +74,16 @@ private fun NotStarted(
 }
 
 @Composable
-private fun Waiting(text: String) {
+private fun Waiting(
+    text: String,
+    onStop: () -> Unit,
+) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-        Text(text, style = MaterialTheme.typography.bodyMedium)
+        Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
     }
+    // Closing the sheet does not stop it; this does, before a link ever exists.
+    TextButton(onClick = onStop) { Text(stringResource(R.string.share_server_stop)) }
 }
 
 @Composable

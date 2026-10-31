@@ -24,6 +24,9 @@ class LoopbackDevServerProbe(
 ) : DevServerProbe {
     override suspend fun isListening(port: Int): Boolean = withContext(Dispatchers.IO) { LOOPBACK_ADDRESSES.any { connects(it, port) } }
 
+    /** The loopback address the server on [port] answers on, IPv4 first; null when it answers on neither. */
+    suspend fun answeringAddress(port: Int): String? = withContext(Dispatchers.IO) { LOOPBACK_ADDRESSES.firstOrNull { connects(it, port) } }
+
     private fun connects(
         address: String,
         port: Int,

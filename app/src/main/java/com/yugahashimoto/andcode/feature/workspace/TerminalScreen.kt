@@ -126,6 +126,11 @@ fun TerminalScreen(
             },
         )
         var sharingPort by rememberSaveable { mutableStateOf<Int?>(null) }
+        // A server that stopped has nothing left to share; its sheet closes with it.
+        val runningPorts = state.servers.filter { it.status == DevServerStatus.RUNNING }.map { it.port }
+        LaunchedEffect(sharingPort, runningPorts) {
+            if (sharingPort != null && sharingPort !in runningPorts) sharingPort = null
+        }
         TerminalServers(servers = state.servers, shares = state.shares, onOpen = onOpenServer, onShare = { sharingPort = it })
         sharingPort?.let { port ->
             ShareServerSheet(
