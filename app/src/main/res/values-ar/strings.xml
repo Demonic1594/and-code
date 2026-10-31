@@ -1791,6 +1791,14 @@
     </plurals>
     <string name="git_files_incomplete">تعذّر على Git سرد كل ملفات هذا الالتزام، لذا قد تكون القائمة غير كاملة.</string>
     <string name="git_diff_truncated">هذا الفرق أطول من أن يُعرض كاملًا. يُعرض جزؤه الأول.</string>
+    <string name="action_restore_files">استعادة الملفات إلى هنا</string>
+    <string name="restore_files_confirm_title">هل تريد استعادة الملفات إلى هذه الرسالة؟</string>
+    <string name="restore_files_confirm_body">تعود الملفات إلى الحالة التي كانت عليها عند إرسال هذه الرسالة: يتم التراجع عن التغييرات التي أُجريت منذ ذلك الحين، ويتم إزالة الملفات التي أُضيفت منذ ذلك الحين. أما الرسائل فتبقى كما هي. لا يتم تضمين مجلدات التبعيات ومجلدات البناء مثل node_modules و build، والملفات المُستبعدة بواسطة git، ومستودعات git المتداخلة في اللقطة، لذا تُترك كما هي.</string>
+    <string name="restore_files_confirm">استعادة الملفات</string>
+    <string name="restore_files_banner_title">تمت استعادة الملفات إلى رسالة سابقة</string>
+    <string name="restore_files_banner_body">لم تتغير الرسائل. يعيد «تراجع» الملفات إلى ما كانت عليه.</string>
+    <string name="restore_files_keep">إبقاء</string>
+    <string name="restore_files_failed">تعذّرت استعادة الملفات.</string>
     <string name="chat_menu_open_github">افتح على GitHub</string>
     <string name="action_copied">تم النسخ</string>
     <string name="tool_copy_block">نسخ %1$s</string>

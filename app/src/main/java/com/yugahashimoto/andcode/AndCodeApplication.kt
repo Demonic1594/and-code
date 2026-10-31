@@ -86,6 +86,9 @@ import com.yugahashimoto.andcode.runtime.local.OpencodeDatabaseMaintenance
 import com.yugahashimoto.andcode.runtime.local.ProcessSupervisor
 import com.yugahashimoto.andcode.runtime.local.ProotProcessLauncher
 import com.yugahashimoto.andcode.runtime.local.RunBridge
+import com.yugahashimoto.andcode.runtime.local.ShadowSnapshots
+import com.yugahashimoto.andcode.runtime.local.ShadowTurnSnapshots
+import com.yugahashimoto.andcode.runtime.local.SharedPreferencesTurnSnapshotIndex
 import com.yugahashimoto.andcode.runtime.local.StartupCommandsRunner
 import com.yugahashimoto.andcode.runtime.local.SupervisedProcessService
 import com.yugahashimoto.andcode.runtime.local.SystemPromptStore
@@ -211,6 +214,19 @@ class AndCodeApplication : Application() {
 
     lateinit var commandRunner: LocalRuntimeCommandRunner
         private set
+
+    /**
+     * Restore points for agents without checkpoints of their own. One for the whole app, so its lock
+     * really does keep a restore in one chat from racing a snapshot taken for another.
+     */
+    val turnSnapshots: ShadowTurnSnapshots by lazy {
+        ShadowTurnSnapshots(
+            ShadowSnapshots({ command, timeout, maxCharacters ->
+                commandRunner.runShell(command, timeout, maxCharacters, keepStart = false)
+            }),
+            SharedPreferencesTurnSnapshotIndex(this),
+        )
+    }
 
     lateinit var terminalSessions: TerminalSessionFactory
         private set
