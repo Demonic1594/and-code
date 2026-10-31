@@ -11,10 +11,15 @@ Status: **done, reduced in scope** after Task 1 (2026-10-31). What Task 1 found:
   added. The CLI has no command that reports supported levels.
 - Off: Claude Code's documentation states thinking cannot be turned off on Opus 5.5, Sonnet 5.5,
   Haiku 5.5 or the Fable models (`MAX_THINKING_TOKENS=0` is a no-op there), so no Off is offered for
-  Claude Code. Codex already shows its own `none` level as "None" when the server lists it.
+  Claude Code. Codex already shows its own `none` level as "Off" when the server lists it.
 - What was built: the options are sorted onto one scale (`orderThinkingLevels`: none, minimal, low,
   medium, high, xhigh, max, ultra; unknown levels kept at the end), so every agent lists them the
   same way regardless of the server's order.
+- Not done, deliberately: the shared level type, option model and per-agent mapping layer (Tasks 2
+  and 3; the existing variant keys and shared labels already cover the agents); a per-alias table
+  for Claude Code (not needed while every alias supports every level); always showing "Default" on
+  the composer chip; the cost hint on Extra high and Max; remembering the choice per model (Task 5);
+  and the Task 1 check of whether `selectedVariant` is persisted.
 
 ## Goal
 
