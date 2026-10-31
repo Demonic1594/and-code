@@ -213,8 +213,11 @@ class ProcessSupervisor(
 
     /** Stops everything and waits, up to a few seconds, for the processes to be gone. */
     suspend fun stopAllAndWait() {
-        val stopped = mutableProcesses.value.filter { it.isActive }.mapNotNull { stopRun(it.spec.name) { true } }
-        withTimeoutOrNull(STOP_WAIT_MILLIS) { stopped.forEach { it.job?.join() } }
+        mutableProcesses.value.filter { it.isActive }.forEach { stopRun(it.spec.name) { true } }
+        // Every run still winding down, including ones stopped a moment earlier, whose processes
+        // may not have exited yet.
+        val exiting = synchronized(lock) { runs.values.mapNotNull { it.job }.filter { it.isActive } }
+        withTimeoutOrNull(STOP_WAIT_MILLIS) { exiting.forEach { it.join() } }
     }
 
     /**
