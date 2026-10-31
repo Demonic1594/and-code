@@ -27,8 +27,8 @@ class DevServerSharingTest {
 
     @After
     fun tearDown() {
-        // Wait for the supervisor's coroutines before the temporary folder goes: one still reading a
-        // log there would fail after the test, and runTest would blame whichever test runs next.
+        // Wait for the supervisor's coroutines before the temporary folder goes: one still writing or
+        // reading there after the test would fail, and runTest would blame whichever test runs next.
         runBlocking { withTimeout(5_000) { scope.coroutineContext.job.cancelAndJoin() } }
     }
 
