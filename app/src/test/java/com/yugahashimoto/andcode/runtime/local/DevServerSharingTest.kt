@@ -4,8 +4,9 @@ import com.yugahashimoto.andcode.core.runtime.RuntimeWorkTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
@@ -16,7 +17,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.io.FileNotFoundException
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicInteger
 
 class DevServerSharingTest {
     @get:Rule
@@ -26,7 +29,9 @@ class DevServerSharingTest {
 
     @After
     fun tearDown() {
-        scope.cancel()
+        // Wait for the supervisor's coroutines before the temporary folder goes: one still writing or
+        // reading there after the test would fail, and runTest would blame whichever test runs next.
+        runBlocking { withTimeout(5_000) { scope.coroutineContext.job.cancelAndJoin() } }
     }
 
     /** A tunnel whose output is written as the test says, and that ends when told or killed. */
@@ -58,11 +63,10 @@ class DevServerSharingTest {
         tunnel: FakeTunnel,
         address: String? = "127.0.0.1",
         install: suspend () -> Unit = {},
-    ): DevServerSharing {
-        val supervisor =
-            ProcessSupervisor(tunnel, temp.newFolder(), MemoryStore(), RuntimeWorkTracker(), scope, restartDelayMillis = 1)
-        return DevServerSharing(supervisor, install, scope, pollMillis = 10, startTimeoutMillis = 2_000, answeringAddress = { address })
-    }
+        supervisor: ProcessSupervisor =
+            ProcessSupervisor(tunnel, temp.newFolder(), MemoryStore(), RuntimeWorkTracker(), scope, restartDelayMillis = 1),
+    ): DevServerSharing =
+        DevServerSharing(supervisor, install, scope, pollMillis = 10, startTimeoutMillis = 2_000, answeringAddress = { address })
 
     private class MemoryStore : SupervisorStore {
         override fun load() = emptyList<SupervisedProcessSpec>()
@@ -101,6 +105,31 @@ class DevServerSharingTest {
             tunnel.exits.single().complete(1)
 
             until { sharing.shares.value[8000] is ShareState.Failed }
+            assertEquals("ERR failed to request quick Tunnel: no network", (sharing.shares.value[8000] as ShareState.Failed).reason)
+        }
+
+    @Test
+    fun `a tunnel's last words are read again when its log could not be read as it ended`() =
+        runBlocking {
+            val tunnel = FakeTunnel()
+            val supervisor =
+                ProcessSupervisor(tunnel, temp.newFolder(), MemoryStore(), RuntimeWorkTracker(), scope, restartDelayMillis = 1)
+            val unreadable = AtomicInteger(1)
+            // The first read once the tunnel has ended fails, the way a log being replaced can.
+            supervisor.readLogTail = { file, characters ->
+                val ended = supervisor.processes.value.none { it.isActive }
+                if (ended && unreadable.getAndDecrement() > 0) throw FileNotFoundException(file.path)
+                ProcessSupervisor.readTail(file, characters)
+            }
+            val sharing = sharing(tunnel, supervisor = supervisor)
+            sharing.start(8000)
+            until { tunnel.exits.isNotEmpty() }
+
+            tunnel.print("ERR failed to request quick Tunnel: no network\n")
+            tunnel.exits.single().complete(1)
+
+            until { sharing.shares.value[8000] is ShareState.Failed }
+            assertTrue("the read after the end failed once", unreadable.get() < 1)
             assertEquals("ERR failed to request quick Tunnel: no network", (sharing.shares.value[8000] as ShareState.Failed).reason)
         }
 

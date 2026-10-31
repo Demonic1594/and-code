@@ -91,7 +91,10 @@ class RunBridge(
                 val name = required(args, "name")
                 val characters = args.optInt("characters", DEFAULT_LOG_CHARACTERS).coerceIn(1, MAX_LOG_CHARACTERS)
                 supervisor.logTail(name, characters)?.let { ok(JSONObject().put("name", name).put("log", it)) }
-                    ?: error("No log for \"$name\": it has not been started. Run `andcode-run list` to see the processes.")
+                    ?: error(
+                        "No log for \"$name\": it has not been started, or its log is being replaced; try again. " +
+                            "Run `andcode-run list` to see the processes.",
+                    )
             }
             else -> error("unknown operation: $op")
         }

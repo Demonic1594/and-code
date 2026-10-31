@@ -50,11 +50,8 @@ import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.LocalServerUrlOpener
 import com.yugahashimoto.andcode.core.UrlLauncher
 import com.yugahashimoto.andcode.core.diagnostics.CrashLog
-import com.yugahashimoto.andcode.data.repository.RuntimeSessionRef
 import com.yugahashimoto.andcode.data.settings.DraftRepository
 import com.yugahashimoto.andcode.feature.activity.ActivityViewModel
-import com.yugahashimoto.andcode.feature.archive.ArchiveScreen
-import com.yugahashimoto.andcode.feature.archive.ArchiveViewModel
 import com.yugahashimoto.andcode.feature.assistant.SpeechRecognizerManager
 import com.yugahashimoto.andcode.feature.browser.GuestBrowserCommandWatcher
 import com.yugahashimoto.andcode.feature.chat.ChatHomeScreen
@@ -63,7 +60,6 @@ import com.yugahashimoto.andcode.feature.chat.SubagentInfo
 import com.yugahashimoto.andcode.feature.chat.buildHandoffPrompt
 import com.yugahashimoto.andcode.feature.git.GitClient
 import com.yugahashimoto.andcode.feature.git.gitHubRepositoryUrl
-import com.yugahashimoto.andcode.feature.inbox.InboxScreen
 import com.yugahashimoto.andcode.feature.inbox.InboxViewModel
 import com.yugahashimoto.andcode.feature.onboarding.AndroidSetupScreen
 import com.yugahashimoto.andcode.feature.onboarding.OnboardingChoiceScreen
@@ -71,14 +67,10 @@ import com.yugahashimoto.andcode.feature.schedule.ScheduleEditorScreen
 import com.yugahashimoto.andcode.feature.schedule.ScheduleListScreen
 import com.yugahashimoto.andcode.feature.schedule.ScheduleRunsScreen
 import com.yugahashimoto.andcode.feature.schedule.ScheduleViewModel
-import com.yugahashimoto.andcode.feature.search.MessageSearchScreen
-import com.yugahashimoto.andcode.feature.search.MessageSearchViewModel
 import com.yugahashimoto.andcode.feature.settings.CodexSignInActions
 import com.yugahashimoto.andcode.feature.settings.CodexSignInViewModel
 import com.yugahashimoto.andcode.feature.settings.DiagnosticsSheet
 import com.yugahashimoto.andcode.feature.settings.SettingsViewModel
-import com.yugahashimoto.andcode.feature.usage.UsageScreen
-import com.yugahashimoto.andcode.feature.usage.UsageViewModel
 import com.yugahashimoto.andcode.feature.wakeword.WakeWordService
 import com.yugahashimoto.andcode.feature.wakeword.WakeWordSettingsPolicy
 import com.yugahashimoto.andcode.feature.workspace.WorkspaceViewModel
@@ -90,22 +82,19 @@ import com.yugahashimoto.andcode.ui.lock.LocalSendGate
 import com.yugahashimoto.andcode.ui.navigation.ClaudeSettingsActions
 import com.yugahashimoto.andcode.ui.navigation.DRAWER_ROOT_ROUTES
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ANDROID_SETUP
-import com.yugahashimoto.andcode.ui.navigation.ROUTE_ARCHIVE
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_CHAT
-import com.yugahashimoto.andcode.ui.navigation.ROUTE_INBOX
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ONBOARDING
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_REMOTE_CONNECTION
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SCHEDULES
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SCHEDULE_EDIT
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SEARCH
-import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_AGENT_CODEX
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_PROVIDERS
-import com.yugahashimoto.andcode.ui.navigation.ROUTE_USAGE
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_WORKSPACES
 import com.yugahashimoto.andcode.ui.navigation.SCHEDULE_DETAIL_ROUTE_PATTERN
 import com.yugahashimoto.andcode.ui.navigation.SCHEDULE_EDIT_ARG_ID
 import com.yugahashimoto.andcode.ui.navigation.SCHEDULE_EDIT_ROUTE_PATTERN
+import com.yugahashimoto.andcode.ui.navigation.activityNavGraph
 import com.yugahashimoto.andcode.ui.navigation.decodeRouteArg
 import com.yugahashimoto.andcode.ui.navigation.guestBrowserRoute
 import com.yugahashimoto.andcode.ui.navigation.scheduleDetailRoute
@@ -1296,106 +1285,16 @@ fun AndCodeApp(
                             },
                         )
 
-                        composable(ROUTE_SEARCH) {
-                            val searchViewModel: MessageSearchViewModel =
-                                viewModel(
-                                    factory =
-                                        ViewModelFactory {
-                                            MessageSearchViewModel(
-                                                repository = app.messageSearch,
-                                                activeChats = { app.catalogRepository.allSessions.value },
-                                                archivedChats = {
-                                                    app.chatLifecycle.listArchived().map {
-                                                        RuntimeSessionRef(
-                                                            it.runtimeId,
-                                                            it.agent,
-                                                            it.session,
-                                                        )
-                                                    }
-                                                },
-                                                initialQuery = pendingSearchQuery,
-                                            )
-                                        },
-                                )
-                            val searchState by searchViewModel.state.collectAsState()
-                            MessageSearchScreen(
-                                state = searchState,
-                                onQueryChange = searchViewModel::setQuery,
-                                onIncludeArchivedChange = searchViewModel::setIncludeArchived,
-                                onOpen = { hit ->
-                                    val session = hit.ref.session
-                                    if (searchState.query.isNotBlank()) pendingFindRequest = session.id to searchState.query.trim()
-                                    openSessionInChat(session.id, session.title, hit.ref.runtimeId)
-                                },
-                                onBack = { navController.popBackStack() },
-                            )
-                        }
-
-                        composable(ROUTE_INBOX) {
-                            InboxScreen(
-                                state = inboxState,
-                                relativeTime = { relativeTimeLabel(context, it) },
-                                onOpen = { chat -> openSessionInChat(chat.sessionId, chat.title, chat.runtimeId) },
-                                onRespond = {
-                                        approval,
-                                        response,
-                                        remember,
-                                    ->
-                                    inboxViewModel.respond(approval.request, response, remember)
-                                },
-                                onStop = inboxViewModel::stop,
-                                onReply = inboxViewModel::reply,
-                                onMarkRead = inboxViewModel::markRead,
-                                onMarkAllRead = inboxViewModel::markAllRead,
-                                onConsumeFailure = inboxViewModel::consumeFailure,
-                                onBack = { navController.popBackStack() },
-                            )
-                        }
-
-                        composable(ROUTE_USAGE) {
-                            val usageViewModel: UsageViewModel =
-                                viewModel(
-                                    factory =
-                                        ViewModelFactory {
-                                            UsageViewModel(
-                                                repository = app.usage,
-                                                priceCatalogs = app.priceCatalogRepository,
-                                                preferences = app.preferences,
-                                                activeChats = { app.catalogRepository.allSessions.value },
-                                                archivedChats = {
-                                                    app.chatLifecycle.listArchived().map {
-                                                        RuntimeSessionRef(it.runtimeId, it.agent, it.session)
-                                                    }
-                                                },
-                                            )
-                                        },
-                                )
-                            val usageState by usageViewModel.state.collectAsState()
-                            UsageScreen(
-                                state = usageState,
-                                onRangeChange = usageViewModel::setRange,
-                                onIncludeArchivedChange = usageViewModel::setIncludeArchived,
-                                onEstimateChange = usageViewModel::setEstimateAtListPrices,
-                                onRefresh = usageViewModel::reload,
-                                onOpenChat = { row -> openSessionInChat(row.ref.session.id, row.ref.session.title, row.ref.runtimeId) },
-                                onBack = { navController.popBackStack() },
-                            )
-                        }
-
-                        composable(ROUTE_ARCHIVE) {
-                            val archiveViewModel: ArchiveViewModel =
-                                viewModel(factory = ViewModelFactory { ArchiveViewModel(app.chatLifecycle) })
-                            val archiveState by archiveViewModel.state.collectAsState()
-                            ArchiveScreen(
-                                state = archiveState,
-                                relativeTime = { relativeTimeLabel(context, it) },
-                                onOpen = { chat -> openSessionInChat(chat.session.id, chat.session.title, chat.runtimeId) },
-                                onRestore = archiveViewModel::restore,
-                                onDeleteForever = archiveViewModel::deleteForever,
-                                onOpenAutoArchiveSettings = { navController.navigate(ROUTE_SETTINGS) { launchSingleTop = true } },
-                                onBack = { navController.popBackStack() },
-                            )
-                        }
+                        activityNavGraph(
+                            app = app,
+                            navController = navController,
+                            inboxViewModel = inboxViewModel,
+                            inboxState = { inboxState },
+                            pendingSearchQuery = { pendingSearchQuery },
+                            onFindRequest = { pendingFindRequest = it },
+                            openSessionInChat = ::openSessionInChat,
+                            relativeTime = { relativeTimeLabel(context, it) },
+                        )
 
                         composable(ROUTE_SCHEDULES) {
                             ScheduleListScreen(

@@ -5,8 +5,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
@@ -19,7 +20,10 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.io.FileNotFoundException
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 class ProcessSupervisorTest {
     @get:Rule
@@ -30,7 +34,9 @@ class ProcessSupervisorTest {
 
     @After
     fun tearDown() {
-        scope.cancel()
+        // Wait for the supervisor's coroutines before the temporary folder goes: one still reading a
+        // log there would fail after the test, and runTest would blame whichever test runs next.
+        runBlocking { withTimeout(5_000) { scope.coroutineContext.job.cancelAndJoin() } }
     }
 
     private class FakeHandle : GuestProcessHandle {
@@ -160,6 +166,32 @@ class ProcessSupervisorTest {
 
             until { supervisor.processes.value.single().port == 5173 }
             assertTrue(supervisor.logTail("web").orEmpty().contains("VITE ready"))
+        }
+
+    @Test
+    fun `a log that cannot be read for a moment neither throws nor stops the port watcher`() =
+        runBlocking {
+            val launcher = FakeLauncher().apply { output = "  Local:   http://localhost:5173/\n" }
+            val supervisor = supervisor(launcher)
+            val failing = AtomicBoolean(true)
+            val failures = AtomicInteger()
+            // The way a restart's rotation can remove the log between the check and the read.
+            supervisor.readLogTail = { file, characters ->
+                if (failing.get()) {
+                    failures.incrementAndGet()
+                    throw FileNotFoundException(file.path)
+                }
+                ProcessSupervisor.readTail(file, characters)
+            }
+            supervisor.start(SupervisedProcessSpec("web", "npm run dev"))
+
+            assertNull(supervisor.logTail("web"))
+            // One failure is logTail's; the second is the watcher's first read.
+            until { failures.get() >= 2 }
+            failing.set(false)
+            // The watcher must still be there to make the next read and find the port.
+            until { supervisor.processes.value.single().port == 5173 }
+            assertTrue(supervisor.logTail("web").orEmpty().contains("5173"))
         }
 
     @Test
