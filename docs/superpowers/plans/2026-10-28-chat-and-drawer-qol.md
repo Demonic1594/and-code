@@ -1,6 +1,12 @@
 # Four chat and drawer quality-of-life additions
 
-Status: **items 1-3 done**; item 4 (shadow snapshots) not started. Where the build differs from
+Status: **done**. Item 4 was built wider than planned: the same snapshots also let the files be
+put back to before any user message ("Restore files to here", with Undo) on on-device runtimes
+without checkpoints of their own; legacy OpenCode keeps its server-side rewind. Snapshots are
+taken before each turn (Task 1's start-vs-end question was settled by taking them at the start
+and diffing to the next turn's snapshot, or to a fresh one for the latest turn), time-limited
+(20 s) instead of size-capped, and exclude dependency and build folders. Not done from item 4:
+the Storage manager area for the snapshot store, and device measurements. Where the build differs from
 the design below: the DevTools Network copy menu keeps its menu without check feedback (it closes on
 selection, so there is nothing left on screen to show it); clearing the project filter keeps the
 field open, and the search icon closes it; the `CopyButton` state machine has no unit test (its

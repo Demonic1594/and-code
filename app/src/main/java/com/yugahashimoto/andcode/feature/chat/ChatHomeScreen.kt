@@ -112,6 +112,7 @@ private data class MessageActionTarget(
     val text: String,
     val canEdit: Boolean,
     val canRewind: Boolean = false,
+    val canRestoreFiles: Boolean = false,
 )
 
 private const val DRAFT_SAVE_DEBOUNCE_MS = 400L
@@ -197,6 +198,11 @@ fun ChatHomeScreen(
     /** Rewinds the chat, files included, to just before the given message of the user's. */
     onRewind: (String) -> Unit = {},
     onUndoRewind: () -> Unit = {},
+    /** Whether the files can be put back to before a user message, from a snapshot; see TurnSnapshots. */
+    canRestoreFiles: (String) -> Boolean = { false },
+    onRestoreFiles: (String) -> Unit = {},
+    onUndoFileRestore: () -> Unit = {},
+    onDismissFileRestore: () -> Unit = {},
     onPermission: (String, PermissionResponse, Boolean) -> Unit,
     onAbort: () -> Unit,
     /** Probes the quiet run again now, rather than waiting for the next scheduled check. */
@@ -251,6 +257,7 @@ fun ChatHomeScreen(
     val isAtBottom = remember { mutableStateOf(true) }
     var showActionSheet by remember { mutableStateOf<MessageActionTarget?>(null) }
     var rewindTarget by remember { mutableStateOf<MessageActionTarget?>(null) }
+    var restoreTarget by remember { mutableStateOf<MessageActionTarget?>(null) }
     var showArtifacts by remember { mutableStateOf(false) }
     var activityGroupId by remember { mutableStateOf<String?>(null) }
     var selectedImage by remember { mutableStateOf<ChatImageSource?>(null) }
@@ -679,6 +686,9 @@ fun ChatHomeScreen(
                                                     canEditMessages && !state.isRunning && state.rewoundFrom == null &&
                                                         entry.message.id == lastUserMessageId,
                                                 canRewind = canRewind && !state.isRunning && !state.isRewinding,
+                                                canRestoreFiles =
+                                                    !canRewind && !state.isRunning && !state.isRestoringFiles &&
+                                                        canRestoreFiles(entry.message.id),
                                             )
                                         is TimelineEntry.Body ->
                                             MessageActionTarget(entry.messageId, entry.part.text, canEdit = false)
@@ -823,6 +833,13 @@ fun ChatHomeScreen(
                     onUndo = onUndoRewind,
                 )
             }
+            if (state.fileRestore != null) {
+                FileRestoreBanner(
+                    busy = state.isRestoringFiles,
+                    onUndo = onUndoFileRestore,
+                    onDismiss = onDismissFileRestore,
+                )
+            }
 
             if (!runtimeNotReady) {
                 ChatComposer(
@@ -833,8 +850,9 @@ fun ChatHomeScreen(
                     },
                     isRunning = state.isRunning,
                     onSend = {
-                        // Held while a rewind lands: which messages the new one follows is not settled yet.
-                        if (!state.isRewinding && (input.isNotBlank() || state.attachments.isNotEmpty())) {
+                        // Held while a rewind or file restore lands: what the new message follows is not settled yet.
+                        val settled = !state.isRewinding && !state.isRestoringFiles
+                        if (settled && (input.isNotBlank() || state.attachments.isNotEmpty())) {
                             haptics.perform(HapticEvent.CONFIRM)
                             val text = SlashCommandRegistry.expandSavedPrompt(input, savedPrompts)
                             // The composer clears only once the message actually goes out, so a
@@ -1063,6 +1081,24 @@ fun ChatHomeScreen(
         ArtifactPreviewDialog(state = preview, onDismiss = onDismissArtifact)
     }
 
+    restoreTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { restoreTarget = null },
+            icon = { Icon(Icons.Default.History, contentDescription = null) },
+            title = { Text(stringResource(R.string.restore_files_confirm_title)) },
+            text = { Text(stringResource(R.string.restore_files_confirm_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onRestoreFiles(target.id)
+                    restoreTarget = null
+                }) { Text(stringResource(R.string.restore_files_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { restoreTarget = null }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+
     rewindTarget?.let { target ->
         AlertDialog(
             onDismissRequest = { rewindTarget = null },
@@ -1113,6 +1149,16 @@ fun ChatHomeScreen(
                         leadingIcon = { Icon(Icons.Default.History, contentDescription = null) },
                         onClick = {
                             rewindTarget = target
+                            showActionSheet = null
+                        },
+                    )
+                }
+                if (target.canRestoreFiles) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_restore_files)) },
+                        leadingIcon = { Icon(Icons.Default.History, contentDescription = null) },
+                        onClick = {
+                            restoreTarget = target
                             showActionSheet = null
                         },
                     )

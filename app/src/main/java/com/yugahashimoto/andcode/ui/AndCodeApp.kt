@@ -176,6 +176,7 @@ fun AndCodeApp(
     var showDiagnostics by remember { mutableStateOf(false) }
 
     val selectedRuntime by app.runtimeRegistry.selected.collectAsState()
+    val turnSnapshots = app.turnSnapshots
     val repositoryGit =
         remember {
             GitClient { command, timeout, window -> app.commandRunner.runShell(command, timeout, window.maxCharacters, window.keepStart) }
@@ -304,6 +305,14 @@ fun AndCodeApp(
                 ViewModelFactory {
                     ChatViewModel(
                         backend = selectedRuntime,
+                        // Snapshots stand in for checkpoints on an on-device runtime that has none
+                        // of its own; legacy OpenCode rewinds through its server instead.
+                        turnSnapshots =
+                            turnSnapshots.takeIf {
+                                selectedRuntime?.kind == com.yugahashimoto.andcode.runtime.BackendKind.LOCAL &&
+                                    selectedRuntime?.capabilities?.checkpoints != true
+                            },
+                        restoreFailedMessage = context.getString(R.string.restore_files_failed),
                         // The toggle owns the whole estimate feature, the chat menu's line included.
                         priceCatalog = {
                             app.priceCatalogRepository.catalog.value.takeIf {
@@ -1335,6 +1344,10 @@ fun AndCodeApp(
                                 canRewind = selectedRuntime?.capabilities?.checkpoints == true,
                                 onRewind = chatViewModel::rewindTo,
                                 onUndoRewind = chatViewModel::undoRewind,
+                                canRestoreFiles = chatViewModel::canRestoreFiles,
+                                onRestoreFiles = chatViewModel::restoreFilesTo,
+                                onUndoFileRestore = chatViewModel::undoFileRestore,
+                                onDismissFileRestore = chatViewModel::dismissFileRestore,
                                 onEditLastMessage = chatViewModel::editLastUserMessage,
                                 onEditDraftConsumed = chatViewModel::consumeEditDraft,
                                 onPermission = chatViewModel::respondToPermission,
