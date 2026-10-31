@@ -505,6 +505,7 @@ class AndCodeApplication : Application() {
                 updateEngine = updateEngine,
                 systemPrompt = { systemPromptStore.selectedPrompt() },
                 messages = runtimeMessages,
+                beforeGuestChange = { if (::processSupervisor.isInitialized) processSupervisor.stopAllAndWait() },
             )
         // Prune the OpenCode server's event log once the runtime is up (throttled to once a day by
         // the marker file inside runIfDue). collectLatest so a status flap cancels the pending
@@ -766,17 +767,6 @@ class AndCodeApplication : Application() {
                 running to foreground
             }.distinctUntilChanged()
                 .collect { (running, _) -> if (running) SupervisedProcessService.start(this@AndCodeApplication) }
-        }
-        // An update or reinstall swaps the rootfs out from under running processes, and a delete
-        // removes it: stop them first rather than leave them running against files that are gone.
-        applicationScope.launch {
-            localRuntimeManager.state.collect { status ->
-                val replacing =
-                    status is LocalRuntimeStatus.Installing ||
-                        status is LocalRuntimeStatus.Updating ||
-                        status is LocalRuntimeStatus.NotInstalled
-                if (replacing) processSupervisor.stopAll()
-            }
         }
         observeForegroundForRuntimeRestart()
         scheduleDeferredInitialization()

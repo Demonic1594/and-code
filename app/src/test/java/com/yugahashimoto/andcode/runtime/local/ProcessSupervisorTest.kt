@@ -4,6 +4,7 @@ import com.yugahashimoto.andcode.core.runtime.RuntimeWorkTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -196,6 +197,56 @@ class ProcessSupervisorTest {
             assertEquals(SupervisedStatus.RUNNING, supervisor.processes.value.single().status)
             assertTrue(supervisor.stop("web"))
             until { launcher.started[1].killed }
+        }
+
+    @Test
+    fun `restart right after stop waits for the old process to go`() =
+        runBlocking {
+            val launcher =
+                object : GuestProcessLauncher {
+                    val started = mutableListOf<FakeHandle>()
+
+                    override fun start(
+                        spec: SupervisedProcessSpec,
+                        log: File,
+                    ): GuestProcessHandle =
+                        // A kill that does not end the process at once, like a server shutting down.
+                        object : GuestProcessHandle {
+                            val inner = FakeHandle()
+
+                            override fun waitFor() = inner.waitFor()
+
+                            override fun kill() {
+                                inner.killed = true
+                            }
+                        }.also { started += it.inner }
+                }
+            val supervisor =
+                ProcessSupervisor(launcher, temp.newFolder(), MemoryStore(), work, scope, restartDelayMillis = 1)
+            supervisor.start(SupervisedProcessSpec("web", "npm run dev"))
+            supervisor.stop("web")
+
+            val restarted = scope.async { supervisor.restart("web") }
+            delay(200)
+            assertEquals("not started while the old one still runs", 1, launcher.started.size)
+
+            launcher.started.single().exit.complete(143)
+            assertTrue(restarted.await() is StartResult.Started)
+            assertEquals(2, launcher.started.size)
+        }
+
+    @Test
+    fun `stop all and wait returns once the processes are gone`() =
+        runBlocking {
+            val launcher = FakeLauncher()
+            val supervisor = supervisor(launcher)
+            supervisor.start(SupervisedProcessSpec("a", "x"))
+            supervisor.start(SupervisedProcessSpec("b", "y"))
+
+            supervisor.stopAllAndWait()
+
+            assertTrue(launcher.started.all { it.killed })
+            assertTrue(supervisor.processes.value.none { it.isActive })
         }
 
     @Test

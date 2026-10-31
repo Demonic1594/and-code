@@ -15,7 +15,7 @@ Hard rules:
 - ALWAYS start dev servers, watchers, and anything else meant to keep running with `andcode-run start`.
 - NEVER start them with `nohup`, a trailing `&`, `disown`, `setsid`, `screen` or `tmux`.
 - Bind servers to 127.0.0.1 (localhost) unless the user asks for more.
-- After starting, VERIFY before telling the user it works: `andcode-run list` shows it `running`, and `curl -sI http://localhost:PORT` answers. If it is not running, read `andcode-run logs NAME` and fix the cause.
+- After starting, VERIFY before telling the user it works: `andcode-run list` shows it `running`; for a web server, `curl -sI http://localhost:PORT` answers; for a watcher or other process, its log shows it is ready. If it is not running, read `andcode-run logs NAME` and fix the cause.
 - If `andcode-run` refuses or fails, tell the user what it said. Do not work around it with the forbidden commands above.
 
 Commands:
@@ -31,9 +31,9 @@ andcode-run start web --port 5173 -- npm run dev -- --host 127.0.0.1 --port 5173
 andcode-run list
 curl -sI http://localhost:5173 | head -1
 
-andcode-run start api --port 8000 -- python3 -m http.server 8000 --bind 127.0.0.1
-andcode-run logs api
-andcode-run stop api
+andcode-run start site --port 8000 -- python3 -m http.server 8000 --bind 127.0.0.1 --directory dist
+andcode-run logs site
+andcode-run stop site
 ```
 
 Failures and what to do:

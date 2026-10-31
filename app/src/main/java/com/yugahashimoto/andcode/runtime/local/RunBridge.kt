@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.core.util.pollWhileActive
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import org.json.JSONArray
 import org.json.JSONObject
@@ -49,6 +50,12 @@ class RunBridge(
                             handle(request.optString("op"), request.optJSONObject("args") ?: JSONObject())
                         } catch (failure: IllegalArgumentException) {
                             error(failure.message.orEmpty())
+                        } catch (failure: CancellationException) {
+                            throw failure
+                        } catch (failure: Exception) {
+                            // Anything else still answers this request, so it is not retried on
+                            // every poll and does not hold up the ones after it.
+                            error("The app could not handle the request (${failure.javaClass.simpleName}). Tell the user.")
                         }
                 }
             // The request goes before the reply, so a crash in between never runs a start twice.

@@ -1798,6 +1798,6 @@
     <string name="drawer_project_search_hint">البحث عن المشاريع</string>
     <string name="notification_channel_supervised">العمليات قيد التشغيل</string>
     <string name="supervised_notification_title">العمليات قيد التشغيل (%1$d)</string>
-    <string name="supervised_notification_keeping_awake">يُبقي الجهاز مستيقظًا</string>
+    <string name="supervised_notification_keeping_awake">يستمر في العمل والشاشة مطفأة</string>
     <string name="supervised_stop_all">إيقاف الكل</string>
 </resources>

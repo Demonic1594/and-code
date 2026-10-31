@@ -211,6 +211,12 @@ class ProcessSupervisor(
         mutableProcesses.value.filter { it.isActive }.forEach { stop(it.spec.name) }
     }
 
+    /** Stops everything and waits, up to a few seconds, for the processes to be gone. */
+    suspend fun stopAllAndWait() {
+        val stopped = mutableProcesses.value.filter { it.isActive }.mapNotNull { stopRun(it.spec.name) { true } }
+        withTimeoutOrNull(STOP_WAIT_MILLIS) { stopped.forEach { it.job?.join() } }
+    }
+
     /**
      * Stops [name] if it runs and starts it again with the same settings, once the old one has
      * gone, so it does not find its own port still taken.
@@ -220,7 +226,10 @@ class ProcessSupervisor(
         // Once the old one is stopped the new one must start, even if the caller is cancelled
         // meanwhile (the bridge stops polling when the app goes idle).
         return withContext(NonCancellable) {
-            stopRun(name) { true }?.job?.let { job -> withTimeoutOrNull(STOP_WAIT_MILLIS) { job.join() } }
+            // The current run, even one stopped a moment ago that is still shutting down.
+            val previous = synchronized(lock) { runs[name] }
+            stopRun(name) { true }
+            previous?.job?.let { job -> withTimeoutOrNull(STOP_WAIT_MILLIS) { job.join() } }
             start(spec)
         }
     }

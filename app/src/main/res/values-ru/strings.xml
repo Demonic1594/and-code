@@ -1772,6 +1772,6 @@
     <string name="drawer_project_search_hint">Поиск проектов</string>
     <string name="notification_channel_supervised">Запущенные процессы</string>
     <string name="supervised_notification_title">Запущенные процессы (%1$d)</string>
-    <string name="supervised_notification_keeping_awake">Устройство не засыпает</string>
+    <string name="supervised_notification_keeping_awake">Работает при выключенном экране</string>
     <string name="supervised_stop_all">Остановить всё</string>
 </resources>

@@ -19,6 +19,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -52,9 +53,21 @@ class SupervisedProcessService : Service() {
         }
         acquireWakeLock()
         scope.launch {
+            while (true) {
+                delay(WAKE_LOCK_RENEW_MILLIS)
+                wakeLock?.acquire(WAKE_LOCK_CAP_MILLIS)
+            }
+        }
+        scope.launch {
             supervisor.processes.collect { processes ->
                 val running = processes.filter { it.isActive }
-                if (running.isEmpty()) stopSelf(lastStartId) else notify(running)
+                if (running.isEmpty()) {
+                    stopSelf(lastStartId)
+                } else {
+                    notify(running)
+                    // Renewed while anything runs, so a run without a time limit outlives the cap.
+                    wakeLock?.acquire(WAKE_LOCK_CAP_MILLIS)
+                }
             }
         }
     }
@@ -144,6 +157,7 @@ class SupervisedProcessService : Service() {
         private const val NOTIFICATION_ID = 4302
         private const val ACTION_STOP_ALL = "com.yugahashimoto.andcode.supervised.STOP_ALL"
         private const val WAKE_LOCK_CAP_MILLIS = 24L * 60 * 60 * 1000
+        private const val WAKE_LOCK_RENEW_MILLIS = 12L * 60 * 60 * 1000
 
         fun start(context: Context) {
             runCatching { ContextCompat.startForegroundService(context, Intent(context, SupervisedProcessService::class.java)) }

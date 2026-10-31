@@ -1753,6 +1753,6 @@
     <string name="drawer_project_search_hint">プロジェクトを検索</string>
     <string name="notification_channel_supervised">実行中のプロセス</string>
     <string name="supervised_notification_title">実行中のプロセス (%1$d)</string>
-    <string name="supervised_notification_keeping_awake">デバイスをスリープさせません</string>
+    <string name="supervised_notification_keeping_awake">画面がオフでも動作し続けます</string>
     <string name="supervised_stop_all">すべて停止</string>
 </resources>
