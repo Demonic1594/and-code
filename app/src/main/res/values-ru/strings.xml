@@ -1782,4 +1782,8 @@
     <string name="app_lock_send_prompt_title">Подтвердите личность для отправки</string>
     <string name="app_lock_voice_locked">Разблокируйте телефон, чтобы отправить это. Включена блокировка приложения.</string>
     <string name="app_lock_needs_android_9">Требуется Android 9 или новее.</string>
+    <string name="notification_channel_supervised">Запущенные процессы</string>
+    <string name="supervised_notification_title">Запущенные процессы (%1$d)</string>
+    <string name="supervised_notification_keeping_awake">Работает при выключенном экране</string>
+    <string name="supervised_stop_all">Остановить всё</string>
 </resources>

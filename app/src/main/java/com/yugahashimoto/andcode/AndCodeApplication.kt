@@ -69,6 +69,7 @@ import com.yugahashimoto.andcode.runtime.local.CustomProviderStore
 import com.yugahashimoto.andcode.runtime.local.DefaultLocalRuntimeUpdateEngine
 import com.yugahashimoto.andcode.runtime.local.GitCloneRepository
 import com.yugahashimoto.andcode.runtime.local.GitCredentialHelper
+import com.yugahashimoto.andcode.runtime.local.JsonSupervisorStore
 import com.yugahashimoto.andcode.runtime.local.LocalProviderCredentialStore
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeAccessCoordinator
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeCommandRunner
@@ -83,11 +84,16 @@ import com.yugahashimoto.andcode.runtime.local.LocalRuntimeTarget
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeUpdater
 import com.yugahashimoto.andcode.runtime.local.LocalTerminalSessionFactory
 import com.yugahashimoto.andcode.runtime.local.OpencodeDatabaseMaintenance
+import com.yugahashimoto.andcode.runtime.local.ProcessSupervisor
+import com.yugahashimoto.andcode.runtime.local.ProotProcessLauncher
+import com.yugahashimoto.andcode.runtime.local.RunBridge
 import com.yugahashimoto.andcode.runtime.local.StartupCommandsRunner
+import com.yugahashimoto.andcode.runtime.local.SupervisedProcessService
 import com.yugahashimoto.andcode.runtime.local.SystemPromptStore
 import com.yugahashimoto.andcode.runtime.local.TerminalSessionFactory
 import com.yugahashimoto.andcode.runtime.local.VerifiedRuntimeDownloader
 import com.yugahashimoto.andcode.runtime.local.applyOpenCodeSystemPrompt
+import com.yugahashimoto.andcode.runtime.local.isActive
 import com.yugahashimoto.andcode.startup.CatalogReconcileInitializer
 import com.yugahashimoto.andcode.startup.RuntimeAutoStartInitializer
 import com.yugahashimoto.andcode.startup.RuntimeAutoStartTrigger
@@ -130,6 +136,10 @@ class AndCodeApplication : Application() {
      * the activity repository's bridge - can take it as a plain constructor dependency.
      */
     lateinit var runtimeWork: RuntimeWorkTracker
+        private set
+
+    /** Dev servers and other long-running guest commands, kept alive for the agents (`andcode-run`). */
+    lateinit var processSupervisor: ProcessSupervisor
         private set
 
     /** Whether an activity of the app is on screen; see [AppForeground]. */
@@ -500,6 +510,7 @@ class AndCodeApplication : Application() {
                 updateEngine = updateEngine,
                 systemPrompt = { systemPromptStore.selectedPrompt() },
                 messages = runtimeMessages,
+                beforeGuestChange = { if (::processSupervisor.isInitialized) processSupervisor.stopAllAndWait() },
             )
         // Prune the OpenCode server's event log once the runtime is up (throttled to once a day by
         // the marker file inside runIfDue). collectLatest so a status flap cancels the pending
@@ -736,6 +747,33 @@ class AndCodeApplication : Application() {
                 .distinctUntilChanged()
         applicationScope.launch { scheduleBridge.run(scheduleBridgeActive) }
         observeAppLock()
+        // Long-running guest processes the agents hand over with `andcode-run`, and the bridge that
+        // command talks through. The same activity rule applies: a supervised process holds a
+        // runtimeWork lease, so while one runs the bridge keeps answering.
+        processSupervisor =
+            ProcessSupervisor(
+                launcher = ProotProcessLauncher(runtimeDirectory, installer::installedRuntime, File(runtimeDirectory, "workspace")),
+                logDirectory = File(runtimeDirectory, "logs/supervised"),
+                store = JsonSupervisorStore(File(filesDir, "supervised-processes.json")),
+                runtimeWork = runtimeWork,
+                scope = applicationScope,
+            )
+        applicationScope.launch { RunBridge(File(runtimeDirectory, "workspace"), processSupervisor).run(scheduleBridgeActive) }
+        // While anything runs, a foreground service keeps the app awake and offers Stop all.
+        applicationScope.launch {
+            // Android refuses a foreground start from the background; coming to the foreground with
+            // something running tries again.
+            combine(
+                processSupervisor.processes.map {
+                        processes ->
+                    processes.any { it.isActive }
+                },
+                appForeground.foreground,
+            ) { running, foreground ->
+                running to foreground
+            }.distinctUntilChanged()
+                .collect { (running, _) -> if (running) SupervisedProcessService.start(this@AndCodeApplication) }
+        }
         observeForegroundForRuntimeRestart()
         scheduleDeferredInitialization()
     }

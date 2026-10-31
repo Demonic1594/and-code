@@ -1808,4 +1808,8 @@
     <string name="app_lock_send_prompt_title">أكّد هويتك للإرسال</string>
     <string name="app_lock_voice_locked">افتح قفل هاتفك لإرسال هذا. قفل التطبيق مفعّل.</string>
     <string name="app_lock_needs_android_9">يتطلب Android 9 أو أحدث.</string>
+    <string name="notification_channel_supervised">العمليات قيد التشغيل</string>
+    <string name="supervised_notification_title">العمليات قيد التشغيل (%1$d)</string>
+    <string name="supervised_notification_keeping_awake">يستمر في العمل والشاشة مطفأة</string>
+    <string name="supervised_stop_all">إيقاف الكل</string>
 </resources>

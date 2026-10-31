@@ -686,6 +686,7 @@ class LocalRuntimeInstaller(
             "android-build-setup.sh" to "android-build-setup",
             "andcode-browser-mcp.py" to "andcode-browser-mcp.py",
             "andcode-schedule-mcp.py" to "andcode-schedule-mcp.py",
+            "andcode-run.py" to "andcode-run",
         ).forEach {
                 (assetName, scriptName) ->
             val scriptFile = File(binDir, scriptName)

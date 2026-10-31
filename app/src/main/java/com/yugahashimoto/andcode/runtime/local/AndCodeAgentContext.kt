@@ -30,6 +30,8 @@ private val AGENT_CONTEXT_PATHS =
         "root/.config/opencode/and-code-context.md",
         "root/.claude/CLAUDE.md",
         "root/.gemini/GEMINI.md",
+        // Codex reads global instructions from $CODEX_HOME/AGENTS.md; CODEX_HOME is /root/.codex.
+        "root/.codex/AGENTS.md",
     )
 
 internal fun ensureAndCodeAgentContext(

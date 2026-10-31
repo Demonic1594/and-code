@@ -66,6 +66,11 @@ class LocalRuntimeManager(
      */
     private val systemPrompt: () -> String? = { null },
     private val messages: LocalRuntimeMessages = LocalRuntimeMessages,
+    /**
+     * Runs, and is waited for, before anything replaces or deletes the guest filesystem: processes
+     * the app keeps running there (`andcode-run`) must be gone before their files are.
+     */
+    private val beforeGuestChange: suspend () -> Unit = {},
 ) {
     private val json: Json =
         Json {
@@ -121,6 +126,7 @@ class LocalRuntimeManager(
                 installer
                     ?: return@withLock Result.failure(IllegalStateException("Local runtime installer is not configured"))
             runCatching {
+                beforeGuestChange()
                 val installed =
                     configuredInstaller.install(agents, installFullDevelopmentTools) { progress, step, agent ->
                         mutableState.value = LocalRuntimeStatus.Installing(progress, step, agent)
@@ -187,6 +193,7 @@ class LocalRuntimeManager(
     suspend fun deleteRuntime(): Result<LocalRuntimeStatus.NotInstalled> =
         operationMutex.withLock {
             runCatching {
+                beforeGuestChange()
                 withContext(Dispatchers.IO) {
                     processLauncher?.stop()
                     if (runtimeDirectory.exists()) {
@@ -207,6 +214,7 @@ class LocalRuntimeManager(
 
     suspend fun reinstall(): Result<LocalRuntimeStatus.Ready> =
         operationMutex.withLock {
+            beforeGuestChange()
             withContext(Dispatchers.IO) { processLauncher?.stop() }
             val previousMetadata = readMetadata()
             File(runtimeDirectory, METADATA_FILE).delete()
@@ -532,6 +540,7 @@ class LocalRuntimeManager(
     private fun currentMetadataForOperation(): LocalRuntimeMetadata? = runtimeOperations?.currentMetadata() ?: readMetadata()
 
     private suspend fun stopForOperation() {
+        beforeGuestChange()
         val operations = runtimeOperations
         if (operations != null) {
             operations.stop()

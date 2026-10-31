@@ -1769,4 +1769,8 @@
     <string name="app_lock_send_prompt_title">Confirma tu identidad para enviar</string>
     <string name="app_lock_voice_locked">Desbloquea el teléfono para enviar esto. El bloqueo de la app está activado.</string>
     <string name="app_lock_needs_android_9">Requiere Android 9 o posterior.</string>
+    <string name="notification_channel_supervised">Procesos en ejecución</string>
+    <string name="supervised_notification_title">Procesos en ejecución (%1$d)</string>
+    <string name="supervised_notification_keeping_awake">Sigue funcionando con la pantalla apagada</string>
+    <string name="supervised_stop_all">Detener todo</string>
 </resources>

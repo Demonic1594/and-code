@@ -1786,4 +1786,8 @@
     <string name="app_lock_send_prompt_title">Confirm it is you to send</string>
     <string name="app_lock_voice_locked">Unlock your phone to send this. The app lock is on.</string>
     <string name="app_lock_needs_android_9">Needs Android 9 or later.</string>
+    <string name="notification_channel_supervised">Running processes</string>
+    <string name="supervised_notification_title">Running processes (%1$d)</string>
+    <string name="supervised_notification_keeping_awake">Keeps running while the screen is off</string>
+    <string name="supervised_stop_all">Stop all</string>
 </resources>
