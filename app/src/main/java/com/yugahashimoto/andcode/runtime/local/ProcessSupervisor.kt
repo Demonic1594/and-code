@@ -263,7 +263,8 @@ class ProcessSupervisor(
         if (!SupervisedProcessSpec.isValidName(name)) return null
         val log = logFile(name)
         if (!log.isFile) return null
-        return readTail(log, maxCharacters)
+        // A restart may rotate the log, or the watcher trim it, between the check and the read.
+        return runCatching { readTail(log, maxCharacters) }.getOrNull()
     }
 
     fun logFile(name: String): File = File(logDirectory, "$name.log")
@@ -337,7 +338,10 @@ class ProcessSupervisor(
             val current = mutableProcesses.value.firstOrNull { it.spec.name == name }
             val wantsPort = current?.spec?.detectPort == true && current.port == null
             if (wantsPort && log.isFile) {
-                detectPort(readTail(log, PORT_SCAN_CHARACTERS))?.let { port -> setStatus(name) { it.copy(port = it.port ?: port) } }
+                // The log can go between the check and the read (a restart rotates it); an exception
+                // here would end the watcher, and in the app's scope the app with it.
+                val tail = runCatching { readTail(log, PORT_SCAN_CHARACTERS) }.getOrNull()
+                tail?.let(::detectPort)?.let { port -> setStatus(name) { it.copy(port = it.port ?: port) } }
             }
             if (log.length() > MAX_LOG_BYTES) trim(log)
             delay(WATCH_INTERVAL_MILLIS)

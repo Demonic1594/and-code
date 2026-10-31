@@ -5,8 +5,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
@@ -30,7 +31,9 @@ class ProcessSupervisorTest {
 
     @After
     fun tearDown() {
-        scope.cancel()
+        // Wait for the supervisor's coroutines before the temporary folder goes: one still reading a
+        // log there would fail after the test, and runTest would blame whichever test runs next.
+        runBlocking { withTimeout(5_000) { scope.coroutineContext.job.cancelAndJoin() } }
     }
 
     private class FakeHandle : GuestProcessHandle {
