@@ -1763,4 +1763,18 @@
     <string name="supervised_notification_title">実行中のプロセス (%1$d)</string>
     <string name="supervised_notification_keeping_awake">画面がオフでも動作し続けます</string>
     <string name="supervised_stop_all">すべて停止</string>
+    <string name="share_server_title">ポート %1$d を共有</string>
+    <string name="share_server_installing">共有ツールを準備しています（初回のみ）…</string>
+    <string name="share_server_starting">リンクを開始しています…</string>
+    <string name="share_server_too_many">実行中のプロセスが多すぎます。1 つ停止してから、もう一度お試しください。</string>
+    <string name="share_server_failed">共有できませんでした: %1$s</string>
+    <string name="share_server_warning">共有している間、リンクを知っている人なら誰でも、どこからでも localhost:%1$d にアクセスできるようになります。リンクはランダムですが、送信した時点で秘密ではなくなります。</string>
+    <string name="share_server_start">共有を開始</string>
+    <string name="share_server_send">リンクを送信</string>
+    <string name="cd_share_server_qr">リンクの QR コード</string>
+    <string name="share_server_live_note">リンクはこのサーバーが動いている間有効で、サーバーの停止、ターミナルを閉じたとき、2 時間の経過、または共有の停止で無効になります。</string>
+    <string name="share_server_stop">共有を停止</string>
+    <string name="share_server_retry">再試行</string>
+    <string name="cd_share_server">ポート %1$d を共有</string>
+    <string name="cd_share_server_live">ポート %1$d を共有中</string>
 </resources>

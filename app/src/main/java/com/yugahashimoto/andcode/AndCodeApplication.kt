@@ -60,12 +60,14 @@ import com.yugahashimoto.andcode.runtime.local.ClaudeCodeController
 import com.yugahashimoto.andcode.runtime.local.ClaudeCodeRuntime
 import com.yugahashimoto.andcode.runtime.local.ClaudeCodeTarget
 import com.yugahashimoto.andcode.runtime.local.ClaudeWorkspaceFiles
+import com.yugahashimoto.andcode.runtime.local.CloudflaredInstaller
 import com.yugahashimoto.andcode.runtime.local.CodexController
 import com.yugahashimoto.andcode.runtime.local.CodexKeepAliveService
 import com.yugahashimoto.andcode.runtime.local.CodexRuntime
 import com.yugahashimoto.andcode.runtime.local.CodexTarget
 import com.yugahashimoto.andcode.runtime.local.CustomProviderStore
 import com.yugahashimoto.andcode.runtime.local.DefaultLocalRuntimeUpdateEngine
+import com.yugahashimoto.andcode.runtime.local.DevServerSharing
 import com.yugahashimoto.andcode.runtime.local.GitCloneRepository
 import com.yugahashimoto.andcode.runtime.local.GitCredentialHelper
 import com.yugahashimoto.andcode.runtime.local.JsonSupervisorStore
@@ -138,6 +140,10 @@ class AndCodeApplication : Application() {
 
     /** Dev servers and other long-running guest commands, kept alive for the agents (`andcode-run`). */
     lateinit var processSupervisor: ProcessSupervisor
+        private set
+
+    /** Public links to servers on this device, through Cloudflare quick tunnels. */
+    lateinit var devServerSharing: DevServerSharing
         private set
 
     /** Whether an activity of the app is on screen; see [AppForeground]. */
@@ -769,6 +775,8 @@ class AndCodeApplication : Application() {
                 scope = applicationScope,
             )
         applicationScope.launch { RunBridge(File(runtimeDirectory, "workspace"), processSupervisor).run(scheduleBridgeActive) }
+        val cloudflared = CloudflaredInstaller(runtimeDirectory, { installer.installedRuntime()?.rootfs }, abi)
+        devServerSharing = DevServerSharing(processSupervisor, cloudflared::ensureInstalled, applicationScope)
         // While anything runs, a foreground service keeps the app awake and offers Stop all.
         applicationScope.launch {
             // Android refuses a foreground start from the background; coming to the foreground with

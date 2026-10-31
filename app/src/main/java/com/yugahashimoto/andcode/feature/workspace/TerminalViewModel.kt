@@ -7,13 +7,16 @@ import com.yugahashimoto.andcode.core.runtime.RuntimeWorkTracker
 import com.yugahashimoto.andcode.feature.terminal.AnsiTerminalEmulator
 import com.yugahashimoto.andcode.feature.terminal.DevServer
 import com.yugahashimoto.andcode.feature.terminal.DevServerDetector
+import com.yugahashimoto.andcode.feature.terminal.DevServerStatus
 import com.yugahashimoto.andcode.feature.terminal.DevServerTracker
 import com.yugahashimoto.andcode.feature.terminal.StyledLine
 import com.yugahashimoto.andcode.feature.terminal.TerminalKey
 import com.yugahashimoto.andcode.feature.terminal.WrappedLines
 import com.yugahashimoto.andcode.runtime.local.DevServerProbe
+import com.yugahashimoto.andcode.runtime.local.DevServerSharing
 import com.yugahashimoto.andcode.runtime.local.LocalTerminalLauncher
 import com.yugahashimoto.andcode.runtime.local.LoopbackDevServerProbe
+import com.yugahashimoto.andcode.runtime.local.ShareState
 import com.yugahashimoto.andcode.runtime.local.TerminalOpenRequest
 import com.yugahashimoto.andcode.runtime.local.TerminalSession
 import com.yugahashimoto.andcode.runtime.local.TerminalSessionFactory
@@ -62,6 +65,8 @@ data class TerminalUiState(
     val currentInput: String = "",
     /** Servers the shell has started that answer on this device; empty once the shell ends. */
     val servers: List<DevServer> = emptyList(),
+    /** Servers shared by link, by port; a port that is not here is not shared. */
+    val shares: Map<Int, ShareState> = emptyMap(),
 )
 
 /**
@@ -85,6 +90,8 @@ class TerminalViewModel(
     private val startDirectory: String? = null,
     private val serverProbe: DevServerProbe = LoopbackDevServerProbe(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /** Public links to the servers; null where the device cannot run a tunnel. */
+    private val sharing: DevServerSharing? = null,
 ) : ViewModel() {
     private val _state = MutableStateFlow(TerminalUiState())
     val state: StateFlow<TerminalUiState> = _state.asStateFlow()
@@ -100,6 +107,43 @@ class TerminalViewModel(
     private var tracker = DevServerTracker()
     private var probing = false
     private var probeJob: Job? = null
+
+    /** Ports this terminal shared: their links end with its servers, or with the screen. */
+    private val sharedPorts = mutableSetOf<Int>()
+
+    init {
+        sharing?.let { links ->
+            viewModelScope.launch {
+                links.shares.collect { all -> publishShares(all) }
+            }
+        }
+    }
+
+    /** Only this terminal's shares, read under [lock] like every write to [sharedPorts]. */
+    private fun publishShares(all: Map<Int, ShareState>) {
+        synchronized(lock) {
+            _state.update { it.copy(shares = all.filterKeys { port -> port in sharedPorts }) }
+        }
+    }
+
+    /** Starts a public link to [port]. The screen asks first: anyone with the link reaches the server. */
+    fun share(port: Int) {
+        val links = sharing ?: return
+        synchronized(lock) { sharedPorts += port }
+        links.start(port)
+        // Already shared (a retry, or before), the flow may not emit again: show what it holds now.
+        publishShares(links.shares.value)
+    }
+
+    fun stopSharing(port: Int) {
+        synchronized(lock) { sharedPorts -= port }
+        sharing?.stop(port)
+    }
+
+    private fun stopAllSharing() {
+        val ports = synchronized(lock) { sharedPorts.toList().also { sharedPorts.clear() } }
+        ports.forEach { sharing?.stop(it) }
+    }
 
     /** The screen lines already searched for addresses, compared by identity (see [freshTextOf]). */
     private var scannedLines: Set<StyledLine> = identitySetOf(emptyList())
@@ -287,6 +331,9 @@ class TerminalViewModel(
             synchronized(lock) {
                 tracker = tracker.applyProbe(answers)
                 _state.update { it.copy(servers = tracker.servers) }
+                // A link must not outlive the server it points at.
+                val stopped = tracker.servers.filter { it.status == DevServerStatus.STOPPED }.map { it.port }
+                if (stopped.isNotEmpty()) sharing?.stopGone(stopped.filter { it in sharedPorts })
             }
             delay(SERVER_PROBE_INTERVAL_MILLIS)
         }
@@ -310,6 +357,7 @@ class TerminalViewModel(
             probeJob = null
             _state.update { it.copy(servers = emptyList()) }
         }
+        stopAllSharing()
     }
 
     private fun fail(
@@ -360,6 +408,7 @@ class TerminalViewModel(
     }
 
     override fun onCleared() {
+        stopAllSharing()
         close()
     }
 

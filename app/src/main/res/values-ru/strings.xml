@@ -1782,4 +1782,18 @@
     <string name="supervised_notification_title">Запущенные процессы (%1$d)</string>
     <string name="supervised_notification_keeping_awake">Работает при выключенном экране</string>
     <string name="supervised_stop_all">Остановить всё</string>
+    <string name="share_server_title">Поделиться портом %1$d</string>
+    <string name="share_server_installing">Подготовка инструмента для доступа (только в первый раз)…</string>
+    <string name="share_server_starting">Запуск ссылки…</string>
+    <string name="share_server_too_many">Запущено слишком много процессов. Остановите один и попробуйте снова.</string>
+    <string name="share_server_failed">Не удалось поделиться: %1$s</string>
+    <string name="share_server_warning">localhost:%1$d станет доступен любому, у кого есть ссылка, из любой точки мира, пока доступ открыт. Ссылка случайная, но после отправки перестаёт быть секретной.</string>
+    <string name="share_server_start">Открыть доступ</string>
+    <string name="share_server_send">Отправить ссылку</string>
+    <string name="cd_share_server_qr">QR-код ссылки</string>
+    <string name="share_server_live_note">Ссылка работает, пока работает этот сервер, и перестаёт работать, когда сервер останавливается, терминал закрывается, через два часа или когда вы закрываете доступ.</string>
+    <string name="share_server_stop">Закрыть доступ</string>
+    <string name="share_server_retry">Повторить</string>
+    <string name="cd_share_server">Поделиться портом %1$d</string>
+    <string name="cd_share_server_live">Порт %1$d доступен по ссылке</string>
 </resources>

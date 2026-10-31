@@ -1,6 +1,25 @@
 # Share a dev server the agent is running, for other people to test
 
-Status: **not started**. Written down to build later; nothing in the app has been changed.
+Status: **built**. Decisions made while building:
+
+- **The tunnel is a supervised process** (`share-<port>`, see the process supervisor plan), not a
+  service of its own. It gets the supervisor's wake lock, notification with Stop all, time limit
+  (two hours) and log for free; the public address is read from that log. It is never restarted on
+  its own: a tunnel that died shows as failed, not as a new address. This replaces tasks 2 and 7.
+- **No pinned version.** `CloudflaredReleaseClient` reads Cloudflare's latest release and pins the
+  download to the SHA-256 digest GitHub reports for the asset, the trust model the Antigravity
+  client already uses. A release without a digest is refused. arm64, armv7, x86_64 and x86 builds.
+- **The link ends with the server**: when the shared port stops answering, when the terminal's
+  shell ends, and when the terminal screen closes.
+- **The QR code** is drawn with zxing's `QRCodeWriter`, already a dependency for scanning.
+- **More than one server can be shared at once** (one tunnel per port), replacing the "one tunnel
+  at a time" limit below: with the supervisor holding each tunnel there was no reason to refuse it.
+  The supervisor's cap on running processes still applies.
+- **The tunnel points at the loopback address the server answers on** (`127.0.0.1`, else `[::1]`),
+  never `localhost`, so an IPv6-only dev server is reachable and nothing beyond this device is.
+- **Agents can read a link**: the tunnel is a supervised process, so `andcode-run list` and
+  `andcode-run logs` show it to the agents. They could start a tunnel themselves anyway, so this
+  grants nothing new, but a shared link should be treated as known to the agent.
 
 ## Goal
 
@@ -51,7 +70,8 @@ AndCode's on-device architecture than either of theirs.
 
 ### Tunnel mechanism: `cloudflared` quick tunnels
 
-Use Cloudflare's "quick tunnel" mode (`cloudflared tunnel --url http://localhost:<port>`), not
+Use Cloudflare's "quick tunnel" mode (`cloudflared tunnel --url http://127.0.0.1:<port>`, or
+`http://[::1]:<port>` for a server that answers on IPv6 only), not
 ngrok, because it needs **no account, no auth token, and no signup flow** — it prints a random
 `https://<random-words>.trycloudflare.com` URL on stderr and starts proxying immediately. ngrok's
 free tier requires an account and an authtoken typed into the app, which is an extra setup step
@@ -60,9 +80,10 @@ for exactly this (temporary, ad-hoc sharing) and are explicitly not for producti
 matches the "let a teammate try this build" use case and nothing more.
 
 - Ship a verified `cloudflared` static Linux binary per ABI (arm64/armv7/x86_64, matching how
-  Claude Code/Antigravity/Codex binaries are already fetched and pinned), resolved the same way as
-  the existing `*ReleaseClient`s: pin a version, verify SHA-256 via `VerifiedRuntimeDownloader`,
-  cache it under the runtime directory.
+  Claude Code/Antigravity/Codex binaries are already fetched), resolved the same way as the
+  existing `*ReleaseClient`s: take Cloudflare's latest release, verify it against the SHA-256
+  digest GitHub reports for the asset via `VerifiedRuntimeDownloader` (an asset without a digest
+  is refused), and cache it under the runtime directory.
 - Run it inside the same PRoot rootfs the terminal and agents already use (reusing
   `LocalRuntimeCommandRunner`/the terminal's process-running path, per `docs/LOCAL_RUNTIME.md`'s
   existing "no separate sandbox" model — the tunnel sees exactly what the terminal sees, nothing
@@ -92,20 +113,20 @@ matches the "let a teammate try this build" use case and nothing more.
 
 ### Scope limit for this plan
 
-One tunnel at a time, tied to the terminal's own lifecycle (not a background-forever feature).
-Multiple simultaneous shared servers, or sharing surviving app close, are explicitly deferred (see
-Out of scope) — get the single-tunnel, explicit-start/stop flow right first.
+One tunnel per shared port, as many as the supervisor's running-process cap allows, each tied to
+the terminal's own lifecycle (not a background-forever feature). Sharing that survives the
+terminal closing is explicitly deferred (see Out of scope).
 
 ## Tasks
 
-1. `CloudflaredReleaseClient` + pinned per-ABI binary manifest, following the existing
+1. `CloudflaredReleaseClient` (latest release, per-ABI asset, digest-verified), following the existing
    `*ReleaseClient` + `VerifiedRuntimeDownloader` pattern.
 2. A `TunnelSession` class: starts `cloudflared` against a given port inside the guest, exposes a
    `StateFlow` of `Starting`/`Live(url)`/`Failed(reason)`/`Stopped`, parses the boxed stdout for
    the URL, and kills the process group on stop (reuse whatever the terminal/`ProcessTree` already
    uses to end a process tree cleanly — `runtime/local/ProcessTree.kt`).
 3. Wire `TunnelSession` lifecycle to the owning `DevServer`'s status leaving `RUNNING` (auto-stop).
-4. `TerminalViewModel`: own zero-or-one active `TunnelSession`, expose its state to the screen.
+4. `TerminalViewModel`: own the active shares (one per port), expose their state to the screen.
 5. `TerminalScreen.kt`: Share icon on the chip, the warning/start/stop bottom sheet, the live URL
    + QR + copy + stop UI.
 6. QR encode helper (small, local — `QRCodeWriter` → `Bitmap`), likely worth factoring out next to
@@ -136,7 +157,6 @@ Out of scope) — get the single-tunnel, explicit-start/stop flow right first.
 ## Out of scope
 
 - ngrok, or any tunnel provider that needs an account/authtoken typed into the app.
-- More than one simultaneous shared server.
 - A tunnel that outlives the terminal/app process (this is deliberately "while I'm actively
   sharing", not a persistent public endpoint).
 - Password-protecting or otherwise restricting who can open the link beyond "whoever has the

@@ -94,6 +94,7 @@ class JsonSupervisorStore(
                 .put("command", spec.command)
                 .put("directory", spec.directory)
                 .put("restart", spec.restart.name)
+                .put("detectPort", spec.detectPort)
                 .apply {
                     spec.port?.let { put("port", it) }
                     spec.maxRunMinutes?.let { put("maxRunMinutes", it) }
@@ -110,6 +111,7 @@ class JsonSupervisorStore(
                 port = json.optInt("port", 0).takeIf { it in 1..65_535 },
                 restart = RestartPolicy.entries.firstOrNull { it.name == json.optString("restart") } ?: RestartPolicy.ON_CRASH,
                 maxRunMinutes = if (json.has("maxRunMinutes")) json.optInt("maxRunMinutes").takeIf { it > 0 } else null,
+                detectPort = json.optBoolean("detectPort", true),
             )
         }
     }

@@ -1743,4 +1743,18 @@
     <string name="supervised_notification_title">正在运行的进程 (%1$d)</string>
     <string name="supervised_notification_keeping_awake">屏幕关闭时仍保持运行</string>
     <string name="supervised_stop_all">全部停止</string>
+    <string name="share_server_title">共享端口 %1$d</string>
+    <string name="share_server_installing">正在准备共享工具（仅首次）…</string>
+    <string name="share_server_starting">正在建立链接…</string>
+    <string name="share_server_too_many">正在运行的进程过多。请先停止一个，然后重试。</string>
+    <string name="share_server_failed">无法共享：%1$s</string>
+    <string name="share_server_warning">共享期间，任何拥有该链接的人都可以从任何地方访问 localhost:%1$d。链接是随机的，但一旦发送出去就不再保密。</string>
+    <string name="share_server_start">开始共享</string>
+    <string name="share_server_send">发送链接</string>
+    <string name="cd_share_server_qr">链接的二维码</string>
+    <string name="share_server_live_note">此服务器运行时链接有效；服务器停止、终端关闭、满两小时或你停止共享时，链接失效。</string>
+    <string name="share_server_stop">停止共享</string>
+    <string name="share_server_retry">重试</string>
+    <string name="cd_share_server">共享端口 %1$d</string>
+    <string name="cd_share_server_live">端口 %1$d 已共享</string>
 </resources>

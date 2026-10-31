@@ -1769,4 +1769,18 @@
     <string name="supervised_notification_title">Procesos en ejecución (%1$d)</string>
     <string name="supervised_notification_keeping_awake">Sigue funcionando con la pantalla apagada</string>
     <string name="supervised_stop_all">Detener todo</string>
+    <string name="share_server_title">Compartir el puerto %1$d</string>
+    <string name="share_server_installing">Preparando la herramienta para compartir (solo la primera vez)…</string>
+    <string name="share_server_starting">Iniciando el enlace…</string>
+    <string name="share_server_too_many">Hay demasiados procesos en ejecución. Detén uno y vuelve a intentarlo.</string>
+    <string name="share_server_failed">No se ha podido compartir: %1$s</string>
+    <string name="share_server_warning">Esto hace que cualquiera con el enlace pueda acceder a localhost:%1$d desde cualquier lugar, mientras siga compartido. El enlace es aleatorio, pero deja de ser secreto en cuanto lo envías.</string>
+    <string name="share_server_start">Empezar a compartir</string>
+    <string name="share_server_send">Enviar enlace</string>
+    <string name="cd_share_server_qr">Código QR del enlace</string>
+    <string name="share_server_live_note">El enlace funciona mientras este servidor esté en marcha y deja de funcionar cuando se detiene el servidor, se cierra la terminal, al cabo de dos horas o cuando dejas de compartirlo.</string>
+    <string name="share_server_stop">Dejar de compartir</string>
+    <string name="share_server_retry">Reintentar</string>
+    <string name="cd_share_server">Compartir el puerto %1$d</string>
+    <string name="cd_share_server_live">El puerto %1$d está compartido</string>
 </resources>

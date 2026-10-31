@@ -264,7 +264,7 @@ fun NavGraphBuilder.workspaceNavGraph(
                 key = "terminal",
                 factory =
                     ViewModelFactory {
-                        TerminalViewModel(app.terminalSessions, app.runtimeWork, directory)
+                        TerminalViewModel(app.terminalSessions, app.runtimeWork, directory, sharing = app.devServerSharing)
                     },
             )
         val terminalState by terminalViewModel.state.collectAsState()
@@ -277,6 +277,7 @@ fun NavGraphBuilder.workspaceNavGraph(
             onRestart = terminalViewModel::restart,
             onClear = terminalViewModel::clear,
             onOpenServer = { url -> navController.navigate(guestBrowserRoute(url)) },
+            onSharing = { port, share -> if (share) terminalViewModel.share(port) else terminalViewModel.stopSharing(port) },
         )
     }
 

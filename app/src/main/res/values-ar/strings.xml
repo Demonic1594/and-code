@@ -1808,4 +1808,18 @@
     <string name="supervised_notification_title">العمليات قيد التشغيل (%1$d)</string>
     <string name="supervised_notification_keeping_awake">يستمر في العمل والشاشة مطفأة</string>
     <string name="supervised_stop_all">إيقاف الكل</string>
+    <string name="share_server_title">مشاركة المنفذ %1$d</string>
+    <string name="share_server_installing">تجهيز أداة المشاركة (للمرة الأولى فقط)…</string>
+    <string name="share_server_starting">بدء تشغيل الرابط…</string>
+    <string name="share_server_too_many">هناك عدد كبير جدًا من العمليات قيد التشغيل. أوقف إحداها، ثم حاول مرة أخرى.</string>
+    <string name="share_server_failed">تعذرت المشاركة: %1$s</string>
+    <string name="share_server_warning">يجعل هذا localhost:%1$d متاحًا لأي شخص لديه الرابط، من أي مكان، طالما بقيت المشاركة. الرابط عشوائي، لكنه لا يبقى سريًا بمجرد إرساله.</string>
+    <string name="share_server_start">بدء المشاركة</string>
+    <string name="share_server_send">إرسال الرابط</string>
+    <string name="cd_share_server_qr">رمز QR للرابط</string>
+    <string name="share_server_live_note">يعمل الرابط ما دام هذا الخادم يعمل، ويتوقف عند توقف الخادم، أو عند إغلاق الطرفية، أو بعد ساعتين، أو عند إيقاف المشاركة.</string>
+    <string name="share_server_stop">إيقاف المشاركة</string>
+    <string name="share_server_retry">حاول مرة أخرى</string>
+    <string name="cd_share_server">مشاركة المنفذ %1$d</string>
+    <string name="cd_share_server_live">المنفذ %1$d مُشارَك</string>
 </resources>
