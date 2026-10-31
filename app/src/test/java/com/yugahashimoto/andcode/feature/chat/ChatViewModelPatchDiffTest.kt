@@ -131,7 +131,12 @@ class ChatViewModelPatchDiffTest {
         runTest(dispatcher) {
             val backend = FakeTarget(diffCapable = false)
             val snapshots = FakeSnapshots()
-            val viewModel = ChatViewModel(backend = backend, eventFlow = backend.events, turnSnapshots = snapshots).also { advanceUntilIdle() }
+            val viewModel =
+                ChatViewModel(
+                    backend = backend,
+                    eventFlow = backend.events,
+                    turnSnapshots = snapshots,
+                ).also { advanceUntilIdle() }
             viewModel.selectWorkspace("/workspace/app")
 
             viewModel.sendMessage("First")
@@ -152,7 +157,12 @@ class ChatViewModelPatchDiffTest {
                     OpenCodeFileChange(file = "A.kt", patch = "@@ -1 +1 @@\n-old\n+new"),
                     OpenCodeFileChange(file = "Other.kt", patch = "@@ -1 +1 @@\n-a\n+b"),
                 )
-            val viewModel = ChatViewModel(backend = backend, eventFlow = backend.events, turnSnapshots = snapshots).also { advanceUntilIdle() }
+            val viewModel =
+                ChatViewModel(
+                    backend = backend,
+                    eventFlow = backend.events,
+                    turnSnapshots = snapshots,
+                ).also { advanceUntilIdle() }
             viewModel.selectWorkspace("/workspace/app")
             viewModel.sendMessage("Hello")
             advanceUntilIdle()
@@ -172,7 +182,12 @@ class ChatViewModelPatchDiffTest {
         runTest(dispatcher) {
             val backend = FakeTarget(diffCapable = false)
             val snapshots = FakeSnapshots()
-            val viewModel = ChatViewModel(backend = backend, eventFlow = backend.events, turnSnapshots = snapshots).also { advanceUntilIdle() }
+            val viewModel =
+                ChatViewModel(
+                    backend = backend,
+                    eventFlow = backend.events,
+                    turnSnapshots = snapshots,
+                ).also { advanceUntilIdle() }
             viewModel.selectWorkspace("/workspace/app")
             viewModel.sendMessage("Hello")
             advanceUntilIdle()

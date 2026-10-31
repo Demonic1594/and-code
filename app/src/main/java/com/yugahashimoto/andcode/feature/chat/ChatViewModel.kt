@@ -107,12 +107,6 @@ sealed interface ChatPart {
     data class Error(override val id: String, val message: String) : ChatPart
 }
 
-/**
- * State of a diff fetched for a [ChatPart.Patch] card the user tapped open.
- *
- * Every state carries [files] so the dialog can always show the file list the chat already knew
- * about, whether or not [RuntimeCapabilities.diffCapable] let the diff itself be fetched.
- */
 /** Files put back by [ChatViewModel.restoreFilesTo] in [sessionId]'s [directory]; [token] undoes it. */
 data class FileRestore(
     val sessionId: String,
@@ -120,6 +114,12 @@ data class FileRestore(
     val token: String,
 )
 
+/**
+ * State of a diff fetched for a [ChatPart.Patch] card the user tapped open.
+ *
+ * Every state carries [files] so the dialog can always show the file list the chat already knew
+ * about, whether or not [RuntimeCapabilities.diffCapable] let the diff itself be fetched.
+ */
 sealed interface PatchDiffState {
     val partId: String
     val files: List<String>
@@ -1529,12 +1529,12 @@ class ChatViewModel(
 
     /** Whether the files can be put back to how they were before [messageId], a message of the user's. */
     fun canRestoreFiles(messageId: String): Boolean {
-        val snapshots = turnSnapshots ?: return false
         val state = _uiState.value
-        val sessionId = state.sessionId ?: return false
-        if (state.messages.none { it.id == messageId && it.isUser }) return false
-        val turn = turnOf(state.messages, messageId) ?: return false
-        return snapshots.has(sessionId, turn)
+        val sessionId = state.sessionId
+        val isUserMessage = state.messages.any { it.id == messageId && it.isUser }
+        val turn = turnOf(state.messages, messageId)
+        return turnSnapshots != null && sessionId != null && isUserMessage && turn != null &&
+            turnSnapshots.has(sessionId, turn)
     }
 
     /**
@@ -1542,12 +1542,13 @@ class ChatViewModel(
      * when it was sent. The messages stay: only files change. [undoFileRestore] takes it back.
      */
     fun restoreFilesTo(messageId: String) {
-        val snapshots = turnSnapshots ?: return
         val state = _uiState.value
-        val sessionId = state.sessionId ?: return
-        val directory = snapshotDirectory() ?: return
+        val snapshots = turnSnapshots
+        val sessionId = state.sessionId
+        val directory = snapshotDirectory()
+        val turn = turnOf(state.messages, messageId)
+        if (snapshots == null || sessionId == null || directory == null || turn == null) return
         if (state.isRunning || state.isRestoringFiles) return
-        val turn = turnOf(state.messages, messageId) ?: return
         _uiState.update { it.copy(isRestoringFiles = true) }
         viewModelScope.launch {
             val token = runCatching { snapshots.restore(sessionId, turn, directory) }.getOrNull()

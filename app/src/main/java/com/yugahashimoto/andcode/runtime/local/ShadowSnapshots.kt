@@ -92,8 +92,19 @@ class ShadowSnapshots(
         /** Folders that are rebuilt rather than written, kept out of every snapshot. */
         internal val EXCLUDED =
             listOf(
-                "node_modules/", ".gradle/", "build/", "dist/", "target/", ".venv/", "venv/", "__pycache__/",
-                ".next/", ".nuxt/", ".cache/", ".andcode-attachments/", "*.andcode-save",
+                "node_modules/",
+                ".gradle/",
+                "build/",
+                "dist/",
+                "target/",
+                ".venv/",
+                "venv/",
+                "__pycache__/",
+                ".next/",
+                ".nuxt/",
+                ".cache/",
+                ".andcode-attachments/",
+                "*.andcode-save",
             )
 
         /** One history per workspace, named by a hash of its path. */
