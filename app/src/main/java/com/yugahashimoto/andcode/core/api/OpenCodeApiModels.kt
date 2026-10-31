@@ -180,6 +180,11 @@ data class OpenCodeModel(
      * every turn for the same reason as [codexDefaultEffort].
      */
     val codexDefaultServiceTier: String? = null,
+    /**
+     * Claude Code only: true when the model can run in ultracode, Claude Code's standing
+     * multi-agent workflow mode. Named so no OpenCode payload carries the key.
+     */
+    val claudeUltracode: Boolean = false,
 )
 
 @Serializable
@@ -348,6 +353,8 @@ data class PromptRequest(
      * forces standard speed. Built field by field for OpenCode, so it is never sent to that server.
      */
     val serviceTier: String? = null,
+    /** Claude Code only: run the session in ultracode. Never sent to OpenCode or Codex. */
+    val ultracode: Boolean = false,
 )
 
 @Serializable

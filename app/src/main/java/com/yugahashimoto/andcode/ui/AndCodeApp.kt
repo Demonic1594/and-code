@@ -308,6 +308,8 @@ fun AndCodeApp(
                         },
                         onCodexFastModeChanged = app.preferences::setCodexFastMode,
                         initialCodexFastMode = app.settings.codexFastMode,
+                        onClaudeUltracodeChanged = app.preferences::setClaudeUltracode,
+                        initialClaudeUltracode = app.settings.claudeUltracode,
                         onSessionAborted = { sessionId ->
                             app.activityRepository.markSessionAborted(sessionId)
                             // Stopping the run answers the "this run has gone quiet" notice.
@@ -572,6 +574,7 @@ fun AndCodeApp(
             fastServiceTier = model?.codexFastServiceTier,
             fastByDefault = model?.codexFastByDefault == true,
             fastDescription = model?.codexFastDescription,
+            ultracodeAvailable = model?.claudeUltracode == true,
         )
     }
 
@@ -1122,6 +1125,7 @@ fun AndCodeApp(
                                 selectedVariant = chatState.selectedVariant,
                                 onSelectVariant = chatViewModel::selectVariant,
                                 onToggleFastMode = chatViewModel::setFastMode,
+                                onToggleUltracode = chatViewModel::setUltracode,
                                 onAttach = { attachmentLauncher.launch("*/*") },
                                 onRemoveAttachment = chatViewModel::removeAttachment,
                                 onImageAttachment = { bitmap ->

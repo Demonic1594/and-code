@@ -1795,4 +1795,6 @@
     <string name="share_server_retry">Tentar novamente</string>
     <string name="cd_share_server">Compartilhar porta %1$d</string>
     <string name="cd_share_server_live">A porta %1$d está compartilhada</string>
+    <string name="run_settings_ultracode">Ultracode</string>
+    <string name="run_settings_ultracode_description">O Claude planeja o trabalho e o executa com vários agentes. É mais minucioso, mas mais lento e esgota seus limites mais rápido. Começa na sua próxima mensagem.</string>
 </resources>

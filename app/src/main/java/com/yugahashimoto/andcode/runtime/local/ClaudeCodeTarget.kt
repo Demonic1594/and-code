@@ -354,7 +354,7 @@ class ClaudeCodeTarget(
         }
     }
 
-    override suspend fun listProviders() = ClaudeModels.catalog(runtime.resolvedModels().value)
+    override suspend fun listProviders() = ClaudeModels.catalog(runtime.resolvedModels().value, runtime.workflowsAvailable().value)
 
     override suspend fun listAgents() = listOf(OpenCodeAgent("claude", "Claude Code", "primary", true))
 
@@ -395,6 +395,7 @@ class ClaudeCodeTarget(
                 effort = effort,
                 attachments = request.attachments,
                 systemPrompt = systemPrompts.byId(record.promptId)?.prompt,
+                ultracode = request.ultracode,
             ).getOrThrow()
         }
     }

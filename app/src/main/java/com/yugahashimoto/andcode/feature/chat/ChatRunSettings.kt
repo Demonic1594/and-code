@@ -84,12 +84,15 @@ internal class RunSettings(
     val fastModeDescription: String?,
     val systemPromptPresets: List<SystemPromptPreset>,
     val selectedSystemPromptId: String?,
+    val ultracodeAvailable: Boolean = false,
+    val ultracodeEnabled: Boolean = false,
 ) {
     /** True when anything differs from what a fresh chat would run with, so the chip can say so. */
     val hasOverrides: Boolean
         get() =
             (thinkingOptions.isNotEmpty() && selectedThinking != null) ||
                 (fastModeAvailable && fastModeEnabled) ||
+                (ultracodeAvailable && ultracodeEnabled) ||
                 (supportsAutoAccept && permissionMode == null && autoAccept) ||
                 systemPromptPresets.any { it.id == selectedSystemPromptId }
 }
@@ -109,6 +112,7 @@ internal class RunSettingsActions(
     val onSelectThinking: (String?) -> Unit,
     val onToggleFastMode: (Boolean) -> Unit,
     val onSelectSystemPrompt: (String?) -> Unit,
+    val onToggleUltracode: (Boolean) -> Unit = {},
 )
 
 /**
@@ -135,6 +139,7 @@ internal fun RunSettingsChip(
             // otherwise name a level the sheet has no section to change back.
             settings.selectedThinking?.takeIf { settings.thinkingOptions.isNotEmpty() }?.let { add(thinkingLevelLabel(it)) }
             if (settings.fastModeAvailable && settings.fastModeEnabled) add(stringResource(R.string.chat_fast_mode))
+            if (settings.ultracodeAvailable && settings.ultracodeEnabled) add(stringResource(R.string.run_settings_ultracode))
         }.joinToString(" · ")
     val highlighted = settings.hasOverrides
     Surface(
@@ -267,6 +272,20 @@ internal fun RunSettingsSheet(
                     checked = settings.fastModeEnabled,
                     onCheckedChange = actions.onToggleFastMode,
                     testTag = "chat-fast-mode",
+                )
+            }
+
+            // Beside thinking as well: Claude Code's ultracode runs a turn as a planned workflow of
+            // several agents, at whatever thinking level is chosen. Only offered on a model the CLI
+            // allows it on, and kept for the next chats until it is switched off again.
+            if (settings.ultracodeAvailable) {
+                SectionDivider()
+                ToggleRow(
+                    label = stringResource(R.string.run_settings_ultracode),
+                    description = stringResource(R.string.run_settings_ultracode_description),
+                    checked = settings.ultracodeEnabled,
+                    onCheckedChange = actions.onToggleUltracode,
+                    testTag = "chat-ultracode",
                 )
             }
 
