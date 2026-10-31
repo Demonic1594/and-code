@@ -272,7 +272,8 @@ class ProcessSupervisor(
 
     fun logFile(name: String): File = File(logDirectory, "$name.log")
 
-    /** How a log's tail is read; a test swaps it to make a read fail the way a rotation can. */
+    /** How a log's tail is read; a test swaps it, before any start, to make a read fail the way a rotation can. */
+    @Volatile
     internal var readLogTail: (File, Int) -> String = { file, characters -> readTail(file, characters) }
 
     /** Whether [run] is still the one in charge of its name. Called holding [lock]. */
