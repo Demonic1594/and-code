@@ -1769,4 +1769,6 @@
     <string name="share_server_retry">重试</string>
     <string name="cd_share_server">共享端口 %1$d</string>
     <string name="cd_share_server_live">端口 %1$d 已共享</string>
+    <string name="run_settings_ultracode">Ultracode</string>
+    <string name="run_settings_ultracode_description">Claude 会规划工作，并用多个智能体来执行。更周密，但速度更慢，也会更快用完你的额度。从你的下一条消息开始生效。</string>
 </resources>

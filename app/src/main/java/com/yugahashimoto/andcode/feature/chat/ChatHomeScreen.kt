@@ -141,6 +141,8 @@ fun ChatHomeScreen(
      * [ChatUiState.fastModeAvailable], i.e. for a Codex model that lists the tier.
      */
     onToggleFastMode: (Boolean) -> Unit = {},
+    /** Turns Claude Code's ultracode on or off; offered only while [ChatUiState.ultracodeAvailable]. */
+    onToggleUltracode: (Boolean) -> Unit = {},
     attachments: List<PromptAttachment> = emptyList(),
     onAttach: () -> Unit = {},
     onRemoveAttachment: (Int) -> Unit = {},
@@ -898,6 +900,9 @@ fun ChatHomeScreen(
                     fastModeEnabled = state.fastModeEnabled,
                     fastModeDescription = state.fastModeDescription,
                     onToggleFastMode = onToggleFastMode,
+                    ultracodeAvailable = state.ultracodeAvailable,
+                    ultracodeEnabled = state.ultracodeEnabled,
+                    onToggleUltracode = onToggleUltracode,
                     attachments = state.attachments,
                     onAttach = onAttach,
                     onRemoveAttachment = onRemoveAttachment,

@@ -120,6 +120,9 @@ internal fun ChatComposer(
     fastModeEnabled: Boolean,
     fastModeDescription: String?,
     onToggleFastMode: (Boolean) -> Unit,
+    ultracodeAvailable: Boolean = false,
+    ultracodeEnabled: Boolean = false,
+    onToggleUltracode: (Boolean) -> Unit = {},
     attachments: List<PromptAttachment>,
     onAttach: () -> Unit,
     onRemoveAttachment: (Int) -> Unit,
@@ -537,6 +540,8 @@ internal fun ChatComposer(
                 fastModeDescription = fastModeDescription,
                 systemPromptPresets = systemPromptPresets,
                 selectedSystemPromptId = selectedSystemPromptId,
+                ultracodeAvailable = ultracodeAvailable,
+                ultracodeEnabled = ultracodeEnabled,
             )
         if (showRunSettings) {
             RunSettingsSheet(
@@ -549,6 +554,7 @@ internal fun ChatComposer(
                         onSelectThinking = onSelectVariant,
                         onToggleFastMode = onToggleFastMode,
                         onSelectSystemPrompt = onSelectSystemPrompt,
+                        onToggleUltracode = onToggleUltracode,
                     ),
                 onDismiss = { showRunSettings = false },
             )
