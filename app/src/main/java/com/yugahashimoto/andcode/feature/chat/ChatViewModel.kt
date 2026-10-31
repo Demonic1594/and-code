@@ -1529,6 +1529,16 @@ class ChatViewModel(
 
     private fun canRewind(currentBackend: OpenCodeBackend?): Boolean = (currentBackend as? RuntimeTarget)?.capabilities?.checkpoints == true
 
+    /**
+     * The restore or undo still rewriting files. Kept apart from [ChatUiState.isRestoringFiles],
+     * which a chat switch clears for the screen: the files are still being rewritten, so nothing may
+     * be sent until it ends, from whichever chat.
+     */
+    private var restoreJob: Job? = null
+
+    private val restoreInFlight: Boolean
+        get() = _uiState.value.isRestoringFiles || restoreJob?.isActive == true
+
     /** The folder the chat's snapshots are taken of: the session's, else the one picked for it. */
     private fun snapshotDirectory(sessionDirectory: String? = null): String? =
         _uiState.value.sessionDirectory ?: sessionDirectory ?: _uiState.value.selectedWorkspacePath
@@ -1555,39 +1565,42 @@ class ChatViewModel(
         val turn = turnOf(state.messages, messageId)
         if (snapshots == null || sessionId == null) return
         if (directory == null || turn == null) return
-        if (state.isRunning || state.isRestoringFiles) return
+        if (state.isRunning || restoreInFlight) return
         _uiState.update { it.copy(isRestoringFiles = true) }
-        viewModelScope.launch {
-            val token = snapshotCall(null) { snapshots.restore(sessionId, turn, directory) }
-            _uiState.update {
-                when {
-                    // The chat changed meanwhile: its Undo must not appear in another one.
-                    it.sessionId != sessionId -> it.copy(isRestoringFiles = false)
-                    token == null -> it.copy(isRestoringFiles = false, error = restoreFailedMessage)
-                    else -> it.copy(isRestoringFiles = false, fileRestore = FileRestore(sessionId, directory, token))
+        restoreJob =
+            viewModelScope.launch {
+                val token = snapshotCall(null) { snapshots.restore(sessionId, turn, directory) }
+                _uiState.update {
+                    when {
+                        // The chat changed meanwhile: its Undo must not appear in another one.
+                        it.sessionId != sessionId -> it.copy(isRestoringFiles = false)
+                        token == null -> it.copy(isRestoringFiles = false, error = restoreFailedMessage)
+                        else -> it.copy(isRestoringFiles = false, fileRestore = FileRestore(sessionId, directory, token))
+                    }
                 }
+                drainHeldPrompts()
             }
-            drainHeldPrompts()
-        }
     }
 
     /** Takes the last [restoreFilesTo] back: the files return to how they were just before it. */
     fun undoFileRestore() {
         val snapshots = turnSnapshots ?: return
         val restore = _uiState.value.fileRestore ?: return
-        if (_uiState.value.isRestoringFiles || restore.sessionId != _uiState.value.sessionId) return
+        val busy = restoreInFlight || _uiState.value.isRunning
+        if (busy || restore.sessionId != _uiState.value.sessionId) return
         _uiState.update { it.copy(isRestoringFiles = true) }
-        viewModelScope.launch {
-            val undone = snapshotCall(false) { snapshots.undoRestore(restore.directory, restore.token) }
-            _uiState.update {
-                when {
-                    undone -> it.copy(isRestoringFiles = false, fileRestore = null)
-                    it.sessionId != restore.sessionId -> it.copy(isRestoringFiles = false)
-                    else -> it.copy(isRestoringFiles = false, error = restoreFailedMessage)
+        restoreJob =
+            viewModelScope.launch {
+                val undone = snapshotCall(false) { snapshots.undoRestore(restore.directory, restore.token) }
+                _uiState.update {
+                    when {
+                        undone -> it.copy(isRestoringFiles = false, fileRestore = null)
+                        it.sessionId != restore.sessionId -> it.copy(isRestoringFiles = false)
+                        else -> it.copy(isRestoringFiles = false, error = restoreFailedMessage)
+                    }
                 }
+                drainHeldPrompts()
             }
-            drainHeldPrompts()
-        }
     }
 
     fun dismissFileRestore() {
@@ -1943,7 +1956,7 @@ class ChatViewModel(
     ) {
         // A rewind or its undo in flight decides which messages the next one follows; the screen
         // holds the composer until it lands.
-        if (_uiState.value.isRewinding || _uiState.value.isRestoringFiles) return
+        if (_uiState.value.isRewinding || restoreInFlight) return
         val normalized = text.trim()
         val pendingAttachments = if (fromComposer) _uiState.value.attachments else emptyList()
         val messageIdsBeforeSend = _uiState.value.messages.map { it.id }.toSet()
@@ -2251,7 +2264,7 @@ class ChatViewModel(
         command: String,
         arguments: String,
     ) {
-        if (_uiState.value.isRewinding || _uiState.value.isRestoringFiles) return
+        if (_uiState.value.isRewinding || restoreInFlight) return
         val currentBackend = backend
         if (currentBackend == null) {
             _uiState.update { it.copy(error = "OpenCode connection is not configured") }
@@ -2271,6 +2284,7 @@ class ChatViewModel(
                 it.copy(
                     messages = keepRewind(it) + userMessage,
                     rewoundFrom = null,
+                    fileRestore = null,
                     offlineQueue = it.offlineQueue + displayText,
                     isOfflineQueued = true,
                 )
@@ -2297,6 +2311,8 @@ class ChatViewModel(
             it.copy(
                 messages = keepRewind(it) + userMessage,
                 rewoundFrom = null,
+                // A command changes files like any message: an Undo offered past it would undo its work.
+                fileRestore = null,
                 isRunning = true,
                 isThinking = true,
                 retry = null,
@@ -3360,7 +3376,7 @@ class ChatViewModel(
 
     private fun drainQueue() {
         // Held, not dropped: send() refuses while a rewind lands, and the rewind drains after.
-        if (_uiState.value.isRewinding || _uiState.value.isRestoringFiles) return
+        if (_uiState.value.isRewinding || restoreInFlight) return
         val queued = messageQueue.value
         if (queued.isEmpty()) return
         messageQueue.value = queued.drop(1)
@@ -3368,7 +3384,7 @@ class ChatViewModel(
     }
 
     private fun drainOfflineQueue() {
-        if (_uiState.value.isRewinding || _uiState.value.isRestoringFiles) return
+        if (_uiState.value.isRewinding || restoreInFlight) return
         val queued = offlineMessageQueue.value
         if (queued.isEmpty()) return
         offlineMessageQueue.value = emptyList()

@@ -125,7 +125,13 @@ class ShadowSnapshots(
             // file in its way (a folder that must become a file again, say), which read-tree would.
             val result =
                 run(
-                    "${git(root, workspace)} checkout -q --no-overwrite-ignore --detach $target",
+                    // A snapshot from before a path was ignored still holds it (a `.env` added before
+                    // its rule): checking it out would overwrite the ignored file, so refuse.
+                    "[ -z \"$(${git(
+                        root,
+                        workspace,
+                    )} ls-tree -r --name-only $target | ${git(root, workspace)} check-ignore --no-index --stdin)\" ]" +
+                        " && ${git(root, workspace)} checkout -q --no-overwrite-ignore --detach $target",
                     RESTORE_TIMEOUT_SECONDS,
                     SMALL_OUTPUT,
                 )
@@ -135,7 +141,8 @@ class ShadowSnapshots(
             // The killed checkout may have left its lock behind, which would refuse this one too.
             val lockFile = WorkspaceShell.quote("${gitDir(root, workspace)}/index.lock")
             run(
-                "rm -f $lockFile; ${git(root, workspace)} checkout -q --no-overwrite-ignore --detach $before",
+                // Back to the snapshot just taken: tracked files only, so ignored ones stay untouched.
+                "rm -f $lockFile; ${git(root, workspace)} reset -q --hard $before",
                 RESTORE_TIMEOUT_SECONDS,
                 SMALL_OUTPUT,
             )
@@ -218,6 +225,13 @@ class ShadowSnapshots(
                 "if [ ! -d $dir ]; then mkdir -p $dir && git init -q --bare $dir && git --git-dir=$dir config core.bare false" +
                     " && printf '%s\\n' $exclude > $dir/info/exclude; fi",
                 // `:/` is the top of the work tree, wherever the shell happens to be.
+                // Files tracked before an ignore rule matched them stay tracked; drop them so a later
+                // restore never writes over what the project now ignores.
+                "if [ -n \"$(${git(root, workspace)} ls-files -ci --exclude-standard)\" ]; then ${git(root, workspace)} ls-files -z -ci" +
+                    " --exclude-standard | ${git(
+                        root,
+                        workspace,
+                    )} rm -q -r --cached --ignore-unmatch --pathspec-from-file=- --pathspec-file-nul; fi",
                 "${git(root, workspace)} add -A -- ':/'",
                 "${git(root, workspace)} commit -q --allow-empty --no-verify -m snapshot",
                 "${git(root, workspace)} rev-parse HEAD",

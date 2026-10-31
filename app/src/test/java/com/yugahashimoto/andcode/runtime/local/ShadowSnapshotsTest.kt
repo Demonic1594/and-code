@@ -114,6 +114,28 @@ class ShadowSnapshotsTest {
         }
 
     @Test
+    fun `a file ignored after it was snapshotted is never written back`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            File(workspace, ".env").writeText("OLD=1\n")
+            File(workspace, "app.txt").writeText("v1\n")
+            val withEnv = requireNotNull(snapshots.snapshot(workspace.path))
+            File(workspace, ".gitignore").writeText(".env\n")
+            File(workspace, ".env").writeText("NEW=2\n")
+            requireNotNull(snapshots.snapshot(workspace.path))
+
+            assertNull("a target that holds a now-ignored file is refused", snapshots.restore(workspace.path, withEnv))
+            assertEquals("NEW=2\n", File(workspace, ".env").readText())
+
+            File(workspace, "app.txt").writeText("v2\n")
+            val later = requireNotNull(snapshots.snapshot(workspace.path))
+            File(workspace, "app.txt").writeText("v3\n")
+            assertNotNull(snapshots.restore(workspace.path, later))
+            assertEquals("v2\n", File(workspace, "app.txt").readText())
+            assertEquals("NEW=2\n", File(workspace, ".env").readText())
+        }
+
+    @Test
     fun `excluded folders never enter a snapshot`() =
         runBlocking {
             val (snapshots, workspace) = fixture()
