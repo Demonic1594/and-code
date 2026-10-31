@@ -33,8 +33,9 @@ deny() {
     jq -cn --arg message "$1" \
       '{hookSpecificOutput:{hookEventName:"PermissionRequest",decision:{behavior:"deny",message:$message}}}'
   else
-    # Without jq the message cannot be escaped safely, so send the fixed text, which needs none.
-    printf '%s\n' "{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"decision\":{\"behavior\":\"deny\",\"message\":\"$DECLINED\"}}}"
+    # Without jq no response message can be read, so [message] is one of the fixed texts above,
+    # which have nothing to escape.
+    printf '%s\n' "{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"decision\":{\"behavior\":\"deny\",\"message\":\"$1\"}}}"
   fi
 }
 

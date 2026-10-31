@@ -117,7 +117,9 @@ class PermissionHookScriptTest {
                 if (request == null) Thread.sleep(POLL_MILLIS)
             }
             checkNotNull(request) { "the hook never wrote its request" }
-            File(bridge, "responses/${request.name}").writeText(response)
+            // Written aside and renamed in, as the app does, so the hook never reads half a file.
+            val responses = File(bridge, "responses")
+            File(responses, "${request.name}.tmp").apply { writeText(response) }.renameTo(File(responses, request.name))
         }
         if (!process.waitFor(WAIT_MILLIS, TimeUnit.MILLISECONDS)) {
             process.destroyForcibly()

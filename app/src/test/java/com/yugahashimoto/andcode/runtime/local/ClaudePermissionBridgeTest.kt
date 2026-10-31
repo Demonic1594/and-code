@@ -124,6 +124,27 @@ class ClaudePermissionBridgeTest {
     }
 
     @Test
+    fun `a reject without a message tells the agent not to retry`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        val requestId = UUID.randomUUID().toString()
+        bridge.writeGuestRequest(
+            ClaudePermissionBridge.Request(
+                requestId = requestId,
+                androidSessionId = "session-1",
+                kind = ClaudePermissionBridge.Kind.PERMISSION,
+                toolName = "Bash",
+                toolInputJson = "{}",
+                permissionLabel = "Bash",
+            ),
+        )
+        bridge.pollPending()
+
+        assertTrue(bridge.respond(requestId, PermissionResponse.REJECT, remember = false))
+
+        assertEquals(ClaudePermissionBridge.DECLINED_MESSAGE, bridge.readResponse(requestId)!!.message)
+    }
+
+    @Test
     fun `always allow records a remembered rule`() {
         val bridge = ClaudePermissionBridge(folder.root)
         val requestId = UUID.randomUUID().toString()
