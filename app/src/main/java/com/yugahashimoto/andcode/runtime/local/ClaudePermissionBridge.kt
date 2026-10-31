@@ -253,9 +253,12 @@ class ClaudePermissionBridge(
             runCatching {
                 json.parseToJsonElement(toolInputJson).jsonObject["command"]?.jsonPrimitive?.contentOrNull
             }.getOrNull()
+        // A tool-wide rule covers calls without a command; a call with one needs a rule naming its
+        // first words, matched by ShellCommandRules so `git status; rm -rf ~` is not `git status`.
         return rules.any { rule ->
+            val prefix = rule.commandPrefix
             rule.toolName == toolName &&
-                (rule.commandPrefix.isNullOrBlank() || (command?.startsWith(rule.commandPrefix) == true))
+                if (command == null) prefix.isNullOrBlank() else !prefix.isNullOrBlank() && ShellCommandRules.matches(prefix, command)
         }
     }
 
@@ -315,7 +318,14 @@ class ClaudePermissionBridge(
     private fun rememberRule(stored: StoredRequest) {
         val command =
             (stored.toolInput as? JsonObject)?.get("command")?.jsonPrimitive?.contentOrNull
-        val prefix = command?.split(" ")?.take(2)?.joinToString(" ")
+        // A command that chains, pipes or redirects is approved once but never remembered: there is no
+        // safe rule to keep for it, and a tool-wide rule would allow every command.
+        val prefix =
+            if (command == null) {
+                null
+            } else {
+                ShellCommandRules.ruleFor(command) ?: return
+            }
         val existing = loadAlwaysRules().toMutableList()
         val rule = AlwaysRule(toolName = stored.toolName, commandPrefix = prefix)
         if (existing.none { it.toolName == rule.toolName && it.commandPrefix == rule.commandPrefix }) {

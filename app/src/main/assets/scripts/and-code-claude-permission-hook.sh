@@ -42,11 +42,24 @@ fi
 # Auto-allow remembered rules without waking the UI.
 if [ -f "$ALWAYS" ] && command -v jq >/dev/null 2>&1; then
   CMD=$(printf '%s' "$TOOL_INPUT" | jq -r '.command // empty')
+  # Same rules as ShellCommandRules on the app side: a call without a command matches a tool-wide
+  # rule; a command matches only a rule naming its first words exactly, and never when it chains,
+  # pipes, substitutes or redirects, or starts with a program that runs other code (bash -c ...).
   MATCH=$(jq -r --arg t "$TOOL_NAME" --arg c "$CMD" '
+    def words: [splits("\\s+")] | map(select(length > 0));
+    def wrappers: ["bash", "sh", "zsh", "dash", "ash", "ksh", "fish", "busybox", "env", "xargs", "sudo",
+      "su", "doas", "eval", "exec", "command", "time", "nohup", "timeout", "nice", "setsid", "stdbuf",
+      "python", "node", "nodejs", "npx", "bun", "deno", "perl", "ruby", "php", "lua", "awk", "gawk"];
+    def runsother: test("[=\"\u0027]") or (split("/") | last | sub("[-.0-9]+$"; "") | IN(wrappers[]));
+    ($c | test("[;&|`$<>()!\\\\\n\r]")) as $unsafe |
+    (($c | words)[0] // "") as $first |
     .rules[]? | select(.toolName == $t) |
-    if (.commandPrefix == null or .commandPrefix == "") then "yes"
-    elif ($c | startswith(.commandPrefix)) then "yes"
-    else empty end
+    (.commandPrefix // "") as $p |
+    if $c == "" then (if $p == "" then "yes" else empty end)
+    elif $unsafe or ($first | runsother) or ($p | words | length) == 0 then empty
+    else ($p | words) as $r | ($c | words) as $w |
+      if ($w | length) >= ($r | length) and $w[0:($r | length)] == $r then "yes" else empty end
+    end
   ' "$ALWAYS" 2>/dev/null | head -n1 || true)
   if [ "$MATCH" = "yes" ]; then
     printf '%s\n' "{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"AndCode always-allow rule\"}}"
