@@ -1955,7 +1955,11 @@ class ChatViewModel(
                 if (session != null) {
                     applyDraftSystemPrompt(session.id, draftGeneration)
                     _uiState.update {
-                        it.copy(sessionId = session.id, sessionTitle = session.title)
+                        it.copy(
+                            sessionId = session.id,
+                            sessionTitle = session.title,
+                            sessionDirectory = session.directory ?: it.sessionDirectory,
+                        )
                     }
                     onSessionCreated()
                 }
@@ -2192,7 +2196,11 @@ class ChatViewModel(
                 if (session != null) {
                     applyDraftSystemPrompt(session.id, draftGeneration)
                     _uiState.update {
-                        it.copy(sessionId = session.id, sessionTitle = session.title)
+                        it.copy(
+                            sessionId = session.id,
+                            sessionTitle = session.title,
+                            sessionDirectory = session.directory ?: it.sessionDirectory,
+                        )
                     }
                     onSessionCreated()
                 }

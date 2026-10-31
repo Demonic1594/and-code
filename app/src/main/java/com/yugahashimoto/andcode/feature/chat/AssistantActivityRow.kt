@@ -60,8 +60,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.ui.components.CopyButton
 import com.yugahashimoto.andcode.ui.theme.AppShapes
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 import com.yugahashimoto.andcode.ui.theme.LocalThemeColors
@@ -357,42 +359,22 @@ fun ToolCard(part: ChatPart.Tool) {
             if (expanded) {
                 part.input?.let { input ->
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.tool_input_label),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
+                    ToolCodeBlock(
+                        label = stringResource(R.string.tool_input_label),
                         text = input,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(vertical = 4.dp),
-                        fontFamily = CodeFontFamily,
+                        maxHeight = null,
                         // Tool input is a command: always LTR (issue #341).
-                        style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Ltr),
+                        textDirection = TextDirection.Ltr,
                     )
                 }
                 part.output?.let { output ->
                     Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = stringResource(R.string.tool_output_label),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
+                    ToolCodeBlock(
+                        label = stringResource(R.string.tool_output_label),
                         text = output,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 240.dp)
-                                .verticalScroll(rememberScrollState())
-                                .horizontalScroll(rememberScrollState())
-                                .padding(vertical = 4.dp),
-                        fontFamily = CodeFontFamily,
+                        maxHeight = 240.dp,
                         // Tool output can be RTL prose; resolve from content (issue #341).
-                        style = MaterialTheme.typography.bodySmall.copy(textDirection = TextDirection.Content),
+                        textDirection = TextDirection.Content,
                     )
                     if (part.outputTruncated) {
                         Text(
@@ -413,6 +395,52 @@ fun ToolCard(part: ChatPart.Tool) {
                 }
             }
         }
+    }
+}
+
+/**
+ * A titled code block on a tool card: the title with a copy button beside it, then the content on a
+ * code surface. Content wider than the card scrolls sideways; with [maxHeight] it also scrolls down
+ * inside that cap.
+ */
+@Composable
+private fun ToolCodeBlock(
+    label: String,
+    text: String,
+    maxHeight: Dp?,
+    textDirection: TextDirection,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        CopyButton(
+            text = { text },
+            contentDescription = stringResource(R.string.tool_copy_block, label),
+            iconSize = 16.dp,
+            modifier = Modifier.size(32.dp),
+        )
+    }
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = text,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .then(if (maxHeight != null) Modifier.heightIn(max = maxHeight).verticalScroll(rememberScrollState()) else Modifier)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+            fontFamily = CodeFontFamily,
+            style = MaterialTheme.typography.bodySmall.copy(textDirection = textDirection),
+        )
     }
 }
 

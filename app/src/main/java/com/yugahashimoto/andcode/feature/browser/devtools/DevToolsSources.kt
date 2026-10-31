@@ -16,7 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Palette
@@ -24,6 +23,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,14 +36,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.ui.components.CopyButton
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 import com.yugahashimoto.andcode.ui.theme.Spacing
 
@@ -161,7 +160,6 @@ private fun SourceViewer(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val clipboard = LocalClipboardManager.current
     Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(
@@ -175,9 +173,12 @@ private fun SourceViewer(
                 modifier = Modifier.weight(1f),
             )
             if (text != null) {
-                IconButton(onClick = { clipboard.setText(AnnotatedString(text)) }) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.devtools_copy))
-                }
+                CopyButton(
+                    text = { text },
+                    contentDescription = stringResource(R.string.devtools_copy),
+                    iconSize = 24.dp,
+                    tint = LocalContentColor.current,
+                )
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

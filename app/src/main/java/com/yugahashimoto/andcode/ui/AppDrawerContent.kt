@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -165,6 +167,8 @@ fun AppDrawerContent(
     var selectedSessionIds by remember { mutableStateOf(setOf<String>()) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var projectSearchOpen by rememberSaveable { mutableStateOf(false) }
+    var projectQuery by rememberSaveable { mutableStateOf("") }
     val selectionMode = selectedSessionIds.isNotEmpty()
     val haptics = rememberHaptics()
 
@@ -269,10 +273,6 @@ fun AppDrawerContent(
             ) {
                 DrawerHeader()
                 NewChatRow(onClick = onNewChat)
-                InboxRow(waiting = inboxWaiting, running = inboxRunning, onClick = { onNavigate(ROUTE_INBOX) })
-                if (recentSessions.isNotEmpty()) {
-                    DrawerSearchField(query = searchQuery, onQueryChange = { searchQuery = it })
-                }
 
                 // Only worth a switcher when there is something to switch between. A row of agent
                 // chips rather than a list: four full-width rows used to push the chats themselves
@@ -281,23 +281,75 @@ fun AppDrawerContent(
                     DrawerSectionHeader(text = stringResource(R.string.drawer_agents_title), collapsible = false)
                     DrawerAgentSwitcher(agents = agents, selectedRuntimeId = selectedRuntimeId, onSelectAgent = onSelectAgent)
                 }
+                // Under the agents: actions, then what you work with, then where things wait for you.
+                InboxRow(waiting = inboxWaiting, running = inboxRunning, onClick = { onNavigate(ROUTE_INBOX) })
 
                 // Projects as chips for the same reason; the full path is one tap away in Workspaces.
-                DrawerSectionHeader(text = stringResource(R.string.drawer_projects_title), collapsible = false)
+                // Add and search sit on the header, so neither scrolls off with the chips.
+                DrawerSectionHeader(text = stringResource(R.string.drawer_projects_title), collapsible = false) {
+                    // Capped, so a long translation at a large font size cannot push the search icon out.
+                    TextButton(
+                        onClick = { onNavigate("workspaces") },
+                        contentPadding = PaddingValues(horizontal = Spacing.sm),
+                        modifier = Modifier.height(32.dp).widthIn(max = 150.dp),
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(Spacing.xs))
+                        Text(
+                            stringResource(R.string.drawer_add_project),
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (workspaces.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                projectSearchOpen = !projectSearchOpen
+                                if (!projectSearchOpen) projectQuery = ""
+                            },
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = stringResource(R.string.cd_search_projects),
+                                tint =
+                                    if (projectSearchOpen) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                }
+                if (projectSearchOpen && workspaces.isNotEmpty()) {
+                    DrawerSearchField(
+                        query = projectQuery,
+                        onQueryChange = { projectQuery = it },
+                        hint = stringResource(R.string.drawer_project_search_hint),
+                    )
+                }
                 DrawerProjectChips(
-                    workspaces = workspaces,
+                    workspaces = filterDrawerProjects(workspaces, projectQuery),
                     selectedWorkspacePath = selectedWorkspacePath,
                     onSelectProject = onSelectProject,
-                    onAddProject = { onNavigate("workspaces") },
                 )
 
                 if (recentSessions.isNotEmpty()) {
+                    // Next to the list it filters. A query shows the results even in a collapsed
+                    // section, without overwriting the collapse the user chose.
+                    DrawerSearchField(query = searchQuery, onQueryChange = { searchQuery = it })
+                    val recentCollapsed = isRecentSectionCollapsed(collapsedSections, searchQuery)
                     DrawerSectionHeader(
                         text = stringResource(R.string.drawer_recent_chats),
-                        collapsed = collapsedSections.contains("recent"),
-                        onToggle = { onToggleSection("recent") },
+                        collapsed = recentCollapsed,
+                        // While a query holds the section open, a tap would flip the saved choice
+                        // with nothing to show for it until the query is cleared.
+                        onToggle = { if (searchQuery.isBlank()) onToggleSection("recent") },
                     )
-                    AnimatedVisibility(visible = !collapsedSections.contains("recent")) {
+                    AnimatedVisibility(visible = !recentCollapsed) {
                         Column {
                             if (selectionMode) {
                                 val allPinned = selectedSessionIds.all { it in pinnedSessionIds }
@@ -426,6 +478,7 @@ private fun DrawerSearchMessagesRow(
 private fun DrawerSearchField(
     query: String,
     onQueryChange: (String) -> Unit,
+    hint: String = stringResource(R.string.drawer_search_hint),
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.md, vertical = Spacing.xs),
@@ -446,7 +499,7 @@ private fun DrawerSearchField(
             Box(modifier = Modifier.weight(1f)) {
                 if (query.isEmpty()) {
                     Text(
-                        stringResource(R.string.drawer_search_hint),
+                        hint,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -630,6 +683,7 @@ private fun DrawerSectionHeader(
     collapsed: Boolean = false,
     onToggle: () -> Unit = {},
     collapsible: Boolean = true,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
     Row(
         modifier =
@@ -645,6 +699,7 @@ private fun DrawerSectionHeader(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
+        trailing?.invoke(this)
         if (collapsible) {
             Icon(
                 imageVector = if (collapsed) Icons.Default.ChevronRight else Icons.Default.ExpandMore,
@@ -712,7 +767,6 @@ private fun DrawerProjectChips(
     workspaces: List<WorkspaceRef>,
     selectedWorkspacePath: String?,
     onSelectProject: (WorkspaceRef) -> Unit,
-    onAddProject: () -> Unit,
 ) {
     Row(
         modifier =
@@ -749,22 +803,6 @@ private fun DrawerProjectChips(
                     )
                     Text(workspace.name, style = MaterialTheme.typography.labelLarge, maxLines = 1)
                 }
-            }
-        }
-        Surface(
-            onClick = onAddProject,
-            shape = AppShapes.pill,
-            color = Color.Transparent,
-            contentColor = MaterialTheme.colorScheme.primary,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = Spacing.md, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                Text(stringResource(R.string.drawer_add_project), style = MaterialTheme.typography.labelLarge, maxLines = 1)
             }
         }
     }
@@ -969,3 +1007,19 @@ private fun AppDrawerContentPreview() {
         )
     }
 }
+
+/** Projects whose name contains [query], ignoring case; all of them while [query] is blank. */
+internal fun filterDrawerProjects(
+    workspaces: List<WorkspaceRef>,
+    query: String,
+): List<WorkspaceRef> {
+    val needle = query.trim()
+    if (needle.isEmpty()) return workspaces
+    return workspaces.filter { it.name.contains(needle, ignoreCase = true) }
+}
+
+/** Whether Recent chats is shown collapsed: as the user left it, except that a query always opens it. */
+internal fun isRecentSectionCollapsed(
+    collapsedSections: Set<String>,
+    query: String,
+): Boolean = "recent" in collapsedSections && query.isBlank()

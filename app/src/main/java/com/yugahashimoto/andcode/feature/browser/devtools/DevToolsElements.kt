@@ -25,7 +25,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CenterFocusStrong
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Refresh
@@ -35,6 +34,7 @@ import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryScrollableTabRow
@@ -53,7 +53,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -64,6 +63,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.ui.components.CopyButton
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 import com.yugahashimoto.andcode.ui.theme.Spacing
 
@@ -380,7 +380,6 @@ private fun ElementDetailsPane(
     var computedQuery by rememberSaveable { mutableStateOf("") }
     var editing by remember { mutableStateOf<Header?>(null) }
     var adding by remember { mutableStateOf(false) }
-    val clipboard = LocalClipboardManager.current
     Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             PrimaryScrollableTabRow(
@@ -400,9 +399,12 @@ private fun ElementDetailsPane(
             IconButton(onClick = { bridge.call("scrollIntoView", element.id) }) {
                 Icon(Icons.Default.CenterFocusStrong, contentDescription = stringResource(R.string.devtools_scroll_into_view))
             }
-            IconButton(onClick = { clipboard.setText(AnnotatedString(element.outerHtml)) }) {
-                Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.devtools_copy_html))
-            }
+            CopyButton(
+                text = { element.outerHtml },
+                contentDescription = stringResource(R.string.devtools_copy_html),
+                iconSize = 24.dp,
+                tint = LocalContentColor.current,
+            )
             IconButton(onClick = { bridge.call("remove", element.id) { onRemoved() } }) {
                 Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.devtools_delete_node))
             }
