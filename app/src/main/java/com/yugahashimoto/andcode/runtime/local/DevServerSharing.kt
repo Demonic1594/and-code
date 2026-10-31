@@ -92,21 +92,16 @@ class DevServerSharing(
 
     /** Installs cloudflared and starts the tunnel; what went wrong, or null when it runs. */
     private suspend fun startTunnel(port: Int): ShareState? {
-        val installed =
-            try {
-                install()
-                null
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (error: Exception) {
-                ShareState.Failed(error.message ?: error.javaClass.simpleName)
-            }
-        val address = answeringAddress(port)
-        return when {
-            installed != null -> installed
-            address == null -> ShareState.Failed("nothing answers on port $port")
-            else -> problemOf(supervisor.start(tunnelSpec(port, address)), tunnelSpec(port, address))
+        try {
+            install()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            return ShareState.Failed(error.message ?: error.javaClass.simpleName)
         }
+        val address = answeringAddress(port) ?: return ShareState.Failed("nothing answers on port $port")
+        val spec = tunnelSpec(port, address)
+        return problemOf(supervisor.start(spec), spec)
     }
 
     private fun problemOf(
@@ -163,11 +158,12 @@ class DevServerSharing(
         }
     }
 
+    /** Records [state] unless the share was stopped meanwhile, which a late update must not revive. */
     private fun set(
         port: Int,
         state: ShareState,
     ) {
-        mutableShares.update { it + (port to state) }
+        mutableShares.update { if (state == ShareState.Installing || port in it) it + (port to state) else it }
     }
 
     companion object {
