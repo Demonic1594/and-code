@@ -17,7 +17,8 @@ already isolates the agent.
 - Per-agent instruction files written by `AndCodeAgentContext` (CLAUDE.md, GEMINI.md, OpenCode
   instructions).
 - A send behaviour setting (`sendBehavior`, default interrupt) for steering a running agent.
-- Checkpoint and unrevert, but only through the OpenCode API.
+- Checkpoint and unrevert through the OpenCode API, and file restore to before a message for
+  every other on-device agent through shadow snapshots (#58).
 - A context-used figure and `summarizeSession` (OpenCode only).
 - `SubagentsTrack` in the chat UI.
 
@@ -49,9 +50,10 @@ and the last terminal output. Chosen items are attached to the prompt as text or
 
 Feasible, medium. Before each agent turn, snapshot the workspace into a private git repository
 kept in the app's own directory (not the user's repo). "Undo to here" on a message restores the
-snapshot. This extends undo to Claude Code, Codex and Antigravity, which currently have none.
+snapshot. This extends undo to Claude Code, Codex and Antigravity. Built in #58.
 
-- Risks: disk use on large repositories; snapshots must ignore `node_modules` and build output.
+- Risks: disk use on large repositories (`node_modules` and build output are already excluded);
+  pruning is tracked as item 8 of `2026-10-31-upstream-sync-follow-ups.md`.
 - Mobile fit: good, if it is a single action on the message.
 
 ### 4. Rules shortcut
@@ -128,7 +130,7 @@ copied (LGPL-3.0 against AndCode's MIT).
 
 1. Command allowlist.
 2. `@` mentions.
-3. Shadow snapshots.
+3. Shadow snapshots (done, #58).
 4. Rules shortcut.
 5. Verify the context meter and compact support per CLI (item 6), then decide.
 6. Long tool output to file.
@@ -140,7 +142,7 @@ copied (LGPL-3.0 against AndCode's MIT).
 
 - Which CLIs read nested instruction files?
 - Does each CLI accept a compact command, and what does it report for context usage?
-- Snapshot storage limit and cleanup policy.
+- Snapshot storage limit and cleanup policy (see item 8 of the upstream-sync follow-ups).
 - Do the custom provider settings accept a base URL, and what MCP management exists today?
 - Which authentication fits the intent trigger: a signature permission or a per-user token?
 
