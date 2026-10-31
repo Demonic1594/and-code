@@ -1796,4 +1796,6 @@
     <string name="share_server_retry">Reintentar</string>
     <string name="cd_share_server">Compartir el puerto %1$d</string>
     <string name="cd_share_server_live">El puerto %1$d está compartido</string>
+    <string name="run_settings_ultracode">Ultracode</string>
+    <string name="run_settings_ultracode_description">Claude planifica el trabajo y lo lleva a cabo con varios agentes. Es más minucioso, pero más lento y agota tus límites más rápido. Se aplica desde tu próximo mensaje; un comando con barra o una habilidad enviados a continuación aún usan el ajuste anterior.</string>
 </resources>

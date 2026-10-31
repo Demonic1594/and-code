@@ -429,6 +429,11 @@ class SecureSettingsRepository(context: Context) :
             editor.apply()
         }
 
+    /** Claude Code ultracode, on or off for every chat on a model that supports it. Off by default. */
+    var claudeUltracode: Boolean
+        get() = preferences.getBoolean(KEY_CLAUDE_ULTRACODE, false)
+        set(value) = preferences.edit().putBoolean(KEY_CLAUDE_ULTRACODE, value).apply()
+
     var sendBehavior: String
         get() = preferences.getString(KEY_SEND_BEHAVIOR, "interrupt") ?: "interrupt"
         set(value) = preferences.edit().putString(KEY_SEND_BEHAVIOR, value).apply()
@@ -633,6 +638,7 @@ class SecureSettingsRepository(context: Context) :
         private const val KEY_AUTO_EXPAND_REASONING = "auto_expand_reasoning"
         private const val KEY_ESTIMATE_AT_LIST_PRICES = "estimate_at_list_prices"
         private const val KEY_CODEX_FAST_MODE = "codex_fast_mode"
+        private const val KEY_CLAUDE_ULTRACODE = "claude_ultracode"
         private const val KEY_SEND_BEHAVIOR = "send_behavior"
         private const val KEY_ENTER_TO_SEND = "enter_to_send"
         private const val KEY_HAPTICS_ENABLED = "haptics_enabled"

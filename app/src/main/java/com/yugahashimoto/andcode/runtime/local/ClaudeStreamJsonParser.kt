@@ -48,6 +48,11 @@ class ClaudeStreamJsonParser(
         /** Slash commands and skills the CLI reports at startup. */
         val slashCommands: List<String>? = null,
         val skills: List<String>? = null,
+        /**
+         * Whether the session start offered the Workflow tool, which ultracode runs on; null on
+         * every other line. The tool is missing when the account or plan has no workflows.
+         */
+        val workflowsAvailable: Boolean? = null,
         val turnFinished: Boolean = false,
         val errorMessage: String? = null,
         /** The conversation's running cost total from a result line, for the runtime to keep. */
@@ -97,6 +102,7 @@ class ClaudeStreamJsonParser(
                     resolvedModel = root.string("model"),
                     slashCommands = root.stringList("slash_commands"),
                     skills = root.stringList("skills"),
+                    workflowsAvailable = root.stringList("tools")?.contains(WORKFLOW_TOOL),
                 )
             "assistant" -> parseModelMessage(root, role = "assistant")
             "user" -> parseModelMessage(root, role = "user")
@@ -418,6 +424,9 @@ class ClaudeStreamJsonParser(
                     ),
             )
         }
+
+        /** The tool ultracode orchestrates its agents with. */
+        const val WORKFLOW_TOOL = "Workflow"
 
         fun JsonObject.stringList(key: String): List<String>? =
             (this[key] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }

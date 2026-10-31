@@ -1790,4 +1790,6 @@
     <string name="share_server_retry">再試行</string>
     <string name="cd_share_server">ポート %1$d を共有</string>
     <string name="cd_share_server_live">ポート %1$d を共有中</string>
+    <string name="run_settings_ultracode">Ultracode</string>
+    <string name="run_settings_ultracode_description">Claude が作業を計画し、複数のエージェントで実行します。より徹底的ですが、時間がかかり、利用上限を早く消費します。次の通常メッセージから有効になります。次に送るスラッシュコマンドやスキルは以前の設定のままです。</string>
 </resources>

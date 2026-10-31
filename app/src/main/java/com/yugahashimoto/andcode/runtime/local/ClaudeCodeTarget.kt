@@ -34,6 +34,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -57,6 +59,8 @@ private data class ClaudeSessionRecord(
     @SerialName("archived") val archived: Boolean = false,
     /** Which [SystemPromptPreset] this session's turns are sent with, or null for none. */
     @SerialName("promptId") val promptId: String? = null,
+    /** Whether the session last ran in ultracode; a turn that does not say keeps it. */
+    @SerialName("ultracode") val ultracode: Boolean = false,
 )
 
 /** Exposes the Android-local Claude Code agent as a selectable runtime. */
@@ -354,7 +358,11 @@ class ClaudeCodeTarget(
         }
     }
 
-    override suspend fun listProviders() = ClaudeModels.catalog(runtime.resolvedModels().value)
+    // Only changes after the first value: the first is what the current catalog was built from.
+    override val providerCatalogChanges: Flow<Unit>
+        get() = runtime.workflowsAvailable().drop(1).map { }
+
+    override suspend fun listProviders() = ClaudeModels.catalog(runtime.resolvedModels().value, runtime.workflowsAvailable().value)
 
     override suspend fun listAgents() = listOf(OpenCodeAgent("claude", "Claude Code", "primary", true))
 
@@ -380,10 +388,13 @@ class ClaudeCodeTarget(
         }
         val model = request.modelId ?: record.model
         val effort = request.variant ?: record.effort
+        // A changed setting restarts the CLI and so its prompt cache; a turn that does not say
+        // (a reply from a notification, a skill) keeps what the session ran with.
+        val ultracode = request.ultracode ?: record.ultracode
         // Remembered so reopening the chat keeps what the user last picked; the updated time moves
         // with the conversation, as OpenCode's does, so anything cached by it is read again.
         val current = records[sessionId] ?: record
-        records[sessionId] = current.copy(model = model, effort = effort, session = current.session.touched())
+        records[sessionId] = current.copy(model = model, effort = effort, ultracode = ultracode, session = current.session.touched())
         persist()
         withContext(Dispatchers.IO) {
             runtime.send(
@@ -395,6 +406,7 @@ class ClaudeCodeTarget(
                 effort = effort,
                 attachments = request.attachments,
                 systemPrompt = systemPrompts.byId(record.promptId)?.prompt,
+                ultracode = ultracode,
             ).getOrThrow()
         }
     }

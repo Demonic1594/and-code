@@ -620,6 +620,13 @@ data class ChatUiState(
     val fastModeEnabled: Boolean = false,
     /** The server's own description of the fast tier, read out by screen readers on the Fast chip. */
     val fastModeDescription: String? = null,
+    /**
+     * Whether the selected model can run in Claude Code's ultracode. Only Claude Code sets this, and
+     * only for a model the CLI allows it on, so the switch is hidden everywhere else.
+     */
+    val ultracodeAvailable: Boolean = false,
+    /** Effective ultracode state: on only when available and the user turned it on. */
+    val ultracodeEnabled: Boolean = false,
     val attachments: List<PromptAttachment> = emptyList(),
     val imagePreviews: List<Bitmap> = emptyList(),
     val selectedProviderId: String? = null,
@@ -782,6 +789,10 @@ class ChatViewModel(
     private val onCodexFastModeChanged: (Boolean?) -> Unit = {},
     /** The user's saved Codex fast-mode choice, read when the ViewModel starts. */
     private val initialCodexFastMode: Boolean? = null,
+    /** Persists the Claude Code ultracode choice. */
+    private val onClaudeUltracodeChanged: (Boolean) -> Unit = {},
+    /** The user's saved Claude Code ultracode choice, read when the ViewModel starts. */
+    private val initialClaudeUltracode: Boolean = false,
     /**
      * The current price catalog, for the ⋮ usage row's "≈ at list prices" line on turns the
      * runtime priced at nothing. Absent in tests; the app passes the repository's live value.
@@ -831,6 +842,12 @@ class ChatViewModel(
 
     /** Codex fast-mode user choice; null follows the selected model's own default. */
     private var codexFastMode: Boolean? = initialCodexFastMode
+
+    /** The user's ultracode choice; it applies only while the selected model supports it. */
+    private var claudeUltracode: Boolean = initialClaudeUltracode
+
+    /** Whether the selected model can run in ultracode. */
+    private var selectedUltracodeAvailable: Boolean = false
 
     /** The selected model's Codex fast tier id, or null when that model offers no fast mode. */
     private var selectedFastServiceTier: String? = null
@@ -1133,10 +1150,12 @@ class ChatViewModel(
         fastServiceTier: String? = null,
         fastByDefault: Boolean = false,
         fastDescription: String? = null,
+        ultracodeAvailable: Boolean = false,
     ) {
         this.contextLimit = contextLimit
         selectedFastServiceTier = fastServiceTier
         selectedFastByDefault = fastByDefault
+        selectedUltracodeAvailable = ultracodeAvailable
         _uiState.update {
             val modelChanged = providerId != it.selectedProviderId || modelId != it.selectedModelId
             it.copy(
@@ -1153,6 +1172,23 @@ class ChatViewModel(
             )
         }
         refreshFastMode()
+        refreshUltracode()
+    }
+
+    private fun refreshUltracode() {
+        _uiState.update {
+            it.copy(
+                ultracodeAvailable = selectedUltracodeAvailable,
+                ultracodeEnabled = selectedUltracodeAvailable && claudeUltracode,
+            )
+        }
+    }
+
+    /** Sets the Claude Code ultracode choice and persists it. It takes effect from the next message. */
+    fun setUltracode(enabled: Boolean) {
+        claudeUltracode = enabled
+        onClaudeUltracodeChanged(enabled)
+        refreshUltracode()
     }
 
     /**
@@ -1992,6 +2028,7 @@ class ChatViewModel(
         val modelAtSend = _uiState.value.selectedModelId
         val agentAtSend = _uiState.value.selectedAgentId
         val variantAtSend = _uiState.value.selectedVariant
+        val ultracodeAtSend = selectedUltracodeAvailable && claudeUltracode
         val pendingPreviewsByFilename =
             pendingAttachments
                 .filter { it.mime.startsWith("image/") }
@@ -2153,6 +2190,7 @@ class ChatViewModel(
                         variant = variantAtSend,
                         attachments = modelAttachments,
                         serviceTier = serviceTierForPrompt(),
+                        ultracode = ultracodeAtSend,
                     ),
                 )
                 runCatching { currentBackend.session(targetSessionId).title }

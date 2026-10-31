@@ -1796,4 +1796,6 @@
     <string name="share_server_retry">Réessayer</string>
     <string name="cd_share_server">Partager le port %1$d</string>
     <string name="cd_share_server_live">Le port %1$d est partagé</string>
+    <string name="run_settings_ultracode">Ultracode</string>
+    <string name="run_settings_ultracode_description">Claude planifie le travail et l\'exécute avec plusieurs agents. Plus rigoureux, mais plus lent, et vos limites s\'épuisent plus vite. S\'applique dès votre prochain message ; une commande slash ou une compétence envoyée ensuite garde l\'ancien réglage.</string>
 </resources>

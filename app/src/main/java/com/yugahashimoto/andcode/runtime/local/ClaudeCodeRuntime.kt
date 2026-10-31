@@ -84,7 +84,24 @@ class ClaudeCodeRuntime(
         val model: String?,
         val effort: String?,
         val systemPrompt: String?,
-    )
+        val ultracode: Boolean,
+    ) {
+        /** Whether this process was started with these settings; each is read only at startup. */
+        fun startedWith(
+            permissionMode: ClaudePermissionMode,
+            directory: String,
+            model: String?,
+            effort: String?,
+            systemPrompt: String?,
+            ultracode: Boolean,
+        ): Boolean =
+            this.permissionMode == permissionMode &&
+                this.directory == directory &&
+                this.model == model &&
+                this.effort == effort &&
+                this.systemPrompt == systemPrompt &&
+                this.ultracode == ultracode
+    }
 
     /** Mutate only through [registerSession] and [unregisterSession], which keep [hasLiveSessions] in step. */
     private val sessions = linkedMapOf<String, SessionProcess>()
@@ -177,12 +194,21 @@ class ClaudeCodeRuntime(
     private val resolvedModelsFile = File(runtimeDirectory, "claude-resolved-models.json")
     private val resolvedModels = MutableStateFlow<Map<String, String>>(emptyMap())
 
+    /**
+     * Whether the CLI offered its Workflow tool at the last session start (null before any), kept
+     * with the resolved models and dropped with them when the CLI version changes.
+     */
+    private val workflowsAvailable = MutableStateFlow<Boolean?>(null)
+
     val auth = ClaudeAuthCoordinator(runtimeDirectory, installedRuntimeProvider, accessCoordinator, messages, githubToken)
 
     fun events(): Flow<OpenCodeEvent> = events
 
     /** Alias to resolved model id, learned from run output. */
     fun resolvedModels(): StateFlow<Map<String, String>> = resolvedModels.asStateFlow()
+
+    /** Whether ultracode can run on this account, as the last session start showed; null when unknown. */
+    fun workflowsAvailable(): StateFlow<Boolean?> = workflowsAvailable.asStateFlow()
 
     fun isInstalled(): Boolean = installedRuntimeProvider()?.rootfs?.let(ClaudeCodeInstaller::isInstalledIn) == true
 
@@ -352,10 +378,19 @@ class ClaudeCodeRuntime(
         effort: String?,
         attachments: List<PromptAttachment> = emptyList(),
         systemPrompt: String? = null,
+        ultracode: Boolean = false,
     ): Result<Unit> =
         runCatching {
             val session =
-                ensureProcess(sessionId, directory.ifBlank { "/workspace" }, permissionMode, model, effort, systemPrompt)
+                ensureProcess(
+                    sessionId,
+                    directory.ifBlank { "/workspace" },
+                    permissionMode,
+                    model,
+                    effort,
+                    systemPrompt,
+                    ultracode,
+                )
             session.parser.beginTurn()
             recordUserMessage(sessionId, prompt, attachments)
             session.process.outputStream.apply {
@@ -472,17 +507,20 @@ class ClaudeCodeRuntime(
         model: String?,
         effort: String?,
         systemPrompt: String? = null,
+        ultracode: Boolean = false,
     ): SessionProcess {
         val existing = sessions[sessionId]
-        // Permission mode, working directory, model and system prompt are read once at startup, so
-        // a change to any of them means the process has to be replaced rather than reused.
-        if (existing != null &&
-            existing.process.isAlive &&
-            existing.permissionMode == permissionMode &&
-            existing.directory == directory &&
-            existing.model == model &&
-            existing.effort == effort &&
-            existing.systemPrompt == systemPrompt
+        // Permission mode, working directory, model, system prompt and ultracode are read once at
+        // startup, so a change to any of them means the process has to be replaced rather than reused.
+        if (existing != null && existing.process.isAlive &&
+            existing.startedWith(
+                permissionMode,
+                directory,
+                model,
+                effort,
+                systemPrompt,
+                ultracode,
+            )
         ) {
             return existing
         }
@@ -507,7 +545,7 @@ class ClaudeCodeRuntime(
                     runtime = runtime,
                     workspaceHostDir = File(runtimeDirectory, "workspace").apply { mkdirs() },
                     workingDirectory = directory,
-                    arguments = processArguments(sessionId, effectiveMode, model, effort, systemPrompt),
+                    arguments = processArguments(sessionId, effectiveMode, model, effort, systemPrompt, ultracode),
                     pty = false,
                 ),
             ).directory(runtimeDirectory)
@@ -552,7 +590,7 @@ class ClaudeCodeRuntime(
                 }
             }
 
-        return SessionProcess(process, readerJob, parser, permissionMode, directory, model, effort, systemPrompt)
+        return SessionProcess(process, readerJob, parser, permissionMode, directory, model, effort, systemPrompt, ultracode)
             .also { registerSession(sessionId, it) }
     }
 
@@ -562,6 +600,7 @@ class ClaudeCodeRuntime(
         model: String?,
         effort: String?,
         systemPrompt: String? = null,
+        ultracode: Boolean = false,
     ): List<String> =
         buildList {
             add("--print")
@@ -583,6 +622,10 @@ class ClaudeCodeRuntime(
             }
             ClaudeModels.cliEffort(effort)?.let {
                 add("--effort")
+                add(it)
+            }
+            ClaudeModels.cliSettings(ultracode)?.let {
+                add("--settings")
                 add(it)
             }
             // Appended to Claude's own system prompt rather than replacing it, so a preset only
@@ -693,6 +736,7 @@ class ClaudeCodeRuntime(
             }
         }
         if (requestedModel != null) parsed.resolvedModel?.let { rememberResolvedModel(requestedModel, it) }
+        parsed.workflowsAvailable?.let(::rememberWorkflowsAvailable)
         parsed.costTotal?.let { total ->
             synchronized(this) {
                 if (costTotals[sessionId] != total) {
@@ -719,7 +763,9 @@ class ClaudeCodeRuntime(
      * slow for whatever thread builds this object.
      */
     fun loadResolvedModels() {
-        resolvedModels.value = readResolvedModels()
+        val stored = readResolvedModels()
+        resolvedModels.value = stored - WORKFLOWS_KEY
+        workflowsAvailable.value = stored[WORKFLOWS_KEY]?.toBooleanStrictOrNull()
     }
 
     private fun readResolvedModels(): Map<String, String> {
@@ -736,11 +782,23 @@ class ClaudeCodeRuntime(
         resolved: String,
     ) {
         if (resolvedModels.value[alias] == resolved) return
-        val updated = resolvedModels.value + (alias to resolved)
-        resolvedModels.value = updated
+        resolvedModels.value = resolvedModels.value + (alias to resolved)
+        persistModelCache()
+    }
+
+    private fun rememberWorkflowsAvailable(available: Boolean) {
+        if (workflowsAvailable.value == available) return
+        workflowsAvailable.value = available
+        persistModelCache()
+    }
+
+    private fun persistModelCache() {
         runCatching {
             resolvedModelsFile.parentFile?.mkdirs()
-            val persisted = updated + (CLI_VERSION_KEY to version().orEmpty())
+            val persisted =
+                resolvedModels.value +
+                    (CLI_VERSION_KEY to version().orEmpty()) +
+                    listOfNotNull(workflowsAvailable.value?.let { WORKFLOWS_KEY to it.toString() })
             resolvedModelsFile.writeText(
                 json.encodeToString(MapSerializer(String.serializer(), String.serializer()), persisted),
             )
@@ -927,6 +985,9 @@ class ClaudeCodeRuntime(
 
         /** Reserved key; no model alias can collide with it. */
         const val CLI_VERSION_KEY = "@cliVersion"
+
+        /** Reserved key in the same file for [workflowsAvailable]; "@" keeps it apart from any alias. */
+        const val WORKFLOWS_KEY = "@workflows"
         const val TITLE_PROMPT_LIMIT = 500
         private const val TITLE_SYSTEM_PROMPT = "You name chats. Answer with the title only."
         private const val INTERRUPT_GRACE_MILLIS = 3_000L
