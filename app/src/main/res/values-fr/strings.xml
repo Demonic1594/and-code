@@ -1757,4 +1757,8 @@
     <string name="tool_copy_block">Copier %1$s</string>
     <string name="cd_search_projects">Rechercher des projets</string>
     <string name="drawer_project_search_hint">Rechercher des projets</string>
+    <string name="notification_channel_supervised">Processus en cours</string>
+    <string name="supervised_notification_title">Processus en cours (%1$d)</string>
+    <string name="supervised_notification_keeping_awake">Continue de fonctionner écran éteint</string>
+    <string name="supervised_stop_all">Tout arrêter</string>
 </resources>

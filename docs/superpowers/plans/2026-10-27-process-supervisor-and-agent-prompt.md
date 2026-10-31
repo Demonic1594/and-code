@@ -1,6 +1,37 @@
 # Process supervisor ("run timer") for local servers, and a stronger built-in agent prompt
 
-Status: **not started**. Written down to build later; nothing in the app has been changed.
+Status: **part 1 built** (supervisor, `andcode-run`, notification, prompts). Part 2, the in-app
+process screen and the Artifacts list integration, is still to do.
+
+### Decisions made while building part 1
+
+- **Its own service.** `SupervisedProcessService` runs while anything is supervised, holds its own
+  wake lock and shows the notification with **Stop all**. `LocalRuntimeService` only runs while
+  OpenCode's runtime is managed, so a setup with Claude Code or Codex alone would have had no
+  foreground service and no wake lock. Each process also holds a `RuntimeWorkTracker` lease, so the
+  runtime service's own wake lock and idle stop see it too.
+- **No approval per command, for now.** An agent can already run any command in its shell,
+  including `nohup` servers; asking for approval here would make the safe path the one with more
+  friction, which is the opposite of what the prompt asks for. The limits are: the notification and
+  Stop all, five processes at most, a four-hour default time limit, and servers bound to localhost
+  by the prompt. Revisit if the process screen (part 2) adds per-agent permissions.
+- **The control channel is a file bridge** under `/workspace/.and-code/run-bridge`, the same
+  mechanism the schedule MCP server uses, so it works for every agent through the shell and
+  needs no new IPC. `andcode-run` is a stdlib Python script installed to `/usr/local/bin`.
+- **Ports are read from the output** (the first `http://localhost:PORT`-style URL), or given with
+  `--port`. `/proc/net` under PRoot was not relied on.
+- **The prompt sections are always included.** The whole text is about 5,000 characters
+  (roughly 1,300 tokens), checked by `AgentContextAssetTest` against a 6,500-character budget.
+  A toggle would have meant building the text from parts for little saving.
+- **Codex now gets the text**, at `/root/.codex/AGENTS.md` (`CODEX_HOME` is `/root/.codex`).
+- **A user-edited instructions file** still keeps its edits and so lacks the new sections. The
+  command's replies teach the essentials (every refusal says what to do, and never to fall back to
+  `nohup`). A one-time in-app notice is left for part 2.
+- **Processes stop on an update, reinstall or delete** of the runtime, since those replace the
+  rootfs. Stopping OpenCode's server does not stop them: Claude Code and Codex use the same
+  guest without it.
+- **Restart on the next launch**: the definitions of running processes are saved; offering to
+  start them again is part of the process screen (part 2).
 
 ## Goal
 

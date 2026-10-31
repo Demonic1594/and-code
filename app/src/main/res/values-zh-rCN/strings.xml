@@ -1731,4 +1731,8 @@
     <string name="tool_copy_block">复制 %1$s</string>
     <string name="cd_search_projects">搜索项目</string>
     <string name="drawer_project_search_hint">搜索项目</string>
+    <string name="notification_channel_supervised">正在运行的进程</string>
+    <string name="supervised_notification_title">正在运行的进程 (%1$d)</string>
+    <string name="supervised_notification_keeping_awake">屏幕关闭时仍保持运行</string>
+    <string name="supervised_stop_all">全部停止</string>
 </resources>

@@ -1770,4 +1770,8 @@
     <string name="tool_copy_block">Скопировать %1$s</string>
     <string name="cd_search_projects">Поиск проектов</string>
     <string name="drawer_project_search_hint">Поиск проектов</string>
+    <string name="notification_channel_supervised">Запущенные процессы</string>
+    <string name="supervised_notification_title">Запущенные процессы (%1$d)</string>
+    <string name="supervised_notification_keeping_awake">Работает при выключенном экране</string>
+    <string name="supervised_stop_all">Остановить всё</string>
 </resources>
