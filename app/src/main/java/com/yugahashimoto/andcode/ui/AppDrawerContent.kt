@@ -308,7 +308,12 @@ fun AppDrawerContent(
                             Icon(
                                 Icons.Default.Search,
                                 contentDescription = stringResource(R.string.cd_search_projects),
-                                tint = if (projectSearchOpen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint =
+                                    if (projectSearchOpen) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                                 modifier = Modifier.size(18.dp),
                             )
                         }

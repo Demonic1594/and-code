@@ -12,23 +12,17 @@ private val OWNER_REPO = Regex("^([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)/([A-
  * GitHub Enterprise hosts and paths deeper than owner/repo, is null.
  */
 fun gitHubRepositoryUrl(remote: String): String? {
-    val trimmed = remote.trim()
-    val path =
-        when {
-            trimmed.startsWith("git@github.com:") -> trimmed.removePrefix("git@github.com:")
-            else -> {
-                val scheme = trimmed.substringBefore("://", missingDelimiterValue = "")
-                if (scheme !in setOf("https", "http", "ssh", "git")) return null
-                val rest = trimmed.substringAfter("://")
-                val authority = rest.substringBefore('/')
-                val host = authority.substringAfterLast('@').substringBefore(':').lowercase()
-                if (host != "github.com" && host != "www.github.com") return null
-                rest.substringAfter('/', missingDelimiterValue = "")
-            }
-        }
-    val ownerRepo = path.trimEnd('/').removeSuffix(".git")
-    val match = OWNER_REPO.matchEntire(ownerRepo) ?: return null
-    val repo = match.groupValues[2]
-    if (repo == "." || repo == "..") return null
-    return "https://github.com/${match.groupValues[1]}/$repo"
+    val ownerRepo = gitHubPath(remote.trim())?.trimEnd('/')?.removeSuffix(".git") ?: return null
+    val match = OWNER_REPO.matchEntire(ownerRepo)?.takeIf { it.groupValues[2] != "." && it.groupValues[2] != ".." }
+    return match?.let { "https://github.com/${it.groupValues[1]}/${it.groupValues[2]}" }
+}
+
+/** The path after the host of a github.com remote (`owner/repo.git`), or null for any other host. */
+private fun gitHubPath(remote: String): String? {
+    if (remote.startsWith("git@github.com:")) return remote.removePrefix("git@github.com:")
+    val scheme = remote.substringBefore("://", missingDelimiterValue = "")
+    val rest = remote.substringAfter("://")
+    val host = rest.substringBefore('/').substringAfterLast('@').substringBefore(':').lowercase()
+    val known = scheme in setOf("https", "http", "ssh", "git") && (host == "github.com" || host == "www.github.com")
+    return if (known) rest.substringAfter('/', missingDelimiterValue = "") else null
 }

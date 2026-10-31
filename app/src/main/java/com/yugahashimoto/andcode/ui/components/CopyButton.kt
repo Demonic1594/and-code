@@ -26,11 +26,8 @@ import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
 import kotlinx.coroutines.delay
 
-/** How long the check mark stays after a copy before the button reads "Copy" again. */
-internal const val COPY_FEEDBACK_MILLIS = 2_000L
-
 /**
- * Copies [text] and shows that it did: the icon turns into a check mark for [COPY_FEEDBACK_MILLIS],
+ * Copies [text] and shows that it did: the icon turns into a check mark for [feedbackMillis],
  * and its description changes to "Copied", which TalkBack announces. [text] is read at tap time, so
  * a caller can pass content that is still streaming in.
  */
@@ -42,6 +39,7 @@ fun CopyButton(
     iconSize: Dp = 18.dp,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     onCopied: () -> Unit = {},
+    feedbackMillis: Long = 2_000L,
 ) {
     val clipboard = LocalClipboardManager.current
     val haptics = rememberHaptics()
@@ -51,7 +49,7 @@ fun CopyButton(
     LaunchedEffect(copies) {
         if (copies == 0) return@LaunchedEffect
         showingCheck = copies
-        delay(COPY_FEEDBACK_MILLIS)
+        delay(feedbackMillis)
         showingCheck = 0
     }
     val copied = showingCheck != 0
