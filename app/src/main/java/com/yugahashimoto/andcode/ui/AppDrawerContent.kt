@@ -510,7 +510,9 @@ private fun DrawerSearchField(
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.fillMaxWidth(),
+                    // The hint is its own Text and goes once typing starts; the label stays, so the
+                    // project and chat search fields stay told apart.
+                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = hint },
                 )
             }
             if (query.isNotEmpty()) {
