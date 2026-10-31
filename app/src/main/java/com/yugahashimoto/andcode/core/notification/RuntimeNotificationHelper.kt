@@ -191,6 +191,7 @@ class RuntimeNotificationHelper(private val context: Context) {
                 .setContentTitle(context.getString(R.string.notification_error_title))
                 .setContentText(message ?: context.getString(R.string.notification_error_body))
                 .setContentIntent(intent)
+                .lockAware()
                 .apply {
                     // A failed turn is often fixed by one more instruction ("try again with X").
                     if (sessionId != null) addReplyUnlessLocked(sessionId, runtimeId, statusNotificationId(sessionId, "err"))

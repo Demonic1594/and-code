@@ -29,8 +29,6 @@ class NotificationActionReceiver : BroadcastReceiver() {
         val sessionId = intent?.getStringExtra(RuntimeNotificationHelper.EXTRA_SESSION_ID) ?: return
         val runtimeId = intent.getStringExtra(RuntimeNotificationHelper.EXTRA_RUNTIME_ID)
         val app = context.applicationContext as? AndCodeApplication ?: return
-        // An action left on a notification posted before the app lock was turned on: refuse it.
-        if (app.preferences.state.value.biometricLockEnabled) return
         when (intent.action) {
             ACTION_STOP -> {
                 // As the chat's own Stop does: the app stops treating the chat as running whatever
@@ -42,6 +40,12 @@ class NotificationActionReceiver : BroadcastReceiver() {
             }
             ACTION_REPLY -> {
                 val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, 0)
+                // A Reply left on a notification posted before the app lock was turned on would send
+                // past it. Stop stays: it only ends a run, which is the safe direction.
+                if (app.preferences.state.value.biometricLockEnabled) {
+                    app.notifications.cancel(notificationId)
+                    return
+                }
                 val text =
                     RemoteInput.getResultsFromIntent(intent)
                         ?.getCharSequence(KEY_REPLY)

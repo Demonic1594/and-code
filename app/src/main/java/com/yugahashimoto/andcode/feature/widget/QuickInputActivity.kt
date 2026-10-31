@@ -53,7 +53,7 @@ class QuickInputActivity : ComponentActivity() {
         // With the app lock on, a prompt from the home screen or Quick Settings must not reach an
         // agent without the unlock: open the app instead, behind its lock.
         if ((application as AndCodeApplication).preferences.state.value.biometricLockEnabled) {
-            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
             finish()
             return
         }
