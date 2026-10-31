@@ -269,10 +269,6 @@ fun AppDrawerContent(
             ) {
                 DrawerHeader()
                 NewChatRow(onClick = onNewChat)
-                InboxRow(waiting = inboxWaiting, running = inboxRunning, onClick = { onNavigate(ROUTE_INBOX) })
-                if (recentSessions.isNotEmpty()) {
-                    DrawerSearchField(query = searchQuery, onQueryChange = { searchQuery = it })
-                }
 
                 // Only worth a switcher when there is something to switch between. A row of agent
                 // chips rather than a list: four full-width rows used to push the chats themselves
@@ -281,6 +277,8 @@ fun AppDrawerContent(
                     DrawerSectionHeader(text = stringResource(R.string.drawer_agents_title), collapsible = false)
                     DrawerAgentSwitcher(agents = agents, selectedRuntimeId = selectedRuntimeId, onSelectAgent = onSelectAgent)
                 }
+                // Under the agents: actions, then what you work with, then where things wait for you.
+                InboxRow(waiting = inboxWaiting, running = inboxRunning, onClick = { onNavigate(ROUTE_INBOX) })
 
                 // Projects as chips for the same reason; the full path is one tap away in Workspaces.
                 DrawerSectionHeader(text = stringResource(R.string.drawer_projects_title), collapsible = false)
@@ -292,12 +290,18 @@ fun AppDrawerContent(
                 )
 
                 if (recentSessions.isNotEmpty()) {
+                    // Next to the list it filters. A query shows the results even in a collapsed
+                    // section, without overwriting the collapse the user chose.
+                    DrawerSearchField(query = searchQuery, onQueryChange = { searchQuery = it })
+                    val recentCollapsed = isRecentSectionCollapsed(collapsedSections, searchQuery)
                     DrawerSectionHeader(
                         text = stringResource(R.string.drawer_recent_chats),
-                        collapsed = collapsedSections.contains("recent"),
-                        onToggle = { onToggleSection("recent") },
+                        collapsed = recentCollapsed,
+                        // While a query holds the section open, a tap would flip the saved choice
+                        // with nothing to show for it until the query is cleared.
+                        onToggle = { if (searchQuery.isBlank()) onToggleSection("recent") },
                     )
-                    AnimatedVisibility(visible = !collapsedSections.contains("recent")) {
+                    AnimatedVisibility(visible = !recentCollapsed) {
                         Column {
                             if (selectionMode) {
                                 val allPinned = selectedSessionIds.all { it in pinnedSessionIds }
@@ -969,3 +973,9 @@ private fun AppDrawerContentPreview() {
         )
     }
 }
+
+/** Whether Recent chats is shown collapsed: as the user left it, except that a query always opens it. */
+internal fun isRecentSectionCollapsed(
+    collapsedSections: Set<String>,
+    query: String,
+): Boolean = "recent" in collapsedSections && query.isBlank()
