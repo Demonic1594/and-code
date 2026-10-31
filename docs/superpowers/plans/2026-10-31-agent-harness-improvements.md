@@ -7,8 +7,10 @@ Status: **in progress**. Item 3 (shadow snapshots) is done (#58); the rest is no
 Make agents run through AndCode more useful on a phone. Cursor's published harness was the
 reference point. This doc lists what AndCode lacks, what is feasible with what we already have,
 and an order to build in. Cursor's cloud agents, Bugbot, its own trained model and its OS sandbox
-are out of scope: they need infrastructure AndCode does not have, and AndCode's PRoot rootfs
-already isolates the agent.
+are out of scope: they need infrastructure AndCode does not have. AndCode's PRoot rootfs
+isolates only the guest filesystem view; it does not stop agent commands from reaching the host
+paths bound into the guest (`/dev`, `/proc`, `/sys`, the workspace, the permission bridge
+directory, and device storage when all-files access is granted).
 
 ## What AndCode already has
 
@@ -32,10 +34,18 @@ Feasible, easy. The approval sheet gets an "Always allow this command" action th
 pattern (for example `git status`, `npm test`) per project. Matching calls skip the prompt.
 Cursor's plain-English rules are not needed; prefix patterns cover most cases.
 
-- Storage: per-project settings, not global.
+The existing `ClaudePermissionBridge.isAlwaysAllowed` matches with `startsWith` on the first two
+tokens, so `git status; rm -rf x` would match an allowed `git status`. Nothing calls it today, but
+before it is wired into the prompt bypass, match on parsed arguments or refuse any command that
+contains shell operators (`;`, `&&`, `||`, `|`, newlines, `$(...)`, backticks).
+
+- Storage: per-project settings, not global. `ClaudePermissionBridge` keeps `always-rules.json`
+  under its host root and `AlwaysRule` carries no project, so scope the bridge by project (or
+  persist the project in each rule and match on it) as a design step before reusing the rules.
 - Mobile fit: very good; directly removes repeated approval taps.
 - Test: pattern matching as a unit test, including prefix boundaries (`git status` must not
-  match `git statusfoo`).
+  match `git statusfoo`), and commands with `;`, `&&`, newlines, substitutions and alternate
+  `rm` forms.
 
 ### 2. `@` mentions in the composer
 
@@ -91,7 +101,7 @@ into the agent when it stops), but a raw hook editor is not usable on a phone.
 ### 8. Additions from reading Operit (Android agent app, LGPL-3.0)
 
 Read from its source at commit `dbf7191`, not built or run. Ideas only; its code must not be
-copied (LGPL-3.0 against AndCode's MIT).
+copied without a licence review (LGPL-3.0, while AndCode is MIT); record any notices that apply.
 
 - **Allowlist: add Deny and a timeout (extends item 1).** Operit has allow, ask and forbid per
   tool, with an "Always allow" choice on the prompt and a 60-second timeout that counts as not
@@ -102,7 +112,7 @@ copied (LGPL-3.0 against AndCode's MIT).
   message, a chat id, a new-chat flag, a timeout and a reply action. We already have schedules, a
   quick-settings tile and shortcuts; an intent that runs a saved prompt in a chosen project fits
   next to them. Do not copy its auth: its intent receiver is exported with no permission or token
-  (`AndroidManifest.xml:385`), so any installed app can send the agent a prompt. Ours needs a
+  (the external chat receiver in its `AndroidManifest.xml`), so any installed app can send the agent a prompt. Ours needs a
   signature permission or a per-user token, because our agents run shell commands.
 - **Say why an MCP server did not start.** Operit reports a status such as `NODEJS_MISSING` or
   `BRIDGE_FAILED`. Show the specific reason in the MCP list.
@@ -119,7 +129,8 @@ copied (LGPL-3.0 against AndCode's MIT).
 ## Not planned
 
 - Cursor's cloud agents, Bugbot and its trained model: need server infrastructure.
-- Cursor's OS sandbox: AndCode's PRoot rootfs already isolates the agent, and Cursor itself says its
+- Cursor's OS sandbox: a kernel-level sandbox is not planned here (PRoot only changes the guest's
+  filesystem view, see the top of this doc), and Cursor itself says its
   classifier is not a security boundary.
 - Semantic code search with an embedding index: heavy for a phone; rely on grep and ripgrep.
 - From Operit: phone control through Accessibility, Shizuku or Root (large security surface and
