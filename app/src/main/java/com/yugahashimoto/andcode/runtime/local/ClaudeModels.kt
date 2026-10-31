@@ -32,9 +32,47 @@ object ClaudeModels {
     fun cliEffort(effort: String?): String? = effort?.takeIf { it in EFFORT_LEVELS }
 
     /**
-     * @param resolved alias to the model id Claude reported for it, as learned from run output.
+     * Models the CLI refuses ultracode for, as it decides it: the ones without the `xhigh` effort.
+     * Newer models, the ones the aliases resolve to today included, support it.
      */
-    fun catalog(resolved: Map<String, String>): ProviderCatalog =
+    private val ULTRACODE_UNSUPPORTED =
+        setOf(
+            "claude-opus-4-0",
+            "claude-opus-4-1",
+            "claude-opus-4-5",
+            "claude-opus-4-6",
+            "claude-sonnet-4-0",
+            "claude-sonnet-4-5",
+            "claude-sonnet-4-6",
+            "claude-haiku-4-5",
+        )
+
+    /**
+     * Whether [modelId] (an alias, or the id Claude reported for one) can run in ultracode. A dated
+     * suffix ("claude-haiku-4-5-20251001") or a context suffix ("[1m]") does not change the answer.
+     */
+    fun supportsUltracode(modelId: String): Boolean {
+        val id = modelId.lowercase().substringBefore('[').replace(DATE_SUFFIX, "")
+        return !id.startsWith("claude-3-") && !id.startsWith("claude-3.") && id !in ULTRACODE_UNSUPPORTED
+    }
+
+    /**
+     * `--settings` for a session in ultracode, or null for none. Claude Code reads ultracode as a
+     * session setting; the CLI ignores it on an account or model without workflows.
+     */
+    fun cliSettings(ultracode: Boolean): String? = if (ultracode) "{\"ultracode\":true}" else null
+
+    private val DATE_SUFFIX = Regex("-\\d{8}$")
+
+    /**
+     * @param resolved alias to the model id Claude reported for it, as learned from run output.
+     * @param workflows whether the CLI offered its Workflow tool at the last session start, or null
+     *   before any has started. False hides ultracode: the account cannot run it.
+     */
+    fun catalog(
+        resolved: Map<String, String>,
+        workflows: Boolean? = null,
+    ): ProviderCatalog =
         ProviderCatalog(
             all =
                 listOf(
@@ -48,6 +86,7 @@ object ClaudeModels {
                                     providerId = PROVIDER_ID,
                                     name = resolved[alias] ?: alias.replaceFirstChar(Char::titlecase),
                                     variants = EFFORT_LEVELS.associateWith { JsonPrimitive(it) },
+                                    claudeUltracode = workflows != false && supportsUltracode(resolved[alias] ?: alias),
                                 )
                             },
                     ),

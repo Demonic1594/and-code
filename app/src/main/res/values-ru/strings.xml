@@ -1808,4 +1808,6 @@
     <string name="share_server_retry">Повторить</string>
     <string name="cd_share_server">Поделиться портом %1$d</string>
     <string name="cd_share_server_live">Порт %1$d доступен по ссылке</string>
+    <string name="run_settings_ultracode">Ultracode</string>
+    <string name="run_settings_ultracode_description">Claude планирует работу и выполняет её с помощью нескольких агентов. Тщательнее, но медленнее и быстрее расходует ваши лимиты. Действует со следующего обычного сообщения; следующая slash-команда или навык ещё используют прежнюю настройку.</string>
 </resources>

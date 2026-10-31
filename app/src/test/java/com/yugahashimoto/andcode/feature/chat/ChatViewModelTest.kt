@@ -2254,6 +2254,43 @@ class ChatViewModelTest {
         }
 
     @Test
+    fun `ultracode is sent only while the model supports it and the user turned it on`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val saved = mutableListOf<Boolean>()
+            val viewModel = ChatViewModel(backend, onClaudeUltracodeChanged = { saved += it })
+            advanceUntilIdle()
+            viewModel.selectConfiguration("claude-code", "opus", agentId = null, ultracodeAvailable = true)
+
+            viewModel.sendMessage("off by default")
+            advanceUntilIdle()
+            viewModel.setUltracode(true)
+            assertTrue(viewModel.uiState.value.ultracodeEnabled)
+            viewModel.sendMessage("on")
+            advanceUntilIdle()
+            // A model without it keeps the choice but neither shows nor sends it.
+            viewModel.selectConfiguration("claude-code", "haiku", agentId = null, ultracodeAvailable = false)
+            assertFalse(viewModel.uiState.value.ultracodeAvailable)
+            assertFalse(viewModel.uiState.value.ultracodeEnabled)
+            viewModel.sendMessage("unsupported")
+            advanceUntilIdle()
+
+            assertEquals(listOf(false, true, false), backend.sentPrompts.map { it.second.ultracode })
+            assertEquals(listOf(true), saved)
+        }
+
+    @Test
+    fun `a saved ultracode choice is applied when the view model starts`() =
+        runTest(dispatcher) {
+            val viewModel = ChatViewModel(FakeBackend(), initialClaudeUltracode = true)
+            advanceUntilIdle()
+
+            viewModel.selectConfiguration("claude-code", "opus", agentId = null, ultracodeAvailable = true)
+
+            assertTrue(viewModel.uiState.value.ultracodeEnabled)
+        }
+
+    @Test
     fun `dismissing the todo bar records the entry so it stays closed`() =
         runTest(dispatcher) {
             val backend = FakeBackend()

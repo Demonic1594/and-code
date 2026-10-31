@@ -45,6 +45,8 @@ data class AppPreferences(
     val autoExpandReasoning: Boolean = false,
     /** Codex fast mode: null follows each model's default, otherwise the user's explicit choice. */
     val codexFastMode: Boolean? = null,
+    /** Claude Code ultracode: standing multi-agent workflows on models that support it. */
+    val claudeUltracode: Boolean = false,
     /** List-price estimates on the usage page; off also stops the weekly price-list fetch. */
     val estimateAtListPrices: Boolean = true,
     val sendBehavior: String = "interrupt",
@@ -110,6 +112,7 @@ class AppPreferencesRepository(
                 toolCallDetailLevel = settings.toolCallDetailLevel,
                 autoExpandReasoning = settings.autoExpandReasoning,
                 codexFastMode = settings.codexFastMode,
+                claudeUltracode = settings.claudeUltracode,
                 estimateAtListPrices = settings.estimateAtListPrices,
                 sendBehavior = settings.sendBehavior,
                 enterToSend = settings.enterToSend,
@@ -329,6 +332,11 @@ class AppPreferencesRepository(
     fun setCodexFastMode(enabled: Boolean?) {
         settings.codexFastMode = enabled
         mutableState.update { it.copy(codexFastMode = enabled) }
+    }
+
+    fun setClaudeUltracode(enabled: Boolean) {
+        settings.claudeUltracode = enabled
+        mutableState.update { it.copy(claudeUltracode = enabled) }
     }
 
     fun setEstimateAtListPrices(enabled: Boolean) {

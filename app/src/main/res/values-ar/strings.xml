@@ -1834,4 +1834,6 @@
     <string name="share_server_retry">حاول مرة أخرى</string>
     <string name="cd_share_server">مشاركة المنفذ %1$d</string>
     <string name="cd_share_server_live">المنفذ %1$d مُشارَك</string>
+    <string name="run_settings_ultracode">Ultracode</string>
+    <string name="run_settings_ultracode_description">يخطط Claude للعمل وينفذه بعدة وكلاء. أكثر دقة، لكنه أبطأ ويستنفد حدودك بشكل أسرع. يسري من رسالتك العادية التالية؛ أما أمر الشرطة المائلة أو المهارة التالية فيستخدم الإعداد السابق.</string>
 </resources>

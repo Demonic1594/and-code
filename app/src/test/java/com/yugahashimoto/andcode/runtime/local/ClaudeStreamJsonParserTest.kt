@@ -28,6 +28,19 @@ class ClaudeStreamJsonParserTest {
         assertEquals("claude-sonnet-5", parsed.resolvedModel)
         assertEquals(listOf("/review", "/ship"), parsed.slashCommands)
         assertEquals(listOf("pdf"), parsed.skills)
+        assertNull("no tools listed, nothing learned", parsed.workflowsAvailable)
+    }
+
+    @Test
+    fun `the init line tells whether the Workflow tool that ultracode needs is offered`() {
+        val withWorkflows =
+            parser().parse("""{"type":"system","subtype":"init","session_id":"a","tools":["Bash","Workflow","Read"]}""")
+        val without = parser().parse("""{"type":"system","subtype":"init","session_id":"a","tools":["Bash","Read"]}""")
+        val status = parser().parse("""{"type":"system","subtype":"status","status":"requesting"}""")
+
+        assertEquals(true, withWorkflows.workflowsAvailable)
+        assertEquals(false, without.workflowsAvailable)
+        assertNull(status.workflowsAvailable)
     }
 
     @Test

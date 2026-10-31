@@ -1812,4 +1812,6 @@
     <string name="share_server_retry">Try again</string>
     <string name="cd_share_server">Share port %1$d</string>
     <string name="cd_share_server_live">Port %1$d is shared</string>
+    <string name="run_settings_ultracode">Ultracode</string>
+    <string name="run_settings_ultracode_description">Claude plans the work and runs it with several agents. More thorough, but slower and uses your limits faster. Applies from your next message; a slash command or skill sent next still uses the previous setting.</string>
 </resources>

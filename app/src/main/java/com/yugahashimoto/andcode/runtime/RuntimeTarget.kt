@@ -3,7 +3,9 @@ package com.yugahashimoto.andcode.runtime
 import com.yugahashimoto.andcode.core.api.OpenCodeHealth
 import com.yugahashimoto.andcode.core.api.OpenCodeProject
 import com.yugahashimoto.andcode.core.api.OpenCodeSession
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 
 enum class RuntimeType {
     LOCAL,
@@ -97,6 +99,14 @@ interface RuntimeTarget : OpenCodeBackend {
 
     val capabilities: RuntimeCapabilities
         get() = RuntimeCapabilities()
+
+    /**
+     * Fires when this target's model catalog changed without anything reloading it, so the app
+     * reloads the providers. Claude Code learns from a turn whether the account has Workflow, which
+     * decides whether its models offer Ultracode.
+     */
+    val providerCatalogChanges: Flow<Unit>
+        get() = emptyFlow()
 
     suspend fun connect(): Result<OpenCodeHealth>
 
