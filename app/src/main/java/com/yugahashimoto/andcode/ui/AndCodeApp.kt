@@ -38,12 +38,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.BuildConfig
 import com.yugahashimoto.andcode.R
@@ -63,9 +61,6 @@ import com.yugahashimoto.andcode.feature.git.gitHubRepositoryUrl
 import com.yugahashimoto.andcode.feature.inbox.InboxViewModel
 import com.yugahashimoto.andcode.feature.onboarding.AndroidSetupScreen
 import com.yugahashimoto.andcode.feature.onboarding.OnboardingChoiceScreen
-import com.yugahashimoto.andcode.feature.schedule.ScheduleEditorScreen
-import com.yugahashimoto.andcode.feature.schedule.ScheduleListScreen
-import com.yugahashimoto.andcode.feature.schedule.ScheduleRunsScreen
 import com.yugahashimoto.andcode.feature.schedule.ScheduleViewModel
 import com.yugahashimoto.andcode.feature.settings.CodexSignInActions
 import com.yugahashimoto.andcode.feature.settings.CodexSignInViewModel
@@ -86,19 +81,13 @@ import com.yugahashimoto.andcode.ui.navigation.ROUTE_CHAT
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ONBOARDING
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_REMOTE_CONNECTION
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SCHEDULES
-import com.yugahashimoto.andcode.ui.navigation.ROUTE_SCHEDULE_EDIT
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SEARCH
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_AGENT_CODEX
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_PROVIDERS
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_WORKSPACES
-import com.yugahashimoto.andcode.ui.navigation.SCHEDULE_DETAIL_ROUTE_PATTERN
-import com.yugahashimoto.andcode.ui.navigation.SCHEDULE_EDIT_ARG_ID
-import com.yugahashimoto.andcode.ui.navigation.SCHEDULE_EDIT_ROUTE_PATTERN
 import com.yugahashimoto.andcode.ui.navigation.activityNavGraph
-import com.yugahashimoto.andcode.ui.navigation.decodeRouteArg
 import com.yugahashimoto.andcode.ui.navigation.guestBrowserRoute
-import com.yugahashimoto.andcode.ui.navigation.scheduleDetailRoute
-import com.yugahashimoto.andcode.ui.navigation.scheduleEditRoute
+import com.yugahashimoto.andcode.ui.navigation.scheduleNavGraph
 import com.yugahashimoto.andcode.ui.navigation.settingsNavGraph
 import com.yugahashimoto.andcode.ui.navigation.workspaceNavGraph
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
@@ -254,8 +243,6 @@ fun AndCodeApp(
                     ScheduleViewModel(app.scheduleRepository, app.scheduleManager)
                 },
         )
-    val schedules by scheduleViewModel.schedules.collectAsState()
-    val scheduleRuns by scheduleViewModel.runs.collectAsState()
 
     // A crash the user hit while away from a computer is only recoverable from here. Copying is
     // what discards the record; closing the dialog only hides it, and the diagnostics sheet still
@@ -1300,108 +1287,15 @@ fun AndCodeApp(
                             relativeTime = { relativeTimeLabel(context, it) },
                         )
 
-                        composable(ROUTE_SCHEDULES) {
-                            ScheduleListScreen(
-                                schedules = schedules,
-                                runs = scheduleRuns,
-                                runtimeTargets = runtimeTargets,
-                                nextFireAt = app.scheduleManager::nextFireAt,
-                                onOpenDrawer = { openDrawer() },
-                                onNewSchedule = { navController.navigate(ROUTE_SCHEDULE_EDIT) { launchSingleTop = true } },
-                                onOpenSchedule = { scheduleId ->
-                                    navController.navigate(scheduleDetailRoute(scheduleId)) { launchSingleTop = true }
-                                },
-                                onEdit = { scheduleId ->
-                                    navController.navigate(scheduleEditRoute(scheduleId)) { launchSingleTop = true }
-                                },
-                                onRunNow = { scheduleId ->
-                                    scheduleViewModel.runNow(scheduleId)
-                                    android.widget.Toast.makeText(
-                                        context,
-                                        R.string.schedule_run_now_started,
-                                        android.widget.Toast.LENGTH_SHORT,
-                                    ).show()
-                                },
-                                onDelete = scheduleViewModel::delete,
-                                onToggleEnabled = scheduleViewModel::setEnabled,
-                                exactAlarmsAllowed = app.scheduleManager::exactAlarmsAllowed,
-                                // Alarms armed while the permission was missing are inexact; granting it
-                                // only takes effect once they are re-armed.
-                                onExactAlarmsGranted = app.scheduleManager::rescheduleAll,
-                            )
-                        }
-
-                        composable(
-                            route = SCHEDULE_DETAIL_ROUTE_PATTERN,
-                            arguments = listOf(navArgument("scheduleId") { type = NavType.StringType }),
-                        ) { backStackEntry ->
-                            val scheduleId = decodeRouteArg(backStackEntry.arguments?.getString("scheduleId").orEmpty())
-                            val schedule = schedules.firstOrNull { it.id == scheduleId }
-                            if (schedule == null) {
-                                // Deleted while on screen; drop back to the list.
-                                LaunchedEffect(Unit) { navController.popBackStack() }
-                            } else {
-                                ScheduleRunsScreen(
-                                    schedule = schedule,
-                                    runs = scheduleRuns.filter { it.scheduleId == scheduleId },
-                                    titleForSession = { sessionId ->
-                                        allSessions
-                                            .firstOrNull { it.session.id == sessionId }
-                                            ?.session?.title?.ifBlank { null }
-                                    },
-                                    onBack = { navController.popBackStack() },
-                                    onEdit = { id -> navController.navigate(scheduleEditRoute(id)) { launchSingleTop = true } },
-                                    onRunNow = { id ->
-                                        scheduleViewModel.runNow(id)
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            R.string.schedule_run_now_started,
-                                            android.widget.Toast.LENGTH_SHORT,
-                                        ).show()
-                                    },
-                                    onOpenSession = { run ->
-                                        openSessionInChat(run.sessionId, schedule.displayName, run.runtimeId)
-                                    },
-                                )
-                            }
-                        }
-
-                        composable(
-                            route = SCHEDULE_EDIT_ROUTE_PATTERN,
-                            arguments =
-                                listOf(
-                                    navArgument(SCHEDULE_EDIT_ARG_ID) {
-                                        type = NavType.StringType
-                                        nullable = true
-                                        defaultValue = null
-                                    },
-                                ),
-                        ) { backStackEntry ->
-                            val scheduleId =
-                                backStackEntry.arguments?.getString(SCHEDULE_EDIT_ARG_ID)
-                                    ?.takeIf(String::isNotBlank)
-                                    ?.let(::decodeRouteArg)
-                            ScheduleEditorScreen(
-                                existing = scheduleId?.let { id -> schedules.firstOrNull { it.id == id } },
-                                runtimeTargets = runtimeTargets,
-                                providers = settingsState.providers,
-                                workspaces = workspaceState.workspaces,
-                                selectedRuntimeId = selectedRuntime?.id,
-                                favoriteModelKeys = settingsState.favoriteModelKeys,
-                                recentModelKeys = settingsState.recentModelKeys,
-                                hiddenModelKeys = settingsState.hiddenModelKeys,
-                                onToggleFavorite = settingsViewModel::toggleFavoriteModel,
-                                onSave = { built ->
-                                    if (scheduleId != null) {
-                                        scheduleViewModel.update(built)
-                                    } else {
-                                        scheduleViewModel.create(built)
-                                    }
-                                    navController.popBackStack()
-                                },
-                                onBack = { navController.popBackStack() },
-                            )
-                        }
+                        scheduleNavGraph(
+                            app = app,
+                            navController = navController,
+                            scheduleViewModel = scheduleViewModel,
+                            settingsViewModel = settingsViewModel,
+                            workspaceViewModel = workspaceViewModel,
+                            openDrawer = ::openDrawer,
+                            openSessionInChat = ::openSessionInChat,
+                        )
 
                         workspaceNavGraph(
                             navController = navController,
