@@ -23,3 +23,21 @@ merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing
    250k characters can put tens of thousands of spans on one line, and every line scans all search
    matches. Cap token spans and search marks on lines over 2,000 characters, with tests at, and
    over, the limit.
+6. **Drawer search field label.** The drawer search field has no Material label for TalkBack
+   beyond its placeholder; give it a proper label without hiding the typed text (a
+   `contentDescription` on the field does hide it, which was tried and reverted).
+
+## Follow-ups found while building the remaining-work items
+
+7. **Queued prompts have no chat.** `messageQueue` and `offlineMessageQueue` carry no session id
+   and are not cleared on a chat switch, so a prompt queued in one chat can be sent into another
+   by any drain (idle, reconnect, after a rewind or a file restore). Give `QueuedPrompt` the
+   session it belongs to and drain only the open chat's prompts. Predates the restore feature.
+8. **Snapshot storage.** File-restore snapshots keep every git object (gc is off so detached
+   snapshots survive) and outlive a deleted workspace. Prune snapshots past the 200-turn index,
+   and delete a workspace's history when the workspace is deleted.
+9. **Restore refusal message.** A refused restore (an ignored file in the way) shows a generic
+   failure; say that nothing changed and which path blocked it.
+10. **Process screen (supervisor part 2).** The in-app list of supervised processes, the restart
+   offer after the app was closed, the Artifacts integration, and a notice when an instructions
+   file was customised and lacks the `andcode-run` section.
