@@ -353,7 +353,7 @@ internal fun ChatComposer(
                                         pasteImage
                                     },
                             minLines = 1,
-                            maxLines = COMPOSER_MAX_LINES,
+                            maxLines = ComposerMaxLines,
                             onTextLayout = { layout -> inputLines = layout.lineCount },
                             textStyle =
                                 TextStyle(

@@ -40,16 +40,16 @@ import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.ui.theme.Spacing
 
 /** The most lines the chat composer shows before it scrolls. */
-internal const val COMPOSER_MAX_LINES = 4
+internal const val ComposerMaxLines = 4
 
 /** Above this luminance a surface is light and wants dark system bar icons. */
-private const val LIGHT_SURFACE = 0.5f
+private const val LightSurface = 0.5f
 
 /**
  * Whether a message laid out in [lineCount] lines fills the composer, so the full-screen editor is
- * offered. The composer's layout reports at most [COMPOSER_MAX_LINES] lines, so this means "it is full".
+ * offered. The composer's layout reports at most [ComposerMaxLines] lines, so this means "it is full".
  */
-internal fun shouldOfferExpandedComposer(lineCount: Int): Boolean = lineCount >= COMPOSER_MAX_LINES
+internal fun shouldOfferExpandedComposer(lineCount: Int): Boolean = lineCount >= ComposerMaxLines
 
 /**
  * The message being written, full screen, for a long prompt the four-line composer can't show.
@@ -72,7 +72,7 @@ internal fun ExpandedComposer(
         // The dialog has its own window, which the app theme's status bar setup never reaches: match
         // its bar icons to this surface, or light icons vanish on a light theme.
         val window = (LocalView.current.parent as? DialogWindowProvider)?.window
-        val lightBars = MaterialTheme.colorScheme.surface.luminance() > LIGHT_SURFACE
+        val lightBars = MaterialTheme.colorScheme.surface.luminance() > LightSurface
         SideEffect {
             window?.let {
                 WindowCompat.getInsetsController(it, it.decorView).apply {
