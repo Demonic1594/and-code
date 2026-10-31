@@ -59,6 +59,9 @@ internal object ShellCommandRules {
 
     private val versionSuffix = Regex("[-.0-9]+$")
 
+    /** An environment assignment or a quoted name: the program actually run is something else. */
+    private val notAProgramName = charArrayOf('=', '"', '\'')
+
     private val whitespace = Regex("\\s+")
 
     /** True when [command] is one program with its arguments and nothing that chains or redirects. */
@@ -90,7 +93,7 @@ internal object ShellCommandRules {
      * removed, so `/bin/sh` and `python3.12` count).
      */
     private fun runsOtherCode(first: String?): Boolean {
-        if (first == null || first.any { it == '=' || it == '"' || it == '\'' }) return true
+        if (first == null || first.any { it in notAProgramName }) return true
         return first.substringAfterLast('/').replace(versionSuffix, "") in wrappers
     }
 
