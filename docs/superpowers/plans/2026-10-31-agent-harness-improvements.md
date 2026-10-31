@@ -86,12 +86,43 @@ into the agent when it stops), but a raw hook editor is not usable on a phone.
 - Ship as templates instead, for example "run tests after an edit" or "block `rm -rf`".
 - Start with Claude Code only, which has its own hook system.
 
+### 8. Additions from reading Operit (Android agent app, LGPL-3.0)
+
+Read from its source at commit `dbf7191`, not built or run. Ideas only; its code must not be
+copied (LGPL-3.0 against AndCode's MIT).
+
+- **Allowlist: add Deny and a timeout (extends item 1).** Operit has allow, ask and forbid per
+  tool, with an "Always allow" choice on the prompt and a 60-second timeout that counts as not
+  granted. Ours should match command patterns, which is finer than its per-tool-name levels, and
+  add a Deny list so `rm -rf` style commands are blocked outright. An unanswered prompt should
+  time out as not granted.
+- **Start a saved prompt from an intent or Tasker.** Operit accepts a broadcast intent with a
+  message, a chat id, a new-chat flag, a timeout and a reply action. We already have schedules, a
+  quick-settings tile and shortcuts; an intent that runs a saved prompt in a chosen project fits
+  next to them. Do not copy its auth: its intent receiver is exported with no permission or token
+  (`AndroidManifest.xml:385`), so any installed app can send the agent a prompt. Ours needs a
+  signature permission or a per-user token, because our agents run shell commands.
+- **Say why an MCP server did not start.** Operit reports a status such as `NODEJS_MISSING` or
+  `BRIDGE_FAILED`. Show the specific reason in the MCP list.
+- **Ollama and LM Studio presets.** A base-URL preset with a "test connection" button, if the
+  custom provider settings accept a base URL (not yet checked).
+- **One place to add MCP servers and skills.** A curated list with one-tap install, using
+  `npx` or `uvx` inside the existing Linux environment. Medium effort; what MCP management exists
+  today is not yet checked.
+- **Reference for the guest-browser plan (PR #34).** Operit's browser tools are snapshot, click
+  and type by element `ref`, fill form, press key, console messages, network requests, evaluate,
+  file upload, resize and screenshot. It tags elements with an `aria-ref` attribute in the
+  snapshot. That is the same design as the handle-based `browser_read` in the PR #34 review.
+
 ## Not planned
 
 - Cursor's cloud agents, Bugbot and its trained model: need server infrastructure.
 - Cursor's OS sandbox: AndCode's PRoot rootfs already isolates the agent, and Cursor itself says its
   classifier is not a security boundary.
 - Semantic code search with an embedding index: heavy for a phone; rely on grep and ripgrep.
+- From Operit: phone control through Accessibility, Shizuku or Root (large security surface and
+  store-policy risk, and not about coding); a visual workflow builder (poor on a small screen);
+  local models through llama.cpp or MNN; memory spaces, characters and avatars.
 
 ## Suggested order
 
@@ -102,12 +133,16 @@ into the agent when it stops), but a raw hook editor is not usable on a phone.
 5. Verify the context meter and compact support per CLI (item 6), then decide.
 6. Long tool output to file.
 7. Hook templates for Claude Code.
+8. Operit-derived items (section 8): the intent trigger with a token, MCP failure reasons,
+   Ollama and LM Studio presets, then the MCP and skills list.
 
 ## Open questions
 
 - Which CLIs read nested instruction files?
 - Does each CLI accept a compact command, and what does it report for context usage?
 - Snapshot storage limit and cleanup policy.
+- Do the custom provider settings accept a base URL, and what MCP management exists today?
+- Which authentication fits the intent trigger: a signature permission or a per-user token?
 
 ## Tests
 
