@@ -47,14 +47,16 @@ if [ -f "$ALWAYS" ] && command -v jq >/dev/null 2>&1; then
   # pipes, substitutes or redirects, or starts with a program that runs other code (bash -c ...).
   MATCH=$(jq -r --arg t "$TOOL_NAME" --arg c "$CMD" '
     def words: [splits("\\s+")] | map(select(length > 0));
-    def wrappers: ["bash", "sh", "zsh", "dash", "ash", "env", "xargs", "sudo", "su", "eval", "exec",
-      "nohup", "timeout", "nice", "python", "python3", "node", "perl", "ruby", "php", "lua"];
+    def wrappers: ["bash", "sh", "zsh", "dash", "ash", "ksh", "fish", "busybox", "env", "xargs", "sudo",
+      "su", "doas", "eval", "exec", "command", "time", "nohup", "timeout", "nice", "setsid", "stdbuf",
+      "python", "node", "nodejs", "npx", "bun", "deno", "perl", "ruby", "php", "lua", "awk", "gawk"];
+    def runsother: test("[=\"\u0027]") or (split("/") | last | sub("[-.0-9]+$"; "") | IN(wrappers[]));
     ($c | test("[;&|`$<>()\\\\\n\r]")) as $unsafe |
-    (($c | words)[0] // "" | split("/") | last // "") as $first |
+    (($c | words)[0] // "") as $first |
     .rules[]? | select(.toolName == $t) |
     (.commandPrefix // "") as $p |
     if $c == "" then (if $p == "" then "yes" else empty end)
-    elif $unsafe or ($first | IN(wrappers[])) or ($p | words | length) == 0 then empty
+    elif $unsafe or ($first | runsother) or ($p | words | length) == 0 then empty
     else ($p | words) as $r | ($c | words) as $w |
       if ($w | length) >= ($r | length) and $w[0:($r | length)] == $r then "yes" else empty end
     end

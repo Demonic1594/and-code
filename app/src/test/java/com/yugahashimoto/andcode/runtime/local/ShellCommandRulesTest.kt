@@ -56,7 +56,21 @@ class ShellCommandRulesTest {
 
     @Test
     fun `programs that run other code are never matched or remembered`() {
-        listOf("bash -c ls", "/bin/sh -c ls", "sh -c ls", "env ls", "xargs ls", "sudo ls", "python3 -c 1", "node -e 1").forEach { command ->
+        listOf(
+            "bash -c ls",
+            "/bin/sh -c ls",
+            "FOO=1 sh -c ls",
+            "\"sh\" -c ls",
+            "python3.12 -c 1",
+            "busybox sh",
+            "sh -c ls",
+            "env ls",
+            "xargs ls",
+            "sudo ls",
+            "python3 -c 1",
+            "node -e 1",
+        ).forEach {
+                command ->
             assertFalse(command, ShellCommandRules.matches(command.substringBefore(' '), command))
             assertNull(command, ShellCommandRules.ruleFor(command))
         }

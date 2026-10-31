@@ -26,23 +26,38 @@ internal object ShellCommandRules {
             "zsh",
             "dash",
             "ash",
+            "ksh",
+            "fish",
+            "busybox",
             "env",
             "xargs",
             "sudo",
             "su",
+            "doas",
             "eval",
             "exec",
+            "command",
+            "time",
             "nohup",
             "timeout",
             "nice",
+            "setsid",
+            "stdbuf",
             "python",
-            "python3",
             "node",
+            "nodejs",
+            "npx",
+            "bun",
+            "deno",
             "perl",
             "ruby",
             "php",
             "lua",
+            "awk",
+            "gawk",
         )
+
+    private val versionSuffix = Regex("[-.0-9]+$")
 
     private val whitespace = Regex("\\s+")
 
@@ -50,7 +65,7 @@ internal object ShellCommandRules {
     fun isSimple(command: String): Boolean =
         command.isNotBlank() &&
             command.none { it in unsafeCharacters } &&
-            words(command).firstOrNull()?.substringAfterLast('/') !in wrappers
+            !runsOtherCode(words(command).firstOrNull())
 
     /** The rule to remember for [command], or null when it must not become a rule. */
     fun ruleFor(command: String): String? {
@@ -67,6 +82,16 @@ internal object ShellCommandRules {
         val rule = words(ruleWords)
         val words = words(command)
         return rule.isNotEmpty() && words.size >= rule.size && words.subList(0, rule.size) == rule
+    }
+
+    /**
+     * Whether a command's first word may run something other than itself: an environment assignment
+     * (`FOO=1 sh -c ...`), a quoted program name, or a wrapper by its name (path and version suffix
+     * removed, so `/bin/sh` and `python3.12` count).
+     */
+    private fun runsOtherCode(first: String?): Boolean {
+        if (first == null || first.any { it == '=' || it == '"' || it == '\'' }) return true
+        return first.substringAfterLast('/').replace(versionSuffix, "") in wrappers
     }
 
     private fun words(text: String): List<String> = text.trim().split(whitespace).filter { it.isNotEmpty() }
