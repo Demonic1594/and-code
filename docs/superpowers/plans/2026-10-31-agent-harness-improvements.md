@@ -9,8 +9,9 @@ reference point. This doc lists what AndCode lacks, what is feasible with what w
 and an order to build in. Cursor's cloud agents, Bugbot, its own trained model and its OS sandbox
 are out of scope: they need infrastructure AndCode does not have. AndCode's PRoot rootfs
 isolates only the guest filesystem view; it does not stop agent commands from reaching the host
-paths bound into the guest (`/dev`, `/proc`, `/sys`, the workspace, the permission bridge
-directory, and device storage when all-files access is granted).
+paths bound into the guest (`/dev`, `/proc`, `/sys`, `/system`, the workspace, the permission
+bridge directory when Claude Code is launched, and device storage when all-files access is
+granted).
 
 ## What AndCode already has
 
