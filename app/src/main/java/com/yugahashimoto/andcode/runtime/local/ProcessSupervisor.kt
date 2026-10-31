@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.RandomAccessFile
 
@@ -20,7 +21,7 @@ enum class RestartPolicy {
     /** Leave it stopped; the user or the agent starts it again. */
     NEVER,
 
-    /** Start it again after a non-zero exit, up to [ProcessSupervisor.MAX_RESTARTS] in a row. */
+    /** Start it again after a non-zero exit, up to [ProcessSupervisor.MAX_RESTARTS] in a row (a ten-minute run resets the count). */
     ON_CRASH,
 
     /** Start it again after any exit, with the same limit. */
@@ -122,11 +123,23 @@ class ProcessSupervisor(
     val processes: StateFlow<List<SupervisedProcess>> = mutableProcesses.asStateFlow()
 
     private val lock = Any()
-    private val handles = mutableMapOf<String, GuestProcessHandle>()
-    private val jobs = mutableMapOf<String, Job>()
 
-    /** Names stopped on purpose: their exit is not a crash and is never restarted. */
-    private val stopping = mutableSetOf<String>()
+    /**
+     * One start of a process, with what belongs to it alone. A stopped run's coroutine is still
+     * winding down when the next run of the same name starts (a restart, or the agent's `stop` then
+     * `start`); everything it does afterwards checks it is still the current run, so it can never
+     * stop, restart or overwrite its successor.
+     */
+    private class Run(val spec: SupervisedProcessSpec) {
+        @Volatile var handle: GuestProcessHandle? = null
+
+        @Volatile var stopped = false
+
+        var job: Job? = null
+    }
+
+    /** The current run of each name, guarded by [lock]. */
+    private val runs = mutableMapOf<String, Run>()
 
     /** The processes that were kept when the app last ran, to offer to start again. */
     fun saved(): List<SupervisedProcessSpec> = runCatching { store.load() }.getOrDefault(emptyList())
@@ -150,7 +163,7 @@ class ProcessSupervisor(
         }
     }
 
-    /** Starts [spec] and begins watching it. Called holding [lock]. */
+    /** Starts [spec] as a new run and begins watching it. Called holding [lock]. */
     private fun launch(spec: SupervisedProcessSpec): StartResult {
         val log = logFile(spec.name)
         rotate(log)
@@ -160,40 +173,49 @@ class ProcessSupervisor(
             } catch (error: Exception) {
                 return StartResult.Failed(error.message ?: error.javaClass.simpleName)
             }
+        val run = Run(spec).also { it.handle = handle }
+        runs[spec.name] = run
         val process = SupervisedProcess(spec, SupervisedStatus.RUNNING, clock())
-        stopping -= spec.name
-        handles[spec.name] = handle
         mutableProcesses.update { list -> list.filterNot { it.spec.name == spec.name } + process }
-        jobs[spec.name] = scope.launch { supervise(spec, handle) }
+        run.job = scope.launch { supervise(run) }
         persist()
         return StartResult.Started(process)
     }
 
     /** Stops [name]. Returns false when it was not running. */
-    fun stop(name: String): Boolean {
-        val handle =
+    fun stop(name: String): Boolean = stopRun(name) { true } != null
+
+    /** Stops the current run of [name] when [which] accepts it, and returns that run. */
+    private fun stopRun(
+        name: String,
+        which: (Run) -> Boolean,
+    ): Run? {
+        val run =
             synchronized(lock) {
-                val process = mutableProcesses.value.firstOrNull { it.spec.name == name && it.isActive } ?: return false
-                stopping += name
+                val run = runs[name]?.takeIf { !it.stopped && which(it) } ?: return null
+                val process = mutableProcesses.value.firstOrNull { it.spec.name == name && it.isActive } ?: return null
+                run.stopped = true
                 setStatus(name) { it.copy(status = SupervisedStatus.STOPPED) }
-                // A process waiting out its restart delay has no handle; cancelling the job is enough.
-                if (process.status == SupervisedStatus.RESTARTING) jobs[name]?.cancel()
+                // A process waiting out its restart delay has no process to kill; ending the wait is enough.
+                if (process.status == SupervisedStatus.RESTARTING) run.job?.cancel()
                 persist()
-                handles.remove(name)
+                run
             }
-        handle?.let { scope.launch(ioDispatcher) { runCatching { it.kill() } } }
-        return true
+        run.handle?.let { handle -> scope.launch(ioDispatcher) { runCatching { handle.kill() } } }
+        return run
     }
 
     fun stopAll() {
         mutableProcesses.value.filter { it.isActive }.forEach { stop(it.spec.name) }
     }
 
-    /** Stops [name] if it runs and starts it again with the same settings. */
-    fun restart(name: String): StartResult {
+    /**
+     * Stops [name] if it runs and starts it again with the same settings, once the old one has
+     * gone, so it does not find its own port still taken.
+     */
+    suspend fun restart(name: String): StartResult {
         val spec = mutableProcesses.value.firstOrNull { it.spec.name == name }?.spec ?: return StartResult.Failed("no process named $name")
-        stop(name)
-        synchronized(lock) { mutableProcesses.update { list -> list.filterNot { it.spec.name == name } } }
+        stopRun(name) { true }?.job?.let { job -> withTimeoutOrNull(STOP_WAIT_MILLIS) { job.join() } }
         return start(spec)
     }
 
@@ -202,17 +224,20 @@ class ProcessSupervisor(
         synchronized(lock) {
             val process = mutableProcesses.value.firstOrNull { it.spec.name == name } ?: return false
             if (process.isActive) return false
+            runs.remove(name)
             mutableProcesses.update { list -> list.filterNot { it.spec.name == name } }
             persist()
             return true
         }
     }
 
-    /** The last [maxCharacters] of [name]'s output, or null when it never ran. */
+    /** The last [maxCharacters] of [name]'s output, or null when it never ran or the name is not one. */
     fun logTail(
         name: String,
         maxCharacters: Int = DEFAULT_LOG_CHARACTERS,
     ): String? {
+        // The name comes from a file the guest writes: only a valid one may become a path.
+        if (!SupervisedProcessSpec.isValidName(name)) return null
         val log = logFile(name)
         if (!log.isFile) return null
         return readTail(log, maxCharacters)
@@ -220,62 +245,42 @@ class ProcessSupervisor(
 
     fun logFile(name: String): File = File(logDirectory, "$name.log")
 
-    private suspend fun supervise(
-        initialSpec: SupervisedProcessSpec,
-        initialHandle: GuestProcessHandle,
-    ) {
-        val name = initialSpec.name
-        var handle = initialHandle
+    /** Whether [run] is still the one in charge of its name. Called holding [lock]. */
+    private fun isCurrent(run: Run): Boolean = runs[run.spec.name] === run && !run.stopped
+
+    private suspend fun supervise(run: Run) {
+        val name = run.spec.name
+        var handle = requireNotNull(run.handle)
         var restarts = 0
+        var startedAt = clock()
         val lease = runtimeWork.acquire(LEASE_TAG)
         val timer =
-            initialSpec.maxRunMinutes?.let { minutes ->
+            run.spec.maxRunMinutes?.let { minutes ->
                 scope.launch {
                     delay(minutes * MILLIS_PER_MINUTE)
-                    stop(name)
+                    stopRun(name) { it === run }
                 }
             }
         val watcher = scope.launch(ioDispatcher) { watchOutput(name) }
         try {
             while (true) {
                 val exit = runCatching { runInterruptible(ioDispatcher) { handle.waitFor() } }.getOrDefault(-1)
-                val next =
+                // A process that ran a good while before failing starts a fresh count.
+                if (clock() - startedAt > STABLE_RUN_MILLIS) restarts = 0
+                val retry =
                     synchronized(lock) {
-                        handles.remove(name)
-                        if (name in stopping) return
-                        val retry = shouldRestart(initialSpec.restart, exit) && restarts < MAX_RESTARTS
-                        setStatus(name) {
-                            it.copy(
-                                status =
-                                    if (retry) {
-                                        SupervisedStatus.RESTARTING
-                                    } else if (exit == 0) {
-                                        SupervisedStatus.EXITED
-                                    } else {
-                                        SupervisedStatus.CRASHED
-                                    },
-                                exitCode = exit,
-                            )
-                        }
+                        if (!isCurrent(run)) return
+                        run.handle = null
+                        val retry = shouldRestart(run.spec.restart, exit) && restarts < MAX_RESTARTS
+                        setStatus(name) { it.copy(status = exitStatus(retry, exit), exitCode = exit) }
                         if (!retry) persist()
                         retry
                     }
-                if (!next) return
+                if (!retry) return
                 restarts++
                 delay(restartDelayMillis * restarts)
-                handle =
-                    synchronized(lock) {
-                        if (name in stopping) return
-                        val started =
-                            runCatching { launcher.start(initialSpec, logFile(name)) }.getOrElse {
-                                setStatus(name) { process -> process.copy(status = SupervisedStatus.CRASHED) }
-                                persist()
-                                return
-                            }
-                        handles[name] = started
-                        setStatus(name) { it.copy(status = SupervisedStatus.RUNNING, restarts = restarts, startedAtMillis = clock()) }
-                        started
-                    }
+                handle = relaunch(run, restarts) ?: return
+                startedAt = clock()
             }
         } finally {
             timer?.cancel()
@@ -283,6 +288,24 @@ class ProcessSupervisor(
             lease.release()
         }
     }
+
+    /** Starts [run] again after a crash; null when it was stopped meanwhile or cannot start. */
+    private fun relaunch(
+        run: Run,
+        restarts: Int,
+    ): GuestProcessHandle? =
+        synchronized(lock) {
+            if (!isCurrent(run)) return null
+            val started =
+                runCatching { launcher.start(run.spec, logFile(run.spec.name)) }.getOrElse {
+                    setStatus(run.spec.name) { process -> process.copy(status = SupervisedStatus.CRASHED) }
+                    persist()
+                    return null
+                }
+            run.handle = started
+            setStatus(run.spec.name) { it.copy(status = SupervisedStatus.RUNNING, restarts = restarts, startedAtMillis = clock()) }
+            started
+        }
 
     /** Fills in the port from the output, and keeps the log from growing without end. */
     private suspend fun watchOutput(name: String) {
@@ -336,6 +359,8 @@ class ProcessSupervisor(
         const val MAX_RESTARTS = 5
         const val LEASE_TAG = "supervised-processes"
         private const val RESTART_DELAY_MILLIS = 2_000L
+        private const val STOP_WAIT_MILLIS = 5_000L
+        private const val STABLE_RUN_MILLIS = 10 * 60_000L
         private const val MILLIS_PER_MINUTE = 60_000L
         private const val WATCH_INTERVAL_MILLIS = 2_000L
         private const val DEFAULT_LOG_CHARACTERS = 4_000
@@ -348,6 +373,16 @@ class ProcessSupervisor(
         /** The port of the first local URL in [output], the way dev servers announce themselves. */
         internal fun detectPort(output: String): Int? =
             LOCAL_URL.find(output)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 1..65_535 }
+
+        internal fun exitStatus(
+            restarting: Boolean,
+            exitCode: Int,
+        ): SupervisedStatus =
+            when {
+                restarting -> SupervisedStatus.RESTARTING
+                exitCode == 0 -> SupervisedStatus.EXITED
+                else -> SupervisedStatus.CRASHED
+            }
 
         internal fun shouldRestart(
             policy: RestartPolicy,

@@ -754,16 +754,28 @@ class AndCodeApplication : Application() {
         applicationScope.launch { RunBridge(File(runtimeDirectory, "workspace"), processSupervisor).run(scheduleBridgeActive) }
         // While anything runs, a foreground service keeps the app awake and offers Stop all.
         applicationScope.launch {
-            processSupervisor.processes
-                .map { processes -> processes.any { it.isActive } }
-                .distinctUntilChanged()
-                .collect { running -> if (running) SupervisedProcessService.start(this@AndCodeApplication) }
+            // Android refuses a foreground start from the background; coming to the foreground with
+            // something running tries again.
+            combine(
+                processSupervisor.processes.map {
+                        processes ->
+                    processes.any { it.isActive }
+                },
+                appForeground.foreground,
+            ) { running, foreground ->
+                running to foreground
+            }.distinctUntilChanged()
+                .collect { (running, _) -> if (running) SupervisedProcessService.start(this@AndCodeApplication) }
         }
         // An update or reinstall swaps the rootfs out from under running processes, and a delete
         // removes it: stop them first rather than leave them running against files that are gone.
         applicationScope.launch {
             localRuntimeManager.state.collect { status ->
-                if (status is LocalRuntimeStatus.Installing || status is LocalRuntimeStatus.NotInstalled) processSupervisor.stopAll()
+                val replacing =
+                    status is LocalRuntimeStatus.Installing ||
+                        status is LocalRuntimeStatus.Updating ||
+                        status is LocalRuntimeStatus.NotInstalled
+                if (replacing) processSupervisor.stopAll()
             }
         }
         observeForegroundForRuntimeRestart()

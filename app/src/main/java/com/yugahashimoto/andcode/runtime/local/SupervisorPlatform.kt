@@ -53,6 +53,8 @@ private class ProotProcessHandle(
      */
     override fun kill() {
         val tree = processId(process)?.let { root -> processTreePostOrder(root) { pid -> readDirectChildPids(pid) } }.orEmpty()
+        // SIGTERM to the server itself too, not only to proot, so it can shut down cleanly.
+        tree.forEach { pid -> runCatching { android.os.Process.sendSignal(pid.toInt(), SIGTERM) } }
         process.destroy()
         if (!process.waitFor(GRACE_SECONDS, TimeUnit.SECONDS)) process.destroyForcibly()
         tree.forEach { pid -> runCatching { android.os.Process.killProcess(pid.toInt()) } }
@@ -60,6 +62,7 @@ private class ProotProcessHandle(
 
     private companion object {
         const val GRACE_SECONDS = 3L
+        const val SIGTERM = 15
     }
 }
 

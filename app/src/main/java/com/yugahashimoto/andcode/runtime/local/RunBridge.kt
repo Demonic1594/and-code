@@ -28,7 +28,7 @@ class RunBridge(
         active.pollWhileActive(pollIntervalMillis) { runCatching { pollOnce() } }
     }
 
-    fun pollOnce() {
+    suspend fun pollOnce() {
         if (!bridgeDir.isDirectory) return
         val pendingDir = File(bridgeDir, "pending")
         val responsesDir = File(bridgeDir, "responses")
@@ -59,7 +59,7 @@ class RunBridge(
         prune(responsesDir, now)
     }
 
-    internal fun handle(
+    internal suspend fun handle(
         op: String,
         args: JSONObject,
     ): JSONObject =

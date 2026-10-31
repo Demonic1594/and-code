@@ -35,6 +35,9 @@ class SupervisedProcessService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var wakeLock: PowerManager.WakeLock? = null
 
+    /** The newest start, so stopping never drops one that arrived meanwhile (a restart's). */
+    @Volatile private var lastStartId = 0
+
     private val supervisor: ProcessSupervisor
         get() = (application as AndCodeApplication).processSupervisor
 
@@ -51,7 +54,7 @@ class SupervisedProcessService : Service() {
         scope.launch {
             supervisor.processes.collect { processes ->
                 val running = processes.filter { it.isActive }
-                if (running.isEmpty()) stopSelf() else notify(running)
+                if (running.isEmpty()) stopSelf(lastStartId) else notify(running)
             }
         }
     }
@@ -61,8 +64,10 @@ class SupervisedProcessService : Service() {
         flags: Int,
         startId: Int,
     ): Int {
+        lastStartId = startId
         if (intent?.action == ACTION_STOP_ALL) {
-            supervisor.stopAll()
+            // Off the main thread: stopping writes the saved list.
+            scope.launch(Dispatchers.IO) { supervisor.stopAll() }
             return START_NOT_STICKY
         }
         // Every startForegroundService() must be answered with startForeground().

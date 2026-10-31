@@ -104,6 +104,8 @@ def main(argv):
     options = parser.parse_args(argv)
     try:
         if options.op == "start":
+            if options.port is not None and not 1 <= options.port <= 65535:
+                parser.error("--port must be between 1 and 65535")
             if not command:
                 parser.error("give the command after --, e.g. andcode-run start web -- npm run dev")
             args = {

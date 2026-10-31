@@ -162,6 +162,50 @@ class ProcessSupervisorTest {
         }
 
     @Test
+    fun `a restart leaves exactly one running process that stop can still end`() =
+        runBlocking {
+            val launcher = FakeLauncher()
+            val supervisor = supervisor(launcher)
+            supervisor.start(SupervisedProcessSpec("web", "npm run dev"))
+
+            assertTrue(supervisor.restart("web") is StartResult.Started)
+            // The old run's exit (SIGTERM, non-zero) must not count as a crash of the new one.
+            delay(200)
+            assertEquals(2, launcher.started.size)
+            assertEquals(SupervisedStatus.RUNNING, supervisor.processes.value.single().status)
+
+            assertTrue(supervisor.stop("web"))
+            until { launcher.started[1].killed }
+            until { !work.active.value }
+        }
+
+    @Test
+    fun `stop then start at once is not mistaken for a crash of the new process`() =
+        runBlocking {
+            val launcher = FakeLauncher()
+            val supervisor = supervisor(launcher)
+            supervisor.start(SupervisedProcessSpec("web", "npm run dev"))
+            val old = launcher.started.single()
+            supervisor.stop("web")
+            supervisor.start(SupervisedProcessSpec("web", "npm run dev"))
+            // The old process only now reports its (non-zero) exit, after the new one runs.
+            old.exit.complete(143)
+
+            delay(200)
+            assertEquals(2, launcher.started.size)
+            assertEquals(SupervisedStatus.RUNNING, supervisor.processes.value.single().status)
+            assertTrue(supervisor.stop("web"))
+            until { launcher.started[1].killed }
+        }
+
+    @Test
+    fun `log names from the guest cannot leave the log folder`() {
+        val supervisor = supervisor()
+        assertNull(supervisor.logTail("../../secrets"))
+        assertNull(supervisor.logTail("a/b"))
+    }
+
+    @Test
     fun `port detection reads only local urls`() {
         assertEquals(8000, ProcessSupervisor.detectPort("Serving HTTP on 0.0.0.0 port 8000 (http://0.0.0.0:8000/) ..."))
         assertEquals(3000, ProcessSupervisor.detectPort("ready - started server on http://127.0.0.1:3000"))
@@ -193,18 +237,19 @@ class ProcessSupervisorTest {
         }
 
     @Test
-    fun `the bridge answers a request file the guest writes`() {
-        val workspace = temp.newFolder("ws")
-        val bridge = RunBridge(workspace, supervisor())
-        val pending = File(workspace, "${RunBridge.BRIDGE_RELATIVE_PATH}/pending").apply { mkdirs() }
-        File(pending, "r1.json").writeText(JSONObject().put("op", "list").put("args", JSONObject()).toString())
+    fun `the bridge answers a request file the guest writes`() =
+        runBlocking {
+            val workspace = temp.newFolder("ws")
+            val bridge = RunBridge(workspace, supervisor())
+            val pending = File(workspace, "${RunBridge.BRIDGE_RELATIVE_PATH}/pending").apply { mkdirs() }
+            File(pending, "r1.json").writeText(JSONObject().put("op", "list").put("args", JSONObject()).toString())
 
-        bridge.pollOnce()
+            bridge.pollOnce()
 
-        val reply = JSONObject(File(workspace, "${RunBridge.BRIDGE_RELATIVE_PATH}/responses/r1.json").readText())
-        assertTrue(reply.getBoolean("ok"))
-        assertFalse(File(pending, "r1.json").exists())
-    }
+            val reply = JSONObject(File(workspace, "${RunBridge.BRIDGE_RELATIVE_PATH}/responses/r1.json").readText())
+            assertTrue(reply.getBoolean("ok"))
+            assertFalse(File(pending, "r1.json").exists())
+        }
 
     @Test
     fun `saved processes round-trip through the json store`() {

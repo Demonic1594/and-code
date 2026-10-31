@@ -9,7 +9,7 @@ Runtime context:
 
 ## Servers and other long-running commands: use `andcode-run`
 
-Why: a process you start in the background from your shell dies when the phone sleeps or Android reclaims memory, and the user cannot see or stop it. `andcode-run` hands the command to the AndCode app, which keeps the device awake while it runs, restarts it if it crashes, keeps its log, and shows it to the user with a Stop button.
+Why: a process you start in the background from your shell dies when the phone sleeps or Android reclaims memory, and the user cannot see or stop it. `andcode-run` hands the command to the AndCode app, which keeps the device awake while it runs, restarts it if it crashes, keeps its log, and shows it to the user in a notification with Stop all.
 
 Hard rules:
 - ALWAYS start dev servers, watchers, and anything else meant to keep running with `andcode-run start`.
