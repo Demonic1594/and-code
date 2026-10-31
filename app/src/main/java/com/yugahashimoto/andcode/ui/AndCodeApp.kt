@@ -14,9 +14,7 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -52,7 +50,6 @@ import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.LocalServerUrlOpener
 import com.yugahashimoto.andcode.core.UrlLauncher
 import com.yugahashimoto.andcode.core.diagnostics.CrashLog
-import com.yugahashimoto.andcode.data.repository.ChatLifecycleRepository
 import com.yugahashimoto.andcode.data.repository.RuntimeSessionRef
 import com.yugahashimoto.andcode.data.settings.DraftRepository
 import com.yugahashimoto.andcode.feature.activity.ActivityViewModel
@@ -93,7 +90,6 @@ import com.yugahashimoto.andcode.runtime.RuntimeState
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeOperationResult
 import com.yugahashimoto.andcode.ui.components.LocalHapticsEnabled
-import com.yugahashimoto.andcode.ui.components.SessionStatus
 import com.yugahashimoto.andcode.ui.navigation.ClaudeSettingsActions
 import com.yugahashimoto.andcode.ui.navigation.DRAWER_ROOT_ROUTES
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ANDROID_SETUP
@@ -132,7 +128,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
 
 /** How often the open chat asks GitHub whether its pull requests have moved on. */
@@ -798,42 +793,23 @@ fun AndCodeApp(
             }.getOrNull().orEmpty()
         }
 
-    // Every runtime's chats, not just the selected one's: switching agent used to look like the
-    // history had been wiped. Each row carries the runtime that owns it so opening one can switch.
+    // Every runtime's chats; see drawerRecentSessions.
     val allSessions by app.catalogRepository.allSessions.collectAsState()
-    // Chats waiting out the undo window after a delete already look gone.
     val pendingDeletion by app.chatLifecycle.pendingDeletion.collectAsState()
     val recentSessions =
         remember(allSessions, activityState.activeSessionIds, activityState.completedSessionIds, pendingDeletion) {
-            allSessions
-                .filter { it.session.parentId == null && it.session.id !in pendingDeletion }
-                .take(25).map { ref ->
-                    val session = ref.session
-                    DrawerRecentSession(
-                        id = session.id,
-                        title = session.title.ifBlank { session.slug ?: session.id },
-                        relativeTime = relativeTimeLabel(context, session.time.updated ?: session.time.created),
-                        directory = session.directory,
-                        isActive = session.id in activityState.activeSessionIds,
-                        hasUnread = session.id in activityState.completedSessionIds,
-                        status =
-                            when {
-                                session.id in activityState.activeSessionIds -> SessionStatus.RUNNING
-                                session.id in activityState.completedSessionIds -> SessionStatus.COMPLETED_UNREAD
-                                else -> SessionStatus.IDLE
-                            },
-                        runtimeId = ref.runtimeId,
-                        agent = ref.agent,
-                    )
-                }
+            drawerRecentSessions(
+                allSessions = allSessions,
+                activeSessionIds = activityState.activeSessionIds,
+                completedSessionIds = activityState.completedSessionIds,
+                pendingDeletion = pendingDeletion,
+                timeLabel = { epochMillis -> relativeTimeLabel(context, epochMillis) },
+            )
         }
 
     // Launcher shortcuts, re-published when the pinned chats or their titles change. Done here rather
     // than once at startup because only here are the chats' titles known.
-    val pinnedShortcuts =
-        recentSessions
-            .filter { it.id in preferences.pinnedSessionIds }
-            .map { PinnedChatShortcut(it.id, it.title, it.runtimeId) }
+    val pinnedShortcuts = pinnedChatShortcuts(recentSessions, preferences.pinnedSessionIds)
     // The Activity's context, not the Application's: an in-app language switch only recreates the
     // Activity, so only its resources carry the new locale for the fixed shortcuts' labels.
     val shortcutContext = LocalContext.current
@@ -841,9 +817,6 @@ fun AndCodeApp(
         withContext(Dispatchers.Default) { AppShortcuts.publish(shortcutContext, pinnedShortcuts) }
     }
 
-    // Local agents that are actually provisioned. A target reports Unavailable while its agent is
-    // missing, which is exactly the case the switcher must not offer.
-    //
     // Observed, not read once: a local agent's target connects asynchronously after launch (Codex
     // checks its binary in the background), and reading `state.value` here left the drawer on the
     // state it had at first composition - an installed Codex stayed hidden until something else
@@ -852,12 +825,7 @@ fun AndCodeApp(
         remember(runtimeTargets) {
             combine(runtimeTargets.map { target -> target.state.map { state -> target.id to state } }) { pairs -> pairs.toMap() }
         }.collectAsState(initial = emptyMap())
-    val drawerAgents =
-        runtimeTargets.mapNotNull { target ->
-            val agent = target.agent ?: return@mapNotNull null
-            val state = targetStates[target.id] ?: target.state.value
-            DrawerAgent(target.id, agent).takeIf { state !is RuntimeState.Unavailable }
-        }
+    val drawerAgents = offeredDrawerAgents(runtimeTargets, targetStates)
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val drawerScope = rememberCoroutineScope()
@@ -987,26 +955,9 @@ fun AndCodeApp(
                                 if (sessionIds.isNotEmpty()) {
                                     snackbarHostState?.let { host ->
                                         voiceScope.launch {
-                                            val message =
-                                                if (sessionIds.size == 1) {
-                                                    context.getString(R.string.chat_deleted_snackbar)
-                                                } else {
-                                                    context.getString(R.string.chats_deleted_snackbar, sessionIds.size)
-                                                }
-                                            // A snackbar with an action never times out on its own, and
-                                            // Undo is only real while the delete is still waiting: the
-                                            // snackbar is cut to that window, and one already showing is
-                                            // dismissed so this one does not queue behind it.
-                                            host.currentSnackbarData?.dismiss()
-                                            val choice =
-                                                withTimeoutOrNull(ChatLifecycleRepository.UNDO_WINDOW_MILLIS) {
-                                                    host.showSnackbar(
-                                                        message,
-                                                        actionLabel = context.getString(R.string.code_undo),
-                                                        duration = SnackbarDuration.Indefinite,
-                                                    )
-                                                }
-                                            if (choice == SnackbarResult.ActionPerformed) app.chatLifecycle.undoDelete(sessionIds)
+                                            offerUndoDelete(host, context, sessionIds.size) {
+                                                app.chatLifecycle.undoDelete(sessionIds)
+                                            }
                                         }
                                     }
                                 }
@@ -1024,20 +975,7 @@ fun AndCodeApp(
                                     val archived = app.chatLifecycle.archive(owners).succeeded
                                     if (archived.isEmpty()) return@launch
                                     val host = snackbarHostState ?: return@launch
-                                    val message =
-                                        if (archived.size == 1) {
-                                            context.getString(R.string.chat_archived_snackbar)
-                                        } else {
-                                            context.getString(R.string.chats_archived_snackbar, archived.size)
-                                        }
-                                    host.currentSnackbarData?.dismiss()
-                                    val choice =
-                                        host.showSnackbar(
-                                            message,
-                                            actionLabel = context.getString(R.string.code_undo),
-                                            duration = SnackbarDuration.Short,
-                                        )
-                                    if (choice == SnackbarResult.ActionPerformed) {
+                                    offerUndoArchive(host, context, archived.size) {
                                         app.chatLifecycle.restore(owners.filterKeys { it in archived })
                                     }
                                 }
@@ -1047,14 +985,7 @@ fun AndCodeApp(
                                 sessionIds.forEach { app.preferences.setSessionPinned(it, pinned) }
                             },
                             collapsedSections = collapsedSections,
-                            onToggleSection = { section ->
-                                collapsedSections =
-                                    if (section in collapsedSections) {
-                                        collapsedSections - section
-                                    } else {
-                                        collapsedSections + section
-                                    }
-                            },
+                            onToggleSection = { section -> collapsedSections = toggledSection(collapsedSections, section) },
                         )
                     }
                 },
