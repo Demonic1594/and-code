@@ -100,6 +100,7 @@ import com.yugahashimoto.andcode.ui.components.SessionStatus
 import com.yugahashimoto.andcode.ui.components.StatusChip
 import com.yugahashimoto.andcode.ui.components.StatusDot
 import com.yugahashimoto.andcode.ui.components.rememberHaptics
+import com.yugahashimoto.andcode.ui.lock.LocalSendGate
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -289,6 +290,7 @@ fun ChatHomeScreen(
             if (showChatMenu || showArtifacts) collectArtifacts(shownMessages) else emptyList()
         }
     val haptics = rememberHaptics()
+    val sendGate = LocalSendGate.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val imageSaveLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/*")) { uri ->
@@ -834,9 +836,14 @@ fun ChatHomeScreen(
                         // Held while a rewind lands: which messages the new one follows is not settled yet.
                         if (!state.isRewinding && (input.isNotBlank() || state.attachments.isNotEmpty())) {
                             haptics.perform(HapticEvent.CONFIRM)
-                            onSendMessage(SlashCommandRegistry.expandSavedPrompt(input, savedPrompts))
-                            inputValue = TextFieldValue("")
-                            showSlashCommands = false
+                            val text = SlashCommandRegistry.expandSavedPrompt(input, savedPrompts)
+                            // The composer clears only once the message actually goes out, so a
+                            // cancelled unlock leaves the text where it was.
+                            sendGate {
+                                onSendMessage(text)
+                                inputValue = TextFieldValue("")
+                                showSlashCommands = false
+                            }
                         }
                     },
                     onAbort = onAbort,

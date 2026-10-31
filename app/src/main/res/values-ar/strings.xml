@@ -1796,4 +1796,15 @@
     <string name="tool_copy_block">نسخ %1$s</string>
     <string name="cd_search_projects">البحث عن المشاريع</string>
     <string name="drawer_project_search_hint">البحث عن المشاريع</string>
+    <string name="section_privacy_settings">الخصوصية</string>
+    <string name="app_lock_row">يلزم إلغاء القفل للفتح</string>
+    <string name="app_lock_row_description">اطلب بصمة الإصبع أو الوجه أو قفل الشاشة عند فتح AndCode، أو بعد بقائه في الخلفية أكثر من 30 ثانية.</string>
+    <string name="app_lock_unavailable">قم بإعداد بصمة الإصبع أو الوجه أو قفل الشاشة على هذا الهاتف لاستخدام هذه الميزة.</string>
+    <string name="app_lock_on_send_row">اطلب القفل أيضًا عند إرسال رسالة</string>
+    <string name="app_lock_on_send_row_description">يُطلب مرة أخرى قبل إرسال كل رسالة.</string>
+    <string name="app_lock_prompt_title">فتح قفل AndCode</string>
+    <string name="app_lock_locked_title">AndCode مقفل</string>
+    <string name="app_lock_unlock">فتح القفل</string>
+    <string name="app_lock_send_prompt_title">أكّد هويتك للإرسال</string>
+    <string name="app_lock_voice_locked">افتح قفل هاتفك لإرسال هذا. قفل التطبيق مفعّل.</string>
 </resources>

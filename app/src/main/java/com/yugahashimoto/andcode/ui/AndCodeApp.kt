@@ -94,6 +94,7 @@ import com.yugahashimoto.andcode.runtime.WorkspaceRef
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeOperationResult
 import com.yugahashimoto.andcode.ui.components.LocalHapticsEnabled
 import com.yugahashimoto.andcode.ui.components.SessionStatus
+import com.yugahashimoto.andcode.ui.lock.LocalSendGate
 import com.yugahashimoto.andcode.ui.navigation.ClaudeSettingsActions
 import com.yugahashimoto.andcode.ui.navigation.DRAWER_ROOT_ROUTES
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ANDROID_SETUP
@@ -154,6 +155,7 @@ fun AndCodeApp(
     snackbarHostState: SnackbarHostState? = null,
 ) {
     val context = LocalContext.current
+    val sendGate = LocalSendGate.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val app = context.applicationContext as AndCodeApplication
     val navController = rememberNavController()
@@ -1328,7 +1330,7 @@ fun AndCodeApp(
                                 enterToSend = preferences.enterToSend,
                                 autoExpandReasoning = preferences.autoExpandReasoning,
                                 onSendMessage = chatViewModel::sendMessage,
-                                onSendReview = chatViewModel::sendReview,
+                                onSendReview = { review -> sendGate { chatViewModel.sendReview(review) } },
                                 canEditMessages = selectedRuntime?.capabilities?.editMessages == true,
                                 canRewind = selectedRuntime?.capabilities?.checkpoints == true,
                                 onRewind = chatViewModel::rewindTo,

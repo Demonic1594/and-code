@@ -5,12 +5,13 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -21,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.fragment.app.FragmentActivity
 import com.yugahashimoto.andcode.core.ProjectLinks
 import com.yugahashimoto.andcode.core.locale.AppLanguage
 import com.yugahashimoto.andcode.core.notification.RuntimeNotificationHelper
@@ -32,9 +34,13 @@ import com.yugahashimoto.andcode.ui.AndCodeApp
 import com.yugahashimoto.andcode.ui.ChatDeepLink
 import com.yugahashimoto.andcode.ui.ShortcutDestination
 import com.yugahashimoto.andcode.ui.ShortcutLink
+import com.yugahashimoto.andcode.ui.lock.AppLockGate
+import com.yugahashimoto.andcode.ui.lock.DeviceUnlock
+import com.yugahashimoto.andcode.ui.lock.LocalSendGate
 import java.util.UUID
 
-class MainActivity : ComponentActivity() {
+// A FragmentActivity (still a ComponentActivity) because the system unlock prompt needs one.
+class MainActivity : FragmentActivity() {
     private var chatDeepLink by mutableStateOf<ChatDeepLink?>(null)
     private var shortcutLink by mutableStateOf<ShortcutLink?>(null)
     private var deepLinkToken = 0L
@@ -61,7 +67,8 @@ class MainActivity : ComponentActivity() {
             val thankYouRequested by app.githubStarCoordinator.thankYouRequested.collectAsState()
             val snackbarHostState = remember { SnackbarHostState() }
             val thankYouMessage = stringResource(R.string.github_star_thanks_snackbar)
-
+            val locked by app.appLock.locked.collectAsState()
+            val sendGate = rememberSendGate()
             LaunchedEffect(thankYouRequested) {
                 if (thankYouRequested) {
                     snackbarHostState.showSnackbar(thankYouMessage)
@@ -75,23 +82,27 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            Box {
-                AndCodeApp(
-                    onOpenAssistantSettings = ::openAssistantSettings,
-                    assistantActive = assistantActive,
-                    chatDeepLink = chatDeepLink,
-                    onChatDeepLinkConsumed = { chatDeepLink = null },
-                    shortcutLink = shortcutLink,
-                    onShortcutLinkConsumed = { shortcutLink = null },
-                    snackbarHostState = snackbarHostState,
-                )
-                SnackbarHost(
-                    hostState = snackbarHostState,
-                    modifier =
-                        Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(16.dp),
-                )
+            AppLockGate(locked = locked, onUnlock = app.appLock::unlock) {
+                CompositionLocalProvider(LocalSendGate provides sendGate) {
+                    Box {
+                        AndCodeApp(
+                            onOpenAssistantSettings = ::openAssistantSettings,
+                            assistantActive = assistantActive,
+                            chatDeepLink = chatDeepLink,
+                            onChatDeepLinkConsumed = { chatDeepLink = null },
+                            shortcutLink = shortcutLink,
+                            onShortcutLinkConsumed = { shortcutLink = null },
+                            snackbarHostState = snackbarHostState,
+                        )
+                        SnackbarHost(
+                            hostState = snackbarHostState,
+                            modifier =
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(16.dp),
+                        )
+                    }
+                }
             }
 
             if (showInitialStarPrompt) {
@@ -120,6 +131,28 @@ class MainActivity : ComponentActivity() {
                     },
                     onLater = app.githubStarCoordinator::dismissSecondPrompt,
                 )
+            }
+        }
+    }
+
+    /**
+     * The per-send unlock, when the settings ask for it, and the recents thumbnail hidden while the
+     * app lock is on (it would show the chats the lock is meant to hide).
+     */
+    @Composable
+    private fun rememberSendGate(): (() -> Unit) -> Unit {
+        val preferences by app.preferences.state.collectAsState()
+        val sendPromptTitle = stringResource(R.string.app_lock_send_prompt_title)
+        LaunchedEffect(preferences.biometricLockEnabled) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                setRecentsScreenshotEnabled(!preferences.biometricLockEnabled)
+            }
+        }
+        return { send ->
+            if (preferences.biometricLockEnabled && preferences.biometricLockOnSendEnabled && DeviceUnlock.isAvailable(this)) {
+                DeviceUnlock.ask(this, sendPromptTitle, null) { unlocked -> if (unlocked) send() }
+            } else {
+                send()
             }
         }
     }

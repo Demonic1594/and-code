@@ -18,6 +18,7 @@ import com.yugahashimoto.andcode.core.locale.AppLanguage
 import com.yugahashimoto.andcode.core.notification.LiveRunNotifier
 import com.yugahashimoto.andcode.core.notification.RuntimeNotificationHelper
 import com.yugahashimoto.andcode.core.runtime.RuntimeWorkTracker
+import com.yugahashimoto.andcode.core.security.AppLockState
 import com.yugahashimoto.andcode.core.storage.DeviceStorage
 import com.yugahashimoto.andcode.core.storage.DeviceStorageAccess
 import com.yugahashimoto.andcode.core.util.debounceFalseEdge
@@ -102,6 +103,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -118,6 +120,9 @@ class AndCodeApplication : Application() {
 
     lateinit var preferences: AppPreferencesRepository
         private set
+
+    /** Whether the app is behind the device lock; see [AppLockState]. */
+    val appLock = AppLockState()
 
     /**
      * The single source of truth for whether the device may suspend. Created at the very start of
@@ -730,6 +735,7 @@ class AndCodeApplication : Application() {
             combine(appForeground.foreground, runtimeWork.active) { foreground, working -> foreground || working }
                 .distinctUntilChanged()
         applicationScope.launch { scheduleBridge.run(scheduleBridgeActive) }
+        observeAppLock()
         observeForegroundForRuntimeRestart()
         scheduleDeferredInitialization()
     }
@@ -768,6 +774,21 @@ class AndCodeApplication : Application() {
      * because [restoreIfConfigured][RuntimeAutoStartInitializer.restoreIfConfigured] itself is
      * skipped this time.
      */
+    private fun observeAppLock() {
+        // Read now, not from the collector below: a launch that lands after the first frame would
+        // show the chats for a moment before locking them.
+        appLock.setEnabled(preferences.state.value.biometricLockEnabled)
+        applicationScope.launch {
+            preferences.state.map { it.biometricLockEnabled }.distinctUntilChanged().collect(appLock::setEnabled)
+        }
+        applicationScope.launch {
+            // drop(1): the first value is where the process starts, not a return to the app.
+            appForeground.foreground.drop(1).collect { foreground ->
+                if (foreground) appLock.onForeground() else appLock.onBackground()
+            }
+        }
+    }
+
     private fun observeForegroundForRuntimeRestart() {
         val detector = ForegroundReturnDetector()
         applicationScope.launch {

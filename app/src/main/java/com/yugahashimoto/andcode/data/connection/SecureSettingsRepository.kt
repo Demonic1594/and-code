@@ -441,6 +441,14 @@ class SecureSettingsRepository(context: Context) :
         get() = preferences.getBoolean(KEY_HAPTICS_ENABLED, true)
         set(value) = preferences.edit().putBoolean(KEY_HAPTICS_ENABLED, value).apply()
 
+    var biometricLockEnabled: Boolean
+        get() = preferences.getBoolean(KEY_BIOMETRIC_LOCK, false)
+        set(value) = preferences.edit().putBoolean(KEY_BIOMETRIC_LOCK, value).apply()
+
+    var biometricLockOnSendEnabled: Boolean
+        get() = preferences.getBoolean(KEY_BIOMETRIC_LOCK_ON_SEND, false)
+        set(value) = preferences.edit().putBoolean(KEY_BIOMETRIC_LOCK_ON_SEND, value).apply()
+
     var pinnedSessionIds: Set<String>
         get() = preferences.getStringSet(KEY_PINNED_SESSIONS, emptySet()).orEmpty()
         set(value) = preferences.edit().putStringSet(KEY_PINNED_SESSIONS, value).apply()
@@ -613,6 +621,8 @@ class SecureSettingsRepository(context: Context) :
         private const val KEY_SEND_BEHAVIOR = "send_behavior"
         private const val KEY_ENTER_TO_SEND = "enter_to_send"
         private const val KEY_HAPTICS_ENABLED = "haptics_enabled"
+        private const val KEY_BIOMETRIC_LOCK = "biometric_lock_enabled"
+        private const val KEY_BIOMETRIC_LOCK_ON_SEND = "biometric_lock_on_send_enabled"
         private const val KEY_PINNED_SESSIONS = "pinned_sessions"
         private const val KEY_RESTORED_SESSIONS = "restored_sessions"
         private const val KEY_SAVED_PROMPTS = "saved_prompts"

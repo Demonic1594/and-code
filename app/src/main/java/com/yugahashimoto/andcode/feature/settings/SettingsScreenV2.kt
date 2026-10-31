@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.HistoryToggleOff
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
@@ -75,7 +76,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -83,6 +86,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.ui.lock.DeviceUnlock
 import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 import com.yugahashimoto.andcode.ui.theme.AppShapes
 import com.yugahashimoto.andcode.ui.theme.Spacing
@@ -134,6 +138,10 @@ fun SettingsScreenV2(
     onEnterToSendChange: (Boolean) -> Unit = {},
     hapticsEnabled: Boolean = true,
     onHapticsEnabledChange: (Boolean) -> Unit = {},
+    biometricLockEnabled: Boolean = false,
+    onBiometricLockEnabledChange: (Boolean) -> Unit = {},
+    biometricLockOnSendEnabled: Boolean = false,
+    onBiometricLockOnSendEnabledChange: (Boolean) -> Unit = {},
     savedPromptCount: Int = 0,
     onOpenSavedPrompts: () -> Unit = {},
     onOpenArchive: () -> Unit = {},
@@ -340,6 +348,15 @@ fun SettingsScreenV2(
                     icon = Icons.Default.Inventory2,
                     title = stringResource(R.string.settings_archive_row),
                     onClick = onOpenArchive,
+                )
+            }
+
+            SettingsSection(title = stringResource(R.string.section_privacy_settings)) {
+                PrivacySettings(
+                    lockEnabled = biometricLockEnabled,
+                    onLockEnabledChange = onBiometricLockEnabledChange,
+                    lockOnSendEnabled = biometricLockOnSendEnabled,
+                    onLockOnSendEnabledChange = onBiometricLockOnSendEnabledChange,
                 )
             }
 
@@ -872,12 +889,14 @@ private fun SettingsToggleRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     subtitle: String? = null,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+                .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
+                .alpha(if (enabled) 1f else ToggleRowDefaults.DISABLED_ALPHA)
                 .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.md),
@@ -907,6 +926,44 @@ private fun SettingsToggleRow(
                 ),
         )
     }
+}
+
+/**
+ * The app lock toggles. Shown but greyed out on a phone with no screen lock at all, with the reason,
+ * so the user knows why it cannot be turned on rather than wondering where it went.
+ */
+@Composable
+private fun PrivacySettings(
+    lockEnabled: Boolean,
+    onLockEnabledChange: (Boolean) -> Unit,
+    lockOnSendEnabled: Boolean,
+    onLockOnSendEnabledChange: (Boolean) -> Unit,
+) {
+    val context = LocalContext.current
+    val available = remember { DeviceUnlock.isAvailable(context) }
+    SettingsToggleRow(
+        icon = Icons.Default.Lock,
+        title = stringResource(R.string.app_lock_row),
+        subtitle = stringResource(if (available) R.string.app_lock_row_description else R.string.app_lock_unavailable),
+        checked = lockEnabled && available,
+        onCheckedChange = onLockEnabledChange,
+        enabled = available,
+    )
+    if (lockEnabled && available) {
+        SettingsDivider()
+        SettingsToggleRow(
+            icon = Icons.AutoMirrored.Filled.Send,
+            title = stringResource(R.string.app_lock_on_send_row),
+            subtitle = stringResource(R.string.app_lock_on_send_row_description),
+            checked = lockOnSendEnabled,
+            onCheckedChange = onLockOnSendEnabledChange,
+        )
+    }
+}
+
+/** Material's alpha for disabled content. */
+private object ToggleRowDefaults {
+    const val DISABLED_ALPHA = 0.38f
 }
 
 @Composable

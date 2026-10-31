@@ -1,6 +1,22 @@
 # Biometric lock for opening the app and for sending a message
 
-Status: **not started**. Written down to build later; nothing in the app has been changed.
+Status: **built**. Decisions made while building:
+
+- **The voice assistant** cannot show a `BiometricPrompt` (it is not a `FragmentActivity`, and it can
+  open over the lock screen). With the app lock on, it refuses to send while the phone itself is
+  locked (`KeyguardManager.isDeviceLocked`), which is the barrier that matters there; once the phone
+  is unlocked it sends as before. A per-send prompt is not added to it.
+- **Every send path is gated** when "also on send" is on: the composer, the review screen's
+  **Send to agent** and the Inbox inline reply. Each keeps its text when the prompt is cancelled.
+- **Entering the PIN leaves the app** (the system's own screen), so unlocking also clears the
+  "backgrounded at" time; otherwise a slow PIN entry would lock again on return.
+- **Turning the lock on** locks the next fresh start and the next return after the grace period,
+  not the screen the user is on. A phone whose screen lock was removed after the setting was turned
+  on is let in rather than locked out.
+- **The recents thumbnail** is hidden with `setRecentsScreenshotEnabled(false)` on Android 13+
+  while the lock is on; screenshots are still allowed (`FLAG_SECURE` would block them everywhere).
+- `MainActivity` is now a `FragmentActivity` (which `BiometricPrompt` needs); it is still a
+  `ComponentActivity`, so Compose and everything else is unchanged.
 
 ## Goal
 

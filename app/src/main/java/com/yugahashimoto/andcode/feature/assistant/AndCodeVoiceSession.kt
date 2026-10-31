@@ -367,6 +367,13 @@ class AndCodeVoiceSession(context: Context) :
 
     private fun sendToOpenCode(text: String) {
         val activeBackend = backend ?: return
+        // The assistant can open over the lock screen, where no unlock prompt can be shown. With
+        // the app lock on, a locked phone is the barrier: nothing is sent until it is unlocked.
+        val keyguard = context.getSystemService(android.app.KeyguardManager::class.java)
+        if (settings.biometricLockEnabled && keyguard?.isDeviceLocked == true) {
+            showError(context.getString(R.string.app_lock_voice_locked))
+            return
+        }
         assistantState.value = VoiceState.THINKING
         responseText.value = ""
         scope.launch {

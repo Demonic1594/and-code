@@ -1757,4 +1757,15 @@
     <string name="tool_copy_block">Copiar %1$s</string>
     <string name="cd_search_projects">Pesquisar projetos</string>
     <string name="drawer_project_search_hint">Pesquisar projetos</string>
+    <string name="section_privacy_settings">Privacidade</string>
+    <string name="app_lock_row">Exigir desbloqueio ao abrir</string>
+    <string name="app_lock_row_description">Pede sua digital, rosto ou bloqueio de tela ao abrir o AndCode, ou depois de mais de 30 segundos em segundo plano.</string>
+    <string name="app_lock_unavailable">Configure digital, rosto ou bloqueio de tela neste celular para usar isto.</string>
+    <string name="app_lock_on_send_row">Exigir também para enviar uma mensagem</string>
+    <string name="app_lock_on_send_row_description">Pede novamente antes de enviar cada mensagem.</string>
+    <string name="app_lock_prompt_title">Desbloquear o AndCode</string>
+    <string name="app_lock_locked_title">O AndCode está bloqueado</string>
+    <string name="app_lock_unlock">Desbloquear</string>
+    <string name="app_lock_send_prompt_title">Confirme sua identidade para enviar</string>
+    <string name="app_lock_voice_locked">Desbloqueie o celular para enviar isto. O bloqueio do app está ativado.</string>
 </resources>

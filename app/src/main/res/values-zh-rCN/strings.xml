@@ -1731,4 +1731,15 @@
     <string name="tool_copy_block">复制 %1$s</string>
     <string name="cd_search_projects">搜索项目</string>
     <string name="drawer_project_search_hint">搜索项目</string>
+    <string name="section_privacy_settings">隐私</string>
+    <string name="app_lock_row">打开时需要解锁</string>
+    <string name="app_lock_row_description">AndCode 打开时，或在后台超过 30 秒后，要求验证指纹、面部或屏幕锁。</string>
+    <string name="app_lock_unavailable">请先在此手机上设置指纹、面部或屏幕锁，才能使用此功能。</string>
+    <string name="app_lock_on_send_row">发送消息时也需解锁</string>
+    <string name="app_lock_on_send_row_description">每条消息发送前都会再次询问。</string>
+    <string name="app_lock_prompt_title">解锁 AndCode</string>
+    <string name="app_lock_locked_title">AndCode 已锁定</string>
+    <string name="app_lock_unlock">解锁</string>
+    <string name="app_lock_send_prompt_title">确认是您本人以发送</string>
+    <string name="app_lock_voice_locked">请解锁手机后再发送。应用锁已开启。</string>
 </resources>
