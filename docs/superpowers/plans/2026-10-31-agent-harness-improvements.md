@@ -31,6 +31,11 @@ Ordered by value for the phone user, not by effort.
 
 ### 1. Command allowlist with "always allow"
 
+Matching made shell-safe (`ShellCommandRules`): a command that chains, pipes, substitutes or
+redirects never matches a rule and is never remembered as one, and rule words must equal the
+command's first words. Wiring the rules into the prompt bypass, per-project scope and Deny are
+still to do.
+
 Feasible, easy. The approval sheet gets an "Always allow this command" action that stores a
 pattern (for example `git status`, `npm test`) per project. Matching calls skip the prompt.
 Cursor's plain-English rules are not needed; prefix patterns cover most cases.
@@ -127,6 +132,34 @@ copied without a licence review (LGPL-3.0, while AndCode is MIT); record any not
   file upload, resize and screenshot. It tags elements with an `aria-ref` attribute in the
   snapshot. That is the same design as the handle-based `browser_read` in the PR #34 review.
 
+### 9. Additions from an audit of another coding-agent harness
+
+From an audit document the user shared (a desktop agent harness, read as notes, not code). Each
+item is an idea to check against AndCode, not a claim about how AndCode works today.
+
+- **Deny before ask.** Evaluate deny rules before a prompt reaches the phone, matched on the tool,
+  its input and any network target. Extends item 1.
+- **Tool risk classes.** Mark tools read-only, writing, executing or destructive; read-only calls
+  never prompt, and "always allow" can attach to a class as well as to command words.
+- **Deny feedback.** A rejected call should tell the agent that the user declined and that it should
+  adjust rather than retry the same call, so agents do not loop on a refused command.
+- **Writes outside the workspace.** Refuse in the bridge a write whose path resolves outside the
+  workspace root (the guest also sees bound host paths; see the top of this doc).
+- **Audit log.** Record each phone approval and each remembered rule (tool, input summary, decision,
+  time) so a user can see and revoke what was allowed.
+- **Section budgets for instructions.** Cap each section of the generated instruction files and MCP
+  tool listings instead of truncating the whole prompt, with a note when something was cut.
+- **Point-in-time context.** Inject git status as a labelled snapshot ("as of the start of this
+  turn"), so an agent does not treat it as live.
+- **Compaction triggers.** Where an agent supports compacting (item 6), trigger it from AndCode's usage
+  figures with per-model thresholds, and also when the agent reports a context-exceeded error.
+- **Tool output caps.** Cap what is shown on the phone and what goes back to the model per tool,
+  keeping the head and tail (overlaps item 5).
+- **Stop ends the whole tree.** Stop should end the agent and every child process it started; check
+  this against the supervisor and `ProcessTree`.
+- **Self-contained final messages.** Instruction-file line: the user reads results later on a phone,
+  so the last message of a run has to stand on its own.
+
 ## Not planned
 
 - Cursor's cloud agents, Bugbot and its trained model: need server infrastructure.
@@ -149,6 +182,8 @@ copied without a licence review (LGPL-3.0, while AndCode is MIT); record any not
 7. Hook templates for Claude Code.
 8. Operit-derived items (section 8): the intent trigger with a token, MCP failure reasons,
    Ollama and LM Studio presets, then the MCP and skills list.
+9. Audit-derived items (section 9): deny before ask and deny feedback with the allowlist, then
+   risk classes, the approval audit log and the workspace write check.
 
 ## Open questions
 

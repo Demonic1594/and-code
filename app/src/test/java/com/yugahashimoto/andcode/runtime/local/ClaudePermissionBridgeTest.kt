@@ -1,6 +1,8 @@
 package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.runtime.PermissionResponse
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -139,6 +141,44 @@ class ClaudePermissionBridgeTest {
         assertTrue(bridge.respond(requestId, PermissionResponse.ALWAYS, remember = true))
         assertTrue(bridge.isAlwaysAllowed("Bash", """{"command":"git status"}"""))
         assertFalse(bridge.isAlwaysAllowed("Write", """{"file_path":"a"}"""))
+    }
+
+    @Test
+    fun `an always-allowed command does not cover a chained one`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        approveAlways(bridge, "git status")
+
+        assertTrue(bridge.isAlwaysAllowed("Bash", """{"command":"git status --short"}"""))
+        assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"git status; rm -rf ~"}"""))
+        assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"git statusfoo"}"""))
+    }
+
+    @Test
+    fun `a chained command approved with always is not remembered`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        approveAlways(bridge, "git status && rm -rf ~")
+
+        assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"git status"}"""))
+        assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"anything"}"""))
+    }
+
+    private fun approveAlways(
+        bridge: ClaudePermissionBridge,
+        command: String,
+    ) {
+        val requestId = UUID.randomUUID().toString()
+        bridge.writeGuestRequest(
+            ClaudePermissionBridge.Request(
+                requestId = requestId,
+                androidSessionId = "session-1",
+                kind = ClaudePermissionBridge.Kind.PERMISSION,
+                toolName = "Bash",
+                toolInputJson = buildJsonObject { put("command", command) }.toString(),
+                permissionLabel = "Bash",
+            ),
+        )
+        bridge.pollPending()
+        assertTrue(bridge.respond(requestId, PermissionResponse.ALWAYS, remember = true))
     }
 
     @Test
