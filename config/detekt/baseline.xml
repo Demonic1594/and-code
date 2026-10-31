@@ -455,7 +455,6 @@
     <ID>TopLevelPropertyNaming:AndCodeAgentContext.kt$private const val RUNTIME_CONTEXT_PATH = "root/.config/and-code/agent-context.md"</ID>
     <ID>TopLevelPropertyNaming:AndCodeApp.kt$/** How often the open chat asks GitHub whether its pull requests have moved on. */ private const val PULL_REQUEST_REFRESH_INTERVAL_MS = 30_000L</ID>
     <ID>TopLevelPropertyNaming:AndCodeApp.kt$private const val NAV_FADE_MS = 180</ID>
-    <ID>TopLevelPropertyNaming:AndCodeApp.kt$private const val VOICE_RESTART_DELAY_MS = 200L</ID>
     <ID>TopLevelPropertyNaming:AndCodeVoiceSession.kt$private const val SPEECH_RESTART_DELAY_MS = 200L</ID>
     <ID>TopLevelPropertyNaming:AndroidSetupScreen.kt$private const val TOTAL_STEPS = 5</ID>
     <ID>TopLevelPropertyNaming:AndroidTTSProvider.kt$private const val INIT_TIMEOUT_MS = 3_000L</ID>
