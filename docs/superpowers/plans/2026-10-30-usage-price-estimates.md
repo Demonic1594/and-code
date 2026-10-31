@@ -1,8 +1,7 @@
 # Usage: an auto-updating price list estimates cost when the runtime reports none
 
-Status: **not started**. Written down to build later; nothing in the app has been changed.
-Held as a draft PR on purpose — the design decisions below (source, fallback, labeling) want a
-look before any of it is built.
+Status: **done** (#45): costs the runtime does not report are estimated at list prices from an
+auto-updating models.dev catalog.
 
 ## Goal
 
