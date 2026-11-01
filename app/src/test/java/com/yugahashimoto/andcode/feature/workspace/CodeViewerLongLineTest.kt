@@ -91,6 +91,11 @@ class CodeViewerLongLineTest {
         // A match on another line leaves this one alone, and a short line is always whole.
         assertEquals(10..10 + cap, displayRange(10, lineEnd, lineEnd + 50..lineEnd + 55))
         assertEquals(3..20, displayRange(3, 20, 5..7))
+        // A match that starts on a short line and runs on past it (a multi-line pattern) leaves it whole.
+        assertEquals(0..100, displayRange(0, 100, 95..104))
+        assertEquals(0..100, displayRange(0, 100, 100..101))
+        // On a long line, such a match starting past the cap still moves the window.
+        assertEquals(far - LongLineLimits.MATCH_CONTEXT, displayRange(10, lineEnd, far..lineEnd + 20).first)
     }
 
     @Test

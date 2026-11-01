@@ -761,6 +761,8 @@ internal fun displayRange(
     current: IntRange?,
 ): IntRange {
     val headEnd = displayEnd(start, end)
+    // A line that fits is always whole, even when a match (a multi-line one) runs on past its end.
+    if (headEnd == end) return start..end
     if (current == null || current.first !in start..end || current.last < headEnd) return start..headEnd
     val windowStart = maxOf(start, current.first - LongLineLimits.MATCH_CONTEXT)
     return windowStart..minOf(end, windowStart + LongLineLimits.DISPLAY_CHARS)
