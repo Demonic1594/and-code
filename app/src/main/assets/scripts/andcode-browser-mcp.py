@@ -342,6 +342,128 @@ def _session() -> CdpSession:
     return CdpSession(name)
 
 
+# Lists what a person could act on, tagging each element with a numeric handle (data-andcode-ref) that
+# stays the same across reads while the element stays in the page.
+READ_JS = r"""(() => {
+  const limit = %d;
+  const state = window.__andcodeRefs || (window.__andcodeRefs = { next: 1 });
+  const selector = [
+    'a[href]', 'button', 'input', 'select', 'textarea', 'summary',
+    '[role=button]', '[role=link]', '[role=checkbox]', '[role=radio]', '[role=tab]',
+    '[role=menuitem]', '[role=switch]', '[role=option]', '[onclick]', '[contenteditable=""]',
+    '[contenteditable=true]'
+  ].join(',');
+  const shown = (el) => {
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    const style = getComputedStyle(el);
+    return style.visibility !== 'hidden' && style.display !== 'none';
+  };
+  const clip = (text) => String(text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  // A field's own value never names it (that is what value= is for, and a password must not leak);
+  // only buttons made of an <input> are named by their value.
+  const valueNames = (type) => type === 'submit' || type === 'button' || type === 'reset';
+  const nameOf = (el, type) =>
+    clip(el.getAttribute('aria-label') || el.labels && el.labels[0] && el.labels[0].innerText ||
+      el.innerText || el.placeholder || el.alt || el.title || (valueNames(type) ? el.value : ''));
+  const out = [];
+  const seen = new Set();
+  let total = 0;
+  for (const el of document.querySelectorAll(selector)) {
+    if (!shown(el)) continue;
+    total++;
+    if (out.length >= limit) continue;
+    let ref = el.getAttribute('data-andcode-ref');
+    // A cloned element carries its original's handle; give it its own.
+    if (!ref || seen.has(ref)) { ref = String(state.next++); el.setAttribute('data-andcode-ref', ref); }
+    seen.add(ref);
+    const tag = el.tagName.toLowerCase();
+    const type = tag === 'input' ? (el.type || 'text') : '';
+    const rect = el.getBoundingClientRect();
+    out.push({
+      ref: Number(ref),
+      tag: tag,
+      role: el.getAttribute('role') || '',
+      type: type,
+      name: nameOf(el, type),
+      value: type === 'password' ? '' : clip(el.value),
+      href: tag === 'a' ? clip(el.getAttribute('href')) : '',
+      checked: el.checked === true,
+      disabled: el.disabled === true,
+      x: Math.round(rect.left + rect.width / 2),
+      y: Math.round(rect.top + rect.height / 2)
+    });
+  }
+  const headings = Array.from(document.querySelectorAll('h1,h2,h3')).filter(shown).slice(0, 8).map((h) => clip(h.innerText));
+  return JSON.stringify({ url: location.href, title: document.title, headings: headings, total: total, elements: out });
+})()"""
+
+READ_LIMIT = 150
+
+
+def format_outline(data: dict) -> str:
+    """One line per element: [ref] kind "name" and what matters for acting on it."""
+    lines = [f"{data.get('title', '')} - {data.get('url', '')}"]
+    for heading in data.get("headings", []):
+        lines.append(f"# {heading}")
+    for el in data.get("elements", []):
+        kind = el.get("role") or el.get("tag", "")
+        if el.get("type"):
+            kind += f"({el['type']})"
+        line = f"[{el['ref']}] {kind}"
+        if el.get("name"):
+            line += f' "{el["name"]}"'
+        if el.get("value"):
+            line += f' value="{el["value"]}"'
+        if el.get("href"):
+            line += f" -> {el['href']}"
+        if el.get("checked"):
+            line += " (checked)"
+        if el.get("disabled"):
+            line += " (disabled)"
+        lines.append(line)
+    shown = len(data.get("elements", []))
+    total = data.get("total", shown)
+    if total > shown:
+        lines.append(f"... {total - shown} more not shown; scroll or navigate to narrow it down")
+    return "\n".join(lines)
+
+
+BAD_REF = "ref must be the whole-number handle shown in [brackets] by browser_read"
+
+
+def _handle(ref: object) -> int:
+    if isinstance(ref, bool):
+        raise ValueError(BAD_REF)
+    try:
+        number = int(ref)
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError(BAD_REF) from None
+    if isinstance(ref, float) and ref != number:
+        raise ValueError(BAD_REF)
+    return number
+
+
+def _evaluate(page: "_PageSession", expression: str) -> object:
+    """Runs [expression] in the page and returns its value; a script that threw is an error, not a blank."""
+    result = page.call("Runtime.evaluate", expression=expression, returnByValue=True)
+    details = result.get("exceptionDetails")
+    if details:
+        exception = details.get("exception", {})
+        reason = exception.get("description") or details.get("text") or "unknown error"
+        raise CdpError(f"the page script failed: {reason}")
+    return result.get("result", {}).get("value")
+
+
+def ref_expression(ref: object, action: str) -> str:
+    """JavaScript that finds the element with handle [ref] and runs [action] on it (`el`)."""
+    number = _handle(ref)
+    return (
+        "(() => { const el = document.querySelector('[data-andcode-ref=\"%d\"]'); "
+        "if (!el) return 'stale'; el.scrollIntoView({block: 'center', inline: 'center'}); %s })()"
+    ) % (number, action)
+
+
 def tool_show(args: dict) -> str:
     url = args["url"]
     COMMAND_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -368,16 +490,43 @@ def tool_navigate(args: dict) -> str:
         page.close()
 
 
-def tool_click(args: dict) -> str:
+STALE_REF = "that handle is gone from the page; call browser_read again for fresh ones"
+NO_TARGET = "pass a handle from browser_read, or both x and y"
+NOT_EDITABLE = "that element does not take typed text; pass the handle of an enabled text field"
+# Focuses `el` only if it takes typed text, and confirms it got focus: otherwise Input.insertText
+# would type into whatever field had focus before.
+FOCUS_EDITABLE_JS = (
+    "const types = ['button', 'submit', 'reset', 'checkbox', 'radio', 'file', 'image', 'hidden', 'range', 'color']; "
+    "const editable = el.isContentEditable || el.tagName === 'TEXTAREA' || "
+    "(el.tagName === 'INPUT' && !types.includes(el.type)); "
+    "if (!editable || el.disabled || el.readOnly) return 'not editable'; "
+    "el.focus(); return document.activeElement === el ? 'ok' : 'not editable';"
+)
+
+
+def tool_read(args: dict) -> str:
     page = _session().open_page_session()
     try:
-        expr = (
-            "(() => { const el = document.elementFromPoint(%f, %f); "
-            "if (!el) return 'no element'; el.click(); return el.tagName; })()"
-            % (float(args["x"]), float(args["y"]))
-        )
-        result = page.call("Runtime.evaluate", expression=expr, returnByValue=True)
-        return f"clicked: {result.get('result', {}).get('value')}"
+        return format_outline(json.loads(str(_evaluate(page, READ_JS % READ_LIMIT))))
+    finally:
+        page.close()
+
+
+def tool_click(args: dict) -> str:
+    if args.get("ref") is None and (args.get("x") is None or args.get("y") is None):
+        return NO_TARGET
+    page = _session().open_page_session()
+    try:
+        if args.get("ref") is not None:
+            expr = ref_expression(args["ref"], "el.click(); return el.tagName;")
+        else:
+            expr = (
+                "(() => { const el = document.elementFromPoint(%f, %f); "
+                "if (!el) return 'no element'; el.click(); return el.tagName; })()"
+                % (float(args["x"]), float(args["y"]))
+            )
+        value = _evaluate(page, expr)
+        return STALE_REF if value == "stale" else f"clicked: {value}"
     finally:
         page.close()
 
@@ -385,7 +534,14 @@ def tool_click(args: dict) -> str:
 def tool_type(args: dict) -> str:
     page = _session().open_page_session()
     try:
-        page.call("Runtime.evaluate", expression="document.activeElement && document.activeElement.focus()")
+        if args.get("ref") is not None:
+            state = _evaluate(page, ref_expression(args["ref"], FOCUS_EDITABLE_JS))
+            if state == "stale":
+                return STALE_REF
+            if state != "ok":
+                return NOT_EDITABLE
+        else:
+            page.call("Runtime.evaluate", expression="document.activeElement && document.activeElement.focus()")
         page.call("Input.insertText", text=args["text"])
         return "typed"
     finally:
@@ -446,20 +602,44 @@ TOOLS = [
         },
     },
     {
+        "name": "browser_read",
+        "description": (
+            "List what can be acted on in the Guest Browser page: links, buttons, fields and so on, "
+            "one per line as [handle] kind \"name\" (at most 150, in page order; password values are "
+            "never shown). Pass a handle to browser_click or browser_type instead of guessing "
+            "coordinates. Handles stay valid while the element stays in the page; read again after "
+            "the page changes or when told a handle is gone."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
         "name": "browser_click",
-        "description": "Click/tap viewport coordinates (x, y) in the Guest Browser page.",
+        "description": (
+            "Click an element of the Guest Browser page by its handle from browser_read, or tap "
+            "viewport coordinates (x, y) when there is none."
+        ),
         "inputSchema": {
             "type": "object",
-            "properties": {"x": {"type": "number"}, "y": {"type": "number"}},
-            "required": ["x", "y"],
+            "properties": {
+                "ref": {"type": "integer", "description": "Handle from browser_read; used instead of x/y."},
+                "x": {"type": "number", "description": "Viewport x in CSS pixels, when there is no handle."},
+                "y": {"type": "number", "description": "Viewport y in CSS pixels, when there is no handle."},
+            },
         },
     },
     {
         "name": "browser_type",
-        "description": "Type text into the focused input of the Guest Browser page.",
+        "description": (
+            "Type text into an input of the Guest Browser page: the one with the given handle from "
+            "browser_read, or else the focused one. Text is inserted at the cursor; existing text "
+            "is not cleared."
+        ),
         "inputSchema": {
             "type": "object",
-            "properties": {"text": {"type": "string"}},
+            "properties": {
+                "text": {"type": "string"},
+                "ref": {"type": "integer", "description": "Handle from browser_read; otherwise the focused input."},
+            },
             "required": ["text"],
         },
     },
@@ -482,6 +662,7 @@ HANDLERS = {
     "browser_show": tool_show,
     "browser_status": tool_status,
     "browser_navigate": tool_navigate,
+    "browser_read": tool_read,
     "browser_click": tool_click,
     "browser_type": tool_type,
     "browser_screenshot": tool_screenshot,

@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.feature.browser
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -15,6 +16,11 @@ import java.util.concurrent.TimeUnit
  * socket and which page it drives. Skipped where python3 is missing.
  */
 class BrowserMcpScriptTest {
+    private val staleRef = "that handle is gone from the page; call browser_read again for fresh ones"
+    private val noTarget = "pass a handle from browser_read, or both x and y"
+    private val notEditable = "that element does not take typed text; pass the handle of an enabled text field"
+    private val badRef = "ref must be the whole-number handle shown in [brackets] by browser_read"
+
     @get:Rule
     val folder = TemporaryFolder()
 
@@ -272,6 +278,221 @@ class BrowserMcpScriptTest {
                 .readText()
 
         assertTrue(devtools.contains("var AGENT_ACTIVITY_MARKER = '${AgentActivity.MARKER}';"))
+    }
+
+    @Test
+    fun `the outline lists one line per element with its handle`() {
+        val outline =
+            run(
+                """
+                print(m.format_outline({
+                    "title": "Shop", "url": "http://x/", "headings": ["Cart"], "total": 4,
+                    "elements": [
+                        {"ref": 1, "tag": "button", "role": "", "type": "", "name": "Buy", "value": "", "href": "",
+                         "checked": False, "disabled": True},
+                        {"ref": 2, "tag": "input", "role": "", "type": "email", "name": "Email", "value": "a@b.c", "href": "",
+                         "checked": False, "disabled": False},
+                        {"ref": 3, "tag": "a", "role": "", "type": "", "name": "Help", "value": "", "href": "/help",
+                         "checked": False, "disabled": False},
+                    ],
+                }))
+                """.trimIndent(),
+            )
+
+        assertEquals(
+            listOf(
+                "Shop - http://x/",
+                "# Cart",
+                "[1] button \"Buy\" (disabled)",
+                "[2] input(email) \"Email\" value=\"a@b.c\"",
+                "[3] a \"Help\" -> /help",
+                "... 1 more not shown; scroll or navigate to narrow it down",
+            ),
+            outline.lines(),
+        )
+    }
+
+    @Test
+    fun `a handle becomes a lookup of that element and nothing else`() {
+        val expression = run("""print(m.ref_expression("7", "el.click();"))""")
+
+        assertTrue(expression, expression.contains("""[data-andcode-ref="7"]"""))
+        val injected =
+            run(
+                """
+                try:
+                    m.ref_expression("7\"]) || alert(1) || ([", "el.click();")
+                except ValueError:
+                    print("refused")
+                """.trimIndent(),
+            )
+        assertEquals("refused", injected)
+    }
+
+    @Test
+    fun `clicking a handle that left the page says to read again`() {
+        val answer =
+            run(
+                """
+                class Page:
+                    def call(self, method, **params):
+                        return {"result": {"value": "stale"}}
+                    def close(self):
+                        pass
+                class Session:
+                    def open_page_session(self):
+                        return Page()
+                m._session = lambda: Session()
+                print(m.tool_click({"ref": 4}))
+                print(m.tool_type({"ref": 4, "text": "hi"}))
+                """.trimIndent(),
+            )
+
+        assertEquals("${staleRef}\n$staleRef", answer)
+    }
+
+    @Test
+    fun `a click with neither a handle nor both coordinates says what to pass`() {
+        val answer =
+            run(
+                """
+                def fail():
+                    raise AssertionError("no page should be opened")
+                m._session = fail
+                print(m.tool_click({}))
+                print(m.tool_click({"x": 10}))
+                """.trimIndent(),
+            )
+
+        assertEquals("$noTarget\n$noTarget", answer)
+    }
+
+    @Test
+    fun `a handle that is not a whole number says what a handle is`() {
+        val answer =
+            run(
+                """
+                for bad in ["abc", "1.5", 1.5, True, None]:
+                    try:
+                        m.ref_expression(bad, "el.click();")
+                        print("accepted", bad)
+                    except ValueError as exc:
+                        print(exc)
+                print(m.ref_expression(3.0, "x").count('data-andcode-ref="3"'))
+                """.trimIndent(),
+            )
+
+        assertEquals(List(5) { badRef }.joinToString("\n") + "\n1", answer)
+    }
+
+    @Test
+    fun `typing by handle into something that is not a text field types nothing`() {
+        val answer =
+            run(
+                """
+                calls = []
+                class Page:
+                    def call(self, method, **params):
+                        calls.append(method)
+                        return {"result": {"value": "not editable"}}
+                    def close(self):
+                        pass
+                class Session:
+                    def open_page_session(self):
+                        return Page()
+                m._session = lambda: Session()
+                print(m.tool_type({"ref": 2, "text": "hi"}))
+                print("Input.insertText" in calls)
+                """.trimIndent(),
+            )
+
+        assertEquals("$notEditable\nFalse", answer)
+    }
+
+    @Test
+    fun `a page script that throws is reported rather than read as an empty page`() {
+        val answer =
+            run(
+                """
+                class Page:
+                    def call(self, method, **params):
+                        return {"result": {}, "exceptionDetails": {"exception": {"description": "TypeError: boom"}}}
+                    def close(self):
+                        pass
+                class Session:
+                    def open_page_session(self):
+                        return Page()
+                m._session = lambda: Session()
+                for call in (lambda: m.tool_read({}), lambda: m.tool_click({"ref": 1})):
+                    try:
+                        print(call())
+                    except m.CdpError as exc:
+                        print(exc)
+                """.trimIndent(),
+            )
+
+        assertEquals("the page script failed: TypeError: boom\nthe page script failed: TypeError: boom", answer)
+    }
+
+    @Test
+    fun `a password field is never named by what was typed, and a cloned handle is renumbered`() {
+        val nodeStarts = runCatching { ProcessBuilder("node", "--version").start().waitFor(30, TimeUnit.SECONDS) }.getOrDefault(false)
+        assumeTrue("needs node", nodeStarts)
+        val body = Regex("READ_JS = r\"\"\"([\\s\\S]*?)\"\"\"").find(script.readText())!!.groupValues[1].replace("%d", "10")
+        val page =
+            folder.newFile("page.js").apply {
+                writeText(
+                    """
+                    function node(tag, props) {
+                      const attrs = Object.assign({}, props.attrs || {});
+                      return Object.assign({
+                        tagName: tag.toUpperCase(), innerText: '', labels: [], value: '',
+                        getAttribute: (k) => (k in attrs ? attrs[k] : null),
+                        setAttribute: (k, v) => { attrs[k] = String(v); },
+                        getBoundingClientRect: () => ({ left: 0, top: 0, width: 10, height: 10 }),
+                      }, props);
+                    }
+                    const els = [
+                      node('input', { type: 'password', value: 'hunter2' }),
+                      node('input', { type: 'submit', value: 'Sign in' }),
+                      node('button', { innerText: 'A', attrs: { 'data-andcode-ref': '1' } }),
+                      node('button', { innerText: 'B', attrs: { 'data-andcode-ref': '1' } }),
+                    ];
+                    global.window = { __andcodeRefs: { next: 2 } };
+                    global.document = { title: 't', querySelectorAll: (q) => (q === 'h1,h2,h3' ? [] : els) };
+                    global.location = { href: 'https://example.test/' };
+                    global.getComputedStyle = () => ({ visibility: 'visible', display: 'block' });
+                    console.log(eval(require('fs').readFileSync(process.argv[2], 'utf8')));
+                    """.trimIndent(),
+                )
+            }
+        val snippet = folder.newFile("read-run.js").apply { writeText(body) }
+
+        val process = ProcessBuilder("node", page.absolutePath, snippet.absolutePath).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText()
+        assertTrue(output, process.waitFor(30, TimeUnit.SECONDS) && process.exitValue() == 0)
+
+        assertFalse(output, output.contains("hunter2"))
+        assertTrue(output, output.contains("\"name\":\"Sign in\""))
+        val refs = Regex("\"ref\":(\\d+)").findAll(output).map { it.groupValues[1] }.toList()
+        assertEquals(output, refs.size, refs.toSet().size)
+    }
+
+    @Test
+    fun `the page script that lists elements is valid javascript`() {
+        val nodeStarts = runCatching { ProcessBuilder("node", "--version").start().waitFor(30, TimeUnit.SECONDS) }.getOrDefault(false)
+        assumeTrue("needs node", nodeStarts)
+        val body = Regex("READ_JS = r\"\"\"([\\s\\S]*?)\"\"\"").find(script.readText())!!.groupValues[1].replace("%d", "5")
+        val snippet = folder.newFile("read.js").apply { writeText(body) }
+        val check =
+            folder.newFile(
+                "check.js",
+            ).apply { writeText("new Function('return ' + require('fs').readFileSync(process.argv[2], 'utf8'));") }
+
+        val process = ProcessBuilder("node", check.absolutePath, snippet.absolutePath).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText()
+
+        assertTrue(output, process.waitFor(30, TimeUnit.SECONDS) && process.exitValue() == 0)
     }
 
     /** Loads the script as module `m` and runs [code], returning what it printed. */
