@@ -1408,6 +1408,7 @@
     <string name="devtools_viewport">Область просмотра</string>
     <string name="devtools_user_agent">Агент пользователя</string>
     <string name="guest_browser_webview_unavailable">Гостевой браузер не запускается: на этом устройстве не удалось загрузить WebView. Обновление или повторное включение Android System WebView может помочь.</string>
+    <string name="guest_browser_agent_controlling">Агент управляет этой страницей</string>
     <string name="setup_step_development_tools">Инструменты разработки</string>
     <string name="setup_development_tools_description">По умолчанию устанавливаются только необходимые компоненты. При желании можно добавить полный набор инструментов.</string>
     <string name="setup_required_tools_description">Linux, выбранные агенты, Git и вспомогательные инструменты AndCode. Они устанавливаются всегда.</string>

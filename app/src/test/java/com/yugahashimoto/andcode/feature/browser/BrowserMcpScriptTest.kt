@@ -148,6 +148,28 @@ class BrowserMcpScriptTest {
         assertEquals("True\nTrue", refused)
     }
 
+    @Test
+    fun `each page session tells the browser an agent is acting, with the marker it listens for`() {
+        val sent =
+            run(
+                """
+                class FakeWs:
+                    def __init__(self):
+                        self.sent = []
+                    def send_text(self, text):
+                        self.sent.append(text)
+                    def recv_text(self):
+                        return '{"id": 1, "result": {}}'
+                ws = FakeWs()
+                m._PageSession(ws).announce()
+                import json
+                print(json.loads(ws.sent[0])["params"]["expression"])
+                """.trimIndent(),
+            )
+
+        assertEquals("console.debug(\"${AgentActivity.MARKER}\")", sent)
+    }
+
     /** Loads the script as module `m` and runs [code], returning what it printed. */
     private fun run(code: String): String {
         val driver =
