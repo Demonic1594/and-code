@@ -62,4 +62,14 @@ class CodeViewerLongLineTest {
 
         assertEquals(listOf(0 until 3, 8 until 11), styled.spanStyles.map { it.start until it.end })
     }
+
+    @Test
+    fun `a line is displayed whole up to the cap and truncated at it`() {
+        // Whole while it fits the cap, wherever the line starts in the file: absolute offsets.
+        assertEquals(20, displayEnd(3, 20))
+        assertEquals(10 + LongLineLimits.DISPLAY_CHARS, displayEnd(10, 10 + LongLineLimits.DISPLAY_CHARS))
+        // Truncated to the cap when the line runs past it.
+        assertEquals(LongLineLimits.DISPLAY_CHARS, displayEnd(0, LongLineLimits.DISPLAY_CHARS + 50))
+        assertEquals(10 + LongLineLimits.DISPLAY_CHARS, displayEnd(10, 10 + LongLineLimits.DISPLAY_CHARS + 50))
+    }
 }

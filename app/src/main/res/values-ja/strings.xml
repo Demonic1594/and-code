@@ -39,6 +39,7 @@
     <string name="model">モデル</string>
     <string name="agent">エージェント</string>
     <string name="permission_required">操作の承認が必要です</string>
+    <string name="permission_show_all">すべて表示</string>
     <string name="allow_once">今回だけ許可</string>
     <string name="always_allow">常に許可</string>
     <string name="reject">拒否</string>
@@ -1641,6 +1642,8 @@
     <string name="file_edit_error_not_found">ファイルが存在しません。</string>
     <string name="file_edit_error_not_text">編集できるのは UTF-8 のテキストファイルのみです。</string>
     <string name="file_edit_error_too_large">このファイルは大きすぎて編集できません（上限: %1$d KB）。</string>
+    <string name="file_edit_error_line_too_long">このファイルの1行が長すぎて編集できません（上限: %1$d バイト）。</string>
+    <string name="code_line_truncated">行は切り詰めました（%1$d文字、長すぎて表示できません）…</string>
     <string name="file_edit_error_read_only">このファイルは読み取り専用です。</string>
     <string name="file_edit_error_changed_on_disk">ファイルを開いた後に他の処理によって変更されたため、編集内容は保存されませんでした。テキストをコピーし、エディターを閉じてからファイルを開き直してください。</string>
     <string name="file_edit_error_write_failed">ファイルを保存できませんでした。</string>

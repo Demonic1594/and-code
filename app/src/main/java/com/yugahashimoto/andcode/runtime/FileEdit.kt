@@ -14,6 +14,13 @@ enum class FileEditFailure {
     NOT_TEXT,
     TOO_LARGE,
 
+    /**
+     * A single line past [FileEditPolicy.MAX_LINE_BYTES]. The editor lays each line out as one row,
+     * and a minified single-line file inside the size cap still freezes layout until the system
+     * kills the app as unresponsive (verified on device at a 199k-character line).
+     */
+    LINE_TOO_LONG,
+
     /** The file is marked read-only; replacing it by rename would get past that, so it is refused up front. */
     READ_ONLY,
 
@@ -42,13 +49,37 @@ object FileEditPolicy {
     /** [MAX_EDIT_BYTES] as the figure shown to the user. */
     const val MAX_EDIT_KIBIBYTES = MAX_EDIT_BYTES / 1024
 
+    /**
+     * Longest single line the editor will lay out as one row. Normal code stays far below this;
+     * minified files do not, and on them the editor's text layout never finishes: the system
+     * reports an ANR and kills the app. Refusing the edit costs little - a minified file is not
+     * something anyone edits by hand on a phone. Counted in bytes, so a multi-byte script's line
+     * reaches the cap slightly early - the safe direction.
+     */
+    const val MAX_LINE_BYTES = 20_000L
+
     /** Verdict for the bytes of a file on disk, or for text about to be written. Null means editable. */
     fun refusalFor(bytes: ByteArray): FileEditFailure? =
         when {
             bytes.size > MAX_EDIT_BYTES -> FileEditFailure.TOO_LARGE
             bytes.any { it == 0.toByte() } || !isValidUtf8(bytes) -> FileEditFailure.NOT_TEXT
-            else -> null
+            else -> longestLineIn(bytes).takeIf { it > MAX_LINE_BYTES }?.let { FileEditFailure.LINE_TOO_LONG }
         }
+
+    /** The longest line's length in bytes; 0 for empty input. */
+    private fun longestLineIn(bytes: ByteArray): Long {
+        var longest = 0L
+        var current = 0L
+        for (byte in bytes) {
+            if (byte == '\n'.code.toByte()) {
+                if (current > longest) longest = current
+                current = 0
+            } else {
+                current++
+            }
+        }
+        return maxOf(longest, current)
+    }
 
     private fun isValidUtf8(bytes: ByteArray): Boolean =
         runCatching {

@@ -380,6 +380,13 @@ data class PermissionRequest(
     val permission: String,
     val patterns: List<String> = emptyList(),
     val metadata: Map<String, JsonElement> = emptyMap(),
+    /**
+     * Whether an "Always allow" answer can persist anything for this call. False when the approval
+     * store could only keep something it deliberately does not (a shell command that chains, pipes,
+     * redirects or runs other code is approved once by design), so the button is hidden rather
+     * than tapped for no effect.
+     */
+    val canAlwaysAllow: Boolean = true,
 )
 
 @Serializable
