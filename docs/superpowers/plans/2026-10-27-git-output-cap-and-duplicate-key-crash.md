@@ -1,6 +1,8 @@
 # Git panel: output cut at 4,000 characters crashes commit details, and cuts History and diffs
 
-Status: **done** (Tasks 1–4). The terminal and ADB keep the old 4,000-character tail; that is still to be decided on its own.
+Status: **done** (Tasks 1–4). The terminal and ADB keep the old 4,000-character tail. Decided (2026-11-01): keep it. The
+terminal no longer goes through this runner (it is an interactive session with its own scrollback), and
+the ADB commands (pair, connect, get-state) print a line or two whose error is at the end.
 
 ## Symptom
 

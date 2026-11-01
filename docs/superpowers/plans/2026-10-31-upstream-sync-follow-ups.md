@@ -1,6 +1,8 @@
 # Follow-ups from the Oct 31 upstream sync (PR #52)
 
-Status: **not started**. Raised during review of the upstream sync and deferred so the sync could
+Status: **in progress**. Items 4 and 7 are fixed; item 5 was already fixed upstream (#415, "bound the
+syntax-highlight work done for each code line") and came in with a sync. The rest is not started.
+Raised during review of the upstream sync and deferred so the sync could
 merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing them upstream.
 
 1. **Schedules can come back in fallback mode.** When encrypted storage falls back to memory,
@@ -19,10 +21,12 @@ merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing
 4. **Runtime status race.** `LocalRuntimeManager.status()` reads the state, probes, then publishes
    without rechecking, so a probe can overwrite Starting/Installing and release the wake lock.
    Fix: publish with `compareAndSet` against the state read before probing. Add a unit test.
+   **Done**: `status()` publishes only if the state is unchanged, with a test that lands a start
+   in the middle of a status probe.
 5. **Long lines in the code viewer.** `highlightRange` has no per-line cap: a minified file under
    250k characters can put tens of thousands of spans on one line, and every line scans all search
    matches. Cap token spans and search marks on lines over 2,000 characters, with tests at, and
-   over, the limit.
+   over, the limit. **Done upstream** (#415), already in main.
 6. **Drawer search field label.** The drawer search field has no Material label for TalkBack
    beyond its placeholder; give it a proper label without hiding the typed text (a
    `contentDescription` on the field does hide it, which was tried and reverted).
@@ -33,6 +37,9 @@ merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing
    and are not cleared on a chat switch, so a prompt queued in one chat can be sent into another
    by any drain (idle, reconnect, after a rewind or a file restore). Give `QueuedPrompt` the
    session it belongs to and drain only the open chat's prompts. Predates the restore feature.
+   **Done**: each held prompt records its session (a new chat's prompts follow it to the session it
+   gets); only the open chat's are sent, and those for another chat wait until it is open again and
+   finishes a turn (sending on the way back in could interrupt a turn not yet known to be running).
 8. **Snapshot storage.** File-restore snapshots keep every git object (gc is off so detached
    snapshots survive) and outlive a deleted workspace. Prune snapshots past the 200-turn index,
    and delete a workspace's history when the workspace is deleted.
