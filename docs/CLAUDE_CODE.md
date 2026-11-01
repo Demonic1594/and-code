@@ -117,6 +117,11 @@ for that process so the CLI cannot hang. `ClaudeCodeTarget.capabilities.permissi
 are true only when the bridge is installed. "Always allow" stores a rule in the bridge's
 `always-rules.json` so matching tools skip the UI on later turns.
 
+Blocked commands (Settings → Claude Code → **Command rules**) are kept in `block-rules.json` beside it.
+The same script also runs as a `PreToolUse` hook for Bash (`--pre-tool-use`), so a blocked command is
+refused before every call in every permission mode, not only when Claude Code would ask; the
+`PermissionRequest` hook checks the list again before anything is asked, and before always-allow rules.
+
 See `docs/superpowers/specs/2026-08-08-claude-code-opencode-local-parity-design.md`.
 
 ## Sign-in

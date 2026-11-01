@@ -728,6 +728,17 @@
     <string name="mcp_url_hint">عنوان URL (خادم عن بُعد)</string>
     <string name="mcp_add_help">أدخل أمرًا لخادم محلي أو عنوان URL لخادم عن بُعد.</string>
     <string name="mcp_settings_row">خوادم MCP</string>
+    <string name="command_rules_settings_row">قواعد الأوامر</string>
+    <string name="command_rules_title">قواعد الأوامر</string>
+    <string name="command_rules_caption">يُرفض الأمر المحظور دون سؤال، حتى داخل أمر أطول، ويُطلب من الوكيل عدم إعادة المحاولة. يمكن أن تأتي الخيارات بأي ترتيب، لذا فإن حظر «rm -rf» يحظر أيضًا «rm -fr»، لكن يجب أن تُكتب بالطريقة نفسها: «--force» ليس «-f». الأوامر التي سمحت بها دائمًا عند الموافقة تعمل دون سؤال.</string>
+    <string name="command_rules_block_label">حظر الأوامر التي تحتوي على</string>
+    <string name="command_rules_block_button">حظر</string>
+    <string name="command_rules_blocked">محظورة</string>
+    <string name="command_rules_allowed">مسموح بها دائمًا</string>
+    <string name="command_rules_no_allowed">لا يوجد شيء مسموح به دائمًا بعد. اختر «السماح دائمًا» عند الموافقة لإضافة أمر هنا.</string>
+    <string name="command_rules_whole_tool">كل استدعاء لـ %1$s</string>
+    <string name="cd_forget_command_rule">إزالة قاعدة %1$s</string>
+    <string name="command_rules_block_invalid">اكتب أمرًا واحدًا، دون ; | &amp; &lt; &gt; $ ` أو فواصل أسطر.</string>
 
     <string name="server_info_title">معلومات الخادم</string>
     <string name="server_info_config_saved">تم حفظ الإعدادات</string>
@@ -1802,6 +1813,8 @@
     <string name="restore_files_banner_body">لم تتغير الرسائل. يعيد «تراجع» الملفات إلى ما كانت عليه.</string>
     <string name="restore_files_keep">إبقاء</string>
     <string name="restore_files_failed">تعذّرت استعادة الملفات.</string>
+    <string name="restore_files_refused">لم يتغير شيء: الاستعادة ستستبدل %1$s، ولا تحتفظ به اللقطات. انقله إلى مكان آخر ثم أعد المحاولة.</string>
+    <string name="restore_files_refused_unknown">لم يتغير شيء: الاستعادة ستستبدل ملفًا لا تحتفظ به اللقطات.</string>
     <string name="chat_menu_open_github">افتح على GitHub</string>
     <string name="action_copied">تم النسخ</string>
     <string name="tool_copy_block">نسخ %1$s</string>

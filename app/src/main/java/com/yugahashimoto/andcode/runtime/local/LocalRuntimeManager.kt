@@ -94,7 +94,10 @@ class LocalRuntimeManager(
         ) {
             return operation
         }
-        return computeStatus().also { mutableState.value = it }
+        // An install, start or update can begin while the probe runs. Publishing over it would hide
+        // that work, and whoever watches the state would release the wake lock it holds.
+        val computed = computeStatus()
+        return if (mutableState.compareAndSet(operation, computed)) computed else mutableState.value
     }
 
     fun installedPort(): Int? = readMetadata()?.port

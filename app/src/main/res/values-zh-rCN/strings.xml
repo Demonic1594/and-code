@@ -713,6 +713,17 @@
     <string name="mcp_url_hint">URL（远程服务器）</string>
     <string name="mcp_add_help">为本地服务器输入命令，或为远程服务器输入 URL。</string>
     <string name="mcp_settings_row">MCP 服务器</string>
+    <string name="command_rules_settings_row">命令规则</string>
+    <string name="command_rules_title">命令规则</string>
+    <string name="command_rules_caption">被阻止的命令会直接被拒绝（即使位于更长的命令中），并告知智能体不要重试。参数顺序不限（阻止“rm -rf”也会阻止“rm -fr”），但写法须一致：“--force”与“-f”不同。在审批时选择“始终允许”的命令会直接运行，不再询问。</string>
+    <string name="command_rules_block_label">阻止包含以下内容的命令</string>
+    <string name="command_rules_block_button">阻止</string>
+    <string name="command_rules_blocked">已阻止</string>
+    <string name="command_rules_allowed">始终允许</string>
+    <string name="command_rules_no_allowed">还没有始终允许的命令。在审批时选择“始终允许”即可将命令添加到这里。</string>
+    <string name="command_rules_whole_tool">每次 %1$s 调用</string>
+    <string name="cd_forget_command_rule">删除 %1$s 的规则</string>
+    <string name="command_rules_block_invalid">请只输入一条命令，不要包含 ;、|、&amp;、&lt;、&gt;、$、` 或换行。</string>
 
     <string name="server_info_title">服务器信息</string>
     <string name="server_info_config_saved">配置已保存</string>
@@ -1737,6 +1748,8 @@
     <string name="restore_files_banner_body">消息没有变化。“撤销”会将文件恢复为原来的样子。</string>
     <string name="restore_files_keep">保留</string>
     <string name="restore_files_failed">无法恢复这些文件。</string>
+    <string name="restore_files_refused">未做任何更改：恢复会覆盖快照不保存的 %1$s。请先将其移到别处，然后重试。</string>
+    <string name="restore_files_refused_unknown">未做任何更改：恢复会覆盖一个快照不保存的文件。</string>
     <string name="chat_menu_open_github">在 GitHub 上打开</string>
     <string name="action_copied">已复制</string>
     <string name="tool_copy_block">复制 %1$s</string>

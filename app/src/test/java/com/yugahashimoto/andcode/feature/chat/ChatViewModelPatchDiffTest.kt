@@ -179,6 +179,32 @@ class ChatViewModelPatchDiffTest {
         }
 
     @Test
+    fun `a refused restore says nothing changed and names the file in the way`() =
+        runTest(dispatcher) {
+            val backend = FakeTarget(diffCapable = false)
+            val snapshots = FakeSnapshots().apply { restoreResult = RestoreResult.Refused(".env") }
+            val viewModel =
+                ChatViewModel(
+                    backend = backend,
+                    eventFlow = backend.events,
+                    turnSnapshots = snapshots,
+                    restoreRefusedMessage = { path -> "refused: $path" },
+                ).also { advanceUntilIdle() }
+            viewModel.selectWorkspace("/workspace/app")
+            viewModel.sendMessage("Hello")
+            advanceUntilIdle()
+            backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+
+            viewModel.restoreFilesTo(viewModel.uiState.value.messages.first { it.isUser }.id)
+            advanceUntilIdle()
+
+            assertEquals("refused: .env", viewModel.uiState.value.error)
+            assertEquals(null, viewModel.uiState.value.fileRestore)
+            assertEquals(false, viewModel.uiState.value.isRestoringFiles)
+        }
+
+    @Test
     fun `files are restored to before a message and the restore can be undone`() =
         runTest(dispatcher) {
             val backend = FakeTarget(diffCapable = false)
@@ -292,6 +318,8 @@ class ChatViewModelPatchDiffTest {
         val undone = mutableListOf<String>()
         var changes: List<OpenCodeFileChange> = emptyList()
 
+        var restoreResult: RestoreResult = RestoreResult.Restored("undo-token")
+
         /** Holds a restore until completed, to act while it runs. */
         var restoreGate: CompletableDeferred<Unit>? = null
 
@@ -312,10 +340,10 @@ class ChatViewModelPatchDiffTest {
             sessionId: String,
             turn: Int,
             directory: String,
-        ): String {
+        ): RestoreResult {
             restored += turn
             restoreGate?.await()
-            return "undo-token"
+            return restoreResult
         }
 
         override suspend fun undoRestore(
