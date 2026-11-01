@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.core.api.OpenCodeFileChange
+import com.yugahashimoto.andcode.feature.chat.RestoreResult
 import com.yugahashimoto.andcode.feature.workspace.WorkspaceShell
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -109,45 +110,70 @@ class ShadowSnapshots(
     suspend fun restore(
         workspace: String,
         target: String,
-    ): String? {
-        if (!HASH.matches(target)) return null
+    ): String? = (restoreChecked(workspace, target) as? RestoreResult.Restored)?.token
+
+    /** [restore], saying why when it refuses: the ignored or excluded path in the way, when known. */
+    suspend fun restoreChecked(
+        workspace: String,
+        target: String,
+    ): RestoreResult {
+        if (!HASH.matches(target)) return RestoreResult.Failed
         return lock.withLock { restoreUnlocked(workspace, target) }
     }
 
     private suspend fun restoreUnlocked(
         workspace: String,
         target: String,
-    ): String? {
-        val before = snapshotUnlocked(workspace) ?: return null
+    ): RestoreResult {
+        val before = snapshotUnlocked(workspace) ?: return RestoreResult.Failed
         return withContext(ioDispatcher) {
             // HEAD is the snapshot just taken, so checkout knows which files are new since [target]
             // and removes them. It refuses, changing nothing, rather than delete an ignored or excluded
             // file in its way (a folder that must become a file again, say), which read-tree would.
+            val git = git(root, workspace)
+            val ws = WorkspaceShell.quote(workspace)
             val result =
                 run(
                     // A snapshot from before a path was ignored still holds it (a `.env` added before
-                    // its rule): checking it out would overwrite the ignored file, so refuse.
-                    "[ -z \"$(${git(
-                        root,
-                        workspace,
-                    )} ls-tree -r --name-only $target | ${git(root, workspace)} check-ignore --no-index --stdin)\" ]" +
-                        " && ${git(root, workspace)} checkout -q --no-overwrite-ignore --detach $target",
+                    // its rule): checking it out would overwrite the ignored file there now, so refuse,
+                    // naming it. One that is not there is simply written back.
+                    "ignored=$($git ls-tree -r --name-only $target | $git check-ignore --no-index --stdin | " +
+                        "while IFS= read -r p; do if [ -e $ws/\"${'$'}p\" ] || [ -L $ws/\"${'$'}p\" ]; then " +
+                        "printf '%s\\n' \"${'$'}p\"; break; fi; done); " +
+                        "if [ -n \"${'$'}ignored\" ]; then printf '$REFUSED_PREFIX%s\\n' \"${'$'}ignored\"; exit $REFUSED_EXIT; fi; " +
+                        "$git checkout -q --no-overwrite-ignore --detach $target",
                     RESTORE_TIMEOUT_SECONDS,
                     SMALL_OUTPUT,
                 )
-            if (result.exitCode == 0) return@withContext before
+            if (result.exitCode == 0) return@withContext RestoreResult.Restored(before)
+            val refusedPath = refusedPath(result)
             // Refused, nothing changed and this is a no-op. Cut short by the time limit, some files
             // may already be rewritten: put them back as they were just before.
             // The killed checkout may have left its lock behind, which would refuse this one too.
             val lockFile = WorkspaceShell.quote("${gitDir(root, workspace)}/index.lock")
-            run(
-                // Back to the snapshot just taken: tracked files only, so ignored ones stay untouched.
-                "rm -f $lockFile; ${git(root, workspace)} reset -q --hard $before",
-                RESTORE_TIMEOUT_SECONDS,
-                SMALL_OUTPUT,
-            )
-            null
+            val rollback =
+                run(
+                    // Back to the snapshot just taken: tracked files only, so ignored ones stay untouched.
+                    "rm -f $lockFile; $git reset -q --hard $before",
+                    RESTORE_TIMEOUT_SECONDS,
+                    SMALL_OUTPUT,
+                )
+            // Not put back: some files may be changed, so never say that nothing was.
+            if (rollback.exitCode != 0) return@withContext RestoreResult.Failed
+            if (refusedPath != null || result.exitCode == REFUSED_EXIT) RestoreResult.Refused(refusedPath) else RestoreResult.Failed
         }
+    }
+
+    /**
+     * The path a refused restore named: ours, or the first one git lists after one of [GIT_REFUSALS]
+     * (a file in the way, or a folder that must become a file again). Null when it failed otherwise.
+     */
+    private fun refusedPath(result: LocalRuntimeCommandResult): String? {
+        val lines = result.output.lines()
+        val ours = lines.firstOrNull { it.startsWith(REFUSED_PREFIX) }?.removePrefix(REFUSED_PREFIX)?.trim()
+        val listed = lines.indexOfFirst { line -> GIT_REFUSALS.any { line.contains(it) } }
+        val gits = if (listed < 0) null else lines.drop(listed + 1).firstOrNull { it.startsWith("\t") }?.trim()
+        return ours ?: gits
     }
 
     companion object {
@@ -162,6 +188,14 @@ class ShadowSnapshots(
         private const val DIFF_TIMEOUT_SECONDS = 20L
         private const val RESTORE_TIMEOUT_SECONDS = 30L
         private const val SMALL_OUTPUT = 4_000
+
+        /** How the restore command reports the ignored path that stopped it. */
+        private const val REFUSED_PREFIX = "andcode-refused:"
+        private const val REFUSED_EXIT = 3
+
+        /** How git introduces the paths a checkout refused to overwrite or remove. */
+        private val GIT_REFUSALS =
+            listOf("would be overwritten by checkout", "would be removed by checkout", "would lose untracked files in them")
         private const val DIFF_OUTPUT = 400_000
         private val HASH = Regex("^[0-9a-f]{40}$")
 

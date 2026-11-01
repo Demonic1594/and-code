@@ -2,7 +2,10 @@ package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import com.yugahashimoto.andcode.runtime.LocalRuntimeStatus
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,6 +15,10 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 
 class LocalRuntimeManagerTest {
     @get:Rule
@@ -172,6 +179,57 @@ class LocalRuntimeManagerTest {
         assertEquals(LocalRuntimeStatus.Stopped("1.17.20", 4096), manager.status())
     }
 
+    /** A start that begins while a status check probes must not be overwritten by that check. */
+    @Test
+    fun `a status check does not hide a start that began while it probed`() =
+        runBlocking {
+            createRuntimeFiles()
+            temporaryFolder.newFile("metadata.json").writeText(
+                """{"version":"1.17.20","port":4096,"installedAt":123}""",
+            )
+            val rootfs = temporaryFolder.newFolder("rootfs")
+            val probes = AtomicInteger()
+            val statusProbing = CountDownLatch(1)
+            val releaseStatus = CountDownLatch(1)
+            val startProbing = CountDownLatch(1)
+            val releaseStart = CountDownLatch(1)
+            val manager =
+                LocalRuntimeManager(
+                    runtimeDirectory = temporaryFolder.root,
+                    abi = "arm64-v8a",
+                    portProbe = {
+                        when (probes.incrementAndGet()) {
+                            // 1 is the constructor's own check.
+                            2 -> {
+                                statusProbing.countDown()
+                                releaseStatus.await(WAIT_SECONDS, TimeUnit.SECONDS)
+                                false
+                            }
+                            3 -> {
+                                startProbing.countDown()
+                                releaseStart.await(WAIT_SECONDS, TimeUnit.SECONDS)
+                                true
+                            }
+                            else -> true
+                        }
+                    },
+                    processLauncher = LocalRuntimeProcessLauncher(temporaryFolder.root, { true }),
+                )
+            var checked: LocalRuntimeStatus? = null
+            val check = thread { checked = manager.status() }
+            assertTrue(statusProbing.await(WAIT_SECONDS, TimeUnit.SECONDS))
+            val start = async(Dispatchers.IO) { manager.startInstalled(installedRuntime(rootfs)) }
+            assertTrue(startProbing.await(WAIT_SECONDS, TimeUnit.SECONDS))
+
+            releaseStatus.countDown()
+            check.join(TimeUnit.SECONDS.toMillis(WAIT_SECONDS))
+
+            assertEquals(LocalRuntimeStatus.Starting("1.17.20", 4096), checked)
+            assertEquals(LocalRuntimeStatus.Starting("1.17.20", 4096), manager.state.value)
+            releaseStart.countDown()
+            assertEquals(4096, withTimeout(TimeUnit.SECONDS.toMillis(WAIT_SECONDS)) { start.await() }.port)
+        }
+
     @Test
     fun `local server password is generated for an installed runtime`() {
         createRuntimeFiles()
@@ -270,5 +328,9 @@ class LocalRuntimeManagerTest {
         val binary = temporaryFolder.root.resolve("environment/rootfs/usr/local/bin/opencode")
         binary.parentFile.mkdirs()
         binary.writeText("binary")
+    }
+
+    private companion object {
+        const val WAIT_SECONDS = 10L
     }
 }

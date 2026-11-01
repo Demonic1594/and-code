@@ -1793,6 +1793,8 @@
     <string name="restore_files_banner_body">Сообщения не изменились. «Отменить» вернет файлы в прежнее состояние.</string>
     <string name="restore_files_keep">Оставить</string>
     <string name="restore_files_failed">Не удалось вернуть файлы.</string>
+    <string name="restore_files_refused">Ничего не изменено: восстановление перезаписало бы %1$s, который не сохраняется в снимках. Переместите его и повторите попытку.</string>
+    <string name="restore_files_refused_unknown">Ничего не изменено: восстановление перезаписало бы файл, который не сохраняется в снимках.</string>
     <string name="chat_menu_open_github">Открыть на GitHub</string>
     <string name="action_copied">Скопировано</string>
     <string name="tool_copy_block">Скопировать %1$s</string>

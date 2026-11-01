@@ -1780,6 +1780,8 @@
     <string name="restore_files_banner_body">Les messages restent inchangés. Annuler remet les fichiers comme ils étaient.</string>
     <string name="restore_files_keep">Conserver</string>
     <string name="restore_files_failed">Les fichiers n\'ont pas pu être restaurés.</string>
+    <string name="restore_files_refused">Rien n’a été modifié : la restauration écraserait %1$s, que les instantanés ne conservent pas. Déplacez-le puis réessayez.</string>
+    <string name="restore_files_refused_unknown">Rien n’a été modifié : la restauration écraserait un fichier que les instantanés ne conservent pas.</string>
     <string name="chat_menu_open_github">Ouvrir sur GitHub</string>
     <string name="action_copied">Copié</string>
     <string name="tool_copy_block">Copier %1$s</string>

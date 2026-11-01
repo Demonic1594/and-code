@@ -281,6 +281,10 @@ fun AndCodeApp(
                                     selectedRuntime?.capabilities?.checkpoints != true
                             },
                         restoreFailedMessage = context.getString(R.string.restore_files_failed),
+                        restoreRefusedMessage = { path ->
+                            path?.let { context.getString(R.string.restore_files_refused, it) }
+                                ?: context.getString(R.string.restore_files_refused_unknown)
+                        },
                         // The toggle owns the whole estimate feature, the chat menu's line included.
                         priceCatalog = {
                             app.priceCatalogRepository.catalog.value.takeIf {
