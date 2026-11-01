@@ -296,7 +296,16 @@ class ClaudePermissionBridge(
             sessionId = request.androidSessionId,
             permission = request.permissionLabel.ifBlank { request.toolName },
             patterns = listOf(request.toolName),
-            canAlwaysAllow = canAlwaysAllow(request),
+            // "Always allow" has to be able to keep something: a call with no command becomes a
+            // tool-wide rule, and a command only has a rule to keep when it is one program with its
+            // arguments - one that chains, pipes, substitutes, redirects or runs other code is
+            // approved once whatever the user taps ([rememberRule]). A blocked command is never
+            // allowed at all, so it is not offered either.
+            canAlwaysAllow =
+                blockedBy(request.toolName, request.toolInputJson) == null &&
+                    runCatching {
+                        json.parseToJsonElement(request.toolInputJson).jsonObject["command"]?.jsonPrimitive?.contentOrNull
+                    }.getOrNull().let { command -> command == null || ShellCommandRules.ruleFor(command) != null },
             metadata =
                 mapOf(
                     "toolName" to JsonPrimitive(request.toolName),
@@ -304,20 +313,6 @@ class ClaudePermissionBridge(
                     "kind" to JsonPrimitive(request.kind.name.lowercase()),
                 ),
         )
-
-    /**
-     * Whether an "Always allow" answer can remember this call: a call with no command becomes a
-     * tool-wide rule, and a command only has a rule to keep when it is one program with its
-     * arguments — one that chains, pipes, substitutes, redirects or runs other code is approved
-     * once whatever the user taps ([rememberRule]), so the option is not offered for it.
-     */
-    fun canAlwaysAllow(request: Request): Boolean {
-        val command =
-            runCatching {
-                json.parseToJsonElement(request.toolInputJson).jsonObject["command"]?.jsonPrimitive?.contentOrNull
-            }.getOrNull()
-        return command == null || ShellCommandRules.ruleFor(command) != null
-    }
 
     fun toQuestionRequest(request: Request): QuestionRequest? {
         if (request.kind != Kind.QUESTION) return null

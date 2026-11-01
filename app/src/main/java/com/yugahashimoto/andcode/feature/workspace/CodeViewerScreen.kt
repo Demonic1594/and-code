@@ -58,8 +58,8 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
@@ -706,7 +706,10 @@ internal object LongLineLimits {
 }
 
 /** Where a reader row's display of the line [start] until [end] stops: whole, or at the display cap. */
-internal fun displayEnd(start: Int, end: Int): Int = minOf(end, start + LongLineLimits.DISPLAY_CHARS)
+internal fun displayEnd(
+    start: Int,
+    end: Int,
+): Int = minOf(end, start + LongLineLimits.DISPLAY_CHARS)
 
 @Composable
 private fun GoToLineDialog(

@@ -30,7 +30,8 @@ interface CodeViewerMessages {
                 FileEditFailure.NOT_FOUND -> "The file no longer exists"
                 FileEditFailure.NOT_TEXT -> "Only UTF-8 text files can be edited"
                 FileEditFailure.TOO_LARGE -> "This file is too large to edit (limit: ${FileEditPolicy.MAX_EDIT_KIBIBYTES} KB)"
-                FileEditFailure.LINE_TOO_LONG -> "One line of this file is too long to edit (limit: ${FileEditPolicy.MAX_LINE_BYTES} characters)"
+                FileEditFailure.LINE_TOO_LONG ->
+                    "One line of this file is too long to edit (limit: ${FileEditPolicy.MAX_LINE_BYTES} characters)"
                 FileEditFailure.READ_ONLY -> "This file is read-only"
                 FileEditFailure.CHANGED_ON_DISK -> "The file was changed by something else since you opened it"
                 FileEditFailure.WRITE_FAILED -> "Could not save the file"
