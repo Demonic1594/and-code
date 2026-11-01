@@ -7,6 +7,10 @@ on:
       # Without this, a change to the check itself never runs the check.
       - ".github/workflows/i18n-check.yml"
 
+# The check only reads the checkout.
+permissions:
+  contents: read
+
 jobs:
   check-translations:
     runs-on: ubuntu-latest
