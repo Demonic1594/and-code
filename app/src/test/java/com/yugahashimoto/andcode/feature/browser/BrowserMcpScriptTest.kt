@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.feature.browser
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -17,6 +18,7 @@ import java.util.concurrent.TimeUnit
 class BrowserMcpScriptTest {
     private val staleRef = "that handle is gone from the page; call browser_read again for fresh ones"
     private val noTarget = "pass a handle from browser_read, or both x and y"
+    private val badRef = "ref must be the whole-number handle shown in [brackets] by browser_read"
 
     @get:Rule
     val folder = TemporaryFolder()
@@ -362,6 +364,93 @@ class BrowserMcpScriptTest {
             )
 
         assertEquals("$noTarget\n$noTarget", answer)
+    }
+
+    @Test
+    fun `a handle that is not a whole number says what a handle is`() {
+        val answer =
+            run(
+                """
+                for bad in ["abc", "1.5", 1.5, True, None]:
+                    try:
+                        m.ref_expression(bad, "el.click();")
+                        print("accepted", bad)
+                    except ValueError as exc:
+                        print(exc)
+                print(m.ref_expression(3.0, "x").count('data-andcode-ref="3"'))
+                """.trimIndent(),
+            )
+
+        assertEquals(List(5) { badRef }.joinToString("\n") + "\n1", answer)
+    }
+
+    @Test
+    fun `a page script that throws is reported rather than read as an empty page`() {
+        val answer =
+            run(
+                """
+                class Page:
+                    def call(self, method, **params):
+                        return {"result": {}, "exceptionDetails": {"exception": {"description": "TypeError: boom"}}}
+                    def close(self):
+                        pass
+                class Session:
+                    def open_page_session(self):
+                        return Page()
+                m._session = lambda: Session()
+                for call in (lambda: m.tool_read({}), lambda: m.tool_click({"ref": 1})):
+                    try:
+                        print(call())
+                    except m.CdpError as exc:
+                        print(exc)
+                """.trimIndent(),
+            )
+
+        assertEquals("the page script failed: TypeError: boom\nthe page script failed: TypeError: boom", answer)
+    }
+
+    @Test
+    fun `a password field is never named by what was typed, and a cloned handle is renumbered`() {
+        val nodeStarts = runCatching { ProcessBuilder("node", "--version").start().waitFor(30, TimeUnit.SECONDS) }.getOrDefault(false)
+        assumeTrue("needs node", nodeStarts)
+        val body = Regex("READ_JS = r\"\"\"([\\s\\S]*?)\"\"\"").find(script.readText())!!.groupValues[1].replace("%d", "10")
+        val page =
+            folder.newFile("page.js").apply {
+                writeText(
+                    """
+                    function node(tag, props) {
+                      const attrs = Object.assign({}, props.attrs || {});
+                      return Object.assign({
+                        tagName: tag.toUpperCase(), innerText: '', labels: [], value: '',
+                        getAttribute: (k) => (k in attrs ? attrs[k] : null),
+                        setAttribute: (k, v) => { attrs[k] = String(v); },
+                        getBoundingClientRect: () => ({ left: 0, top: 0, width: 10, height: 10 }),
+                      }, props);
+                    }
+                    const els = [
+                      node('input', { type: 'password', value: 'hunter2' }),
+                      node('input', { type: 'submit', value: 'Sign in' }),
+                      node('button', { innerText: 'A', attrs: { 'data-andcode-ref': '1' } }),
+                      node('button', { innerText: 'B', attrs: { 'data-andcode-ref': '1' } }),
+                    ];
+                    global.window = { __andcodeRefs: { next: 2 } };
+                    global.document = { title: 't', querySelectorAll: (q) => (q === 'h1,h2,h3' ? [] : els) };
+                    global.location = { href: 'https://example.test/' };
+                    global.getComputedStyle = () => ({ visibility: 'visible', display: 'block' });
+                    console.log(eval(require('fs').readFileSync(process.argv[2], 'utf8')));
+                    """.trimIndent(),
+                )
+            }
+        val snippet = folder.newFile("read-run.js").apply { writeText(body) }
+
+        val process = ProcessBuilder("node", page.absolutePath, snippet.absolutePath).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText()
+        assertTrue(output, process.waitFor(30, TimeUnit.SECONDS) && process.exitValue() == 0)
+
+        assertFalse(output, output.contains("hunter2"))
+        assertTrue(output, output.contains("\"name\":\"Sign in\""))
+        val refs = Regex("\"ref\":(\\d+)").findAll(output).map { it.groupValues[1] }.toList()
+        assertEquals(output, refs.size, refs.toSet().size)
     }
 
     @Test

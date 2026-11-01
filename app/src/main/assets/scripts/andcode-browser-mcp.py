@@ -360,17 +360,23 @@ READ_JS = r"""(() => {
     return style.visibility !== 'hidden' && style.display !== 'none';
   };
   const clip = (text) => String(text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
-  const nameOf = (el) =>
+  // A field's own value never names it (that is what value= is for, and a password must not leak);
+  // only buttons made of an <input> are named by their value.
+  const valueNames = (type) => type === 'submit' || type === 'button' || type === 'reset';
+  const nameOf = (el, type) =>
     clip(el.getAttribute('aria-label') || el.labels && el.labels[0] && el.labels[0].innerText ||
-      el.innerText || el.placeholder || el.alt || el.title || el.value);
+      el.innerText || el.placeholder || el.alt || el.title || (valueNames(type) ? el.value : ''));
   const out = [];
+  const seen = new Set();
   let total = 0;
   for (const el of document.querySelectorAll(selector)) {
     if (!shown(el)) continue;
     total++;
     if (out.length >= limit) continue;
     let ref = el.getAttribute('data-andcode-ref');
-    if (!ref) { ref = String(state.next++); el.setAttribute('data-andcode-ref', ref); }
+    // A cloned element carries its original's handle; give it its own.
+    if (!ref || seen.has(ref)) { ref = String(state.next++); el.setAttribute('data-andcode-ref', ref); }
+    seen.add(ref);
     const tag = el.tagName.toLowerCase();
     const type = tag === 'input' ? (el.type || 'text') : '';
     const rect = el.getBoundingClientRect();
@@ -379,7 +385,7 @@ READ_JS = r"""(() => {
       tag: tag,
       role: el.getAttribute('role') || '',
       type: type,
-      name: nameOf(el),
+      name: nameOf(el, type),
       value: type === 'password' ? '' : clip(el.value),
       href: tag === 'a' ? clip(el.getAttribute('href')) : '',
       checked: el.checked === true,
@@ -423,9 +429,35 @@ def format_outline(data: dict) -> str:
     return "\n".join(lines)
 
 
+BAD_REF = "ref must be the whole-number handle shown in [brackets] by browser_read"
+
+
+def _handle(ref: object) -> int:
+    if isinstance(ref, bool):
+        raise ValueError(BAD_REF)
+    try:
+        number = int(ref)
+    except (TypeError, ValueError):
+        raise ValueError(BAD_REF) from None
+    if isinstance(ref, float) and ref != number:
+        raise ValueError(BAD_REF)
+    return number
+
+
+def _evaluate(page: "_PageSession", expression: str) -> object:
+    """Runs [expression] in the page and returns its value; a script that threw is an error, not a blank."""
+    result = page.call("Runtime.evaluate", expression=expression, returnByValue=True)
+    details = result.get("exceptionDetails")
+    if details:
+        exception = details.get("exception", {})
+        reason = exception.get("description") or details.get("text") or "unknown error"
+        raise CdpError(f"the page script failed: {reason}")
+    return result.get("result", {}).get("value")
+
+
 def ref_expression(ref: object, action: str) -> str:
     """JavaScript that finds the element with handle [ref] and runs [action] on it (`el`)."""
-    number = int(ref)
+    number = _handle(ref)
     return (
         "(() => { const el = document.querySelector('[data-andcode-ref=\"%d\"]'); "
         "if (!el) return 'stale'; el.scrollIntoView({block: 'center', inline: 'center'}); %s })()"
@@ -465,8 +497,7 @@ NO_TARGET = "pass a handle from browser_read, or both x and y"
 def tool_read(args: dict) -> str:
     page = _session().open_page_session()
     try:
-        result = page.call("Runtime.evaluate", expression=READ_JS % READ_LIMIT, returnByValue=True)
-        return format_outline(json.loads(result.get("result", {}).get("value", "{}")))
+        return format_outline(json.loads(str(_evaluate(page, READ_JS % READ_LIMIT))))
     finally:
         page.close()
 
@@ -484,8 +515,7 @@ def tool_click(args: dict) -> str:
                 "if (!el) return 'no element'; el.click(); return el.tagName; })()"
                 % (float(args["x"]), float(args["y"]))
             )
-        result = page.call("Runtime.evaluate", expression=expr, returnByValue=True)
-        value = result.get("result", {}).get("value")
+        value = _evaluate(page, expr)
         return STALE_REF if value == "stale" else f"clicked: {value}"
     finally:
         page.close()
@@ -495,12 +525,7 @@ def tool_type(args: dict) -> str:
     page = _session().open_page_session()
     try:
         if args.get("ref") is not None:
-            focused = page.call(
-                "Runtime.evaluate",
-                expression=ref_expression(args["ref"], "el.focus(); return 'ok';"),
-                returnByValue=True,
-            )
-            if focused.get("result", {}).get("value") == "stale":
+            if _evaluate(page, ref_expression(args["ref"], "el.focus(); return 'ok';")) == "stale":
                 return STALE_REF
         else:
             page.call("Runtime.evaluate", expression="document.activeElement && document.activeElement.focus()")
@@ -567,9 +592,10 @@ TOOLS = [
         "name": "browser_read",
         "description": (
             "List what can be acted on in the Guest Browser page: links, buttons, fields and so on, "
-            "one per line as [handle] kind \"name\". Pass a handle to browser_click or browser_type "
-            "instead of guessing coordinates. Handles stay valid while the element stays in the page; "
-            "read again after the page changes."
+            "one per line as [handle] kind \"name\" (at most 150, in page order; password values are "
+            "never shown). Pass a handle to browser_click or browser_type instead of guessing "
+            "coordinates. Handles stay valid while the element stays in the page; read again after "
+            "the page changes or when told a handle is gone."
         ),
         "inputSchema": {"type": "object", "properties": {}},
     },
@@ -581,18 +607,26 @@ TOOLS = [
         ),
         "inputSchema": {
             "type": "object",
-            "properties": {"ref": {"type": "integer"}, "x": {"type": "number"}, "y": {"type": "number"}},
+            "properties": {
+                "ref": {"type": "integer", "description": "Handle from browser_read; used instead of x/y."},
+                "x": {"type": "number", "description": "Viewport x in CSS pixels, when there is no handle."},
+                "y": {"type": "number", "description": "Viewport y in CSS pixels, when there is no handle."},
+            },
         },
     },
     {
         "name": "browser_type",
         "description": (
             "Type text into an input of the Guest Browser page: the one with the given handle from "
-            "browser_read, or else the focused one."
+            "browser_read, or else the focused one. Text is inserted at the cursor; existing text "
+            "is not cleared."
         ),
         "inputSchema": {
             "type": "object",
-            "properties": {"text": {"type": "string"}, "ref": {"type": "integer"}},
+            "properties": {
+                "text": {"type": "string"},
+                "ref": {"type": "integer", "description": "Handle from browser_read; otherwise the focused input."},
+            },
             "required": ["text"],
         },
     },
