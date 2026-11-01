@@ -1777,6 +1777,8 @@
     <string name="restore_files_banner_body">The messages are unchanged. Undo puts the files back as they were.</string>
     <string name="restore_files_keep">Keep</string>
     <string name="restore_files_failed">The files could not be put back.</string>
+    <string name="restore_files_refused">Nothing was changed: restoring would overwrite %1$s, which git ignores. Move it aside and try again.</string>
+    <string name="restore_files_refused_unknown">Nothing was changed: restoring would overwrite a file that git ignores.</string>
     <string name="chat_menu_open_github">Open on GitHub</string>
     <string name="action_copied">Copied</string>
     <string name="tool_copy_block">Copy %1$s</string>

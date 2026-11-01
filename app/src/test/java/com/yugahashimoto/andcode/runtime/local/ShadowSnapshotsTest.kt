@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.runtime.local
 
+import com.yugahashimoto.andcode.feature.chat.RestoreResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -125,6 +126,7 @@ class ShadowSnapshotsTest {
             requireNotNull(snapshots.snapshot(workspace.path))
 
             assertNull("a target that holds a now-ignored file is refused", snapshots.restore(workspace.path, withEnv))
+            assertEquals(RestoreResult.Refused(".env"), snapshots.restoreChecked(workspace.path, withEnv))
             assertEquals("NEW=2\n", File(workspace, ".env").readText())
 
             File(workspace, "app.txt").writeText("v2\n")

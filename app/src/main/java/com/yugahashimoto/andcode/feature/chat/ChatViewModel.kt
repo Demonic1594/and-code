@@ -790,6 +790,10 @@ class ChatViewModel(
     private val turnSnapshots: TurnSnapshots? = null,
     /** Shown when putting the files back failed; localized by the app. */
     private val restoreFailedMessage: String = "The files could not be put back.",
+    /** Shown when a restore was refused because an ignored file is in the way, named when known; localized by the app. */
+    private val restoreRefusedMessage: (
+        String?,
+    ) -> String = { path -> "Nothing was changed: restoring would overwrite ${path ?: "a file"} that git ignores." },
     /** Persists the Codex fast-mode choice (null = follow the model default). */
     private val onCodexFastModeChanged: (Boolean?) -> Unit = {},
     /** The user's saved Codex fast-mode choice, read when the ViewModel starts. */
@@ -1635,13 +1639,16 @@ class ChatViewModel(
         _uiState.update { it.copy(isRestoringFiles = true) }
         restoreJob =
             viewModelScope.launch {
-                val token = snapshotCall(null) { snapshots.restore(sessionId, turn, directory) }
+                val result = snapshotCall<RestoreResult>(RestoreResult.Failed) { snapshots.restore(sessionId, turn, directory) }
                 _uiState.update {
                     when {
                         // The chat changed meanwhile: its Undo must not appear in another one.
                         it.sessionId != sessionId -> it.copy(isRestoringFiles = false)
-                        token == null -> it.copy(isRestoringFiles = false, error = restoreFailedMessage)
-                        else -> it.copy(isRestoringFiles = false, fileRestore = FileRestore(sessionId, directory, token))
+                        result is RestoreResult.Restored ->
+                            it.copy(isRestoringFiles = false, fileRestore = FileRestore(sessionId, directory, result.token))
+                        // Nothing changed, and saying which file is in the way tells the user what to move.
+                        result is RestoreResult.Refused -> it.copy(isRestoringFiles = false, error = restoreRefusedMessage(result.path))
+                        else -> it.copy(isRestoringFiles = false, error = restoreFailedMessage)
                     }
                 }
                 finishRestoreJob()

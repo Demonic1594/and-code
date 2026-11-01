@@ -23,15 +23,12 @@ interface TurnSnapshots {
         turn: Int,
     ): Boolean
 
-    /**
-     * Puts the files back to how they were before [turn]. Returns a token for [undoRestore], or null
-     * when there was no snapshot or the restore failed.
-     */
+    /** Puts the files back to how they were before [turn]; a restored result carries the token for [undoRestore]. */
     suspend fun restore(
         sessionId: String,
         turn: Int,
         directory: String,
-    ): String?
+    ): RestoreResult
 
     suspend fun undoRestore(
         directory: String,
@@ -44,6 +41,21 @@ interface TurnSnapshots {
         turn: Int,
         directory: String,
     ): List<OpenCodeFileChange>?
+}
+
+/** How putting the files back went. */
+sealed interface RestoreResult {
+    /** Done; [token] takes it back. */
+    data class Restored(val token: String) : RestoreResult
+
+    /**
+     * Refused, nothing changed: restoring would overwrite or remove [path] (when known), a file that
+     * is ignored or excluded and so was never snapshotted.
+     */
+    data class Refused(val path: String?) : RestoreResult
+
+    /** There was no snapshot, or putting it back failed (what it changed was put back as it was). */
+    data object Failed : RestoreResult
 }
 
 /** Where each turn's snapshot id is kept, per chat. */
