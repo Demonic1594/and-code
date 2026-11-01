@@ -46,8 +46,9 @@ merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing
    and delete a workspace's history when the workspace is deleted.
    **Done**: each snapshot is now a commit of its own with its own ref, so old ones can be dropped;
    a workspace keeps its newest 400 (several chats' worth of indexed turns), pruned once 50 more
-   pile up, and the history of a workspace folder that was deleted is removed. Histories from
-   before keep their newest commits as snapshots.
+   pile up, and the history of a workspace folder that was deleted (or renamed) is removed.
+   Histories from before keep their newest commits as snapshots, but those are one chain, so the
+   oldest kept one still holds everything before it: they only shrink once those 400 are pruned.
 9. **Restore refusal message.** A refused restore (an ignored file in the way) shows a generic
    failure; say that nothing changed and which path blocked it.
    **Done**: the snapshots report Restored, Refused (with the ignored path, from the restore's own check

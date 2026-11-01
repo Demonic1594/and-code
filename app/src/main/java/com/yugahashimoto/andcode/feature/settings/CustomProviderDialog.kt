@@ -179,7 +179,7 @@ fun CustomProviderDialog(
  * OpenAI-compatible model servers people run themselves. The address is where each listens by
  * default on the same machine; one on another computer needs that computer's address instead.
  */
-internal enum class LocalServerPreset(
+private enum class LocalServerPreset(
     val id: String,
     val displayName: String,
     val baseUrl: String,

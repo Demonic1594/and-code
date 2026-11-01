@@ -219,7 +219,7 @@ class ShadowSnapshotsTest {
             assumeTrue("git is needed for these tests", gitAvailable())
             val workspace = temp.newFolder("pruned")
             val root = temp.newFolder("pruned-snapshots")
-            val snapshots = ShadowSnapshots(shell(), Dispatchers.Unconfined, root = root.path, keep = 2, pruneSlack = 1)
+            val snapshots = ShadowSnapshots(shell(), Dispatchers.Unconfined, root = root.path, keep = 2, pruneSlack = 1, pruneEvery = 1)
             val ids =
                 (1..4).map { n ->
                     File(workspace, "a.txt").writeText("v$n\n")

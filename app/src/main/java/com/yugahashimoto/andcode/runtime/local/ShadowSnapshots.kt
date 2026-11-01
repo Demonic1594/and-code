@@ -33,6 +33,8 @@ class ShadowSnapshots(
     private val keep: Int = KEEP_SNAPSHOTS,
     /** How many past [keep] a workspace goes before it is pruned, so a prune runs only now and then. */
     private val pruneSlack: Int = PRUNE_SLACK,
+    /** Snapshots between two prune checks of the same workspace. */
+    private val pruneEvery: Int = PRUNE_EVERY,
 ) {
     /**
      * One operation at a time, across every chat: a snapshot taken while a restore is rewriting the
@@ -47,6 +49,9 @@ class ShadowSnapshots(
      * message by the whole time limit. Guarded by [lock].
      */
     private val skipUntil = mutableMapOf<String, Long>()
+
+    /** Snapshots taken per workspace since its last prune check. Guarded by [lock]. */
+    private val snapshotsSincePrune = mutableMapOf<String, Int>()
 
     /**
      * Runs one command. Starting the shell can throw (no runtime yet, no temp file); a snapshot is
@@ -90,9 +95,18 @@ class ShadowSnapshots(
             val result = run(snapshotScript(root, workspace, keep), SNAPSHOT_TIMEOUT_SECONDS, SMALL_OUTPUT)
             if (result.exitCode == TIMED_OUT) skipUntil[workspace] = clock() + SKIP_AFTER_TIMEOUT_MILLIS else skipUntil.remove(workspace)
             val id = result.output.trim().lines().lastOrNull()?.trim()?.takeIf { result.exitCode == 0 && HASH.matches(it) }
-            // Best effort, and rare: it only does work once a workspace has [pruneSlack] snapshots
-            // past what it keeps, or a history's workspace is gone.
-            if (id != null) run(pruneScript(root, workspace, keep, pruneSlack), PRUNE_TIMEOUT_SECONDS, SMALL_OUTPUT)
+            // Best effort, and kept off most messages: checked on a workspace's first snapshot and
+            // then every [pruneEvery], and it only does real work once [pruneSlack] snapshots have
+            // piled up past what it keeps, or a history's workspace folder is gone.
+            if (id != null) {
+                val count = (snapshotsSincePrune[workspace] ?: pruneEvery) + 1
+                if (count > pruneEvery) {
+                    run(pruneScript(root, workspace, keep, pruneSlack), PRUNE_TIMEOUT_SECONDS, SMALL_OUTPUT)
+                    snapshotsSincePrune[workspace] = 1
+                } else {
+                    snapshotsSincePrune[workspace] = count
+                }
+            }
             id
         }
 
@@ -197,6 +211,9 @@ class ShadowSnapshots(
         /** How far past [KEEP_SNAPSHOTS] a workspace goes before a prune, so one runs only now and then. */
         private const val PRUNE_SLACK = 50
 
+        /** Snapshots between two prune checks of the same workspace. */
+        private const val PRUNE_EVERY = 20
+
         /** The file in each history naming its workspace. */
         private const val WORKSPACE_FILE = "andcode-workspace"
         private const val SKIP_AFTER_TIMEOUT_MILLIS = 5 * 60_000L
@@ -260,7 +277,7 @@ class ShadowSnapshots(
         ): String =
             "git --git-dir=${WorkspaceShell.quote(gitDir(root, workspace))} --work-tree=${WorkspaceShell.quote(workspace)}" +
                 " -c core.quotepath=off -c core.hooksPath=/dev/null -c commit.gpgsign=false" +
-                // Snapshots left behind by a restore are on no branch; never let gc prune them.
+                // Only the explicit prune collects garbage, after deciding which snapshots go.
                 " -c gc.auto=0" +
                 " -c user.name=AndCode -c user.email=andcode@localhost"
 
@@ -292,7 +309,8 @@ class ShadowSnapshots(
                 // Histories from before snapshots stood alone were one chain: give its newest commits
                 // refs, so they survive pruning like the snapshots taken from now on.
                 "if [ -z \"$($git for-each-ref --count=1 refs/snapshots)\" ] && $git rev-parse -q --verify HEAD >/dev/null; then " +
-                    "$git rev-list --max-count=$keep HEAD | while read -r c; do $git update-ref \"refs/snapshots/${'$'}c\" \"${'$'}c\"; done; fi",
+                    "$git rev-list --max-count=$keep HEAD | " +
+                    "while read -r c; do $git update-ref \"refs/snapshots/${'$'}c\" \"${'$'}c\"; done; fi",
                 // Each snapshot is a commit of its own, without a parent, held by its own ref: an old
                 // one can then be dropped without the newer ones keeping it alive.
                 "c=$($git commit-tree \"$($git write-tree)\" -m snapshot)",
