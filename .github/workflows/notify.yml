@@ -209,7 +209,7 @@ jobs:
           ts=$(jq -r '.release.published_at // ""' "$event")
           author=$(jq -r '.sender.login // "unknown"' "$event")
           avatar=$(jq -r '.sender.avatar_url // ""' "$event")
-          body=$(jq -r '.release.body // ""' "$event" | head -c 3000)
+          body=$(jq -r '.release.body // "" | .[0:3000]' "$event")
 
           title="Release $tag"
           if [ "$name" != "" ] && [ "$name" != "$tag" ]; then
@@ -245,7 +245,8 @@ jobs:
 
       - name: CI failed on main
         if: github.event_name == 'workflow_run'
-          && github.event.workflow_run.conclusion == 'failure'
+          && (github.event.workflow_run.conclusion == 'failure'
+              || github.event.workflow_run.conclusion == 'timed_out')
           && github.event.workflow_run.head_branch == 'main'
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
