@@ -9,9 +9,15 @@ cd "$(dirname "$0")/.."
 
 OUTPUT="THIRD_PARTY_LICENSES/release-dependencies-releaseRuntimeClasspath.txt"
 
-./gradlew :app:dependencies --configuration releaseRuntimeClasspath --console=plain \
+# The github flavor is the fdroid one plus Firebase, so it covers both. Gradle prints
+# "group:name:asked -> resolved" (or "group:name -> resolved" for BOM-managed entries); only the
+# resolved version is recorded, and constraint-only lines "(c)" are dropped.
+./gradlew :app:dependencies --configuration githubReleaseRuntimeClasspath --console=plain \
+  | grep -v ' (c)$' \
+  | sed -E \
+    -e 's/([a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+):[^ ]+ -> ([0-9][a-zA-Z0-9_.-]*)/\1:\2/' \
+    -e 's/([a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+) -> ([0-9][a-zA-Z0-9_.-]*)/\1:\2/' \
   | grep -oE '[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+:[0-9][a-zA-Z0-9_.-]*' \
-  | sort -u -t: -k1,2 \
   | sort -u \
   > "$OUTPUT"
 

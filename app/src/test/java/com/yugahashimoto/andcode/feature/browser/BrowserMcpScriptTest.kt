@@ -74,6 +74,72 @@ class BrowserMcpScriptTest {
     }
 
     @Test
+    fun `a body is read to its content length even when the json ends with a newline`() {
+        // Chrome 156 ends its /json bodies with a newline; the old sentinel loop waited for a
+        // closing bracket that never arrived and blocked until the socket timed out.
+        val body =
+            run(
+                """
+                class Sock:
+                    def __init__(self, chunks):
+                        self.chunks = list(chunks)
+                    def recv(self, n):
+                        return self.chunks.pop(0) if self.chunks else b""
+                head = b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n"
+                sock = Sock([head[:11], head[11:] + b'[1]\n', b'left over, dropped'])
+                print(m._read_http_body(sock))
+                """.trimIndent(),
+            )
+
+        assertEquals("b'[1]\\n'", body)
+    }
+
+    @Test
+    fun `a body without a length is read until the socket closes, and chunked bodies decode`() {
+        val outcome =
+            run(
+                """
+                class Sock:
+                    def __init__(self, chunks):
+                        self.chunks = list(chunks)
+                    def recv(self, n):
+                        return self.chunks.pop(0) if self.chunks else b""
+                head = b"HTTP/1.1 200 OK\r\n\r\n"
+                print(m._read_http_body(Sock([head, b'[2]'])))
+                print(m._dechunk(b'3\r\n[1]\r\n0\r\n\r\n'))
+                print(m._dechunk(b'[{"a": 1}]'))
+                """.trimIndent(),
+            )
+
+        assertEquals("b'[2]'\nb'[1]'\nb'[{\"a\": 1}]'", outcome)
+    }
+
+    @Test
+    fun `the target list is read from a devtools socket that ends its json with a newline`() {
+        assumeTrue("abstract sockets are Linux only", isLinux())
+        val url =
+            run(
+                """
+                import os, socket, threading
+                name = m.DEVTOOLS_PREFIX + str(os.getpid())
+                srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                srv.bind("\0" + name)
+                srv.listen(1)
+                payload = b'[{"type": "page", "url": "kept-open"}]\n'
+                def serve():
+                    conn, _ = srv.accept()
+                    conn.recv(4096)
+                    conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s" % (len(payload), payload))
+                    conn.close()
+                threading.Thread(target=serve, daemon=True).start()
+                print(m.CdpSession(name).list_targets()[0]["url"])
+                """.trimIndent(),
+            )
+
+        assertEquals("kept-open", url)
+    }
+
+    @Test
     fun `the socket is found by process id when the socket list cannot be read`() {
         assumeTrue("abstract sockets are Linux only", isLinux())
         val found =

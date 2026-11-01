@@ -39,6 +39,7 @@
     <string name="model">Model</string>
     <string name="agent">Agent</string>
     <string name="permission_required">Approval required</string>
+    <string name="permission_show_all">Show all of it</string>
     <string name="allow_once">Allow once</string>
     <string name="always_allow">Always allow</string>
     <string name="reject">Reject</string>
@@ -1656,6 +1657,8 @@
     <string name="file_edit_error_not_found">The file no longer exists.</string>
     <string name="file_edit_error_not_text">Only UTF-8 text files can be edited.</string>
     <string name="file_edit_error_too_large">This file is too large to edit (limit: %1$d KB).</string>
+    <string name="file_edit_error_line_too_long">One line of this file is too long to edit (limit: %1$d bytes).</string>
+    <string name="code_line_truncated">Line truncated (%1$d characters, too long to display) …</string>
     <string name="file_edit_error_read_only">This file is read-only.</string>
     <string name="file_edit_error_changed_on_disk">The file was changed by something else since you opened it, so your edits were not saved. Copy your text, close the editor, and open the file again.</string>
     <string name="file_edit_error_write_failed">Could not save the file.</string>

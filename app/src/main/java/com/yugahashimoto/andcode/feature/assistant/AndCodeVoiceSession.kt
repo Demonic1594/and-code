@@ -621,10 +621,12 @@ private fun VoiceAssistantSurface(
                             onClick = { onPermission(PermissionResponse.ONCE) },
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text(stringResource(R.string.allow_once)) }
-                        Button(
-                            onClick = { onPermission(PermissionResponse.ALWAYS) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text(stringResource(R.string.always_allow)) }
+                        if (request.canAlwaysAllow) {
+                            Button(
+                                onClick = { onPermission(PermissionResponse.ALWAYS) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text(stringResource(R.string.always_allow)) }
+                        }
                     }
                 }
             }

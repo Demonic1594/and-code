@@ -222,6 +222,60 @@ class _UnixWs:
             pass
 
 
+def _read_http_body(sock: socket.socket) -> bytes:
+    """Reads one HTTP response's body off [sock], framed by Content-Length.
+
+    The previous reader stopped at a trailing ``]``, but Chrome ends its /json bodies with a
+    newline, so the sentinel never arrived and the read blocked on the kept-alive connection
+    until the socket timed out - every CDP tool then failed on such WebViews.
+    """
+    data = b""
+    while b"\r\n\r\n" not in data:
+        chunk = sock.recv(65536)
+        if not chunk:
+            return data
+        data += chunk
+    head, _, body = data.partition(b"\r\n\r\n")
+    length = None
+    for line in head.split(b"\r\n"):
+        if line.lower().startswith(b"content-length:"):
+            try:
+                length = int(line.split(b":", 1)[1].strip())
+            except ValueError:
+                pass
+    if length is None:
+        while True:
+            chunk = sock.recv(65536)
+            if not chunk:
+                break
+            body += chunk
+        return body
+    while len(body) < length:
+        chunk = sock.recv(65536)
+        if not chunk:
+            break
+        body += chunk
+    return body[:length]
+
+
+def _dechunk(body: bytes) -> bytes:
+    """A chunked response's payload, or [body] unchanged when it is not chunked."""
+    if b"\r\n0\r\n\r\n" not in body:
+        return body
+    chunks = []
+    rest = body
+    while rest:
+        size_end = rest.find(b"\r\n")
+        if size_end < 0:
+            break
+        size = int(rest[:size_end], 16)
+        if size == 0:
+            break
+        chunks.append(rest[size_end + 2 : size_end + 2 + size])
+        rest = rest[size_end + 2 + size + 2 :]
+    return b"".join(chunks)
+
+
 class CdpSession:
     def __init__(self, socket_name: str):
         self.socket_name = socket_name
@@ -236,29 +290,10 @@ class CdpSession:
         sock = self._connect()
         try:
             sock.sendall(b"GET /json HTTP/1.1\r\nHost: localhost\r\n\r\n")
-            data = b""
-            while not data.endswith(b"]"):
-                chunk = sock.recv(65536)
-                if not chunk:
-                    break
-                data += chunk
+            body = _read_http_body(sock)
         finally:
             sock.close()
-        body = data.split(b"\r\n\r\n", 1)[1] if b"\r\n\r\n" in data else data
-        if b"\r\n0\r\n\r\n" in body:
-            chunks = []
-            rest = body
-            while rest:
-                size_end = rest.find(b"\r\n")
-                if size_end < 0:
-                    break
-                size = int(rest[:size_end], 16)
-                if size == 0:
-                    break
-                chunks.append(rest[size_end + 2 : size_end + 2 + size])
-                rest = rest[size_end + 2 + size + 2 :]
-            body = b"".join(chunks)
-        return json.loads(body)
+        return json.loads(_dechunk(body))
 
     def open_page_session(self) -> "_PageSession":
         target = choose_target(self.list_targets())

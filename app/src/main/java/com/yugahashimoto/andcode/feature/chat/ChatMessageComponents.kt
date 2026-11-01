@@ -41,8 +41,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -254,25 +257,27 @@ fun PermissionCard(
     permission: PermissionRequest,
     onPermission: (String, PermissionResponse, Boolean) -> Unit,
 ) {
-    // One glance, one thumb: what the agent wants to run, in a code block, then the two answers
-    // you give most often side by side. "Always allow" is the rarer, broader grant, so it steps
-    // down to a text button instead of being the biggest, brightest target on the card.
+    // One glance, one thumb: what the agent wants to run, in a code block, then every answer on one
+    // compact row with the one given most often, "Allow once", last, under the thumb.
     val warningColor = LocalThemeColors.current.warning
+    val (tag, details) = remember(permission) { permissionSummary(permission) }
+    var detailsExpanded by remember(permission.id) { mutableStateOf(false) }
+    var detailsOverflow by remember(permission.id) { mutableStateOf(false) }
     Surface(
         shape = AppShapes.lg,
         color = warningColor.copy(alpha = 0.07f),
         border = BorderStroke(1.dp, warningColor.copy(alpha = 0.35f)),
     ) {
         Column(
-            modifier = Modifier.padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Icon(
                     Icons.Default.Security,
                     contentDescription = stringResource(R.string.cd_permission),
                     tint = warningColor,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(18.dp),
                 )
                 Text(
                     stringResource(R.string.permission_required),
@@ -280,32 +285,54 @@ fun PermissionCard(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
                 )
+                // The tool's name only, kept short: the long part (the command) belongs in the box below.
                 Surface(shape = AppShapes.pill, color = warningColor.copy(alpha = 0.16f), contentColor = warningColor) {
                     Text(
-                        text = permission.permission,
+                        text = tag,
                         fontFamily = CodeFontFamily,
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier =
+                            Modifier.widthIn(
+                                max = PermissionCardSizes.TAG_MAX_WIDTH.dp,
+                            ).padding(horizontal = Spacing.sm, vertical = 2.dp),
                     )
                 }
             }
-            if (permission.patterns.isNotEmpty()) {
+            if (details.isNotEmpty()) {
                 Surface(
                     shape = AppShapes.sm,
                     color = MaterialTheme.colorScheme.background.copy(alpha = 0.6f),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = 10.dp),
+                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
                         verticalArrangement = Arrangement.spacedBy(Spacing.xs),
                     ) {
-                        permission.patterns.forEach { pattern ->
+                        details.forEach { detail ->
                             Text(
-                                text = pattern,
+                                text = detail,
                                 fontFamily = CodeFontFamily,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = if (detailsExpanded) Int.MAX_VALUE else PermissionCardSizes.DETAIL_MAX_LINES,
+                                overflow = TextOverflow.Ellipsis,
+                                onTextLayout = { layout -> if (layout.hasVisualOverflow) detailsOverflow = true },
                             )
+                        }
+                        // What is approved must be readable in full first: a long command's tail can hold
+                        // the part that matters.
+                        if (detailsOverflow) {
+                            TextButton(
+                                onClick = { detailsExpanded = !detailsExpanded },
+                                contentPadding = PaddingValues(horizontal = Spacing.sm, vertical = 0.dp),
+                            ) {
+                                Text(
+                                    stringResource(if (detailsExpanded) R.string.collapse else R.string.permission_show_all),
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
                         }
                     }
                 }
@@ -316,35 +343,71 @@ fun PermissionCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            // Side by side, but free to wrap: "Allow once" runs long in Russian, French or Arabic,
-            // and a clipped label on the button you press most is worse than a two-line one.
+            // Equal shares of one row, free to wrap to two lines: "Allow once" runs long in Russian,
+            // French or Arabic, and a clipped label on the button you press most is worse.
             Row(
-                modifier = Modifier.height(IntrinsicSize.Min),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
             ) {
+                // Material keeps each at least 48dp tall for touch; the row is short because it is one row.
+                val buttonModifier = Modifier.weight(1f).fillMaxHeight()
+                val padding = PaddingValues(horizontal = Spacing.sm, vertical = 6.dp)
                 OutlinedButton(
                     onClick = { onPermission(permission.id, PermissionResponse.REJECT, false) },
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                    contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
+                    modifier = buttonModifier,
+                    contentPadding = padding,
                 ) {
-                    Text(stringResource(R.string.reject), textAlign = TextAlign.Center, maxLines = 2)
+                    PermissionButtonLabel(stringResource(R.string.reject))
+                }
+                // Only when the answer can persist something: a command that chains or redirects is
+                // approved once by design, and a blocked one is never allowed.
+                if (permission.canAlwaysAllow) {
+                    OutlinedButton(
+                        onClick = { onPermission(permission.id, PermissionResponse.ALWAYS, true) },
+                        modifier = buttonModifier,
+                        contentPadding = padding,
+                    ) {
+                        PermissionButtonLabel(stringResource(R.string.always_allow))
+                    }
                 }
                 Button(
                     onClick = { onPermission(permission.id, PermissionResponse.ONCE, false) },
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                    contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
+                    modifier = buttonModifier,
+                    contentPadding = padding,
                 ) {
-                    Text(stringResource(R.string.allow_once), textAlign = TextAlign.Center, maxLines = 2)
+                    PermissionButtonLabel(stringResource(R.string.allow_once))
                 }
-            }
-            TextButton(
-                onClick = { onPermission(permission.id, PermissionResponse.ALWAYS, true) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.always_allow))
             }
         }
     }
+}
+
+@Composable
+private fun PermissionButtonLabel(text: String) {
+    Text(text, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, maxLines = 2)
+}
+
+/**
+ * What the permission card shows: a short tag in its header and the details in its code box. Claude
+ * Code sends its tool as the one pattern and a label "Tool: ..." holding the command; OpenCode and
+ * Codex send a permission type (bash, edit) and the commands or paths as patterns. Details that only
+ * repeat the tag are left out.
+ */
+internal fun permissionSummary(permission: PermissionRequest): Pair<String, List<String>> {
+    val only = permission.patterns.singleOrNull()
+    // Claude Code's hook writes "Tool: what it does — command"; its one pattern is that tool.
+    val (tag, details) =
+        if (only != null && permission.permission.startsWith("$only: ")) {
+            only to listOf(permission.permission)
+        } else {
+            permission.permission to permission.patterns
+        }
+    return tag to details.filterNot { it == tag }
+}
+
+internal object PermissionCardSizes {
+    const val TAG_MAX_WIDTH = 120
+    const val DETAIL_MAX_LINES = 6
 }
 
 @Composable

@@ -158,13 +158,23 @@ class WorkspaceFileWriterTest {
 
     @Test
     fun `accepts a file exactly at the size cap`() {
-        val atCap = "a".repeat(FileEditPolicy.MAX_EDIT_BYTES.toInt())
-        val replacement = "b".repeat(FileEditPolicy.MAX_EDIT_BYTES.toInt())
+        // Many ordinary lines, not one huge one: the per-line cap would refuse that itself.
+        val atCap = "a\n".repeat(FileEditPolicy.MAX_EDIT_BYTES.toInt() / 2)
+        val replacement = "b\n".repeat(FileEditPolicy.MAX_EDIT_BYTES.toInt() / 2)
         file("cap.txt", atCap)
 
         WorkspaceFileWriter.write(root, "cap.txt", replacement, expectedContent = atCap)
 
         assertEquals(replacement, File(root, "cap.txt").readText())
+    }
+
+    @Test
+    fun `refuses a file whose single line is past the per-line cap`() {
+        val minified = "a".repeat(FileEditPolicy.MAX_LINE_BYTES.toInt() + 1)
+        val target = file("minified.js", minified)
+
+        assertEquals(FileEditFailure.LINE_TOO_LONG, failureOf { WorkspaceFileWriter.write(root, "minified.js", "small", null) })
+        assertEquals(minified, target.readText())
     }
 
     @Test
