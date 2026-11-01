@@ -58,8 +58,9 @@ object PatchedVersions {
         requested: String,
         target: String,
     ): Boolean {
+        // Dynamic or range requests ("2.19.+", "latest.release", "[1.0,2.0)") are left to Gradle.
+        if (requested.any { it in "+[]()," }) return false
         val have = numbers(requested)
-        // Dynamic or range requests ("+", "latest.release", "[1.0,2.0)") are left to Gradle.
         if (have.isEmpty()) return false
         val want = numbers(target)
         for (i in 0 until maxOf(have.size, want.size)) {
