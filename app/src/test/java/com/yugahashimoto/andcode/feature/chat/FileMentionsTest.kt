@@ -39,8 +39,17 @@ class FileMentionsTest {
 
         val picked = FileMentions.insert(value, mention, "src/main.kt")
 
-        assertEquals("look at @src/main.kt  and fix it", picked.text)
+        assertEquals("look at @src/main.kt and fix it", picked.text)
         assertEquals(TextRange(21), picked.selection)
+    }
+
+    @Test
+    fun `a mention with the cursor inside it is replaced whole`() {
+        val value = TextFieldValue("@main", TextRange(3))
+        val mention = FileMentions.queryAt(value)!!
+
+        assertEquals("ma", mention.query)
+        assertEquals("@src/main.kt ", FileMentions.insert(value, mention, "src/main.kt").text)
     }
 
     @Test
