@@ -1,6 +1,6 @@
 # Follow-ups from the Oct 31 upstream sync (PR #52)
 
-Status: **in progress**. Items 4, 7 and 9 are fixed. The rest is not started.
+Status: **in progress**. Items 4, 7, 8 and 9 are fixed. The rest is not started.
 Raised during review of the upstream sync and deferred so the sync could
 merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing them upstream.
 
@@ -44,6 +44,10 @@ merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing
 8. **Snapshot storage.** File-restore snapshots keep every git object (gc is off so detached
    snapshots survive) and outlive a deleted workspace. Prune snapshots past the 200-turn index,
    and delete a workspace's history when the workspace is deleted.
+   **Done**: each snapshot is now a commit of its own with its own ref, so old ones can be dropped;
+   a workspace keeps its newest 400 (several chats' worth of indexed turns), pruned once 50 more
+   pile up, and the history of a workspace folder that was deleted is removed. Histories from
+   before keep their newest commits as snapshots.
 9. **Restore refusal message.** A refused restore (an ignored file in the way) shows a generic
    failure; say that nothing changed and which path blocked it.
    **Done**: the snapshots report Restored, Refused (with the ignored path, from the restore's own check

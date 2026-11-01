@@ -89,6 +89,8 @@ instruction file) in the workspace file editor.
 
 - Nested rule files only help agents that read them. Confirm per agent before promising
   per-directory rules.
+- **Done** for Claude Code: its settings have a Project instructions row that opens the open
+  project's `CLAUDE.md` in the editor, creating it when missing.
 
 ### 5. Long tool output written to a file
 
@@ -132,9 +134,11 @@ copied without a licence review (LGPL-3.0, while AndCode is MIT); record any not
   (the external chat receiver in its `AndroidManifest.xml`), so any installed app can send the agent a prompt. Ours needs a
   signature permission or a per-user token, because our agents run shell commands.
 - **Say why an MCP server did not start.** Operit reports a status such as `NODEJS_MISSING` or
-  `BRIDGE_FAILED`. Show the specific reason in the MCP list.
-- **Ollama and LM Studio presets.** A base-URL preset with a "test connection" button, if the
-  custom provider settings accept a base URL (not yet checked).
+  `BRIDGE_FAILED`. Show the specific reason in the MCP list. **Done** for Claude Code's
+  local servers: a failed one whose program is not installed in the Linux environment says so, with
+  the Node.js install command when that is what is missing.
+- **Ollama and LM Studio presets.** **Done**: the custom provider dialog (which takes a base URL)
+  offers both, filling in each one's usual local address; "Fetch models" tests the connection.
 - **One place to add MCP servers and skills.** A curated list with one-tap install, using
   `npx` or `uvx` inside the existing Linux environment. Medium effort; what MCP management exists
   today is not yet checked.

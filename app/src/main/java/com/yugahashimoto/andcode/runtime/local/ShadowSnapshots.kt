@@ -29,6 +29,10 @@ class ShadowSnapshots(
     /** Where the histories live; the guest's home in the app, a temporary folder in tests. */
     private val root: String = ROOT,
     private val clock: () -> Long = System::currentTimeMillis,
+    /** How many snapshots each workspace keeps; older ones are dropped and their storage freed. */
+    private val keep: Int = KEEP_SNAPSHOTS,
+    /** How many past [keep] a workspace goes before it is pruned, so a prune runs only now and then. */
+    private val pruneSlack: Int = PRUNE_SLACK,
 ) {
     /**
      * One operation at a time, across every chat: a snapshot taken while a restore is rewriting the
@@ -83,9 +87,13 @@ class ShadowSnapshots(
             // A workspace holding the histories (`/root`, `/`) would snapshot them too, and every
             // restore would then find them changed and refuse.
             if (containsHistories(root, workspace)) return@withContext null
-            val result = run(snapshotScript(root, workspace), SNAPSHOT_TIMEOUT_SECONDS, SMALL_OUTPUT)
+            val result = run(snapshotScript(root, workspace, keep), SNAPSHOT_TIMEOUT_SECONDS, SMALL_OUTPUT)
             if (result.exitCode == TIMED_OUT) skipUntil[workspace] = clock() + SKIP_AFTER_TIMEOUT_MILLIS else skipUntil.remove(workspace)
-            result.output.trim().lines().lastOrNull()?.trim()?.takeIf { result.exitCode == 0 && HASH.matches(it) }
+            val id = result.output.trim().lines().lastOrNull()?.trim()?.takeIf { result.exitCode == 0 && HASH.matches(it) }
+            // Best effort, and rare: it only does work once a workspace has [pruneSlack] snapshots
+            // past what it keeps, or a history's workspace is gone.
+            if (id != null) run(pruneScript(root, workspace, keep, pruneSlack), PRUNE_TIMEOUT_SECONDS, SMALL_OUTPUT)
+            id
         }
 
     /** What changed from snapshot [from] to snapshot [to], one entry per file. */
@@ -181,6 +189,16 @@ class ShadowSnapshots(
         const val ROOT = "/root/.local/share/and-code/snapshots"
 
         private const val SNAPSHOT_TIMEOUT_SECONDS = 20L
+        private const val PRUNE_TIMEOUT_SECONDS = 60L
+
+        /** Snapshots kept per workspace: several chats' worth of the 200 turns each one indexes. */
+        const val KEEP_SNAPSHOTS = 400
+
+        /** How far past [KEEP_SNAPSHOTS] a workspace goes before a prune, so one runs only now and then. */
+        private const val PRUNE_SLACK = 50
+
+        /** The file in each history naming its workspace. */
+        private const val WORKSPACE_FILE = "andcode-workspace"
         private const val SKIP_AFTER_TIMEOUT_MILLIS = 5 * 60_000L
 
         /** The command runner's exit code for a command it killed at its time limit. */
@@ -249,9 +267,11 @@ class ShadowSnapshots(
         internal fun snapshotScript(
             root: String,
             workspace: String,
+            keep: Int = KEEP_SNAPSHOTS,
         ): String {
             val dir = WorkspaceShell.quote(gitDir(root, workspace))
             val exclude = EXCLUDED.joinToString(" ") { WorkspaceShell.quote(it) }
+            val git = git(root, workspace)
             return listOf(
                 "set -e",
                 // A lock left by a command that was killed at its time limit would fail every later one.
@@ -267,8 +287,46 @@ class ShadowSnapshots(
                         workspace,
                     )} rm -q -r --cached --ignore-unmatch --pathspec-from-file=- --pathspec-file-nul; fi",
                 "${git(root, workspace)} add -A -- ':/'",
-                "${git(root, workspace)} commit -q --allow-empty --no-verify -m snapshot",
-                "${git(root, workspace)} rev-parse HEAD",
+                // Which workspace this history is for, so it can be deleted once that folder is gone.
+                "printf '%s' ${WorkspaceShell.quote(workspace)} > $dir/$WORKSPACE_FILE",
+                // Histories from before snapshots stood alone were one chain: give its newest commits
+                // refs, so they survive pruning like the snapshots taken from now on.
+                "if [ -z \"$($git for-each-ref --count=1 refs/snapshots)\" ] && $git rev-parse -q --verify HEAD >/dev/null; then " +
+                    "$git rev-list --max-count=$keep HEAD | while read -r c; do $git update-ref \"refs/snapshots/${'$'}c\" \"${'$'}c\"; done; fi",
+                // Each snapshot is a commit of its own, without a parent, held by its own ref: an old
+                // one can then be dropped without the newer ones keeping it alive.
+                "c=$($git commit-tree \"$($git write-tree)\" -m snapshot)",
+                "$git update-ref \"refs/snapshots/${'$'}c\" \"${'$'}c\"",
+                "$git update-ref HEAD \"${'$'}c\"",
+                "printf '%s\\n' \"${'$'}c\"",
+            ).joinToString("\n")
+        }
+
+        /**
+         * Drops all but the newest [keep] snapshots of [workspace] once [slack] more have piled up,
+         * then frees their storage; and deletes the history of any workspace folder that was deleted
+         * (its parent still there, so an unmounted volume does not count). The snapshot HEAD points
+         * at is always kept.
+         */
+        internal fun pruneScript(
+            root: String,
+            workspace: String,
+            keep: Int = KEEP_SNAPSHOTS,
+            slack: Int = PRUNE_SLACK,
+        ): String {
+            val git = git(root, workspace)
+            val quotedRoot = WorkspaceShell.quote(root)
+            return listOf(
+                "head=$($git rev-parse -q --verify HEAD || true)",
+                "n=$($git for-each-ref refs/snapshots --format=x | wc -l)",
+                "if [ \"${'$'}n\" -gt ${keep + slack} ]; then " +
+                    // HEAD's snapshot counts as one of the [keep], whatever its date.
+                    "$git for-each-ref --sort=-committerdate --format='%(objectname)' refs/snapshots | grep -vx \"${'$'}head\" | " +
+                    "tail -n +$keep | while read -r c; do $git update-ref -d \"refs/snapshots/${'$'}c\"; done; " +
+                    "$git reflog expire --expire=now --all; $git gc -q --prune=now; fi",
+                "for d in $quotedRoot/*/; do w=$(cat \"${'$'}{d}$WORKSPACE_FILE\" 2>/dev/null) || continue; " +
+                    "if [ -n \"${'$'}w\" ] && [ ! -d \"${'$'}w\" ] && [ -d \"$(dirname \"${'$'}w\")\" ]; then rm -rf \"${'$'}d\"; fi; done",
+                "true",
             ).joinToString("\n")
         }
     }
