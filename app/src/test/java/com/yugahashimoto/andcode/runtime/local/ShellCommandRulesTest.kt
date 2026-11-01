@@ -82,4 +82,39 @@ class ShellCommandRulesTest {
         assertTrue(ShellCommandRules.matches("git status", "git\tstatus"))
         assertFalse(ShellCommandRules.matches("echo", "echo \$HOME"))
     }
+
+    @Test
+    fun `a blocking rule refuses the command wherever it is hidden`() {
+        listOf(
+            "rm -rf build",
+            "cd x && sudo /bin/rm -rf /",
+            "echo \$(rm -rf ~)",
+            "ls `rm -rf ~`",
+            "\"rm\" '-rf' x",
+            "r\\m -rf x",
+            "rm -v -rf x",
+            "rm -fr x",
+            "rm -r -f x",
+        ).forEach { command -> assertTrue(command, ShellCommandRules.blocks("rm -rf", command)) }
+    }
+
+    @Test
+    fun `a blocking rule keeps its words in order but allows others between`() {
+        assertTrue(ShellCommandRules.blocks("git push --force", "git push origin main --force"))
+        assertTrue(ShellCommandRules.blocks("git push --force", "ls; git push --force"))
+        assertFalse(ShellCommandRules.blocks("git push --force", "git push --force-with-lease"))
+        assertFalse(ShellCommandRules.blocks("git push --force", "git push -f"))
+        // The words must follow the program within one part of the command, not across parts.
+        assertFalse(ShellCommandRules.blocks("git push --force", "echo push --force; git status"))
+        assertFalse(ShellCommandRules.blocks("rm -rf", "rm -r x"))
+        assertFalse(ShellCommandRules.blocks("rm -rf", "echo rm"))
+    }
+
+    @Test
+    fun `a blocking rule is kept as the words the user typed`() {
+        assertEquals("rm -rf", ShellCommandRules.blockRuleFor("  rm   -rf "))
+        assertEquals("git push --force", ShellCommandRules.blockRuleFor("\"git push\" --force"))
+        assertNull(ShellCommandRules.blockRuleFor("  ;  "))
+        assertFalse(ShellCommandRules.blocks("", "rm -rf x"))
+    }
 }

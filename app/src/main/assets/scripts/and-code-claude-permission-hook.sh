@@ -14,6 +14,7 @@ BRIDGE="${ANDCODE_CLAUDE_BRIDGE:-/root/.andcode/claude-bridge}"
 PENDING="$BRIDGE/pending"
 RESPONSES="$BRIDGE/responses"
 ALWAYS="$BRIDGE/always-rules.json"
+BLOCKED="$BRIDGE/block-rules.json"
 TIMEOUT_SEC="${ANDCODE_PERMISSION_TIMEOUT_SEC:-300}"
 # A question can legitimately wait much longer than a permission: the user may be away from the
 # device and the turn is blocked until they answer. Keep it under the hook timeout Claude Code
@@ -59,6 +60,40 @@ TOOL_INPUT=$(printf '%s' "$INPUT" | jq -c '.tool_input // .toolInput // {}')
 
 if [ -z "$TOOL_NAME" ]; then
   TOOL_NAME="Tool"
+fi
+
+# Refuse blocked commands first, before any always-allow rule and without waking the UI. Same rules
+# as ShellCommandRules.blocks on the app side, and deliberately broader than allowing: any chained,
+# piped or substituted part of the command that runs the rule's program (path ignored) with the
+# rule's flags in any order (short ones also grouped: -rf is -r -f) and its other words in order,
+# other words between them allowed, is refused. Quotes and escapes are taken out.
+if [ -f "$BLOCKED" ]; then
+  BLOCKED_CMD=$(printf '%s' "$TOOL_INPUT" | jq -r '.command // empty')
+  BLOCKED_BY=$(jq -r --arg t "$TOOL_NAME" --arg c "$BLOCKED_CMD" '
+    def words: [splits("\\s+")] | map(gsub("[\"\u0027\\\\]"; "")) | map(select(length > 0));
+    def parts: [splits("[;&|`(){}<>!$\n\r]")] | map(words);
+    def prog: split("/") | last // "";
+    def flagsplit: reduce .[] as $x ({flags: [], plain: []};
+      if ($x | startswith("--")) then .flags += [$x]
+      elif ($x | length) > 1 and ($x | startswith("-")) then .flags += ($x[1:] | split("") | map("-" + .))
+      else .plain += [$x] end);
+    def inorder($a; $b):
+      if ($a | length) == 0 then true
+      elif ($b | length) == 0 then false
+      elif $a[0] == $b[0] then inorder($a[1:]; $b[1:])
+      else inorder($a; $b[1:]) end;
+    ($c | parts) as $segments |
+    .rules[]? | select(.toolName == $t) | ((.commandPrefix // "") | parts | add // []) as $r |
+    select(($r | length) > 0) | ($r[1:] | flagsplit) as $rs |
+    select(any($segments[] as $w | range(0; $w | length) as $i |
+      ($w[$i] | prog) == ($r[0] | prog) and
+        (($w[($i + 1):] | flagsplit) as $cs | ($rs.flags - $cs.flags | length) == 0 and inorder($rs.plain; $cs.plain)); .)) |
+    ($r | join(" "))
+  ' "$BLOCKED" 2>/dev/null | head -n1 || true)
+  if [ -n "$BLOCKED_BY" ]; then
+    deny "The user blocked commands containing \"$BLOCKED_BY\" in AndCode, so this was not run. Do not retry it or work around the block; continue another way or ask the user."
+    exit 0
+  fi
 fi
 
 # Auto-allow remembered rules without waking the UI.

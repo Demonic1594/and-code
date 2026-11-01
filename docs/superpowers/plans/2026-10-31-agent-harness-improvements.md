@@ -1,6 +1,8 @@
 # Agent harness improvements (from a Cursor comparison)
 
-Status: **in progress**. Item 3 (shadow snapshots) is done (#58); the rest is not started.
+Status: **in progress**. Item 3 (shadow snapshots) is done (#58). Item 1 has shell-safe matching (#66),
+a hook answer Claude Code actually reads plus deny feedback (#73), and blocking rules with a settings
+screen; per-project scope is not started. The rest is not started.
 
 ## Goal
 
@@ -37,9 +39,14 @@ that chains, pipes, substitutes or redirects, or starts with a program that runs
 (`bash -c`, `env`, `xargs`, an interpreter), never matches a rule and is never remembered as one;
 rule words must equal the command's first words; and a call with a command never matches a
 tool-wide rule. Before this, the hook matched with a plain text prefix and a tool-wide Bash rule
-allowed every command. Per-project scope and Deny are still to do. Known limit: word rules cannot
-see dangerous arguments further along (`find . -exec ... +`, `git -c ...`), so a Deny list or tool
-risk classes (section 9) are still needed before "always allow" is offered broadly.
+allowed every command. Blocking rules are done: Settings → Claude Code → **Command rules** blocks
+commands by their words, checked first in the hook (and again in the app for a guest without jq), in
+any chained, piped or substituted part, flags in any order and other words allowed between; the same
+screen lists and removes always-allow rules. Per-project scope is still to do. Known limit: word
+rules cannot see dangerous arguments further along (`find . -exec ... +`, `git -c ...`), so tool risk
+classes (section 9) are still needed before "always allow" is offered broadly. Note: until #73 the
+hook answered in PreToolUse's format, which Claude Code drops for a PermissionRequest, so approvals
+made on the phone most likely had no effect.
 
 Feasible, easy. The approval sheet gets an "Always allow this command" action that stores a
 pattern (for example `git status`, `npm test`) per project. Matching calls skip the prompt.
@@ -113,7 +120,8 @@ copied without a licence review (LGPL-3.0, while AndCode is MIT); record any not
   tool, with an "Always allow" choice on the prompt and a 60-second timeout that counts as not
   granted. Ours should match command patterns, which is finer than its per-tool-name levels, and
   add a Deny list so `rm -rf` style commands are blocked outright. An unanswered prompt should
-  time out as not granted.
+  time out as not granted. Done: blocking rules (see item 1); the hook already timed out as not
+  granted, and since #73 says so to the agent.
 - **Start a saved prompt from an intent or Tasker.** Operit accepts a broadcast intent with a
   message, a chat id, a new-chat flag, a timeout and a reply action. We already have schedules, a
   quick-settings tile and shortcuts; an intent that runs a saved prompt in a chosen project fits
@@ -138,11 +146,13 @@ From an audit document the user shared (a desktop agent harness, read as notes, 
 item is an idea to check against AndCode, not a claim about how AndCode works today.
 
 - **Deny before ask.** Evaluate deny rules before a prompt reaches the phone, matched on the tool,
-  its input and any network target. Extends item 1.
+  its input and any network target. Extends item 1. Done for shell commands (blocking rules);
+  network targets are not matched.
 - **Tool risk classes.** Mark tools read-only, writing, executing or destructive; read-only calls
   never prompt, and "always allow" can attach to a class as well as to command words.
 - **Deny feedback.** A rejected call should tell the agent that the user declined and that it should
-  adjust rather than retry the same call, so agents do not loop on a refused command.
+  adjust rather than retry the same call, so agents do not loop on a refused command. Done (#73),
+  for a rejection, a timeout and a blocking rule.
 - **Writes outside the workspace.** Refuse in the bridge a write whose path resolves outside the
   workspace root (the guest also sees bound host paths; see the top of this doc).
 - **Audit log.** Record each phone approval and each remembered rule (tool, input summary, decision,

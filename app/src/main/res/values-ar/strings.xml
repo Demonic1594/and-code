@@ -726,6 +726,16 @@
     <string name="mcp_url_hint">عنوان URL (خادم عن بُعد)</string>
     <string name="mcp_add_help">أدخل أمرًا لخادم محلي أو عنوان URL لخادم عن بُعد.</string>
     <string name="mcp_settings_row">خوادم MCP</string>
+    <string name="command_rules_settings_row">قواعد الأوامر</string>
+    <string name="command_rules_title">قواعد الأوامر</string>
+    <string name="command_rules_caption">يسأل Claude Code قبل تشغيل أمر shell. يُرفض الأمر المحظور دون سؤال، حتى داخل أمر أطول، ويُطلب من الوكيل عدم إعادة المحاولة. يمكن أن تأتي الخيارات بأي ترتيب، لذا فإن حظر «rm -rf» يحظر أيضًا «rm -fr»، لكن يجب أن تُكتب بالطريقة نفسها: «--force» ليس «-f». الأوامر التي سمحت بها دائمًا عند الموافقة تعمل دون سؤال.</string>
+    <string name="command_rules_block_label">حظر الأوامر التي تحتوي على</string>
+    <string name="command_rules_block_button">حظر</string>
+    <string name="command_rules_blocked">محظورة</string>
+    <string name="command_rules_allowed">مسموح بها دائمًا</string>
+    <string name="command_rules_no_allowed">لا يوجد شيء مسموح به دائمًا بعد. اختر «السماح دائمًا» عند الموافقة لإضافة أمر هنا.</string>
+    <string name="command_rules_whole_tool">كل استدعاء لـ %1$s</string>
+    <string name="cd_forget_command_rule">إزالة القاعدة</string>
 
     <string name="server_info_title">معلومات الخادم</string>
     <string name="server_info_config_saved">تم حفظ الإعدادات</string>

@@ -5,6 +5,9 @@ import com.yugahashimoto.andcode.core.api.QuestionOption
 import com.yugahashimoto.andcode.core.api.QuestionPrompt
 import com.yugahashimoto.andcode.core.api.QuestionRequest
 import com.yugahashimoto.andcode.runtime.PermissionResponse
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -27,6 +30,9 @@ import java.util.concurrent.ConcurrentHashMap
  * The hook writes a request under [hostRoot]/pending], the app surfaces it as a
  * [PermissionRequest]/[QuestionRequest], and [respond]/[answerQuestion] writes the matching
  * response the hook is polling for.
+ *
+ * It also keeps the user's command rules: "always allow" rules the hook applies without asking, and
+ * blocking rules it applies first, so a blocked command is refused before anything else is asked.
  */
 class ClaudePermissionBridge(
     hostRoot: File,
@@ -90,10 +96,24 @@ class ClaudePermissionBridge(
         val rules: List<AlwaysRule> = emptyList(),
     )
 
+    /** A remembered command rule as the settings list it. */
+    data class CommandRule(
+        val toolName: String,
+        /** The command's words the rule names; null for an always-allow rule covering the whole tool. */
+        val words: String?,
+        /** True for a blocking rule, false for an always-allow one. */
+        val blocks: Boolean,
+    )
+
     private val root = hostRoot.apply { mkdirs() }
     private val pendingDir = File(root, "pending").apply { mkdirs() }
     private val responsesDir = File(root, "responses").apply { mkdirs() }
     private val alwaysFile = File(root, "always-rules.json")
+    private val blockFile = File(root, BLOCK_RULES_FILE)
+    private val mutableRules = MutableStateFlow(loadRules())
+
+    /** Every remembered rule, blocking ones first. */
+    val rules: StateFlow<List<CommandRule>> = mutableRules.asStateFlow()
     private val emitted = ConcurrentHashMap.newKeySet<String>()
 
     fun writeGuestRequest(request: Request) {
@@ -326,23 +346,102 @@ class ClaudePermissionBridge(
             } else {
                 ShellCommandRules.ruleFor(command) ?: return
             }
+        // A blocked command is never allowed for good, even if it was let through once.
+        if (command != null && blockedByCommand(stored.toolName, command) != null) return
         val existing = loadAlwaysRules().toMutableList()
         val rule = AlwaysRule(toolName = stored.toolName, commandPrefix = prefix)
         if (existing.none { it.toolName == rule.toolName && it.commandPrefix == rule.commandPrefix }) {
             existing += rule
             alwaysFile.writeText(json.encodeToString(AlwaysRulesFile(existing)))
+            mutableRules.value = loadRules()
         }
     }
 
-    private fun loadAlwaysRules(): List<AlwaysRule> {
-        if (!alwaysFile.isFile) return emptyList()
-        return runCatching { json.decodeFromString<AlwaysRulesFile>(alwaysFile.readText()).rules }
+    /**
+     * Blocks shell commands containing the words of [text] (`rm -rf`, `git push --force`). Returns
+     * false when [text] names no command.
+     */
+    @Synchronized
+    fun block(text: String): Boolean {
+        val words = ShellCommandRules.blockRuleFor(text) ?: return false
+        val existing = loadBlockRules()
+        if (existing.none { it.toolName == SHELL_TOOL && it.commandPrefix == words }) {
+            writeRules(blockFile, existing + AlwaysRule(toolName = SHELL_TOOL, commandPrefix = words))
+        }
+        return true
+    }
+
+    /** Forgets [rule], whichever kind it is. */
+    @Synchronized
+    fun forget(rule: CommandRule) {
+        val file = if (rule.blocks) blockFile else alwaysFile
+        val existing = if (rule.blocks) loadBlockRules() else loadAlwaysRules()
+        val kept = existing.filterNot { it.toolName == rule.toolName && it.commandPrefix.orEmpty() == rule.words.orEmpty() }
+        if (kept.size != existing.size) writeRules(file, kept)
+    }
+
+    /** The blocking rule refusing a [toolName] call with [toolInputJson], or null when none does. */
+    fun blockedBy(
+        toolName: String,
+        toolInputJson: String,
+    ): CommandRule? {
+        val command =
+            runCatching {
+                json.parseToJsonElement(toolInputJson).jsonObject["command"]?.jsonPrimitive?.contentOrNull
+            }.getOrNull() ?: return null
+        return blockedByCommand(toolName, command)
+    }
+
+    private fun blockedByCommand(
+        toolName: String,
+        command: String,
+    ): CommandRule? =
+        loadBlockRules()
+            .firstOrNull { rule ->
+                rule.toolName == toolName && !rule.commandPrefix.isNullOrBlank() && ShellCommandRules.blocks(rule.commandPrefix, command)
+            }?.let { CommandRule(it.toolName, it.commandPrefix, blocks = true) }
+
+    private fun writeRules(
+        file: File,
+        rules: List<AlwaysRule>,
+    ) {
+        val tmp = File(file.parentFile, "${file.name}.tmp")
+        tmp.writeText(json.encodeToString(AlwaysRulesFile(rules)))
+        if (!tmp.renameTo(file)) {
+            file.writeText(json.encodeToString(AlwaysRulesFile(rules)))
+            tmp.delete()
+        }
+        mutableRules.value = loadRules()
+    }
+
+    private fun loadRules(): List<CommandRule> =
+        loadBlockRules().map { CommandRule(it.toolName, it.commandPrefix, blocks = true) } +
+            loadAlwaysRules().map { CommandRule(it.toolName, it.commandPrefix, blocks = false) }
+
+    private fun loadAlwaysRules(): List<AlwaysRule> = readRules(alwaysFile)
+
+    private fun loadBlockRules(): List<AlwaysRule> = readRules(blockFile)
+
+    private fun readRules(file: File): List<AlwaysRule> {
+        if (!file.isFile) return emptyList()
+        return runCatching { json.decodeFromString<AlwaysRulesFile>(file.readText()).rules }
             .getOrDefault(emptyList())
     }
 
     companion object {
         const val GUEST_BRIDGE_PATH = "/root/.andcode/claude-bridge"
         const val HOST_DIR_NAME = "claude-bridge"
+
+        /** Blocking rules, in the same shape as the always-allow file; the hook reads both. */
+        const val BLOCK_RULES_FILE = "block-rules.json"
+
+        /** The tool whose calls carry a shell command, the only kind a blocking rule names. */
+        const val SHELL_TOOL = "Bash"
+
+        /** What the agent reads when a blocking rule refuses its call; the hook sends the same text. */
+        fun blockedMessage(words: String): String =
+            "The user blocked commands containing \"$words\" in AndCode, so this was not run. " +
+                "Do not retry it or work around the block; continue another way or ask the user."
 
         /**
          * What the agent reads when the user rejects a call: that it was the user, and not to retry

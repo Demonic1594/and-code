@@ -719,6 +719,16 @@
     <string name="mcp_url_hint">URL (remote server)</string>
     <string name="mcp_add_help">Enter a command for a local server or a URL for a remote server.</string>
     <string name="mcp_settings_row">MCP servers</string>
+    <string name="command_rules_settings_row">Command rules</string>
+    <string name="command_rules_title">Command rules</string>
+    <string name="command_rules_caption">Claude Code asks before it runs a shell command. A blocked command is refused without asking, also inside a longer command, and the agent is told not to retry it. Flags may come in any order, so blocking “rm -rf” also blocks “rm -fr”, but must be spelled the same: “--force” is not “-f”. Commands you always allowed on an approval run without asking.</string>
+    <string name="command_rules_block_label">Block commands containing</string>
+    <string name="command_rules_block_button">Block</string>
+    <string name="command_rules_blocked">Blocked</string>
+    <string name="command_rules_allowed">Always allowed</string>
+    <string name="command_rules_no_allowed">Nothing is always allowed yet. Choose “Always allow” on an approval to add a command here.</string>
+    <string name="command_rules_whole_tool">Every %1$s call</string>
+    <string name="cd_forget_command_rule">Remove rule</string>
 
     <!-- Server info -->
     <string name="server_info_title">Server info</string>

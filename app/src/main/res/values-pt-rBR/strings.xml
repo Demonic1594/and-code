@@ -717,6 +717,16 @@
     <string name="mcp_url_hint">URL (servidor remoto)</string>
     <string name="mcp_add_help">Insira um comando para um servidor local ou uma URL para um servidor remoto.</string>
     <string name="mcp_settings_row">Servidores MCP</string>
+    <string name="command_rules_settings_row">Regras de comandos</string>
+    <string name="command_rules_title">Regras de comandos</string>
+    <string name="command_rules_caption">O Claude Code pergunta antes de executar um comando de shell. Um comando bloqueado é recusado sem perguntar, também dentro de um comando maior, e o agente é orientado a não tentar de novo. As opções podem vir em qualquer ordem, então bloquear “rm -rf” também bloqueia “rm -fr”, mas precisam ser escritas igual: “--force” não é “-f”. Os comandos que você sempre permitiu em uma aprovação são executados sem perguntar.</string>
+    <string name="command_rules_block_label">Bloquear comandos que contenham</string>
+    <string name="command_rules_block_button">Bloquear</string>
+    <string name="command_rules_blocked">Bloqueados</string>
+    <string name="command_rules_allowed">Sempre permitidos</string>
+    <string name="command_rules_no_allowed">Nada é sempre permitido ainda. Escolha “Sempre permitir” em uma aprovação para adicionar um comando aqui.</string>
+    <string name="command_rules_whole_tool">Cada chamada de %1$s</string>
+    <string name="cd_forget_command_rule">Remover regra</string>
 
     <string name="server_info_title">Informações do servidor</string>
     <string name="server_info_config_saved">Configuração salva</string>

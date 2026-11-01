@@ -268,4 +268,74 @@ class ClaudePermissionBridgeTest {
         assertTrue(merged.contains("PermissionRequest"))
         assertTrue(merged.contains(ClaudePermissionHooks.HOOK_GUEST_PATH))
     }
+
+    @Test
+    fun `a blocked command is refused and listed until it is forgotten`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+
+        assertTrue(bridge.block(" rm  -rf "))
+        assertFalse(bridge.block("  "))
+        val rule = ClaudePermissionBridge.CommandRule("Bash", "rm -rf", blocks = true)
+
+        assertEquals(listOf(rule), bridge.rules.value)
+        assertEquals(rule, bridge.blockedBy("Bash", """{"command":"cd x && rm -rf /"}"""))
+        assertNull(bridge.blockedBy("Bash", """{"command":"rm -r x"}"""))
+        assertNull(bridge.blockedBy("Read", """{"file_path":"/x"}"""))
+        // A second bridge on the same folder reads the same rules, as the guest hook does.
+        assertEquals(listOf(rule), ClaudePermissionBridge(folder.root).rules.value)
+
+        bridge.forget(rule)
+
+        assertTrue(bridge.rules.value.isEmpty())
+        assertNull(bridge.blockedBy("Bash", """{"command":"rm -rf /"}"""))
+    }
+
+    @Test
+    fun `a blocked command is never remembered as always allowed`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        bridge.block("rm -rf")
+        val requestId = UUID.randomUUID().toString()
+        bridge.writeGuestRequest(
+            ClaudePermissionBridge.Request(
+                requestId = requestId,
+                androidSessionId = "session-1",
+                kind = ClaudePermissionBridge.Kind.PERMISSION,
+                toolName = "Bash",
+                toolInputJson = """{"command":"rm -rf build"}""",
+                permissionLabel = "Bash",
+            ),
+        )
+        bridge.pollPending()
+
+        assertTrue(bridge.respond(requestId, PermissionResponse.ALWAYS, remember = true))
+
+        assertEquals(listOf(ClaudePermissionBridge.CommandRule("Bash", "rm -rf", blocks = true)), bridge.rules.value)
+        assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"rm -rf build"}"""))
+    }
+
+    @Test
+    fun `an always-allow rule shows in the list and can be forgotten`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        val requestId = UUID.randomUUID().toString()
+        bridge.writeGuestRequest(
+            ClaudePermissionBridge.Request(
+                requestId = requestId,
+                androidSessionId = "session-1",
+                kind = ClaudePermissionBridge.Kind.PERMISSION,
+                toolName = "Bash",
+                toolInputJson = """{"command":"git status --short"}""",
+                permissionLabel = "Bash",
+            ),
+        )
+        bridge.pollPending()
+        bridge.respond(requestId, PermissionResponse.ALWAYS, remember = true)
+        val rule = ClaudePermissionBridge.CommandRule("Bash", "git status", blocks = false)
+
+        assertEquals(listOf(rule), bridge.rules.value)
+
+        bridge.forget(rule)
+
+        assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"git status"}"""))
+        assertTrue(bridge.rules.value.isEmpty())
+    }
 }

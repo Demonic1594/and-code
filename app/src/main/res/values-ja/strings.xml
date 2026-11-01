@@ -725,6 +725,16 @@
     <string name="mcp_url_hint">URL（リモートサーバー）</string>
     <string name="mcp_add_help">ローカルサーバーにはコマンドを、リモートサーバーにはURLを入力してください。</string>
     <string name="mcp_settings_row">MCPサーバー</string>
+    <string name="command_rules_settings_row">コマンドルール</string>
+    <string name="command_rules_title">コマンドルール</string>
+    <string name="command_rules_caption">Claude Code はシェルコマンドを実行する前に確認します。ブロックしたコマンドは、長いコマンドの一部であっても確認なしで拒否され、エージェントには再試行しないよう伝えます。オプションの順序は問いません（「rm -rf」をブロックすると「rm -fr」もブロックされます）が、表記は一致する必要があります。「--force」と「-f」は別のものとして扱われます。承認時に「常に許可」したコマンドは確認なしで実行されます。</string>
+    <string name="command_rules_block_label">次を含むコマンドをブロック</string>
+    <string name="command_rules_block_button">ブロック</string>
+    <string name="command_rules_blocked">ブロック中</string>
+    <string name="command_rules_allowed">常に許可</string>
+    <string name="command_rules_no_allowed">常に許可しているコマンドはまだありません。承認時に「常に許可」を選ぶと、ここに追加されます。</string>
+    <string name="command_rules_whole_tool">%1$s のすべての呼び出し</string>
+    <string name="cd_forget_command_rule">ルールを削除</string>
 
     <!-- Server info -->
     <string name="server_info_title">サーバー情報</string>

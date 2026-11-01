@@ -49,6 +49,35 @@ class PermissionHookScriptTest {
     }
 
     @Test
+    fun `a blocked command is refused before any always-allow rule, without asking`() {
+        File(bridge, "always-rules.json").writeText("""{"rules":[{"toolName":"Bash","commandPrefix":"git push"}]}""")
+        File(
+            bridge,
+            ClaudePermissionBridge.BLOCK_RULES_FILE,
+        ).writeText("""{"rules":[{"toolName":"Bash","commandPrefix":"git push --force"}]}""")
+
+        val answer = runHook(bashCall("git push origin --force"))
+
+        assertEquals("deny", answer.behavior())
+        assertEquals(
+            ClaudePermissionBridge.blockedMessage("git push --force"),
+            answer.decision()["message"]?.jsonPrimitive?.content,
+        )
+        assertFalse(File(bridge, "pending").listFiles().orEmpty().any())
+    }
+
+    @Test
+    fun `the hook blocks the same commands as the app`() {
+        File(bridge, ClaudePermissionBridge.BLOCK_RULES_FILE).writeText("""{"rules":[{"toolName":"Bash","commandPrefix":"rm -rf"}]}""")
+        listOf("cd x && sudo /bin/rm -rf /", "rm -fr x", "rm -r -f x", "rm -r x", "echo rm -rf", "ls; rm -v x").forEach { command ->
+            val blocked =
+                runHook(bashCall(command), env = mapOf("ANDCODE_PERMISSION_TIMEOUT_SEC" to "0"))
+                    .decision()["message"]?.jsonPrimitive?.content.orEmpty().startsWith("The user blocked")
+            assertEquals(command, ShellCommandRules.blocks("rm -rf", command), blocked)
+        }
+    }
+
+    @Test
     fun `a user's rejection answers deny with the message for the agent`() {
         val answer = runHook(bashCall("rm -rf build"), response = """{"decision":"deny"}""")
 
