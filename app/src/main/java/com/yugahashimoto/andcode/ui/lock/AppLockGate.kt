@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -58,13 +59,21 @@ fun AppLockGate(
     val context = LocalContext.current
     val activity = context as? FragmentActivity
     val title = stringResource(R.string.app_lock_prompt_title)
+    // On a cold start the lock asks as it composes, and the resume observer, added while the
+    // activity is already resumed, is told ON_RESUME at once and asks too: one prompt at a time.
+    val guard = remember { PromptGuard() }
     val ask = {
         // A device whose lock was removed since the setting was turned on cannot be asked; locking
         // the user out of their own app would be worse than letting them in.
         if (activity == null || !DeviceUnlock.isAvailable(context)) {
             onUnlock()
         } else {
-            DeviceUnlock.ask(activity, title, null) { unlocked -> if (unlocked) onUnlock() }
+            guard.ask { done ->
+                DeviceUnlock.ask(activity, title, null) { unlocked ->
+                    done()
+                    if (unlocked) onUnlock()
+                }
+            }
         }
     }
     val currentLocked by rememberUpdatedState(locked)
@@ -85,6 +94,20 @@ fun AppLockGate(
         LockedScreen(onUnlock = ask)
     } else {
         saved.SaveableStateProvider("app") { content() }
+    }
+}
+
+/**
+ * Lets one unlock prompt show at a time: [ask] starts a prompt only while none is showing, and the
+ * prompt calls `done` when it ends, whichever way. The system prompt always reports its end.
+ */
+internal class PromptGuard {
+    private var showing = false
+
+    fun ask(start: (done: () -> Unit) -> Unit) {
+        if (showing) return
+        showing = true
+        start { showing = false }
     }
 }
 

@@ -19,8 +19,14 @@ class PermissionActionReceiver : BroadcastReceiver() {
         intent: Intent?,
     ) {
         if (intent?.action != RuntimeNotificationHelper.ACTION_PERMISSION_RESPONSE) return
-        // Approvals from the shade bypass the app lock; refuse ones left on older notifications.
-        if ((context.applicationContext as? AndCodeApplication)?.preferences?.state?.value?.biometricLockEnabled == true) return
+        // Approvals from the shade bypass the app lock; refuse ones left on older notifications, and
+        // take the notification away so its buttons are not tapped again for nothing. The request
+        // still waits in the app, behind the lock.
+        val lockedApp = context.applicationContext as? AndCodeApplication
+        if (lockedApp?.preferences?.state?.value?.biometricLockEnabled == true) {
+            intent.getStringExtra(RuntimeNotificationHelper.EXTRA_PERMISSION_ID)?.let(lockedApp.notifications::cancelPermission)
+            return
+        }
         val sessionId = intent.getStringExtra(RuntimeNotificationHelper.EXTRA_SESSION_ID) ?: return
         val permissionId = intent.getStringExtra(RuntimeNotificationHelper.EXTRA_PERMISSION_ID) ?: return
         val runtimeId = intent.getStringExtra(RuntimeNotificationHelper.EXTRA_RUNTIME_ID)
