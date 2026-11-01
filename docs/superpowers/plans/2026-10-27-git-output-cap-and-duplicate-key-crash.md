@@ -105,7 +105,7 @@ whole output. Nothing tests the combination of the parser and the production run
   tail. This needs the runner to cut from the head for that call (a `keepStart` option), or Git to
   read the file itself.
 - Make `WorkspaceShell` use the same larger limit for the commands it parses.
-- Decide separately what the terminal and ADB should keep.
+- Decide separately what the terminal and ADB should keep (decided: keep the tail; see Status).
 
 **Task 3 — never mis-parse a cut stream**
 - `parseNameStatus` accepts a status token only if it is a valid git status: one letter of

@@ -5,6 +5,7 @@ import com.yugahashimoto.andcode.runtime.LocalRuntimeStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -221,12 +222,12 @@ class LocalRuntimeManagerTest {
             assertTrue(startProbing.await(WAIT_SECONDS, TimeUnit.SECONDS))
 
             releaseStatus.countDown()
-            check.join()
+            check.join(TimeUnit.SECONDS.toMillis(WAIT_SECONDS))
 
-            assertTrue(checked is LocalRuntimeStatus.Starting)
-            assertTrue(manager.state.value is LocalRuntimeStatus.Starting)
+            assertEquals(LocalRuntimeStatus.Starting("1.17.20", 4096), checked)
+            assertEquals(LocalRuntimeStatus.Starting("1.17.20", 4096), manager.state.value)
             releaseStart.countDown()
-            assertEquals(4096, start.await().port)
+            assertEquals(4096, withTimeout(TimeUnit.SECONDS.toMillis(WAIT_SECONDS)) { start.await() }.port)
         }
 
     @Test

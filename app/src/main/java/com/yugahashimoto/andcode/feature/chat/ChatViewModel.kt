@@ -1360,7 +1360,7 @@ class ChatViewModel(
         // because the old chat happened to be mid-turn when the user navigated away.
         val switchingSession = _uiState.value.sessionId != sessionId
         if (switchingSession) pendingInterrupts.clear()
-        if (_uiState.value.sessionId == null) dropNewChatPrompts()
+        dropNewChatPrompts()
         // The composer is moving to another chat, so a preset chosen for the one it is leaving -
         // which never got a session to record it on - stops applying here.
         _uiState.update { it.copy(chatGeneration = it.chatGeneration + 1, draftSystemPrompt = null) }
@@ -3456,9 +3456,13 @@ class ChatViewModel(
         if (_uiState.value.isRewinding || restoreInFlight) return
         val queued = messageQueue.value
         val next = queued.indexOfFirst { it.sessionId == _uiState.value.sessionId }
-        if (next < 0) return
-        messageQueue.value = queued.filterIndexed { index, _ -> index != next }
-        sendQueued(queued[next])
+        if (next >= 0) {
+            messageQueue.value = queued.filterIndexed { index, _ -> index != next }
+            sendQueued(queued[next])
+        } else if (_uiState.value.isConnected) {
+            // Written offline here while another chat was open when the connection came back.
+            drainOfflineQueue()
+        }
     }
 
     private fun drainOfflineQueue() {

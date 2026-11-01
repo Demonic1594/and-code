@@ -1203,6 +1203,34 @@ class ChatViewModelTest {
         }
 
     /**
+     * A prompt written offline belongs to its chat too: a connection that comes back while another
+     * chat is open leaves it held, and it goes out once its own chat finishes a turn.
+     */
+    @Test
+    fun `a prompt written offline waits for its own chat`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(abortsBeforeInterrupt = true))
+            val viewModel = ChatViewModel(backend, backend.events, now = { testScheduler.currentTime })
+            viewModel.openSession("s1")
+            viewModel.sendMessage("offline in s1")
+            advanceUntilIdle()
+
+            viewModel.openSession("s2")
+            backend.events.tryEmit(OpenCodeEvent.ServerConnected)
+            advanceUntilIdle()
+
+            assertEquals(emptyList<String>(), backend.calls)
+
+            viewModel.openSession("s1")
+            viewModel.sendMessage("next")
+            advanceUntilIdle()
+            backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+
+            assertEquals(listOf("prompt:next", "prompt:offline in s1"), backend.calls)
+        }
+
+    /**
      * A prompt held behind a running turn belongs to the chat it was written in. Switching chats
      * used to leave it in one shared queue, so the next turn to finish anywhere sent it into
      * whichever chat was open.
