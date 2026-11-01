@@ -651,9 +651,18 @@ class ClaudeCodeTarget(
 
     override suspend fun mcpServers(): List<McpServer> =
         withContext(Dispatchers.IO) {
-            ClaudeMcpParser.parseList(
-                runtime.runInWorkspace(defaultDirectory(), ClaudeMcpParser.LIST_SCRIPT, MCP_TIMEOUT_SECONDS).orEmpty(),
-            )
+            val servers =
+                ClaudeMcpParser.parseList(
+                    runtime.runInWorkspace(defaultDirectory(), ClaudeMcpParser.LIST_SCRIPT, MCP_TIMEOUT_SECONDS).orEmpty(),
+                )
+            // Claude Code only says a server failed; a program missing from the Linux environment
+            // (npx without Node.js, say) is the usual reason on a phone, and one we can check.
+            val programs = ClaudeMcpParser.failedPrograms(servers)
+            if (programs.isEmpty()) return@withContext servers
+            val missing =
+                runtime.runInWorkspace(defaultDirectory(), ClaudeMcpParser.missingProgramsScript(programs), MCP_TIMEOUT_SECONDS)
+                    .orEmpty().lines().map(String::trim).filter(String::isNotEmpty).toSet()
+            ClaudeMcpParser.withMissingPrograms(servers, missing)
         }
 
     /**

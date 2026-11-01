@@ -70,6 +70,42 @@ object ClaudeMcpParser {
 
     fun logoutScript(name: String): String = "$CLI mcp logout ${shellQuote(name)} 2>&1"
 
+    /**
+     * The program a local server's [command] runs: its first word after any `NAME=value`
+     * assignments, without a path. Null when there is none.
+     */
+    fun programOf(command: String): String? =
+        command.trim().split(WHITESPACE)
+            .firstOrNull { it.isNotEmpty() && !ENV_ASSIGNMENT.matches(it) }
+            ?.trim('"', '\'')
+            ?.substringAfterLast('/')
+            ?.takeIf { it.isNotEmpty() }
+
+    /** Prints each of [programs] the Linux environment cannot find, one per line. */
+    fun missingProgramsScript(programs: Collection<String>): String =
+        programs.joinToString(" ", prefix = "for p in ", postfix = "; do command -v \"\$p\" >/dev/null 2>&1 || echo \"\$p\"; done") {
+            shellQuote(it)
+        }
+
+    /** Gives every failed local server whose program is in [missing] that reason. */
+    fun withMissingPrograms(
+        servers: List<McpServer>,
+        missing: Set<String>,
+    ): List<McpServer> =
+        servers.map { server ->
+            val program = server.command?.let(::programOf)
+            if (isFailed(server) && program != null && program in missing) server.copy(missingProgram = program) else server
+        }
+
+    /** Local servers that did not connect, whose program is worth looking for. */
+    fun failedPrograms(servers: List<McpServer>): Set<String> =
+        servers.filter(::isFailed).mapNotNull { it.command?.let(::programOf) }.toSet()
+
+    private fun isFailed(server: McpServer): Boolean = server.status?.lowercase()?.startsWith("failed") == true
+
+    private val WHITESPACE = Regex("\\s+")
+    private val ENV_ASSIGNMENT = Regex("^[A-Za-z_][A-Za-z0-9_]*=.*")
+
     private fun shellQuote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
 
     private const val STATUS_SEPARATOR = " - "

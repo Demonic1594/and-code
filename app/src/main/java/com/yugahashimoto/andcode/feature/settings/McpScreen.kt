@@ -237,6 +237,18 @@ private fun McpServerCard(
                 Spacer(Modifier.height(4.dp))
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
+            server.missingProgram?.let { program ->
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (program in NODE_PROGRAMS) {
+                        stringResource(R.string.mcp_missing_node, program)
+                    } else {
+                        stringResource(R.string.mcp_missing_program, program)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 // An agent that always connects to what it is configured with has nothing to toggle;
@@ -392,3 +404,6 @@ private fun McpAddDialog(
         },
     )
 }
+
+/** Programs that come with Node.js, for which the fix is the same install. */
+private val NODE_PROGRAMS = setOf("npx", "node", "npm")

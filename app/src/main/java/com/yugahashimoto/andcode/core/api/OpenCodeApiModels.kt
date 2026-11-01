@@ -514,6 +514,11 @@ data class McpServer(
     val url: String? = null,
     val tools: List<String> = emptyList(),
     val error: String? = null,
+    /**
+     * Set by AndCode, never by a server: the program a failed local server runs that is not
+     * installed in the Linux environment, which is why it could not start.
+     */
+    val missingProgram: String? = null,
 )
 
 @Serializable

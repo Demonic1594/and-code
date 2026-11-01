@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.tween
@@ -65,6 +66,7 @@ import com.yugahashimoto.andcode.feature.schedule.ScheduleViewModel
 import com.yugahashimoto.andcode.feature.settings.CodexSignInActions
 import com.yugahashimoto.andcode.feature.settings.CodexSignInViewModel
 import com.yugahashimoto.andcode.feature.settings.DiagnosticsSheet
+import com.yugahashimoto.andcode.feature.settings.ProjectInstructions
 import com.yugahashimoto.andcode.feature.settings.SettingsViewModel
 import com.yugahashimoto.andcode.feature.wakeword.WakeWordService
 import com.yugahashimoto.andcode.feature.wakeword.WakeWordSettingsPolicy
@@ -86,6 +88,7 @@ import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_AGENT_CODEX
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_PROVIDERS
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_WORKSPACES
 import com.yugahashimoto.andcode.ui.navigation.activityNavGraph
+import com.yugahashimoto.andcode.ui.navigation.codeViewerRoute
 import com.yugahashimoto.andcode.ui.navigation.guestBrowserRoute
 import com.yugahashimoto.andcode.ui.navigation.scheduleNavGraph
 import com.yugahashimoto.andcode.ui.navigation.settingsNavGraph
@@ -1258,6 +1261,24 @@ fun AndCodeApp(
                                     onDeleteSystemPromptPreset = workspaceViewModel::deleteClaudeSystemPromptPreset,
                                     onBlockCommand = workspaceViewModel::blockClaudeCommand,
                                     onForgetCommandRule = workspaceViewModel::forgetClaudeCommandRule,
+                                    onOpenProjectInstructions = {
+                                        val runtime = selectedRuntime
+                                        val path = chatState.sessionDirectory ?: chatState.selectedWorkspacePath
+                                        if (runtime == null || path == null || !runtime.capabilities.fileEditing) {
+                                            Toast.makeText(context, R.string.project_instructions_no_project, Toast.LENGTH_LONG).show()
+                                        } else {
+                                            drawerScope.launch {
+                                                if (!ProjectInstructions.prepare(app.commandRunner, path)) {
+                                                    Toast.makeText(context, R.string.project_instructions_failed, Toast.LENGTH_LONG).show()
+                                                    return@launch
+                                                }
+                                                // The editor edits inside the selected workspace only.
+                                                selectedWorkspace = workspaceState.workspaces.firstOrNull { it.path == path }
+                                                    ?: WorkspaceRef(id = path, name = path.substringAfterLast('/'), path = path)
+                                                navController.navigate(codeViewerRoute(runtime.id, path, ProjectInstructions.CLAUDE_FILE))
+                                            }
+                                        }
+                                    },
                                 ),
                             antigravity = { antigravityState },
                             antigravityActions =
