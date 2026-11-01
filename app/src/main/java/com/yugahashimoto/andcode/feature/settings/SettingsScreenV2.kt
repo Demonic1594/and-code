@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
@@ -150,6 +151,7 @@ fun SettingsScreenV2(
     onOpenSavedPrompts: () -> Unit = {},
     onOpenArchive: () -> Unit = {},
     onOpenStorage: () -> Unit = {},
+    onOpenProcesses: () -> Unit = {},
     autoArchiveStaleEnabled: Boolean = false,
     onAutoArchiveStaleEnabledChange: (Boolean) -> Unit = {},
     autoArchiveStaleDays: Int = 30,
@@ -369,6 +371,12 @@ fun SettingsScreenV2(
                     icon = Icons.Default.Storage,
                     title = stringResource(R.string.storage_settings_row),
                     onClick = onOpenStorage,
+                )
+                SettingsDivider()
+                SettingsRow(
+                    icon = Icons.Default.Memory,
+                    title = stringResource(R.string.processes_settings_row),
+                    onClick = onOpenProcesses,
                 )
                 SettingsDivider()
                 SettingsRow(

@@ -133,6 +133,7 @@ fun NavGraphBuilder.settingsNavGraph(
             onOpenSavedPrompts = { navController.navigate(ROUTE_SETTINGS_SAVED_PROMPTS) },
             onOpenArchive = { navController.navigate(ROUTE_ARCHIVE) { launchSingleTop = true } },
             onOpenStorage = { navController.navigate(ROUTE_SETTINGS_STORAGE) { launchSingleTop = true } },
+            onOpenProcesses = { navController.navigate(ROUTE_SETTINGS_PROCESSES) { launchSingleTop = true } },
             autoArchiveStaleEnabled = preferences().autoArchiveStaleEnabled,
             onAutoArchiveStaleEnabledChange = appPreferences::setAutoArchiveStaleEnabled,
             autoArchiveStaleDays = preferences().autoArchiveStaleDays,
@@ -562,6 +563,27 @@ fun NavGraphBuilder.settingsNavGraph(
             registry = runtimeRegistry,
             agent = com.yugahashimoto.andcode.runtime.LocalAgent.CODEX,
             onOpenBrowser = {},
+            onBack = { navController.popBackStack() },
+        )
+    }
+
+    composable(ROUTE_SETTINGS_PROCESSES) {
+        val app = context.applicationContext as com.yugahashimoto.andcode.AndCodeApplication
+        val processesViewModel: com.yugahashimoto.andcode.feature.processes.ProcessesViewModel =
+            androidx.lifecycle.viewmodel.compose.viewModel(
+                factory =
+                    com.yugahashimoto.andcode.ui.ViewModelFactory {
+                        com.yugahashimoto.andcode.feature.processes.ProcessesViewModel(app.processSupervisor)
+                    },
+            )
+        val processes by processesViewModel.state.collectAsState()
+        com.yugahashimoto.andcode.feature.processes.ProcessesScreen(
+            state = processes,
+            onStop = processesViewModel::stop,
+            onRestart = processesViewModel::restart,
+            onStart = processesViewModel::start,
+            onStartAll = processesViewModel::startAll,
+            logTail = processesViewModel::logTail,
             onBack = { navController.popBackStack() },
         )
     }
