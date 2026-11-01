@@ -738,6 +738,8 @@
     <string name="command_rules_allowed">Всегда разрешены</string>
     <string name="command_rules_no_allowed">Пока ничего не разрешено всегда. Выберите «Всегда разрешать» при подтверждении, чтобы добавить сюда команду.</string>
     <string name="command_rules_whole_tool">Каждый вызов %1$s</string>
+    <string name="command_rules_in_project">В %1$s</string>
+    <string name="command_rules_every_project">Во всех проектах</string>
     <string name="cd_forget_command_rule">Удалить правило для %1$s</string>
     <string name="command_rules_block_invalid">Введите одну команду, без ; | &amp; &lt; &gt; $ ` и переносов строк.</string>
 

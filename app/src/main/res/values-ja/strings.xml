@@ -743,6 +743,8 @@
     <string name="command_rules_allowed">常に許可</string>
     <string name="command_rules_no_allowed">常に許可しているコマンドはまだありません。承認時に「常に許可」を選ぶと、ここに追加されます。</string>
     <string name="command_rules_whole_tool">%1$s のすべての呼び出し</string>
+    <string name="command_rules_in_project">%1$s 内</string>
+    <string name="command_rules_every_project">すべてのプロジェクト</string>
     <string name="cd_forget_command_rule">%1$s のルールを削除</string>
     <string name="command_rules_block_invalid">; | &amp; &lt; &gt; $ ` や改行を使わず、コマンドを1つだけ入力してください。</string>
 

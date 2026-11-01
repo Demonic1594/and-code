@@ -50,6 +50,27 @@ class PermissionHookScriptTest {
     }
 
     @Test
+    fun `a rule kept for a project allows only there, and the request carries the directory`() {
+        File(bridge, "always-rules.json").writeText(
+            """{"rules":[{"toolName":"Bash","commandPrefix":"npm test","project":"/root/shop"}]}""",
+        )
+
+        assertEquals("allow", runHook(bashCall("npm test", cwd = "/root/shop/web")).behavior())
+        val climbing = runHook(bashCall("npm test", cwd = "/root/shop/../blog"), response = """{"decision":"deny"}""")
+        assertEquals("deny", climbing.behavior())
+
+        var asked: JsonObject? = null
+        val elsewhere =
+            runHook(
+                bashCall("npm test", cwd = "/root/shopfront"),
+                response = """{"decision":"deny","message":"no"}""",
+                onRequest = { asked = it },
+            )
+        assertEquals("deny", elsewhere.behavior())
+        assertEquals("/root/shopfront", asked?.get("cwd")?.jsonPrimitive?.content)
+    }
+
+    @Test
     fun `a blocked command is refused before any always-allow rule, without asking`() {
         File(bridge, "always-rules.json").writeText("""{"rules":[{"toolName":"Bash","commandPrefix":"git push"}]}""")
         File(
@@ -180,10 +201,13 @@ class PermissionHookScriptTest {
         assertTrue(script.readText().contains(ClaudePermissionBridge.DECLINED_MESSAGE))
     }
 
-    private fun bashCall(command: String): String =
-        """{"hook_event_name":"PermissionRequest","session_id":"s1","tool_name":"Bash","tool_input":{"command":${JsonPrimitive(
-            command,
-        )}}}"""
+    private fun bashCall(
+        command: String,
+        cwd: String? = null,
+    ): String =
+        """{"hook_event_name":"PermissionRequest","session_id":"s1","tool_name":"Bash",""" +
+            (cwd?.let { """"cwd":${JsonPrimitive(it)},""" } ?: "") +
+            """"tool_input":{"command":${JsonPrimitive(command)}}}"""
 
     /**
      * Feeds [input] to the hook. With a [response], waits for the hook's request to appear in the
