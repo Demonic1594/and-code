@@ -85,6 +85,9 @@ fun AppLockGate(
         val observer =
             LifecycleEventObserver { _, event ->
                 if (event == Lifecycle.Event.ON_RESUME && currentLocked) currentAsk()
+                // A prompt asked for too late (after the state was saved) never reports back; leaving
+                // the app clears it, so the next return asks again instead of waiting for it forever.
+                if (event == Lifecycle.Event.ON_STOP) guard.reset()
             }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
@@ -99,7 +102,7 @@ fun AppLockGate(
 
 /**
  * Lets one unlock prompt show at a time: [ask] starts a prompt only while none is showing, and the
- * prompt calls `done` when it ends, whichever way. The system prompt always reports its end.
+ * prompt calls `done` when it ends, whichever way. [reset] forgets a prompt that will not report.
  */
 internal class PromptGuard {
     private var showing = false
@@ -108,6 +111,10 @@ internal class PromptGuard {
         if (showing) return
         showing = true
         start { showing = false }
+    }
+
+    fun reset() {
+        showing = false
     }
 }
 

@@ -19,4 +19,16 @@ class PromptGuardTest {
 
         assertEquals(2, ends.size)
     }
+
+    @Test
+    fun `a prompt that never reports back is forgotten on reset`() {
+        val guard = PromptGuard()
+        var asked = 0
+
+        guard.ask { asked++ }
+        guard.reset()
+        guard.ask { asked++ }
+
+        assertEquals(2, asked)
+    }
 }
