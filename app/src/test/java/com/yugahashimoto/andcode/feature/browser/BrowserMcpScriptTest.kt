@@ -15,6 +15,8 @@ import java.util.concurrent.TimeUnit
  * socket and which page it drives. Skipped where python3 is missing.
  */
 class BrowserMcpScriptTest {
+    private val staleRef = "that handle is gone from the page; call browser_read again for fresh ones"
+
     @get:Rule
     val folder = TemporaryFolder()
 
@@ -206,6 +208,94 @@ class BrowserMcpScriptTest {
                 .readText()
 
         assertTrue(devtools.contains("var AGENT_ACTIVITY_MARKER = '${AgentActivity.MARKER}';"))
+    }
+
+    @Test
+    fun `the outline lists one line per element with its handle`() {
+        val outline =
+            run(
+                """
+                print(m.format_outline({
+                    "title": "Shop", "url": "http://x/", "headings": ["Cart"], "total": 4,
+                    "elements": [
+                        {"ref": 1, "tag": "button", "role": "", "type": "", "name": "Buy", "value": "", "href": "",
+                         "checked": False, "disabled": True},
+                        {"ref": 2, "tag": "input", "role": "", "type": "email", "name": "Email", "value": "a@b.c", "href": "",
+                         "checked": False, "disabled": False},
+                        {"ref": 3, "tag": "a", "role": "", "type": "", "name": "Help", "value": "", "href": "/help",
+                         "checked": False, "disabled": False},
+                    ],
+                }))
+                """.trimIndent(),
+            )
+
+        assertEquals(
+            listOf(
+                "Shop - http://x/",
+                "# Cart",
+                "[1] button \"Buy\" (disabled)",
+                "[2] input(email) \"Email\" value=\"a@b.c\"",
+                "[3] a \"Help\" -> /help",
+                "... 1 more not shown; scroll or navigate to narrow it down",
+            ),
+            outline.lines(),
+        )
+    }
+
+    @Test
+    fun `a handle becomes a lookup of that element and nothing else`() {
+        val expression = run("""print(m.ref_expression("7", "el.click();"))""")
+
+        assertTrue(expression, expression.contains("""[data-andcode-ref="7"]"""))
+        val injected =
+            run(
+                """
+                try:
+                    m.ref_expression("7\"]) || alert(1) || ([", "el.click();")
+                except ValueError:
+                    print("refused")
+                """.trimIndent(),
+            )
+        assertEquals("refused", injected)
+    }
+
+    @Test
+    fun `clicking a handle that left the page says to read again`() {
+        val answer =
+            run(
+                """
+                class Page:
+                    def call(self, method, **params):
+                        return {"result": {"value": "stale"}}
+                    def close(self):
+                        pass
+                class Session:
+                    def open_page_session(self):
+                        return Page()
+                m._session = lambda: Session()
+                print(m.tool_click({"ref": 4}))
+                print(m.tool_type({"ref": 4, "text": "hi"}))
+                """.trimIndent(),
+            )
+
+        assertEquals("${staleRef}\n$staleRef", answer)
+    }
+
+    @Test
+    fun `the page script that lists elements is valid javascript`() {
+        val nodeStarts = runCatching { ProcessBuilder("node", "--version").start().waitFor(30, TimeUnit.SECONDS) }.getOrDefault(false)
+        assumeTrue("needs node", nodeStarts)
+        val body = Regex("READ_JS = r\"\"\"([\\s\\S]*?)\"\"\"").find(script.readText())!!.groupValues[1].replace("%d", "5")
+        val snippet = folder.newFile("read.js").apply { writeText(body) }
+        val check =
+            folder.newFile(
+                "check.js",
+            ).apply { writeText("new Function('return ' + require('fs').readFileSync(process.argv[2], 'utf8'));") }
+
+        val process = ProcessBuilder("node", check.absolutePath, snippet.absolutePath).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText()
+
+        assertTrue(output, process.waitFor(30, TimeUnit.SECONDS) && process.exitValue() == 0)
     }
 
     /** Loads the script as module `m` and runs [code], returning what it printed. */

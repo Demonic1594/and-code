@@ -307,6 +307,96 @@ def _session() -> CdpSession:
     return CdpSession(name)
 
 
+# Lists what a person could act on, tagging each element with a numeric handle (data-andcode-ref) that
+# stays the same across reads while the element stays in the page.
+READ_JS = r"""(() => {
+  const limit = %d;
+  const state = window.__andcodeRefs || (window.__andcodeRefs = { next: 1 });
+  const selector = [
+    'a[href]', 'button', 'input', 'select', 'textarea', 'summary',
+    '[role=button]', '[role=link]', '[role=checkbox]', '[role=radio]', '[role=tab]',
+    '[role=menuitem]', '[role=switch]', '[role=option]', '[onclick]', '[contenteditable=""]',
+    '[contenteditable=true]'
+  ].join(',');
+  const shown = (el) => {
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    const style = getComputedStyle(el);
+    return style.visibility !== 'hidden' && style.display !== 'none';
+  };
+  const clip = (text) => String(text || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const nameOf = (el) =>
+    clip(el.getAttribute('aria-label') || el.labels && el.labels[0] && el.labels[0].innerText ||
+      el.innerText || el.placeholder || el.alt || el.title || el.value);
+  const out = [];
+  let total = 0;
+  for (const el of document.querySelectorAll(selector)) {
+    if (!shown(el)) continue;
+    total++;
+    if (out.length >= limit) continue;
+    let ref = el.getAttribute('data-andcode-ref');
+    if (!ref) { ref = String(state.next++); el.setAttribute('data-andcode-ref', ref); }
+    const tag = el.tagName.toLowerCase();
+    const type = tag === 'input' ? (el.type || 'text') : '';
+    const rect = el.getBoundingClientRect();
+    out.push({
+      ref: Number(ref),
+      tag: tag,
+      role: el.getAttribute('role') || '',
+      type: type,
+      name: nameOf(el),
+      value: type === 'password' ? '' : clip(el.value),
+      href: tag === 'a' ? clip(el.getAttribute('href')) : '',
+      checked: el.checked === true,
+      disabled: el.disabled === true,
+      x: Math.round(rect.left + rect.width / 2),
+      y: Math.round(rect.top + rect.height / 2)
+    });
+  }
+  const headings = Array.from(document.querySelectorAll('h1,h2,h3')).filter(shown).slice(0, 8).map((h) => clip(h.innerText));
+  return JSON.stringify({ url: location.href, title: document.title, headings: headings, total: total, elements: out });
+})()"""
+
+READ_LIMIT = 150
+
+
+def format_outline(data: dict) -> str:
+    """One line per element: [ref] kind "name" and what matters for acting on it."""
+    lines = [f"{data.get('title', '')} - {data.get('url', '')}"]
+    for heading in data.get("headings", []):
+        lines.append(f"# {heading}")
+    for el in data.get("elements", []):
+        kind = el.get("role") or el.get("tag", "")
+        if el.get("type"):
+            kind += f"({el['type']})"
+        line = f"[{el['ref']}] {kind}"
+        if el.get("name"):
+            line += f' "{el["name"]}"'
+        if el.get("value"):
+            line += f' value="{el["value"]}"'
+        if el.get("href"):
+            line += f" -> {el['href']}"
+        if el.get("checked"):
+            line += " (checked)"
+        if el.get("disabled"):
+            line += " (disabled)"
+        lines.append(line)
+    shown = len(data.get("elements", []))
+    total = data.get("total", shown)
+    if total > shown:
+        lines.append(f"... {total - shown} more not shown; scroll or navigate to narrow it down")
+    return "\n".join(lines)
+
+
+def ref_expression(ref: object, action: str) -> str:
+    """JavaScript that finds the element with handle [ref] and runs [action] on it (`el`)."""
+    number = int(ref)
+    return (
+        "(() => { const el = document.querySelector('[data-andcode-ref=\"%d\"]'); "
+        "if (!el) return 'stale'; el.scrollIntoView({block: 'center', inline: 'center'}); %s })()"
+    ) % (number, action)
+
+
 def tool_show(args: dict) -> str:
     url = args["url"]
     COMMAND_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -333,16 +423,32 @@ def tool_navigate(args: dict) -> str:
         page.close()
 
 
+STALE_REF = "that handle is gone from the page; call browser_read again for fresh ones"
+
+
+def tool_read(args: dict) -> str:
+    page = _session().open_page_session()
+    try:
+        result = page.call("Runtime.evaluate", expression=READ_JS % READ_LIMIT, returnByValue=True)
+        return format_outline(json.loads(result.get("result", {}).get("value", "{}")))
+    finally:
+        page.close()
+
+
 def tool_click(args: dict) -> str:
     page = _session().open_page_session()
     try:
-        expr = (
-            "(() => { const el = document.elementFromPoint(%f, %f); "
-            "if (!el) return 'no element'; el.click(); return el.tagName; })()"
-            % (float(args["x"]), float(args["y"]))
-        )
+        if args.get("ref") is not None:
+            expr = ref_expression(args["ref"], "el.click(); return el.tagName;")
+        else:
+            expr = (
+                "(() => { const el = document.elementFromPoint(%f, %f); "
+                "if (!el) return 'no element'; el.click(); return el.tagName; })()"
+                % (float(args["x"]), float(args["y"]))
+            )
         result = page.call("Runtime.evaluate", expression=expr, returnByValue=True)
-        return f"clicked: {result.get('result', {}).get('value')}"
+        value = result.get("result", {}).get("value")
+        return STALE_REF if value == "stale" else f"clicked: {value}"
     finally:
         page.close()
 
@@ -350,7 +456,16 @@ def tool_click(args: dict) -> str:
 def tool_type(args: dict) -> str:
     page = _session().open_page_session()
     try:
-        page.call("Runtime.evaluate", expression="document.activeElement && document.activeElement.focus()")
+        if args.get("ref") is not None:
+            focused = page.call(
+                "Runtime.evaluate",
+                expression=ref_expression(args["ref"], "el.focus(); return 'ok';"),
+                returnByValue=True,
+            )
+            if focused.get("result", {}).get("value") == "stale":
+                return STALE_REF
+        else:
+            page.call("Runtime.evaluate", expression="document.activeElement && document.activeElement.focus()")
         page.call("Input.insertText", text=args["text"])
         return "typed"
     finally:
@@ -411,20 +526,35 @@ TOOLS = [
         },
     },
     {
+        "name": "browser_read",
+        "description": (
+            "List what can be acted on in the Guest Browser page: links, buttons, fields and so on, "
+            "one per line as [handle] kind \"name\". Pass a handle to browser_click or browser_type "
+            "instead of guessing coordinates. Handles stay valid while the element stays in the page; "
+            "read again after the page changes."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
         "name": "browser_click",
-        "description": "Click/tap viewport coordinates (x, y) in the Guest Browser page.",
+        "description": (
+            "Click an element of the Guest Browser page by its handle from browser_read, or tap "
+            "viewport coordinates (x, y) when there is none."
+        ),
         "inputSchema": {
             "type": "object",
-            "properties": {"x": {"type": "number"}, "y": {"type": "number"}},
-            "required": ["x", "y"],
+            "properties": {"ref": {"type": "integer"}, "x": {"type": "number"}, "y": {"type": "number"}},
         },
     },
     {
         "name": "browser_type",
-        "description": "Type text into the focused input of the Guest Browser page.",
+        "description": (
+            "Type text into an input of the Guest Browser page: the one with the given handle from "
+            "browser_read, or else the focused one."
+        ),
         "inputSchema": {
             "type": "object",
-            "properties": {"text": {"type": "string"}},
+            "properties": {"text": {"type": "string"}, "ref": {"type": "integer"}},
             "required": ["text"],
         },
     },
@@ -447,6 +577,7 @@ HANDLERS = {
     "browser_show": tool_show,
     "browser_status": tool_status,
     "browser_navigate": tool_navigate,
+    "browser_read": tool_read,
     "browser_click": tool_click,
     "browser_type": tool_type,
     "browser_screenshot": tool_screenshot,
