@@ -54,6 +54,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -259,7 +261,9 @@ fun PermissionCard(
 ) {
     // One glance, one thumb: what the agent wants to run, in a code block, then every answer on one
     // compact row with the one given most often, "Allow once", last, under the thumb.
-    val warningColor = LocalThemeColors.current.warning
+    val risk = remember(permission) { ToolRisks.of(permission) }
+    // A destructive call is drawn in the error colour throughout, not only in its chip.
+    val warningColor = if (risk == ToolRisk.DESTRUCTIVE) MaterialTheme.colorScheme.error else LocalThemeColors.current.warning
     val (tag, details) = remember(permission) { permissionSummary(permission) }
     var detailsExpanded by remember(permission.id) { mutableStateOf(false) }
     var detailsOverflow by remember(permission.id) { mutableStateOf(false) }
@@ -285,6 +289,10 @@ fun PermissionCard(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
                 )
+            }
+            // On their own row, under the title, so a long risk label or tool name never squeezes it.
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                RiskChip(risk, warningColor)
                 // The tool's name only, kept short: the long part (the command) belongs in the box below.
                 Surface(shape = AppShapes.pill, color = warningColor.copy(alpha = 0.16f), contentColor = warningColor) {
                     Text(
@@ -403,6 +411,37 @@ internal fun permissionSummary(permission: PermissionRequest): Pair<String, List
             permission.permission to permission.patterns
         }
     return tag to details.filterNot { it == tag }
+}
+
+/** What the call risks, in words: reads, edits files, runs a command, or destroys something for good. */
+@Composable
+private fun RiskChip(
+    risk: ToolRisk,
+    alertColor: Color,
+) {
+    val (label, color) =
+        when (risk) {
+            ToolRisk.READ_ONLY -> R.string.permission_risk_read_only to MaterialTheme.colorScheme.onSurfaceVariant
+            ToolRisk.WRITING -> R.string.permission_risk_writing to MaterialTheme.colorScheme.primary
+            ToolRisk.EXECUTING -> R.string.permission_risk_executing to alertColor
+            ToolRisk.DESTRUCTIVE -> R.string.permission_risk_destructive to alertColor
+        }
+    val text = stringResource(label)
+    val spoken = stringResource(R.string.cd_permission_risk, text)
+    Surface(
+        shape = AppShapes.pill,
+        color = color.copy(alpha = 0.12f),
+        contentColor = color,
+        modifier = Modifier.clearAndSetSemantics { contentDescription = spoken },
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (risk == ToolRisk.DESTRUCTIVE) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 2.dp),
+        )
+    }
 }
 
 internal object PermissionCardSizes {

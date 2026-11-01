@@ -40,6 +40,11 @@
     <string name="agent">代理</string>
     <string name="permission_required">需要批准</string>
     <string name="permission_show_all">显示全部</string>
+    <string name="permission_risk_read_only">读取</string>
+    <string name="permission_risk_writing">编辑文件</string>
+    <string name="permission_risk_executing">运行命令</string>
+    <string name="permission_risk_destructive">破坏性</string>
+    <string name="cd_permission_risk">风险：%1$s</string>
     <string name="allow_once">允许一次</string>
     <string name="always_allow">始终允许</string>
     <string name="reject">拒绝</string>
