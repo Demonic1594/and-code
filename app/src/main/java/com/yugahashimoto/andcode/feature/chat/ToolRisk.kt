@@ -31,9 +31,12 @@ object ToolRisks {
         setOf("read", "grep", "glob", "ls", "list", "notebookread", "webfetch", "websearch", "todoread", "todowrite")
     private val writing = setOf("write", "edit", "multiedit", "notebookedit", "patch")
 
+    /** Shell words that come before a command without being one: `then rm -rf x`, `! rm x`. */
+    private val shellWords = setOf("then", "do", "else", "elif", "if", "while", "until", "!", "$")
+
     /** Programs that only run the program after them, which is the one that counts. */
     private val launchers = setOf("sudo", "doas", "env", "nohup", "time", "nice", "command", "exec", "xargs", "timeout", "stdbuf")
-    private val sql = Regex("""\b(drop\s+(table|database|schema)|truncate\s+(table\s+)?\w|delete\s+from)\b""", RegexOption.IGNORE_CASE)
+    private val sql = Regex("""\b(drop\s+(table|database|schema)|truncate\s+(table\s+)?\w+|delete\s+from)\b""", RegexOption.IGNORE_CASE)
 
     fun of(
         toolName: String,
@@ -74,23 +77,35 @@ object ToolRisks {
     fun isDestructive(command: String): Boolean {
         if (sql.containsMatchIn(command)) return true
         return command
-            .split(Regex("""&&|\|\||[;|\n'"`]|\$\(|\)"""))
+            .split(Regex("""[;|&\n'"`(){}]"""))
             .map { segment -> segment.trim().split(Regex("""\s+""")).filter(String::isNotEmpty) }
             .any(::isDestructiveCall)
     }
 
     private fun isDestructiveCall(words: List<String>): Boolean {
-        val start = words.indexOfFirst { programOf(it) !in launchers && !it.contains('=') }
+        val start = words.indexOfFirst { it !in shellWords && !it.contains('=') }
         if (start < 0) return false
-        val args = words.drop(start + 1)
-        return when (programOf(words[start])) {
+        // A launcher's own options and values come before its command (`sudo -u root rm`, `xargs -0
+        // rm`, `timeout 5 rm`): any later word may be the program, so each one is tried.
+        if (programOf(words[start]) in launchers) return (start + 1 until words.size).any { isDestructiveAt(words, it) }
+        return isDestructiveAt(words, start)
+    }
+
+    /** Whether running [words] from index [at] as program and arguments destroys something. */
+    private fun isDestructiveAt(
+        words: List<String>,
+        at: Int,
+    ): Boolean {
+        val program = programOf(words[at])
+        val args = words.drop(at + 1)
+        return when (program) {
             "rm" -> args.any { shortFlags(it, "rRf") || it == "--recursive" || it == "--force" }
             "find" -> "-delete" in args || args.zipWithNext().any { (a, b) -> a.startsWith("-exec") && programOf(b) == "rm" }
             "git" -> isDestructiveGit(args)
             "dd" -> args.any { it.startsWith("of=") }
             "shred", "wipefs", "truncate" -> true
             "chmod", "chown", "chgrp" -> args.any { shortFlags(it, "R") || it == "--recursive" }
-            else -> programOf(words[start]).startsWith("mkfs")
+            else -> program.startsWith("mkfs")
         }
     }
 

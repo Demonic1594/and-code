@@ -66,6 +66,20 @@ class ToolRiskTest {
             "find . -exec rm {} \\;",
             "psql -c 'TRUNCATE users'",
             "sqlite3 db 'DELETE FROM users'",
+            "psql -c \"TRUNCATE TABLE users\"",
+            "mysql -e \"truncate table users\"",
+            // Behind a launcher's options, a shell keyword, a group or a background job.
+            "find . -print0 | xargs -0 rm -rf",
+            "sudo -u root rm -rf x",
+            "timeout 5 rm -rf x",
+            "nice -n 10 rm -rf x",
+            "env -i rm -rf x",
+            "for f in *; do rm -f \"x\"; done",
+            "if test -d x; then rm -rf x; fi",
+            "(rm -rf x)",
+            "{ rm -rf x; }",
+            "! rm -rf x",
+            "sleep 1 & rm -rf x",
         ).forEach { assertEquals(it, ToolRisk.DESTRUCTIVE, ToolRisks.of("Bash", it)) }
     }
 
@@ -86,6 +100,8 @@ class ToolRiskTest {
             "git push -u origin feature",
             "git restore --staged .",
             "npm run rm -- -r",
+            "psql -c \"SELECT * FROM users\"",
+            "sudo apt install ripgrep",
         ).forEach { assertEquals(it, ToolRisk.EXECUTING, ToolRisks.of("Bash", it)) }
     }
 
