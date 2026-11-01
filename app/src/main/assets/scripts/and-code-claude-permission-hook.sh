@@ -147,14 +147,14 @@ if [ -f "$CLASSES" ]; then
   esac
   if [ "$TOOL_KIND" = "edit" ]; then
     # Editing by kind covers the project's own files only: never this hook's rules, Claude Code's
-    # settings or git's hooks, through which an edit could let commands run unasked.
+    # settings, MCP servers or git's hooks, through which an edit could let commands run unasked.
     EDIT_PATH=$(printf '%s' "$TOOL_INPUT" | jq -r '.file_path // .notebook_path // .path // empty' 2>/dev/null || true)
     case "$EDIT_PATH" in /*) ;; *) EDIT_PATH="$CWD/$EDIT_PATH" ;; esac
     EDIT_REAL=$(realpath -m -- "$EDIT_PATH" 2>/dev/null || true)
     PROJECT_REAL=$(realpath -m -- "$CWD" 2>/dev/null || true)
     BRIDGE_REAL=$(realpath -m -- "$BRIDGE" 2>/dev/null || printf '%s' "$BRIDGE")
     case "$EDIT_REAL" in
-      "" | */.git | */.git/* | */.claude | */.claude/* | "$BRIDGE_REAL" | "$BRIDGE_REAL"/*) TOOL_KIND="" ;;
+      "" | */.git | */.git/* | */.claude | */.claude/* | */.mcp.json | "$BRIDGE_REAL" | "$BRIDGE_REAL"/*) TOOL_KIND="" ;;
     esac
     if [ -z "$PROJECT_REAL" ] || [ "$PROJECT_REAL" = "/" ]; then
       TOOL_KIND=""

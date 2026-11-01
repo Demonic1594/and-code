@@ -94,6 +94,7 @@ class PermissionHookScriptTest {
             "/root/shop/.claude/settings.json",
             "/root/.claude/settings.json",
             "/root/shop/.git/hooks/pre-commit",
+            "/root/shop/.mcp.json",
             "/root/shop/../blog/a.kt",
             "/etc/profile",
         ).forEach { path ->
