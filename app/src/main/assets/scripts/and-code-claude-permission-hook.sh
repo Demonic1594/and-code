@@ -136,15 +136,34 @@ if [ "$MODE" = "--pre-tool-use" ]; then
   exit 0
 fi
 
-# Kinds of calls the user allows without asking (ToolClassRules): reading and editing files. Same
-# tool lists as ToolClassRules.Kind; running commands is never allowed by kind.
+# Kinds of calls the user allows without asking (ToolClassRules). Same tool lists as
+# ToolClassRules.Kind; running commands is never allowed by kind.
 if [ -f "$CLASSES" ]; then
   case "$TOOL_NAME" in
-    Read|Grep|Glob|LS|NotebookRead|WebFetch|WebSearch) TOOL_KIND="read" ;;
+    Read|Grep|Glob|LS|NotebookRead) TOOL_KIND="read" ;;
+    WebFetch|WebSearch) TOOL_KIND="web" ;;
     Write|Edit|MultiEdit|NotebookEdit) TOOL_KIND="edit" ;;
     *) TOOL_KIND="" ;;
   esac
-  if [ -n "$TOOL_KIND" ] && jq -e --arg k "$TOOL_KIND" '(.allow // []) | index($k) != null' "$CLASSES" >/dev/null 2>&1; then
+  if [ "$TOOL_KIND" = "edit" ]; then
+    # Editing by kind covers the project's own files only: never this hook's rules, Claude Code's
+    # settings or git's hooks, through which an edit could let commands run unasked.
+    EDIT_PATH=$(printf '%s' "$TOOL_INPUT" | jq -r '.file_path // .notebook_path // .path // empty' 2>/dev/null || true)
+    case "$EDIT_PATH" in /*) ;; *) EDIT_PATH="$CWD/$EDIT_PATH" ;; esac
+    EDIT_REAL=$(realpath -m -- "$EDIT_PATH" 2>/dev/null || true)
+    PROJECT_REAL=$(realpath -m -- "$CWD" 2>/dev/null || true)
+    BRIDGE_REAL=$(realpath -m -- "$BRIDGE" 2>/dev/null || printf '%s' "$BRIDGE")
+    case "$EDIT_REAL" in
+      "" | */.git | */.git/* | */.claude | */.claude/* | "$BRIDGE_REAL" | "$BRIDGE_REAL"/*) TOOL_KIND="" ;;
+    esac
+    if [ -z "$PROJECT_REAL" ] || [ "$PROJECT_REAL" = "/" ]; then
+      TOOL_KIND=""
+    else
+      case "$EDIT_REAL" in "$PROJECT_REAL"/*) ;; *) TOOL_KIND="" ;; esac
+    fi
+  fi
+  # Only a list of kinds counts: a damaged file allows nothing.
+  if [ -n "$TOOL_KIND" ] && jq -e --arg k "$TOOL_KIND" '(.allow | type == "array") and any(.allow[]; . == $k)' "$CLASSES" >/dev/null 2>&1; then
     printf '%s\n' "$ALLOW"
     exit 0
   fi

@@ -7,11 +7,14 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.io.IOException
 
 /**
  * Kinds of Claude Code tool calls the user lets run without asking, in every project: reading
- * (files and the web) and editing files. Running commands is never a kind that can be allowed
- * wholesale; those stay per command. The hook reads [FILE_NAME] after the blocking rules.
+ * files, using the web, and editing the project's files. Running commands is never a kind that can
+ * be allowed wholesale; those stay per command. The hook reads [FILE_NAME] after the blocking
+ * rules, and lets editing by kind touch only files inside the call's project, never under `.git`,
+ * `.claude` or the bridge, through which an edit could let commands run unasked.
  */
 class ToolClassRules(
     root: File,
@@ -23,7 +26,10 @@ class ToolClassRules(
         /** Claude Code's tools of this kind; the hook carries the same lists. */
         val tools: Set<String>,
     ) {
-        READING("read", setOf("Read", "Grep", "Glob", "LS", "NotebookRead", "WebFetch", "WebSearch")),
+        READING("read", setOf("Read", "Grep", "Glob", "LS", "NotebookRead")),
+
+        /** Apart from reading: a URL or a query can carry what was read out of the device. */
+        WEB("web", setOf("WebFetch", "WebSearch")),
         EDITING("edit", setOf("Write", "Edit", "MultiEdit", "NotebookEdit")),
     }
 
@@ -45,8 +51,9 @@ class ToolClassRules(
     ) {
         val next = if (allow) mutableAllowed.value + kind else mutableAllowed.value - kind
         if (next.isEmpty()) {
-            // No file means nothing is allowed by kind, and the hook skips the check.
-            file.delete()
+            // No file means nothing is allowed by kind, and the hook skips the check. One that cannot
+            // be removed would keep allowing while the switch shows off: fail instead.
+            if (!file.delete() && file.exists()) throw IOException("could not remove ${file.path}")
         } else {
             val tmp = File(file.parentFile, "${file.name}.tmp")
             tmp.writeText(json.encodeToString(Stored(next.map(Kind::key).sorted())))
@@ -57,9 +64,6 @@ class ToolClassRules(
         }
         mutableAllowed.value = next
     }
-
-    /** Whether a call to [toolName] runs without asking. */
-    fun allows(toolName: String): Boolean = mutableAllowed.value.any { toolName in it.tools }
 
     private fun load(): Set<Kind> {
         if (!file.isFile) return emptySet()

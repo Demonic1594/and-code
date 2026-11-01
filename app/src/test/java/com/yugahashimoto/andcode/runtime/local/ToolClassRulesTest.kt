@@ -13,15 +13,11 @@ class ToolClassRulesTest {
     val folder = TemporaryFolder()
 
     @Test
-    fun `an allowed kind covers its tools, survives a restart, and leaves commands alone`() {
+    fun `an allowed kind is saved for the hook and survives a restart`() {
         val rules = ToolClassRules(folder.root)
 
         rules.set(ToolClassRules.Kind.READING, allow = true)
 
-        assertTrue(rules.allows("Read"))
-        assertTrue(rules.allows("WebFetch"))
-        assertFalse(rules.allows("Edit"))
-        assertFalse(rules.allows("Bash"))
         assertEquals("""{"allow":["read"]}""", File(folder.root, ToolClassRules.FILE_NAME).readText())
         assertEquals(setOf(ToolClassRules.Kind.READING), ToolClassRules(folder.root).allowed.value)
     }
@@ -35,6 +31,31 @@ class ToolClassRulesTest {
 
         assertFalse(File(folder.root, ToolClassRules.FILE_NAME).exists())
         assertTrue(rules.allowed.value.isEmpty())
+    }
+
+    @Test
+    fun `a file that cannot be removed fails rather than showing off while still allowing`() {
+        val rules = ToolClassRules(folder.root)
+        rules.set(ToolClassRules.Kind.READING, allow = true)
+        // A directory in the way of the delete stands for a file that will not go.
+        val file = File(folder.root, ToolClassRules.FILE_NAME)
+        file.delete()
+        file.mkdir()
+        File(file, "child").writeText("x")
+
+        val failed = runCatching { rules.set(ToolClassRules.Kind.READING, allow = false) }.isFailure
+
+        assertTrue(failed)
+        assertEquals(setOf(ToolClassRules.Kind.READING), rules.allowed.value)
+    }
+
+    @Test
+    fun `the hook knows the same tools for each kind as the app`() {
+        val hook = File("src/main/assets/scripts/and-code-claude-permission-hook.sh").readText()
+        ToolClassRules.Kind.entries.forEach { kind ->
+            val line = Regex("""^\s*([A-Za-z|]+)\) TOOL_KIND="${kind.key}" ;;""", RegexOption.MULTILINE).find(hook)
+            assertEquals(kind.name, kind.tools, line?.groupValues?.get(1)?.split('|')?.toSet())
+        }
     }
 
     @Test

@@ -3,8 +3,10 @@ package com.yugahashimoto.andcode.runtime.local
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -74,12 +76,37 @@ class PermissionHookScriptTest {
     fun `a kind allowed by the user runs without asking, and a command is never allowed by kind`() {
         File(bridge, "class-rules.json").writeText("""{"allow":["read","edit"]}""")
 
-        val read =
-            runHook("""{"hook_event_name":"PermissionRequest","session_id":"s1","tool_name":"Read","tool_input":{"file_path":"a.kt"}}""")
-        assertEquals("allow", read.behavior())
+        assertEquals("allow", runHook(toolCall("Read", """{"file_path":"/root/shop/a.kt"}""")).behavior())
+        assertEquals("allow", runHook(toolCall("Edit", """{"file_path":"src/a.kt"}""")).behavior())
+        assertEquals("deny", runHook(bashCall("ls"), response = declined).behavior())
+        // The web is a kind of its own, and only exact tool names count.
+        assertEquals("deny", runHook(toolCall("WebFetch", """{"url":"https://example.com"}"""), response = declined).behavior())
+        assertEquals("deny", runHook(toolCall("read", """{"file_path":"a"}"""), response = declined).behavior())
+        assertEquals("deny", runHook(toolCall("mcp__fs__Read", """{"file_path":"a"}"""), response = declined).behavior())
+    }
 
-        val command = runHook(bashCall("ls"), response = """{"decision":"deny"}""")
-        assertEquals("deny", command.behavior())
+    @Test
+    fun `editing by kind never reaches the hook's rules, settings, git or outside the project`() {
+        File(bridge, "class-rules.json").writeText("""{"allow":["edit"]}""")
+
+        listOf(
+            "${bridge.path}/block-rules.json",
+            "/root/shop/.claude/settings.json",
+            "/root/.claude/settings.json",
+            "/root/shop/.git/hooks/pre-commit",
+            "/root/shop/../blog/a.kt",
+            "/etc/profile",
+        ).forEach { path ->
+            val answer = runHook(toolCall("Write", buildJsonObject { put("file_path", path) }.toString()), response = declined)
+            assertEquals(path, "deny", answer.behavior())
+        }
+    }
+
+    @Test
+    fun `a damaged kinds file allows nothing`() {
+        File(bridge, "class-rules.json").writeText("""{"allow":"xreadx"}""")
+
+        assertEquals("deny", runHook(toolCall("Read", """{"file_path":"a"}"""), response = declined).behavior())
     }
 
     @Test
@@ -212,6 +239,13 @@ class PermissionHookScriptTest {
     fun `the hook falls back to the same declined text as the app`() {
         assertTrue(script.readText().contains(ClaudePermissionBridge.DECLINED_MESSAGE))
     }
+
+    private val declined = """{"decision":"deny"}"""
+
+    private fun toolCall(
+        tool: String,
+        input: String,
+    ): String = """{"hook_event_name":"PermissionRequest","session_id":"s1","cwd":"/root/shop","tool_name":"$tool","tool_input":$input}"""
 
     private fun bashCall(
         command: String,

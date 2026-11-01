@@ -190,6 +190,7 @@ private fun AllowedKinds(
                 stringResource(
                     when (kind) {
                         ToolClassRules.Kind.READING -> R.string.command_rules_kind_reading
+                        ToolClassRules.Kind.WEB -> R.string.command_rules_kind_web
                         ToolClassRules.Kind.EDITING -> R.string.command_rules_kind_editing
                     },
                 )
