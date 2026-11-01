@@ -40,6 +40,10 @@
     <string name="agent">エージェント</string>
     <string name="permission_required">操作の承認が必要です</string>
     <string name="permission_show_all">すべて表示</string>
+    <string name="permission_risk_read_only">読み取り</string>
+    <string name="permission_risk_writing">ファイル編集</string>
+    <string name="permission_risk_executing">コマンド実行</string>
+    <string name="permission_risk_destructive">破壊的</string>
     <string name="allow_once">今回だけ許可</string>
     <string name="always_allow">常に許可</string>
     <string name="reject">拒否</string>

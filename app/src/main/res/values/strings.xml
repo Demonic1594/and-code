@@ -40,6 +40,10 @@
     <string name="agent">Agent</string>
     <string name="permission_required">Approval required</string>
     <string name="permission_show_all">Show all of it</string>
+    <string name="permission_risk_read_only">Reads</string>
+    <string name="permission_risk_writing">Edits files</string>
+    <string name="permission_risk_executing">Runs a command</string>
+    <string name="permission_risk_destructive">Destructive</string>
     <string name="allow_once">Allow once</string>
     <string name="always_allow">Always allow</string>
     <string name="reject">Reject</string>
