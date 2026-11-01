@@ -1267,6 +1267,7 @@
     <string name="guest_browser_copy_link">نسخ الرابط</string>
     <string name="guest_browser_link_copied">تم نسخ الرابط</string>
     <string name="guest_browser_open_external">فتح في المتصفح</string>
+    <string name="guest_browser_agent_control">السماح للوكلاء بالتحكم في هذا المتصفح</string>
     <string name="guest_browser_close">إغلاق المتصفح</string>
     <string name="guest_browser_stop">إيقاف التحميل</string>
     <string name="guest_browser_devtools">أدوات المطوّر</string>

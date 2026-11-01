@@ -457,6 +457,14 @@ class SecureSettingsRepository(context: Context) :
         get() = lockPreferences.getBoolean(KEY_BIOMETRIC_LOCK, false)
         set(value) = lockPreferences.edit().putBoolean(KEY_BIOMETRIC_LOCK, value).apply()
 
+    /**
+     * Whether agents may drive the Guest Browser. A safety switch like the lock's, so it is kept in
+     * the same plain store: turned off, it must stay off even if the encrypted store cannot open.
+     */
+    var agentBrowserControl: Boolean
+        get() = lockPreferences.getBoolean(KEY_AGENT_BROWSER_CONTROL, true)
+        set(value) = lockPreferences.edit().putBoolean(KEY_AGENT_BROWSER_CONTROL, value).apply()
+
     var biometricLockOnSendEnabled: Boolean
         get() = lockPreferences.getBoolean(KEY_BIOMETRIC_LOCK_ON_SEND, false)
         set(value) = lockPreferences.edit().putBoolean(KEY_BIOMETRIC_LOCK_ON_SEND, value).apply()
@@ -634,6 +642,7 @@ class SecureSettingsRepository(context: Context) :
         private const val KEY_SEND_BEHAVIOR = "send_behavior"
         private const val KEY_ENTER_TO_SEND = "enter_to_send"
         private const val KEY_HAPTICS_ENABLED = "haptics_enabled"
+        private const val KEY_AGENT_BROWSER_CONTROL = "agent_browser_control"
         private const val LOCK_PREFS_NAME = "andcode_app_lock"
         private const val KEY_BIOMETRIC_LOCK = "biometric_lock_enabled"
         private const val KEY_BIOMETRIC_LOCK_ON_SEND = "biometric_lock_on_send_enabled"

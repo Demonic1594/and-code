@@ -52,6 +52,8 @@ data class AppPreferences(
     val sendBehavior: String = "interrupt",
     val enterToSend: Boolean = false,
     val hapticsEnabled: Boolean = true,
+    /** Whether agents may drive the Guest Browser over DevTools while it is open. */
+    val agentBrowserControl: Boolean = true,
     /** Ask for the device's biometric or screen lock when the app opens or comes back. */
     val biometricLockEnabled: Boolean = false,
     /** Also ask before each message is sent; only meaningful with [biometricLockEnabled]. */
@@ -117,6 +119,7 @@ class AppPreferencesRepository(
                 sendBehavior = settings.sendBehavior,
                 enterToSend = settings.enterToSend,
                 hapticsEnabled = settings.hapticsEnabled,
+                agentBrowserControl = settings.agentBrowserControl,
                 biometricLockEnabled = settings.biometricLockEnabled,
                 biometricLockOnSendEnabled = settings.biometricLockOnSendEnabled,
                 pinnedSessionIds = settings.pinnedSessionIds,
@@ -357,6 +360,11 @@ class AppPreferencesRepository(
     fun setHapticsEnabled(enabled: Boolean) {
         settings.hapticsEnabled = enabled
         mutableState.update { it.copy(hapticsEnabled = enabled) }
+    }
+
+    fun setAgentBrowserControl(enabled: Boolean) {
+        settings.agentBrowserControl = enabled
+        mutableState.update { it.copy(agentBrowserControl = enabled) }
     }
 
     fun setBiometricLockEnabled(enabled: Boolean) {

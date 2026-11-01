@@ -1258,6 +1258,7 @@
     <string name="guest_browser_copy_link">Copiar link</string>
     <string name="guest_browser_link_copied">Link copiado</string>
     <string name="guest_browser_open_external">Abrir no navegador</string>
+    <string name="guest_browser_agent_control">Permitir que agentes controlem este navegador</string>
     <string name="guest_browser_close">Fechar navegador</string>
     <string name="guest_browser_stop">Parar carregamento</string>
     <string name="guest_browser_devtools">DevTools</string>
