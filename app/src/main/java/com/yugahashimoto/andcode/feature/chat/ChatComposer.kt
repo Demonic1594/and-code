@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
@@ -51,9 +52,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -166,6 +169,16 @@ internal fun ChatComposer(
     val input = inputValue.text
     val voiceActive = isListening || isSpeechProcessing
     var showAttachMenu by remember { mutableStateOf(false) }
+    // How many lines the message takes, so a long one can be opened full screen.
+    var inputLines by remember { mutableIntStateOf(1) }
+    var composerExpanded by rememberSaveable { mutableStateOf(false) }
+    if (composerExpanded) {
+        ExpandedComposer(
+            value = inputValue,
+            onValueChange = onInputValueChange,
+            onCollapse = { composerExpanded = false },
+        )
+    }
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val currentOnPasteImage by rememberUpdatedState(onPasteImage)
@@ -340,7 +353,8 @@ internal fun ChatComposer(
                                         pasteImage
                                     },
                             minLines = 1,
-                            maxLines = 4,
+                            maxLines = ComposerLimits.MAX_LINES,
+                            onTextLayout = { layout -> inputLines = layout.lineCount },
                             textStyle =
                                 TextStyle(
                                     color = MaterialTheme.colorScheme.onSurface,
@@ -381,62 +395,69 @@ internal fun ChatComposer(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                 ) {
-                    Box {
-                        AttachButton(onClick = { showAttachMenu = true })
-                        DropdownMenu(
-                            expanded = showAttachMenu,
-                            onDismissRequest = { showAttachMenu = false },
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.attach_file)) },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.InsertDriveFile,
-                                        contentDescription = stringResource(R.string.cd_attach_file),
-                                        modifier = Modifier.size(18.dp),
-                                    )
-                                },
-                                onClick = {
-                                    showAttachMenu = false
-                                    onAttach()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.attach_camera)) },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.CameraAlt,
-                                        contentDescription = stringResource(R.string.cd_camera),
-                                        modifier = Modifier.size(18.dp),
-                                    )
-                                },
-                                onClick = {
-                                    showAttachMenu = false
-                                    onCameraLaunch()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.attach_gallery)) },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.PhotoLibrary,
-                                        contentDescription = stringResource(R.string.cd_gallery),
-                                        modifier = Modifier.size(18.dp),
-                                    )
-                                },
-                                onClick = {
-                                    showAttachMenu = false
-                                    onGalleryLaunch()
-                                },
-                            )
+                    // The model chip takes what the buttons leave and ellipsizes, so on a narrow screen
+                    // it gives way rather than pushing the send button out.
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    ) {
+                        Box {
+                            AttachButton(onClick = { showAttachMenu = true })
+                            DropdownMenu(
+                                expanded = showAttachMenu,
+                                onDismissRequest = { showAttachMenu = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.attach_file)) },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.InsertDriveFile,
+                                            contentDescription = stringResource(R.string.cd_attach_file),
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    },
+                                    onClick = {
+                                        showAttachMenu = false
+                                        onAttach()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.attach_camera)) },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.CameraAlt,
+                                            contentDescription = stringResource(R.string.cd_camera),
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    },
+                                    onClick = {
+                                        showAttachMenu = false
+                                        onCameraLaunch()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.attach_gallery)) },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.PhotoLibrary,
+                                            contentDescription = stringResource(R.string.cd_gallery),
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    },
+                                    onClick = {
+                                        showAttachMenu = false
+                                        onGalleryLaunch()
+                                    },
+                                )
+                            }
                         }
+                        CompactContextButton(
+                            label = modelLabel,
+                            maxWidth = 168.dp,
+                            onClick = onModelChipClick,
+                        )
                     }
-                    CompactContextButton(
-                        label = modelLabel,
-                        maxWidth = 168.dp,
-                        onClick = onModelChipClick,
-                    )
-                    Spacer(Modifier.weight(1f))
                     if (isListening) {
                         VolumeMeter(amplitude = 0.5f, idle = true)
                     }
@@ -452,6 +473,21 @@ internal fun ChatComposer(
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         }
+                    // Not while dictating: the dictated text replaces the field, and the stop button
+                    // would be hidden behind the full-screen editor.
+                    if (!voiceActive && shouldOfferExpandedComposer(inputLines)) {
+                        IconButton(
+                            onClick = { composerExpanded = true },
+                            modifier = Modifier.size(38.dp).testTag("chat-expand-composer"),
+                        ) {
+                            Icon(
+                                Icons.Default.OpenInFull,
+                                contentDescription = stringResource(R.string.cd_expand_composer),
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     Surface(
                         modifier =
                             Modifier

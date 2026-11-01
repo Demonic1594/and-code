@@ -106,6 +106,8 @@
     <string name="home_assistant">المساعد الرئيسي</string>
     <string name="set_default_assistant">تعيين كمساعد رقمي افتراضي</string>
     <string name="voice">الصوت</string>
+    <string name="cd_expand_composer">توسيع الرسالة</string>
+    <string name="cd_collapse_composer">طي الرسالة</string>
     <string name="mic_permission_required">مطلوب إذن الميكروفون لميزات الصوت</string>
     <string name="voice_response">قراءة الردود بصوت عالٍ</string>
     <string name="continuous_conversation">محادثة مستمرة</string>
@@ -1277,6 +1279,7 @@
     <string name="guest_browser_copy_link">نسخ الرابط</string>
     <string name="guest_browser_link_copied">تم نسخ الرابط</string>
     <string name="guest_browser_open_external">فتح في المتصفح</string>
+    <string name="guest_browser_agent_control">السماح للوكلاء بالتحكم في هذا المتصفح</string>
     <string name="guest_browser_close">إغلاق المتصفح</string>
     <string name="guest_browser_stop">إيقاف التحميل</string>
     <string name="guest_browser_devtools">أدوات المطوّر</string>
