@@ -1838,6 +1838,8 @@
     <string name="share_server_installing">Подготовка инструмента для доступа (только в первый раз)…</string>
     <string name="share_server_starting">Запуск ссылки…</string>
     <string name="share_server_too_many">Запущено слишком много процессов. Остановите один и попробуйте снова.</string>
+    <string name="share_server_not_answering">На порту %1$d ничего не отвечает, поэтому делиться пока нечем. Запустите сервер и повторите попытку.</string>
+    <string name="share_server_name_in_use">Под именем этой ссылки уже работает другой процесс, поэтому он не тронут. Повторите попытку, когда он завершится.</string>
     <string name="share_server_failed">Не удалось поделиться: %1$s</string>
     <string name="share_server_warning">localhost:%1$d станет доступен любому, у кого есть ссылка, из любой точки мира, пока доступ открыт. Ссылка случайная, но после отправки перестаёт быть секретной.</string>
     <string name="share_server_start">Открыть доступ</string>

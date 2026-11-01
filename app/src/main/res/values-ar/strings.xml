@@ -1864,6 +1864,8 @@
     <string name="share_server_installing">تجهيز أداة المشاركة (للمرة الأولى فقط)…</string>
     <string name="share_server_starting">بدء تشغيل الرابط…</string>
     <string name="share_server_too_many">هناك عدد كبير جدًا من العمليات قيد التشغيل. أوقف إحداها، ثم حاول مرة أخرى.</string>
+    <string name="share_server_not_answering">لا شيء يستجيب على المنفذ %1$d، لذا لا يوجد ما يُشارك بعد. شغّل الخادم ثم حاول مجددًا.</string>
+    <string name="share_server_name_in_use">تعمل عملية أخرى بالفعل باسم هذه المشاركة، لذا تُركت كما هي. حاول مجددًا بعد انتهائها.</string>
     <string name="share_server_failed">تعذرت المشاركة: %1$s</string>
     <string name="share_server_warning">يجعل هذا localhost:%1$d متاحًا لأي شخص لديه الرابط، من أي مكان، طالما بقيت المشاركة. الرابط عشوائي، لكنه لا يبقى سريًا بمجرد إرساله.</string>
     <string name="share_server_start">بدء المشاركة</string>

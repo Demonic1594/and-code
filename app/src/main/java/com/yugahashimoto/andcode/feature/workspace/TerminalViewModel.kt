@@ -328,13 +328,15 @@ class TerminalViewModel(
                 coroutineScope {
                     ports.map { port -> async(ioDispatcher) { port to isAnswering(port) } }.awaitAll().toMap()
                 }
-            synchronized(lock) {
-                tracker = tracker.applyProbe(answers)
-                _state.update { it.copy(servers = tracker.servers) }
-                // A link must not outlive the server it points at.
-                val stopped = tracker.servers.filter { it.status == DevServerStatus.STOPPED }.map { it.port }
-                if (stopped.isNotEmpty()) sharing?.stopGone(stopped.filter { it in sharedPorts })
-            }
+            val stoppedShares =
+                synchronized(lock) {
+                    tracker = tracker.applyProbe(answers)
+                    _state.update { it.copy(servers = tracker.servers) }
+                    tracker.servers.filter { it.status == DevServerStatus.STOPPED && it.port in sharedPorts }.map { it.port }
+                }
+            // A link must not outlive the server it points at. Ended outside the lock: stopping a
+            // share updates its flow, whose collector takes the lock to publish.
+            if (stoppedShares.isNotEmpty()) sharing?.stopGone(stoppedShares)
             delay(SERVER_PROBE_INTERVAL_MILLIS)
         }
     }

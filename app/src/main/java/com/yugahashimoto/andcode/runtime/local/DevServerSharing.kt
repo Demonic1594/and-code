@@ -25,6 +25,12 @@ sealed interface ShareState {
     /** The supervisor already runs as many processes as it allows. */
     data object TooManyProcesses : ShareState
 
+    /** Nothing answers on the port, so there is nothing to link to; no tunnel was started. */
+    data object NotAnswering : ShareState
+
+    /** Another process already runs under this share's name; it was left alone. */
+    data object NameInUse : ShareState
+
     /** [reason] is the tunnel's own last words, or the installer's, for the user to read. */
     data class Failed(val reason: String) : ShareState
 }
@@ -113,7 +119,7 @@ class DevServerSharing(
         } catch (error: Exception) {
             return ShareState.Failed(error.message ?: error.javaClass.simpleName)
         }
-        val address = answeringAddress(port) ?: return ShareState.Failed("nothing answers on port $port")
+        val address = answeringAddress(port) ?: return ShareState.NotAnswering
         val spec = tunnelSpec(port, address)
         return problemOf(supervisor.start(spec), spec)
     }
@@ -129,9 +135,7 @@ class DevServerSharing(
                 if (result.process.spec.command == spec.command) {
                     null
                 } else {
-                    ShareState.Failed(
-                        "${spec.name} is already used by another process",
-                    )
+                    ShareState.NameInUse
                 }
             is StartResult.LimitReached -> ShareState.TooManyProcesses
             is StartResult.Failed -> ShareState.Failed(result.reason)

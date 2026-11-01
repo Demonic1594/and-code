@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -58,13 +59,21 @@ fun AppLockGate(
     val context = LocalContext.current
     val activity = context as? FragmentActivity
     val title = stringResource(R.string.app_lock_prompt_title)
+    // On a cold start the lock asks as it composes, and the resume observer, added while the
+    // activity is already resumed, is told ON_RESUME at once and asks too: one prompt at a time.
+    val guard = remember { PromptGuard() }
     val ask = {
         // A device whose lock was removed since the setting was turned on cannot be asked; locking
         // the user out of their own app would be worse than letting them in.
         if (activity == null || !DeviceUnlock.isAvailable(context)) {
             onUnlock()
         } else {
-            DeviceUnlock.ask(activity, title, null) { unlocked -> if (unlocked) onUnlock() }
+            guard.ask { done ->
+                DeviceUnlock.ask(activity, title, null) { unlocked ->
+                    done()
+                    if (unlocked) onUnlock()
+                }
+            }
         }
     }
     val currentLocked by rememberUpdatedState(locked)
@@ -76,6 +85,9 @@ fun AppLockGate(
         val observer =
             LifecycleEventObserver { _, event ->
                 if (event == Lifecycle.Event.ON_RESUME && currentLocked) currentAsk()
+                // A prompt asked for too late (after the state was saved) never reports back; leaving
+                // the app clears it, so the next return asks again instead of waiting for it forever.
+                if (event == Lifecycle.Event.ON_STOP) guard.reset()
             }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
@@ -85,6 +97,26 @@ fun AppLockGate(
         LockedScreen(onUnlock = ask)
     } else {
         saved.SaveableStateProvider("app") { content() }
+    }
+}
+
+/**
+ * Lets one unlock prompt show at a time: [ask] starts a prompt only while none is showing, and the
+ * prompt calls `done` when it ends, whichever way. [reset] forgets a prompt that will not report.
+ */
+internal class PromptGuard {
+    /** The prompt showing now, or null; a late `done` from one forgotten by [reset] changes nothing. */
+    private var showing: Any? = null
+
+    fun ask(start: (done: () -> Unit) -> Unit) {
+        if (showing != null) return
+        val prompt = Any()
+        showing = prompt
+        start { if (showing === prompt) showing = null }
+    }
+
+    fun reset() {
+        showing = null
     }
 }
 

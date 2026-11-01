@@ -57,6 +57,10 @@ internal fun ShareServerSheet(
                 ShareState.Starting -> Waiting(stringResource(R.string.share_server_starting), onStop)
                 is ShareState.Live -> Live(state.url, onStop)
                 ShareState.TooManyProcesses -> Problem(stringResource(R.string.share_server_too_many), onStart, onStop)
+                ShareState.NotAnswering -> Problem(stringResource(R.string.share_server_not_answering, port), onStart, onStop)
+                // The process holding the name is someone else's: closing the sheet leaves it running.
+                ShareState.NameInUse ->
+                    Problem(stringResource(R.string.share_server_name_in_use), onStart, onDismiss, R.string.close_description)
                 is ShareState.Failed -> Problem(stringResource(R.string.share_server_failed, state.reason), onStart, onStop)
             }
         }
@@ -125,10 +129,11 @@ private fun Problem(
     message: String,
     onRetry: () -> Unit,
     onDismissShare: () -> Unit,
+    dismissLabel: Int = R.string.share_server_stop,
 ) {
     Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        TextButton(onClick = onDismissShare) { Text(stringResource(R.string.share_server_stop)) }
+        TextButton(onClick = onDismissShare) { Text(stringResource(dismissLabel)) }
         Button(onClick = onRetry) { Text(stringResource(R.string.share_server_retry)) }
     }
 }
