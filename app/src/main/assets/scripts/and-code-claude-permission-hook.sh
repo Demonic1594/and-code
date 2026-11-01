@@ -10,6 +10,11 @@
 
 set -eu
 
+# Run as Claude Code's PreToolUse hook for Bash (with --pre-tool-use) it only refuses blocked
+# commands, before every call and whatever the permission mode: a PermissionRequest hook runs only
+# when Claude Code would ask, which the default mode skips for Bash and full access skips entirely.
+MODE="${1:-}"
+
 BRIDGE="${ANDCODE_CLAUDE_BRIDGE:-/root/.andcode/claude-bridge}"
 PENDING="$BRIDGE/pending"
 RESPONSES="$BRIDGE/responses"
@@ -51,6 +56,8 @@ fi
 # cannot show, and an approval would run it unseen. Refuse instead; the app's Linux environments
 # come with jq.
 if ! command -v jq >/dev/null 2>&1; then
+  # Before a tool call there is nothing to check against; the permission step refuses on its own.
+  [ "$MODE" = "--pre-tool-use" ] && exit 0
   deny "$NO_JQ"
   exit 0
 fi
@@ -66,12 +73,13 @@ fi
 # as ShellCommandRules.blocks on the app side, and deliberately broader than allowing: any chained,
 # piped or substituted part of the command that runs the rule's program (path ignored) with the
 # rule's flags in any order (short ones also grouped: -rf is -r -f) and its other words in order,
-# other words between them allowed, is refused. Quotes and escapes are taken out.
+# other words between them allowed, is refused. Line continuations, quotes and escapes are taken out.
+# A rules file that cannot be read refuses every command rather than letting a blocked one through.
 if [ -f "$BLOCKED" ]; then
-  BLOCKED_CMD=$(printf '%s' "$TOOL_INPUT" | jq -r '.command // empty')
-  BLOCKED_BY=$(jq -r --arg t "$TOOL_NAME" --arg c "$BLOCKED_CMD" '
+  BLOCKED_CMD=$(printf '%s' "$TOOL_INPUT" | jq -r 'if type == "object" then .command // empty else empty end' 2>/dev/null || true)
+  if ! BLOCKED_BY=$(jq -r --arg t "$TOOL_NAME" --arg c "$BLOCKED_CMD" '
     def words: [splits("\\s+")] | map(gsub("[\"\u0027\\\\]"; "")) | map(select(length > 0));
-    def parts: [splits("[;&|`(){}<>!$\n\r]")] | map(words);
+    def parts: gsub("\\\\\r?\n"; "") | [splits("[;&|`(){}<>!$\n\r]")] | map(words);
     def prog: split("/") | last // "";
     def flagsplit: reduce .[] as $x ({flags: [], plain: []};
       if ($x | startswith("--")) then .flags += [$x]
@@ -89,11 +97,28 @@ if [ -f "$BLOCKED" ]; then
       ($w[$i] | prog) == ($r[0] | prog) and
         (($w[($i + 1):] | flagsplit) as $cs | ($rs.flags - $cs.flags | length) == 0 and inorder($rs.plain; $cs.plain)); .)) |
     ($r | join(" "))
-  ' "$BLOCKED" 2>/dev/null | head -n1 || true)
-  if [ -n "$BLOCKED_BY" ]; then
-    deny "The user blocked commands containing \"$BLOCKED_BY\" in AndCode, so this was not run. Do not retry it or work around the block; continue another way or ask the user."
+  ' "$BLOCKED" 2>/dev/null); then
+    REFUSAL="AndCode could not read the user's list of blocked commands, so this was not run. Ask the user to check Settings, Claude Code, Command rules."
+  else
+    BLOCKED_BY=$(printf '%s\n' "$BLOCKED_BY" | head -n1)
+    REFUSAL=""
+    if [ -n "$BLOCKED_BY" ]; then
+      REFUSAL="The user blocked commands containing \"$BLOCKED_BY\" in AndCode, so this was not run. Do not retry it or work around the block; continue another way or ask the user."
+    fi
+  fi
+  if [ -n "$REFUSAL" ]; then
+    if [ "$MODE" = "--pre-tool-use" ]; then
+      jq -cn --arg reason "$REFUSAL" \
+        '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$reason}}'
+    else
+      deny "$REFUSAL"
+    fi
     exit 0
   fi
+fi
+# Before a tool call only blocking applies; whether to ask is the permission step's business.
+if [ "$MODE" = "--pre-tool-use" ]; then
+  exit 0
 fi
 
 # Auto-allow remembered rules without waking the UI.

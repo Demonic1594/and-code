@@ -95,6 +95,8 @@ class ShellCommandRulesTest {
             "rm -v -rf x",
             "rm -fr x",
             "rm -r -f x",
+            "rm \\\n  -rf x",
+            "rm \\\r\n  -rf x",
         ).forEach { command -> assertTrue(command, ShellCommandRules.blocks("rm -rf", command)) }
     }
 
@@ -102,6 +104,7 @@ class ShellCommandRulesTest {
     fun `a blocking rule keeps its words in order but allows others between`() {
         assertTrue(ShellCommandRules.blocks("git push --force", "git push origin main --force"))
         assertTrue(ShellCommandRules.blocks("git push --force", "ls; git push --force"))
+        assertTrue(ShellCommandRules.blocks("git push --force", "git push \\\n  origin main --force"))
         assertFalse(ShellCommandRules.blocks("git push --force", "git push --force-with-lease"))
         assertFalse(ShellCommandRules.blocks("git push --force", "git push -f"))
         // The words must follow the program within one part of the command, not across parts.

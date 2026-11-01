@@ -341,8 +341,8 @@ class ClaudeCodeRuntime(
 
     private fun emitPendingBridgeRequests() {
         permissionBridge.pollPending().forEach { request ->
-            // The hook refuses a blocked command before it asks; this also refuses one that was
-            // already waiting when the user blocked it, so it never reaches the approval sheet.
+            // The hooks refuse a blocked command before it is asked about; this catches one that
+            // passed them just before the user blocked it, if it has not reached the sheet yet.
             val blocked =
                 request.takeIf { it.kind == ClaudePermissionBridge.Kind.PERMISSION }
                     ?.let { permissionBridge.blockedBy(it.toolName, it.toolInputJson) }

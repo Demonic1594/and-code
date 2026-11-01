@@ -268,6 +268,7 @@ class ClaudePermissionBridge(
         toolName: String,
         toolInputJson: String,
     ): Boolean {
+        if (blockedBy(toolName, toolInputJson) != null) return false
         val rules = loadAlwaysRules()
         val command =
             runCatching {
@@ -335,6 +336,7 @@ class ClaudePermissionBridge(
         }
     }
 
+    @Synchronized
     private fun rememberRule(stored: StoredRequest) {
         val command =
             (stored.toolInput as? JsonObject)?.get("command")?.jsonPrimitive?.contentOrNull
@@ -352,8 +354,7 @@ class ClaudePermissionBridge(
         val rule = AlwaysRule(toolName = stored.toolName, commandPrefix = prefix)
         if (existing.none { it.toolName == rule.toolName && it.commandPrefix == rule.commandPrefix }) {
             existing += rule
-            alwaysFile.writeText(json.encodeToString(AlwaysRulesFile(existing)))
-            mutableRules.value = loadRules()
+            writeRules(alwaysFile, existing)
         }
     }
 

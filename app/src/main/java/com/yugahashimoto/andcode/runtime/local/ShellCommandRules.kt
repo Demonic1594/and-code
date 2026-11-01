@@ -17,7 +17,7 @@ package com.yugahashimoto.andcode.runtime.local
  * ignored) with all of the rule's flags, in any order, and its other words in order, other words
  * between them allowed, is refused: `git push --force` also catches `cd x && git push origin
  * --force`, and `rm -rf` catches `rm -fr` and `rm -r -f`, since a group of short flags counts as
- * each of them. Quotes and escapes are taken out. A flag must be spelled the same: `--force` is not
+ * each of them. Line continuations, quotes and escapes are taken out. A flag must be spelled the same: `--force` is not
  * `-f`.
  */
 internal object ShellCommandRules {
@@ -74,6 +74,9 @@ internal object ShellCommandRules {
 
     /** Characters that end one command part and start another, or wrap one; keep in step with the hook. */
     private val commandBreaks = Regex("[;&|`(){}<>!$\\n\\r]")
+
+    /** A backslash ending a line joins it to the next, so the command reads on across the break. */
+    private val lineContinuation = Regex("\\\\\r?\n")
 
     /** Quoting that can hide a word (`"rm"`, `r\m`) from a plain comparison. */
     private val quoting = Regex("[\"'\\\\]")
@@ -160,7 +163,7 @@ internal object ShellCommandRules {
 
     /** [text] split where one command part ends, each part's words with all quoting removed. */
     private fun commandParts(text: String): List<List<String>> =
-        text.split(commandBreaks).map { part ->
+        text.replace(lineContinuation, "").split(commandBreaks).map { part ->
             words(part).map { it.replace(quoting, "") }.filter { it.isNotEmpty() }
         }
 

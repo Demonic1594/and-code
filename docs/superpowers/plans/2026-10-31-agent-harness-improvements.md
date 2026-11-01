@@ -40,8 +40,11 @@ that chains, pipes, substitutes or redirects, or starts with a program that runs
 rule words must equal the command's first words; and a call with a command never matches a
 tool-wide rule. Before this, the hook matched with a plain text prefix and a tool-wide Bash rule
 allowed every command. Blocking rules are done: Settings → Claude Code → **Command rules** blocks
-commands by their words, checked first in the hook (and again in the app for a guest without jq), in
-any chained, piped or substituted part, flags in any order and other words allowed between; the same
+commands by their words, checked by a PreToolUse hook for Bash before every call in every permission
+mode (the PermissionRequest hook only runs when Claude Code would ask, which the default mode skips for
+Bash), in any chained, piped or substituted part, flags in any order and other words allowed between,
+line continuations joined. Best effort, not a security boundary: a command that hides its words (a
+variable, `${IFS}`, brace expansion, a decoded script) is not caught. The same
 screen lists and removes always-allow rules. Per-project scope is still to do. Known limit: word
 rules cannot see dangerous arguments further along (`find . -exec ... +`, `git -c ...`), so tool risk
 classes (section 9) are still needed before "always allow" is offered broadly. Note: until #73 the

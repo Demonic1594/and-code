@@ -2,6 +2,9 @@ package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.runtime.PermissionResponse
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -11,6 +14,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.io.File
 import java.util.UUID
 
 class ClaudePermissionBridgeTest {
@@ -270,6 +274,34 @@ class ClaudePermissionBridgeTest {
     }
 
     @Test
+    fun `mergeSettings checks blocked commands before every Bash call and keeps the user's own`() {
+        val existing =
+            """
+            {
+              "hooks": {
+                "PreToolUse": [
+                  { "matcher": "Edit", "hooks": [{ "type": "command", "command": "my-lint" }] },
+                  { "matcher": "Bash", "hooks": [{ "type": "command", "command": "/old/and-code-claude-permission-hook.sh --pre-tool-use" }] }
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val preToolUse =
+            kotlinx.serialization.json.Json.parseToJsonElement(ClaudePermissionHooks.mergeSettingsJson(existing))
+                .jsonObject.getValue("hooks").jsonObject.getValue("PreToolUse").jsonArray
+        val commands =
+            preToolUse.map {
+                it.jsonObject.getValue(
+                    "hooks",
+                ).jsonArray.single().jsonObject.getValue("command").jsonPrimitive.content
+            }
+
+        assertEquals(listOf("my-lint", ClaudePermissionHooks.BLOCK_CHECK_COMMAND), commands)
+        assertEquals("Bash", preToolUse.last().jsonObject.getValue("matcher").jsonPrimitive.content)
+    }
+
+    @Test
     fun `a blocked command is refused and listed until it is forgotten`() {
         val bridge = ClaudePermissionBridge(folder.root)
 
@@ -310,6 +342,8 @@ class ClaudePermissionBridgeTest {
         assertTrue(bridge.respond(requestId, PermissionResponse.ALWAYS, remember = true))
 
         assertEquals(listOf(ClaudePermissionBridge.CommandRule("Bash", "rm -rf", blocks = true)), bridge.rules.value)
+        File(folder.root, "always-rules.json").writeText("""{"rules":[{"toolName":"Bash","commandPrefix":"rm -rf"}]}""")
+        assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"rm -rf build"}"""))
         assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"rm -rf build"}"""))
     }
 

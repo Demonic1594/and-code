@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.runtime.local
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -69,12 +70,40 @@ class PermissionHookScriptTest {
     @Test
     fun `the hook blocks the same commands as the app`() {
         File(bridge, ClaudePermissionBridge.BLOCK_RULES_FILE).writeText("""{"rules":[{"toolName":"Bash","commandPrefix":"rm -rf"}]}""")
-        listOf("cd x && sudo /bin/rm -rf /", "rm -fr x", "rm -r -f x", "rm -r x", "echo rm -rf", "ls; rm -v x").forEach { command ->
+        listOf("cd x && sudo /bin/rm -rf /", "rm -fr x", "rm -r -f x", "rm \\\n  -rf x", "rm -r x", "echo rm -rf", "ls; rm -v x").forEach {
+                command ->
             val blocked =
                 runHook(bashCall(command), env = mapOf("ANDCODE_PERMISSION_TIMEOUT_SEC" to "0"))
                     .decision()["message"]?.jsonPrimitive?.content.orEmpty().startsWith("The user blocked")
             assertEquals(command, ShellCommandRules.blocks("rm -rf", command), blocked)
         }
+    }
+
+    @Test
+    fun `before a tool call only blocked commands are refused, in PreToolUse's shape`() {
+        File(bridge, ClaudePermissionBridge.BLOCK_RULES_FILE).writeText("""{"rules":[{"toolName":"Bash","commandPrefix":"rm -rf"}]}""")
+
+        val refused = Json.parseToJsonElement(runHookOutput(bashCall("rm -rf build"), args = arrayOf("--pre-tool-use"))).jsonObject
+        val allowed = runHookOutput(bashCall("ls -la"), args = arrayOf("--pre-tool-use"))
+
+        val output = refused.getValue("hookSpecificOutput").jsonObject
+        assertEquals("PreToolUse", output.getValue("hookEventName").jsonPrimitive.content)
+        assertEquals("deny", output.getValue("permissionDecision").jsonPrimitive.content)
+        assertEquals(ClaudePermissionBridge.blockedMessage("rm -rf"), output.getValue("permissionDecisionReason").jsonPrimitive.content)
+        // No answer leaves the call to Claude Code's own permission step, and nothing is asked here.
+        assertEquals("", allowed)
+        assertFalse(File(bridge, "pending").listFiles().orEmpty().any())
+    }
+
+    @Test
+    fun `an unreadable rules file refuses rather than letting a blocked command through`() {
+        File(bridge, ClaudePermissionBridge.BLOCK_RULES_FILE).writeText("{not json")
+        File(bridge, "always-rules.json").writeText("""{"rules":[{"toolName":"Bash","commandPrefix":"rm -rf"}]}""")
+
+        val answer = runHook(bashCall("rm -rf build"))
+
+        assertEquals("deny", answer.behavior())
+        assertTrue(answer.decision()["message"]?.jsonPrimitive?.content.orEmpty().contains("could not read"))
     }
 
     @Test
@@ -142,7 +171,9 @@ class PermissionHookScriptTest {
     }
 
     private fun bashCall(command: String): String =
-        """{"hook_event_name":"PermissionRequest","session_id":"s1","tool_name":"Bash","tool_input":{"command":"$command"}}"""
+        """{"hook_event_name":"PermissionRequest","session_id":"s1","tool_name":"Bash","tool_input":{"command":${JsonPrimitive(
+            command,
+        )}}}"""
 
     /**
      * Feeds [input] to the hook. With a [response], waits for the hook's request to appear in the
@@ -154,10 +185,20 @@ class PermissionHookScriptTest {
         env: Map<String, String> = emptyMap(),
         onRequest: (JsonObject) -> Unit = {},
         shell: String = "sh",
-    ): JsonObject {
+    ): JsonObject = Json.parseToJsonElement(runHookOutput(input, response, env, onRequest, shell)).jsonObject
+
+    /** Runs the hook like [runHook] and returns what it printed, which may be nothing. */
+    private fun runHookOutput(
+        input: String,
+        response: String? = null,
+        env: Map<String, String> = emptyMap(),
+        onRequest: (JsonObject) -> Unit = {},
+        shell: String = "sh",
+        vararg args: String,
+    ): String {
         val out = File(folder.root, "out-${System.nanoTime()}.txt")
         val process =
-            ProcessBuilder(shell, script.absolutePath)
+            ProcessBuilder(shell, script.absolutePath, *args)
                 .redirectOutput(out)
                 .redirectError(ProcessBuilder.Redirect.INHERIT)
                 .apply {
@@ -190,7 +231,7 @@ class PermissionHookScriptTest {
             process.destroyForcibly()
             error("the hook did not finish")
         }
-        return Json.parseToJsonElement(out.readText().trim()).jsonObject
+        return out.readText().trim()
     }
 
     private fun exec(vararg command: String): Process = ProcessBuilder(*command).redirectErrorStream(true).start()

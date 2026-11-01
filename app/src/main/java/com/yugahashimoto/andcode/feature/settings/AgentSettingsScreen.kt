@@ -280,12 +280,6 @@ fun ClaudeCodeAgentSettingsScreen(
             )
             SettingsDivider()
             SettingsRow(
-                icon = Icons.Default.Extension,
-                title = stringResource(R.string.mcp_settings_row),
-                onClick = onOpenMcp,
-            )
-            SettingsDivider()
-            SettingsRow(
                 icon = Icons.Default.Gavel,
                 title = stringResource(R.string.command_rules_settings_row),
                 value = claude.commandRules.size.takeIf { it > 0 }?.toString(),
