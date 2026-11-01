@@ -106,6 +106,8 @@
     <string name="home_assistant">Assistente inicial</string>
     <string name="set_default_assistant">Definir como assistente digital padrão</string>
     <string name="voice">Voz</string>
+    <string name="cd_expand_composer">Expandir mensagem</string>
+    <string name="cd_collapse_composer">Recolher mensagem</string>
     <string name="mic_permission_required">A permissão de microfone é necessária para recursos de voz</string>
     <string name="voice_response">Ler respostas em voz alta</string>
     <string name="continuous_conversation">Conversa contínua</string>

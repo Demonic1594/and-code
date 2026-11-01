@@ -106,6 +106,8 @@
     <string name="home_assistant">Assistant d\'accueil</string>
     <string name="set_default_assistant">Définir comme assistant numérique par défaut</string>
     <string name="voice">Voix</string>
+    <string name="cd_expand_composer">Agrandir le message</string>
+    <string name="cd_collapse_composer">Réduire le message</string>
     <string name="mic_permission_required">L\'autorisation du microphone est requise pour les fonctionnalités vocales</string>
     <string name="voice_response">Lire les réponses à voix haute</string>
     <string name="continuous_conversation">Conversation continue</string>

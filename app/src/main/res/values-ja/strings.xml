@@ -106,6 +106,8 @@
     <string name="home_assistant">ホームアシスト</string>
     <string name="set_default_assistant">既定のデジタルアシスタントに設定</string>
     <string name="voice">音声</string>
+    <string name="cd_expand_composer">メッセージを全画面で編集</string>
+    <string name="cd_collapse_composer">全画面を閉じる</string>
     <string name="mic_permission_required">音声機能にはマイクの権限が必要です</string>
     <string name="voice_response">応答を音声で読み上げる</string>
     <string name="continuous_conversation">連続会話</string>
