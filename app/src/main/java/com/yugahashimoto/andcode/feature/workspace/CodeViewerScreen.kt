@@ -528,20 +528,28 @@ private fun CodeReader(
     val numberWidth = (maxOf(3, lineStarts.size.toString().length) * fontSize * 0.62f + 16).dp
     val lineHeight = (fontSize * 1.5f).sp
     val truncatedNotice = stringResource(R.string.code_line_truncated)
+    val truncatedAtMatchNotice = stringResource(R.string.code_line_truncated_at_match)
+    val currentRange = matches.getOrNull(currentMatch)
 
     fun lineEnd(index: Int): Int = if (index + 1 < lineStarts.size) lineStarts[index + 1] - 1 else content.length
 
     fun lineText(index: Int): AnnotatedString {
-        val start = lineStarts[index]
-        return highlightRange(content, start, displayEnd(start, lineEnd(index)), tokens, palette, matches, currentMatch)
+        val shown = displayRange(lineStarts[index], lineEnd(index), currentRange)
+        return highlightRange(content, shown.first, shown.last, tokens, palette, matches, currentMatch)
     }
 
-    // A line past the display cap cannot be laid out whole: its start is shown, and a notice outside
-    // the selectable code says so, where it is seen without scrolling to the end of the line.
+    // A line past the display cap cannot be laid out whole: its start is shown (or the part around the
+    // current match, when that lies further in), and a notice outside the selectable code says so,
+    // where it is seen without scrolling to the end of the line.
     fun truncationNotice(index: Int): String? {
         val start = lineStarts[index]
         val end = lineEnd(index)
-        return if (displayEnd(start, end) == end) null else truncatedNotice.format(end - start)
+        val shown = displayRange(start, end, currentRange)
+        return when {
+            shown.first == start && shown.last == end -> null
+            shown.first == start -> truncatedNotice.format(end - start)
+            else -> truncatedAtMatchNotice.format(end - start)
+        }
     }
 
     LaunchedEffect(listState, wrap) {
@@ -730,6 +738,9 @@ internal object LongLineLimits {
      * and stops responding - so past the cap a row shows its start and a truncation notice instead.
      */
     const val DISPLAY_CHARS = 200_000
+
+    /** Characters kept before a current match shown past the cap, so it is near the row's start. */
+    const val MATCH_CONTEXT = 80
 }
 
 /** Where a reader row's display of the line [start] until [end] stops: whole, or at the display cap. */
@@ -737,6 +748,23 @@ internal fun displayEnd(
     start: Int,
     end: Int,
 ): Int = minOf(end, start + LongLineLimits.DISPLAY_CHARS)
+
+/**
+ * The part of the line [start] until [end] a reader row lays out, as `first..last` (end exclusive):
+ * the whole line, or its first [LongLineLimits.DISPLAY_CHARS] characters - unless the current search
+ * match [current] is on this line beyond those, when the window starts just before that match
+ * instead, so the match the user moved to can be seen.
+ */
+internal fun displayRange(
+    start: Int,
+    end: Int,
+    current: IntRange?,
+): IntRange {
+    val headEnd = displayEnd(start, end)
+    if (current == null || current.first < start || current.first > end || current.last < headEnd) return start..headEnd
+    val windowStart = maxOf(start, current.first - LongLineLimits.MATCH_CONTEXT)
+    return windowStart..minOf(end, windowStart + LongLineLimits.DISPLAY_CHARS)
+}
 
 @Composable
 private fun GoToLineDialog(

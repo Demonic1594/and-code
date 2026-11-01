@@ -1639,6 +1639,7 @@
     <string name="file_edit_error_too_large">Файл слишком большой для редактирования (лимит: %1$d КБ).</string>
     <string name="file_edit_error_line_too_long">Одна строка этого файла слишком длинна для редактирования (лимит: %1$d байт).</string>
     <string name="code_line_truncated">Строка усечена (%1$d символов, слишком длинна для отображения) …</string>
+    <string name="code_line_truncated_at_match">Строка усечена (%1$d символов, слишком длинна для отображения); показана часть вокруг совпадения …</string>
     <string name="file_edit_error_read_only">Файл доступен только для чтения.</string>
     <string name="file_edit_error_changed_on_disk">Файл был изменён другим процессом после того, как вы его открыли, поэтому ваши правки не сохранены. Скопируйте текст, закройте редактор и откройте файл снова.</string>
     <string name="file_edit_error_write_failed">Не удалось сохранить файл.</string>
