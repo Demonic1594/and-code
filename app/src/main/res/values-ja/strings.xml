@@ -44,6 +44,7 @@
     <string name="permission_risk_writing">ファイル編集</string>
     <string name="permission_risk_executing">コマンド実行</string>
     <string name="permission_risk_destructive">破壊的</string>
+    <string name="cd_permission_risk">リスク: %1$s</string>
     <string name="allow_once">今回だけ許可</string>
     <string name="always_allow">常に許可</string>
     <string name="reject">拒否</string>

@@ -54,6 +54,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -287,6 +289,9 @@ fun PermissionCard(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
                 )
+            }
+            // On their own row, under the title, so a long risk label or tool name never squeezes it.
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 RiskChip(risk, warningColor)
                 // The tool's name only, kept short: the long part (the command) belongs in the box below.
                 Surface(shape = AppShapes.pill, color = warningColor.copy(alpha = 0.16f), contentColor = warningColor) {
@@ -421,9 +426,16 @@ private fun RiskChip(
             ToolRisk.EXECUTING -> R.string.permission_risk_executing to alertColor
             ToolRisk.DESTRUCTIVE -> R.string.permission_risk_destructive to alertColor
         }
-    Surface(shape = AppShapes.pill, color = color.copy(alpha = 0.12f), contentColor = color) {
+    val text = stringResource(label)
+    val spoken = stringResource(R.string.cd_permission_risk, text)
+    Surface(
+        shape = AppShapes.pill,
+        color = color.copy(alpha = 0.12f),
+        contentColor = color,
+        modifier = Modifier.clearAndSetSemantics { contentDescription = spoken },
+    ) {
         Text(
-            text = stringResource(label),
+            text = text,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = if (risk == ToolRisk.DESTRUCTIVE) FontWeight.Bold else FontWeight.Medium,
             maxLines = 1,

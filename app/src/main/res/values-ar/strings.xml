@@ -44,6 +44,7 @@
     <string name="permission_risk_writing">يعدّل ملفات</string>
     <string name="permission_risk_executing">يشغّل أمرًا</string>
     <string name="permission_risk_destructive">مدمّر</string>
+    <string name="cd_permission_risk">الخطورة: %1$s</string>
     <string name="allow_once">السماح مرة واحدة</string>
     <string name="always_allow">السماح دائمًا</string>
     <string name="reject">رفض</string>

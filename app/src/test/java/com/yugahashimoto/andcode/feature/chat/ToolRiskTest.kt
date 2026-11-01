@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.feature.chat
 
 import com.yugahashimoto.andcode.core.api.PermissionRequest
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -38,6 +39,33 @@ class ToolRiskTest {
             "mkfs.ext4 /dev/sdb1",
             "chmod -R 777 /",
             "psql -c 'DROP TABLE users'",
+            // Wrapped, prefixed or with the flags after the path.
+            "bash -c \"rm -rf x\"",
+            "sh -c 'rm -rf x'",
+            "ssh host 'rm -rf x'",
+            "echo `rm -rf x`",
+            "/bin/rm -rf x",
+            "\\rm -rf x",
+            "sudo rm -rf /",
+            "rm build -rf",
+            "rm -v -r x",
+            "rm -rf",
+            "git push -fu origin x",
+            "git -C repo push -f",
+            "git push origin :old",
+            "git push --delete origin old",
+            "git push --mirror",
+            "git push --force-with-lease",
+            "git checkout .",
+            "git restore .",
+            "git branch --delete --force x",
+            "git stash drop",
+            "chmod 755 -R x",
+            "chmod --recursive 755 x",
+            "find . -delete",
+            "find . -exec rm {} \\;",
+            "psql -c 'TRUNCATE users'",
+            "sqlite3 db 'DELETE FROM users'",
         ).forEach { assertEquals(it, ToolRisk.DESTRUCTIVE, ToolRisks.of("Bash", it)) }
     }
 
@@ -51,6 +79,13 @@ class ToolRiskTest {
             "git branch -d merged",
             "npm run format",
             "ls -R",
+            "rm -i x",
+            "rm --verbose x",
+            "git rm -rf --cached x",
+            "docker rm -f container",
+            "git push -u origin feature",
+            "git restore --staged .",
+            "npm run rm -- -r",
         ).forEach { assertEquals(it, ToolRisk.EXECUTING, ToolRisks.of("Bash", it)) }
     }
 
@@ -71,11 +106,24 @@ class ToolRiskTest {
                 metadata = mapOf("command" to JsonPrimitive("git reset --hard")),
             )
         val openCode = PermissionRequest(id = "3", sessionId = "s", permission = "bash", patterns = listOf("git push --force"))
+        // Each OpenCode pattern is one command of a chain: joined, these two would read as a forced push.
+        val chained = PermissionRequest(id = "5", sessionId = "s", permission = "bash", patterns = listOf("git push origin", "ls -f"))
+        val argv =
+            PermissionRequest(
+                id = "6",
+                sessionId = "s",
+                permission = "bash",
+                metadata = mapOf("command" to JsonArray(listOf(JsonPrimitive("rm"), JsonPrimitive("-rf"), JsonPrimitive("x")))),
+            )
         val edit = PermissionRequest(id = "4", sessionId = "s", permission = "edit")
 
         assertEquals(ToolRisk.DESTRUCTIVE, ToolRisks.of(claude))
         assertEquals(ToolRisk.DESTRUCTIVE, ToolRisks.of(codex))
         assertEquals(ToolRisk.DESTRUCTIVE, ToolRisks.of(openCode))
         assertEquals(ToolRisk.WRITING, ToolRisks.of(edit))
+        assertEquals(ToolRisk.EXECUTING, ToolRisks.of(chained))
+        assertEquals(ToolRisk.DESTRUCTIVE, ToolRisks.of(argv))
+        // A read-only tool stays read-only whatever its input says.
+        assertEquals(ToolRisk.READ_ONLY, ToolRisks.of("Grep", "rm -rf /"))
     }
 }

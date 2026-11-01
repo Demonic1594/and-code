@@ -44,6 +44,7 @@
     <string name="permission_risk_writing">Edita arquivos</string>
     <string name="permission_risk_executing">Executa um comando</string>
     <string name="permission_risk_destructive">Destrutivo</string>
+    <string name="cd_permission_risk">Risco: %1$s</string>
     <string name="allow_once">Permitir uma vez</string>
     <string name="always_allow">Sempre permitir</string>
     <string name="reject">Rejeitar</string>
