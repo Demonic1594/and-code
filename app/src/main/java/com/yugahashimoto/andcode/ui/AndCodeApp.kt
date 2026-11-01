@@ -1061,6 +1061,7 @@ fun AndCodeApp(
                                     onDeleteSystemPromptPreset = workspaceViewModel::deleteClaudeSystemPromptPreset,
                                     onBlockCommand = workspaceViewModel::blockClaudeCommand,
                                     onForgetCommandRule = workspaceViewModel::forgetClaudeCommandRule,
+                                    onSetToolClassAllowed = workspaceViewModel::setClaudeToolClassAllowed,
                                     onOpenProjectInstructions = {
                                         val runtime = selectedRuntime
                                         val path = chatState.sessionDirectory ?: chatState.selectedWorkspacePath

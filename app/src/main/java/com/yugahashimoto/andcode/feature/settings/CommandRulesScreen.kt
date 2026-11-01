@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -29,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -40,11 +42,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.runtime.local.ClaudePermissionBridge.CommandRule
+import com.yugahashimoto.andcode.runtime.local.ToolClassRules
 
 /** Commands people commonly want refused outright, offered one tap away. */
 private val suggestedBlocks = listOf("rm -rf", "git push --force", "git reset --hard", "sudo")
@@ -58,8 +62,10 @@ private val suggestedBlocks = listOf("rm -rf", "git push --force", "git reset --
 @Composable
 fun CommandRulesScreen(
     rules: List<CommandRule>,
+    allowedKinds: Set<ToolClassRules.Kind>,
     onBlock: (String) -> Boolean,
     onForget: (CommandRule) -> Unit,
+    onSetKindAllowed: (ToolClassRules.Kind, Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold(
@@ -90,6 +96,7 @@ fun CommandRulesScreen(
                 )
             }
             item { BlockCommandField(blocked = rules.filter { it.blocks }.mapNotNull { it.words }, onBlock = onBlock) }
+            item { AllowedKinds(allowedKinds, onSetKindAllowed) }
             ruleSection(R.string.command_rules_blocked, rules.filter { it.blocks }, onForget)
             ruleSection(R.string.command_rules_allowed, rules.filterNot { it.blocks }, onForget)
             if (rules.none { !it.blocks }) {
@@ -155,6 +162,48 @@ private fun BlockCommandField(
                     onClick = { onBlock(words) },
                     label = { Text(words, fontFamily = FontFamily.Monospace) },
                 )
+            }
+        }
+    }
+}
+
+/** Whole kinds of calls allowed without asking; never commands, which stay one rule at a time. */
+@Composable
+private fun AllowedKinds(
+    allowed: Set<ToolClassRules.Kind>,
+    onSet: (ToolClassRules.Kind, Boolean) -> Unit,
+) {
+    Column(modifier = Modifier.padding(top = 20.dp)) {
+        Text(
+            text = stringResource(R.string.command_rules_kinds_title),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = stringResource(R.string.command_rules_kinds_caption),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+        )
+        ToolClassRules.Kind.entries.forEach { kind ->
+            val label =
+                stringResource(
+                    when (kind) {
+                        ToolClassRules.Kind.READING -> R.string.command_rules_kind_reading
+                        ToolClassRules.Kind.EDITING -> R.string.command_rules_kind_editing
+                    },
+                )
+            val checked = kind in allowed
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .toggleable(value = checked, role = Role.Switch, onValueChange = { onSet(kind, it) })
+                        .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Switch(checked = checked, onCheckedChange = null)
             }
         }
     }

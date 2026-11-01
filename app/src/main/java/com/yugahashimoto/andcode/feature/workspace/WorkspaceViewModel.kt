@@ -376,6 +376,11 @@ class WorkspaceViewModel(
 
     fun forgetClaudeCommandRule(rule: ClaudePermissionBridge.CommandRule) = claudeCode?.forgetCommandRule(rule) ?: Unit
 
+    fun setClaudeToolClassAllowed(
+        kind: com.yugahashimoto.andcode.runtime.local.ToolClassRules.Kind,
+        allow: Boolean,
+    ) = claudeCode?.setToolClassAllowed(kind, allow) ?: Unit
+
     fun beginClaudeSignIn() = claudeCode?.beginSignIn() ?: Unit
 
     fun submitClaudeSignInCode(code: String) = claudeCode?.submitSignInCode(code) ?: Unit

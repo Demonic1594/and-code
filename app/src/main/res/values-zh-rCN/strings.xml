@@ -727,6 +727,10 @@
     <string name="command_rules_block_button">阻止</string>
     <string name="command_rules_blocked">已阻止</string>
     <string name="command_rules_allowed">始终允许</string>
+    <string name="command_rules_kinds_title">按类型始终允许</string>
+    <string name="command_rules_kinds_caption">这些类型的调用在所有项目中无需询问即可运行。命令永远不能按类型允许，仍需逐条设置规则。</string>
+    <string name="command_rules_kind_reading">读取文件和搜索网页</string>
+    <string name="command_rules_kind_editing">编辑文件</string>
     <string name="command_rules_no_allowed">还没有始终允许的命令。在审批时选择“始终允许”即可将命令添加到这里。</string>
     <string name="command_rules_whole_tool">每次 %1$s 调用</string>
     <string name="command_rules_in_project">在 %1$s 中</string>

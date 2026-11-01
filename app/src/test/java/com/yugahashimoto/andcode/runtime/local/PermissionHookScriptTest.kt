@@ -71,6 +71,18 @@ class PermissionHookScriptTest {
     }
 
     @Test
+    fun `a kind allowed by the user runs without asking, and a command is never allowed by kind`() {
+        File(bridge, "class-rules.json").writeText("""{"allow":["read","edit"]}""")
+
+        val read =
+            runHook("""{"hook_event_name":"PermissionRequest","session_id":"s1","tool_name":"Read","tool_input":{"file_path":"a.kt"}}""")
+        assertEquals("allow", read.behavior())
+
+        val command = runHook(bashCall("ls"), response = """{"decision":"deny"}""")
+        assertEquals("deny", command.behavior())
+    }
+
+    @Test
     fun `a blocked command is refused before any always-allow rule, without asking`() {
         File(bridge, "always-rules.json").writeText("""{"rules":[{"toolName":"Bash","commandPrefix":"git push"}]}""")
         File(

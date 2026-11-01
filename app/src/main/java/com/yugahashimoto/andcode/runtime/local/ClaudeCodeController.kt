@@ -69,6 +69,8 @@ data class ClaudeCodeUiState(
     val sessionSystemPromptIds: Map<String, String?> = emptyMap(),
     /** The user's blocking and always-allow command rules. */
     val commandRules: List<ClaudePermissionBridge.CommandRule> = emptyList(),
+    /** Kinds of calls (reading, editing files) allowed without asking. */
+    val allowedToolClasses: Set<ToolClassRules.Kind> = emptySet(),
 ) {
     /**
      * The preset [sessionId]'s next turn will actually carry, by the same rule the runtime applies.
@@ -123,6 +125,7 @@ class ClaudeCodeController(
                 sessionSystemPromptIds = prompt.second,
             )
         }.combine(runtime.permissionBridge.rules) { state, rules -> state.copy(commandRules = rules) }
+            .combine(runtime.permissionBridge.toolClasses.allowed) { state, kinds -> state.copy(allowedToolClasses = kinds) }
             .stateIn(scope, SharingStarted.Eagerly, ClaudeCodeUiState())
 
     private var installJob: Job? = null
@@ -233,6 +236,14 @@ class ClaudeCodeController(
     /** Forgets [rule]; a rules file that cannot be written leaves the list as it was, which the screen shows. */
     fun forgetCommandRule(rule: ClaudePermissionBridge.CommandRule) {
         runCatching { runtime.permissionBridge.forget(rule) }
+    }
+
+    /** Lets calls of [kind] run without asking, or stops it; a file that cannot be written changes nothing. */
+    fun setToolClassAllowed(
+        kind: ToolClassRules.Kind,
+        allow: Boolean,
+    ) {
+        runCatching { runtime.permissionBridge.toolClasses.set(kind, allow) }
     }
 
     fun beginSignIn() = target.auth.begin()

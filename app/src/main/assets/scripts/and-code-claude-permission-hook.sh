@@ -20,6 +20,7 @@ PENDING="$BRIDGE/pending"
 RESPONSES="$BRIDGE/responses"
 ALWAYS="$BRIDGE/always-rules.json"
 BLOCKED="$BRIDGE/block-rules.json"
+CLASSES="$BRIDGE/class-rules.json"
 TIMEOUT_SEC="${ANDCODE_PERMISSION_TIMEOUT_SEC:-300}"
 # A question can legitimately wait much longer than a permission: the user may be away from the
 # device and the turn is blocked until they answer. Keep it under the hook timeout Claude Code
@@ -133,6 +134,20 @@ fi
 # Before a tool call only blocking applies; whether to ask is the permission step's business.
 if [ "$MODE" = "--pre-tool-use" ]; then
   exit 0
+fi
+
+# Kinds of calls the user allows without asking (ToolClassRules): reading and editing files. Same
+# tool lists as ToolClassRules.Kind; running commands is never allowed by kind.
+if [ -f "$CLASSES" ]; then
+  case "$TOOL_NAME" in
+    Read|Grep|Glob|LS|NotebookRead|WebFetch|WebSearch) TOOL_KIND="read" ;;
+    Write|Edit|MultiEdit|NotebookEdit) TOOL_KIND="edit" ;;
+    *) TOOL_KIND="" ;;
+  esac
+  if [ -n "$TOOL_KIND" ] && jq -e --arg k "$TOOL_KIND" '(.allow // []) | index($k) != null' "$CLASSES" >/dev/null 2>&1; then
+    printf '%s\n' "$ALLOW"
+    exit 0
+  fi
 fi
 
 # Auto-allow remembered rules without waking the UI.

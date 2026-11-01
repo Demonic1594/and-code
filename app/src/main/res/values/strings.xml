@@ -735,6 +735,10 @@
     <string name="command_rules_block_button">Block</string>
     <string name="command_rules_blocked">Blocked</string>
     <string name="command_rules_allowed">Always allowed</string>
+    <string name="command_rules_kinds_title">Always allow by kind</string>
+    <string name="command_rules_kinds_caption">Calls of these kinds run without asking, in every project. Commands are never allowed by kind; they stay one rule at a time.</string>
+    <string name="command_rules_kind_reading">Reading files and searching the web</string>
+    <string name="command_rules_kind_editing">Editing files</string>
     <string name="command_rules_no_allowed">Nothing is always allowed yet. Choose “Always allow” on an approval to add a command here.</string>
     <string name="command_rules_whole_tool">Every %1$s call</string>
     <string name="command_rules_in_project">In %1$s</string>

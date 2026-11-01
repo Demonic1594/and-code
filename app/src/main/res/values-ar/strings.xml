@@ -742,6 +742,10 @@
     <string name="command_rules_block_button">حظر</string>
     <string name="command_rules_blocked">محظورة</string>
     <string name="command_rules_allowed">مسموح بها دائمًا</string>
+    <string name="command_rules_kinds_title">السماح دائمًا حسب النوع</string>
+    <string name="command_rules_kinds_caption">تعمل الاستدعاءات من هذه الأنواع دون سؤال، في كل المشاريع. لا يُسمح بالأوامر حسب النوع أبدًا؛ تبقى قاعدة لكل أمر.</string>
+    <string name="command_rules_kind_reading">قراءة الملفات والبحث في الويب</string>
+    <string name="command_rules_kind_editing">تعديل الملفات</string>
     <string name="command_rules_no_allowed">لا يوجد شيء مسموح به دائمًا بعد. اختر «السماح دائمًا» عند الموافقة لإضافة أمر هنا.</string>
     <string name="command_rules_whole_tool">كل استدعاء لـ %1$s</string>
     <string name="command_rules_in_project">في %1$s</string>
