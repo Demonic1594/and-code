@@ -105,16 +105,18 @@ fun AppLockGate(
  * prompt calls `done` when it ends, whichever way. [reset] forgets a prompt that will not report.
  */
 internal class PromptGuard {
-    private var showing = false
+    /** The prompt showing now, or null; a late `done` from one forgotten by [reset] changes nothing. */
+    private var showing: Any? = null
 
     fun ask(start: (done: () -> Unit) -> Unit) {
-        if (showing) return
-        showing = true
-        start { showing = false }
+        if (showing != null) return
+        val prompt = Any()
+        showing = prompt
+        start { if (showing === prompt) showing = null }
     }
 
     fun reset() {
-        showing = false
+        showing = null
     }
 }
 

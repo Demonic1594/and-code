@@ -58,7 +58,8 @@ internal fun ShareServerSheet(
                 is ShareState.Live -> Live(state.url, onStop)
                 ShareState.TooManyProcesses -> Problem(stringResource(R.string.share_server_too_many), onStart, onStop)
                 ShareState.NotAnswering -> Problem(stringResource(R.string.share_server_not_answering, port), onStart, onStop)
-                ShareState.NameInUse -> Problem(stringResource(R.string.share_server_name_in_use), onStart, onStop)
+                // The process holding the name is someone else's: closing the sheet leaves it running.
+                ShareState.NameInUse -> Problem(stringResource(R.string.share_server_name_in_use), onStart, onDismiss)
                 is ShareState.Failed -> Problem(stringResource(R.string.share_server_failed, state.reason), onStart, onStop)
             }
         }

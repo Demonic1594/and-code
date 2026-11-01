@@ -31,4 +31,18 @@ class PromptGuardTest {
 
         assertEquals(2, asked)
     }
+
+    @Test
+    fun `a forgotten prompt ending late does not clear the one showing now`() {
+        val guard = PromptGuard()
+        val ends = mutableListOf<() -> Unit>()
+        guard.ask { done -> ends += done }
+        guard.reset()
+        guard.ask { done -> ends += done }
+
+        ends.first()()
+        guard.ask { done -> ends += done }
+
+        assertEquals(2, ends.size)
+    }
 }
