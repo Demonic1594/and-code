@@ -191,12 +191,14 @@ class ClaudePermissionBridge(
             pending.takeIf { it.isFile }?.let {
                 runCatching { json.decodeFromString<StoredRequest>(it.readText()) }.getOrNull()
             }
+        // Blocked since it reached the approval sheet: an approval still refuses it.
+        val blocked = storedRequest?.let { blockedBy(it.toolName, it.toolInput.toString()) }
         val decision =
-            when (response) {
-                PermissionResponse.REJECT -> "deny"
-                PermissionResponse.ONCE, PermissionResponse.ALWAYS -> "allow"
+            when {
+                blocked != null || response == PermissionResponse.REJECT -> "deny"
+                else -> "allow"
             }
-        val rememberFlag = remember || response == PermissionResponse.ALWAYS
+        val rememberFlag = blocked == null && (remember || response == PermissionResponse.ALWAYS)
         if (rememberFlag && storedRequest != null) {
             rememberRule(storedRequest)
         }
@@ -205,7 +207,12 @@ class ClaudePermissionBridge(
             StoredResponse(
                 decision = decision,
                 remember = rememberFlag,
-                message = message ?: if (decision == "deny") DECLINED_MESSAGE else null,
+                message =
+                    blocked?.let {
+                        blockedMessage(
+                            it.words.orEmpty(),
+                        )
+                    } ?: message ?: if (decision == "deny") DECLINED_MESSAGE else null,
             ),
         )
         return true
@@ -406,6 +413,13 @@ class ClaudePermissionBridge(
         file: File,
         rules: List<AlwaysRule>,
     ) {
+        // No file means no rules, and the hook leaves at once without one: an empty list must not
+        // keep it reading (or, without jq, refusing) every command.
+        if (rules.isEmpty()) {
+            file.delete()
+            mutableRules.value = loadRules()
+            return
+        }
         val tmp = File(file.parentFile, "${file.name}.tmp")
         tmp.writeText(json.encodeToString(AlwaysRulesFile(rules)))
         if (!tmp.renameTo(file)) {

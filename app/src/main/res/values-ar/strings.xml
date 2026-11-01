@@ -737,7 +737,8 @@
     <string name="command_rules_allowed">مسموح بها دائمًا</string>
     <string name="command_rules_no_allowed">لا يوجد شيء مسموح به دائمًا بعد. اختر «السماح دائمًا» عند الموافقة لإضافة أمر هنا.</string>
     <string name="command_rules_whole_tool">كل استدعاء لـ %1$s</string>
-    <string name="cd_forget_command_rule">إزالة القاعدة</string>
+    <string name="cd_forget_command_rule">إزالة قاعدة %1$s</string>
+    <string name="command_rules_block_invalid">اكتب أمرًا واحدًا، دون ; أو | أو &amp;&amp;.</string>
 
     <string name="server_info_title">معلومات الخادم</string>
     <string name="server_info_config_saved">تم حفظ الإعدادات</string>

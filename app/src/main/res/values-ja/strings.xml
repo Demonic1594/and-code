@@ -736,7 +736,8 @@
     <string name="command_rules_allowed">常に許可</string>
     <string name="command_rules_no_allowed">常に許可しているコマンドはまだありません。承認時に「常に許可」を選ぶと、ここに追加されます。</string>
     <string name="command_rules_whole_tool">%1$s のすべての呼び出し</string>
-    <string name="cd_forget_command_rule">ルールを削除</string>
+    <string name="cd_forget_command_rule">%1$s のルールを削除</string>
+    <string name="command_rules_block_invalid">; や |、&amp;&amp; を使わず、コマンドを1つだけ入力してください。</string>
 
     <!-- Server info -->
     <string name="server_info_title">サーバー情報</string>

@@ -104,8 +104,11 @@ internal object ShellCommandRules {
         return rule.isNotEmpty() && words.size >= rule.size && words.subList(0, rule.size) == rule
     }
 
-    /** The blocking rule to keep for what the user typed, or null when it names nothing. */
-    fun blockRuleFor(text: String): String? = commandParts(text).flatten().joinToString(" ").ifEmpty { null }
+    /**
+     * The blocking rule to keep for what the user typed, or null when it names nothing or more than
+     * one command (`a && b` would make one rule that matches neither).
+     */
+    fun blockRuleFor(text: String): String? = commandParts(text).filter { it.isNotEmpty() }.singleOrNull()?.joinToString(" ")
 
     /**
      * Whether a blocking rule naming [ruleWords] refuses [command]: some part of the command runs the

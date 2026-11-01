@@ -728,7 +728,8 @@
     <string name="command_rules_allowed">Toujours autorisées</string>
     <string name="command_rules_no_allowed">Rien n’est encore toujours autorisé. Choisissez « Toujours autoriser » lors d’une approbation pour ajouter une commande ici.</string>
     <string name="command_rules_whole_tool">Chaque appel à %1$s</string>
-    <string name="cd_forget_command_rule">Supprimer la règle</string>
+    <string name="cd_forget_command_rule">Supprimer la règle pour %1$s</string>
+    <string name="command_rules_block_invalid">Saisissez une seule commande, sans ; | ni &amp;&amp;.</string>
 
     <string name="server_info_title">Informations du serveur</string>
     <string name="server_info_config_saved">Configuration enregistrée</string>

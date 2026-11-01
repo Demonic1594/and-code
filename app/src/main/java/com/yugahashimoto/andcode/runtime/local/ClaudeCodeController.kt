@@ -228,9 +228,12 @@ class ClaudeCodeController(
     fun deleteSystemPromptPreset(id: String) = target.deleteSystemPromptPreset(id)
 
     /** Blocks shell commands containing [words]; false when they name no command. */
-    fun blockCommand(words: String): Boolean = runtime.permissionBridge.block(words)
+    fun blockCommand(words: String): Boolean = runCatching { runtime.permissionBridge.block(words) }.getOrDefault(false)
 
-    fun forgetCommandRule(rule: ClaudePermissionBridge.CommandRule) = runtime.permissionBridge.forget(rule)
+    /** Forgets [rule]; a rules file that cannot be written leaves the list as it was, which the screen shows. */
+    fun forgetCommandRule(rule: ClaudePermissionBridge.CommandRule) {
+        runCatching { runtime.permissionBridge.forget(rule) }
+    }
 
     fun beginSignIn() = target.auth.begin()
 

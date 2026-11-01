@@ -118,6 +118,8 @@ class ShellCommandRulesTest {
         assertEquals("rm -rf", ShellCommandRules.blockRuleFor("  rm   -rf "))
         assertEquals("git push --force", ShellCommandRules.blockRuleFor("\"git push\" --force"))
         assertNull(ShellCommandRules.blockRuleFor("  ;  "))
+        // Two commands would make one rule that matches neither.
+        assertNull(ShellCommandRules.blockRuleFor("git push --force && git reset --hard"))
         assertFalse(ShellCommandRules.blocks("", "rm -rf x"))
     }
 }

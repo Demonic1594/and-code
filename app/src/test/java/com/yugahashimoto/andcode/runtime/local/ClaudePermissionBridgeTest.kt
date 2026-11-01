@@ -371,4 +371,66 @@ class ClaudePermissionBridgeTest {
         assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"git status"}"""))
         assertTrue(bridge.rules.value.isEmpty())
     }
+
+    @Test
+    fun `an approval of a command blocked while it waited still refuses it`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        val requestId = UUID.randomUUID().toString()
+        bridge.writeGuestRequest(
+            ClaudePermissionBridge.Request(
+                requestId = requestId,
+                androidSessionId = "session-1",
+                kind = ClaudePermissionBridge.Kind.PERMISSION,
+                toolName = "Bash",
+                toolInputJson = """{"command":"rm -rf build"}""",
+                permissionLabel = "Bash",
+            ),
+        )
+        bridge.pollPending()
+        bridge.block("rm -rf")
+
+        assertTrue(bridge.respond(requestId, PermissionResponse.ALWAYS, remember = true))
+
+        assertEquals("deny", bridge.readResponse(requestId)!!.decision)
+        assertEquals(ClaudePermissionBridge.blockedMessage("rm -rf"), bridge.readResponse(requestId)!!.message)
+        assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"rm -rf build"}"""))
+    }
+
+    @Test
+    fun `forgetting the last blocking rule removes the file the hook checks`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        bridge.block("rm -rf")
+
+        bridge.forget(ClaudePermissionBridge.CommandRule("Bash", "rm -rf", blocks = true))
+
+        assertFalse(File(folder.root, ClaudePermissionBridge.BLOCK_RULES_FILE).exists())
+    }
+
+    @Test
+    fun `mergeSettings keeps the user's handlers that share a group with AndCode's`() {
+        val existing =
+            """
+            {
+              "hooks": {
+                "PreToolUse": [
+                  { "matcher": "Bash", "hooks": [
+                    { "type": "command", "command": "my-audit" },
+                    { "type": "command", "command": "/old/and-code-claude-permission-hook.sh --pre-tool-use" }
+                  ] }
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val groups =
+            kotlinx.serialization.json.Json.parseToJsonElement(ClaudePermissionHooks.mergeSettingsJson(existing))
+                .jsonObject.getValue("hooks").jsonObject.getValue("PreToolUse").jsonArray
+        val commands =
+            groups.map {
+                    group ->
+                group.jsonObject.getValue("hooks").jsonArray.map { it.jsonObject.getValue("command").jsonPrimitive.content }
+            }
+
+        assertEquals(listOf(listOf("my-audit"), listOf(ClaudePermissionHooks.BLOCK_CHECK_COMMAND)), commands)
+    }
 }

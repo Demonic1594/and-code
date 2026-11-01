@@ -113,7 +113,11 @@ private fun BlockCommandField(
     onBlock: (String) -> Boolean,
 ) {
     var text by rememberSaveable { mutableStateOf("") }
-    val submit = { if (onBlock(text)) text = "" }
+    var invalid by rememberSaveable { mutableStateOf(false) }
+    val submit = {
+        invalid = !onBlock(text)
+        if (!invalid) text = ""
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -121,7 +125,12 @@ private fun BlockCommandField(
     ) {
         OutlinedTextField(
             value = text,
-            onValueChange = { text = it },
+            onValueChange = {
+                text = it
+                invalid = false
+            },
+            isError = invalid,
+            supportingText = if (invalid) ({ Text(stringResource(R.string.command_rules_block_invalid)) }) else null,
             label = { Text(stringResource(R.string.command_rules_block_label)) },
             placeholder = { Text(suggestedBlocks.first(), fontFamily = FontFamily.Monospace) },
             singleLine = true,
@@ -185,8 +194,9 @@ private fun RuleRow(
             contentDescription = null,
             tint = if (rule.blocks) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
         )
+        val label = rule.words ?: stringResource(R.string.command_rules_whole_tool, rule.toolName)
         Text(
-            text = rule.words ?: stringResource(R.string.command_rules_whole_tool, rule.toolName),
+            text = label,
             style = MaterialTheme.typography.bodyLarge,
             fontFamily = if (rule.words != null) FontFamily.Monospace else null,
             modifier = Modifier.weight(1f),
@@ -194,7 +204,7 @@ private fun RuleRow(
         IconButton(onClick = onForget) {
             Icon(
                 Icons.Default.Delete,
-                contentDescription = stringResource(R.string.cd_forget_command_rule),
+                contentDescription = stringResource(R.string.cd_forget_command_rule, label),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

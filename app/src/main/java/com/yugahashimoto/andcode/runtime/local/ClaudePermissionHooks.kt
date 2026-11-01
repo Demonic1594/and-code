@@ -7,7 +7,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -76,19 +75,29 @@ object ClaudePermissionHooks {
         }
         """.trimIndent()
 
-    /** [groups] with AndCode's own earlier groups replaced by [ours]; the user's own hooks stay. */
+    /**
+     * [groups] with AndCode's own earlier handlers replaced by [ours]. The user's handlers stay, also
+     * when they share a group with ours; a group is dropped only when nothing of the user's is left.
+     */
     private fun withOurGroup(
         groups: kotlinx.serialization.json.JsonElement?,
         ours: JsonObject,
     ): JsonArray {
         val kept =
-            (groups as? JsonArray).orEmpty().filterNot { group ->
-                (group as? JsonObject)?.get("hooks")?.jsonArray?.any { handler ->
-                    handler.jsonObject["command"]?.jsonPrimitive?.contentOrNull?.contains(HOOK_MARKER) == true
-                } == true
+            (groups as? JsonArray).orEmpty().mapNotNull { group ->
+                val handlers = (group as? JsonObject)?.get("hooks") as? JsonArray ?: return@mapNotNull group
+                val theirs = handlers.filterNot(::isOurs)
+                when {
+                    theirs.size == handlers.size -> group
+                    theirs.isEmpty() -> null
+                    else -> JsonObject(group.jsonObject + ("hooks" to JsonArray(theirs)))
+                }
             }
         return JsonArray(kept + ours)
     }
+
+    private fun isOurs(handler: kotlinx.serialization.json.JsonElement): Boolean =
+        (handler as? JsonObject)?.get("command")?.jsonPrimitive?.contentOrNull?.contains(HOOK_MARKER) == true
 
     private fun hookGroup(
         matcher: String,
