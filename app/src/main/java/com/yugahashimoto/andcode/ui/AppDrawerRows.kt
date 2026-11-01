@@ -123,23 +123,15 @@ internal fun DrawerSearchField(
                 modifier = Modifier.size(18.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Box(modifier = Modifier.weight(1f)) {
-                if (query.isEmpty()) {
-                    Text(
-                        hint,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                BasicTextField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                modifier = Modifier.weight(1f).testTag("drawer-search-field"),
+                decorationBox = { innerTextField -> SearchFieldLabel(query = query, hint = hint, innerTextField) },
+            )
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(34.dp)) {
                     Icon(
@@ -150,6 +142,35 @@ internal fun DrawerSearchField(
                 }
             }
         }
+    }
+}
+
+/**
+ * The search field's hint, laid out inside the field so TalkBack reads it as the field's label. Once
+ * something is typed the hint is hidden, and a description takes its place so the field keeps its
+ * label: a description on the field itself would be read instead of the typed text.
+ */
+@Composable
+private fun SearchFieldLabel(
+    query: String,
+    hint: String,
+    innerTextField: @Composable () -> Unit,
+) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.CenterStart,
+        propagateMinConstraints = true,
+    ) {
+        if (query.isEmpty()) {
+            Text(
+                hint,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Box(Modifier.matchParentSize().semantics { contentDescription = hint })
+        }
+        innerTextField()
     }
 }
 

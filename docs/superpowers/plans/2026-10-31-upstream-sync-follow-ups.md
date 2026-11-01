@@ -1,6 +1,6 @@
 # Follow-ups from the Oct 31 upstream sync (PR #52)
 
-Status: **in progress**. Items 4, 5, 7, 8 and 9 are fixed. The rest is not started.
+Status: **in progress**. Items 4 to 9 are fixed. The rest is not started.
 Raised during review of the upstream sync and deferred so the sync could
 merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing them upstream.
 
@@ -31,6 +31,8 @@ merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing
 6. **Drawer search field label.** The drawer search field has no Material label for TalkBack
    beyond its placeholder; give it a proper label without hiding the typed text (a
    `contentDescription` on the field does hide it, which was tried and reverted).
+   **Done**: the hint sits inside the field's decoration box, where it is read as the field's label,
+   and while there is text a child node keeps it as a description; the field itself has none.
 
 ## Follow-ups found while building the remaining-work items
 
