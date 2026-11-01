@@ -302,10 +302,15 @@ class ClaudePermissionBridge(
             // approved once whatever the user taps ([rememberRule]). A blocked command is never
             // allowed at all, so it is not offered either.
             canAlwaysAllow =
-                blockedBy(request.toolName, request.toolInputJson) == null &&
-                    runCatching {
-                        json.parseToJsonElement(request.toolInputJson).jsonObject["command"]?.jsonPrimitive?.contentOrNull
-                    }.getOrNull().let { command -> command == null || ShellCommandRules.ruleFor(command) != null },
+                runCatching {
+                    json.parseToJsonElement(request.toolInputJson).jsonObject["command"]?.jsonPrimitive?.contentOrNull
+                }.getOrNull().let { command ->
+                    if (command == null) {
+                        true
+                    } else {
+                        blockedByCommand(request.toolName, command) == null && ShellCommandRules.ruleFor(command) != null
+                    }
+                },
             metadata =
                 mapOf(
                     "toolName" to JsonPrimitive(request.toolName),

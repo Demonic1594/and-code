@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -64,6 +65,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yugahashimoto.andcode.R
@@ -527,21 +529,19 @@ private fun CodeReader(
     val lineHeight = (fontSize * 1.5f).sp
     val truncatedNotice = stringResource(R.string.code_line_truncated)
 
+    fun lineEnd(index: Int): Int = if (index + 1 < lineStarts.size) lineStarts[index + 1] - 1 else content.length
+
     fun lineText(index: Int): AnnotatedString {
         val start = lineStarts[index]
-        val end = if (index + 1 < lineStarts.size) lineStarts[index + 1] - 1 else content.length
-        val shownEnd = displayEnd(start, end)
-        val shown = highlightRange(content, start, shownEnd, tokens, palette, matches, currentMatch)
-        if (shownEnd == end) return shown
-        // A line past the display cap cannot be laid out whole: show its start and say so, rather
-        // than freezing the reader on a row that never finishes laying out.
-        return AnnotatedString.Builder(shown)
-            .apply {
-                pushStyle(SpanStyle(color = palette.gutterText, fontStyle = FontStyle.Italic))
-                append(truncatedNotice.format(end - start))
-                pop()
-            }
-            .toAnnotatedString()
+        return highlightRange(content, start, displayEnd(start, lineEnd(index)), tokens, palette, matches, currentMatch)
+    }
+
+    // A line past the display cap cannot be laid out whole: its start is shown, and a notice outside
+    // the selectable code says so, where it is seen without scrolling to the end of the line.
+    fun truncationNotice(index: Int): String? {
+        val start = lineStarts[index]
+        val end = lineEnd(index)
+        return if (displayEnd(start, end) == end) null else truncatedNotice.format(end - start)
     }
 
     LaunchedEffect(listState, wrap) {
@@ -557,14 +557,16 @@ private fun CodeReader(
                 items(lineStarts.size) { index ->
                     Row {
                         LineNumber(index, numberWidth, fontSize, lineHeight, palette)
-                        Text(
-                            lineText(index),
-                            color = palette.foreground,
-                            fontSize = fontSize.sp,
-                            lineHeight = lineHeight,
-                            fontFamily = CodeFontFamily,
-                            modifier = Modifier.weight(1f).padding(start = 10.dp, end = 12.dp),
-                        )
+                        Column(modifier = Modifier.weight(1f).padding(start = 10.dp, end = 12.dp)) {
+                            truncationNotice(index)?.let { TruncationNotice(it, palette, fontSize, lineHeight) }
+                            Text(
+                                lineText(index),
+                                color = palette.foreground,
+                                fontSize = fontSize.sp,
+                                lineHeight = lineHeight,
+                                fontFamily = CodeFontFamily,
+                            )
+                        }
                     }
                 }
             }
@@ -576,20 +578,45 @@ private fun CodeReader(
                 }
                 LazyColumn(state = listState, modifier = Modifier.weight(1f).horizontalScroll(hScroll)) {
                     items(lineStarts.size) { index ->
-                        Text(
-                            lineText(index),
-                            color = palette.foreground,
-                            fontSize = fontSize.sp,
-                            lineHeight = lineHeight,
-                            fontFamily = CodeFontFamily,
-                            softWrap = false,
-                            maxLines = 1,
-                            modifier = Modifier.padding(start = 10.dp, end = 32.dp),
-                        )
+                        // On the same row, before the code, so the line keeps its one-row height beside its number.
+                        Row(modifier = Modifier.padding(start = 10.dp, end = 32.dp)) {
+                            truncationNotice(index)?.let { TruncationNotice(it, palette, fontSize, lineHeight) }
+                            Text(
+                                lineText(index),
+                                color = palette.foreground,
+                                fontSize = fontSize.sp,
+                                lineHeight = lineHeight,
+                                fontFamily = CodeFontFamily,
+                                softWrap = false,
+                                maxLines = 1,
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TruncationNotice(
+    text: String,
+    palette: EditorPalette,
+    fontSize: Float,
+    lineHeight: TextUnit,
+) {
+    DisableSelection {
+        Text(
+            text,
+            color = palette.gutterText,
+            fontStyle = FontStyle.Italic,
+            fontSize = fontSize.sp,
+            lineHeight = lineHeight,
+            fontFamily = CodeFontFamily,
+            softWrap = false,
+            maxLines = 1,
+            modifier = Modifier.padding(end = 8.dp),
+        )
     }
 }
 

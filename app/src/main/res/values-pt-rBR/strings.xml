@@ -1631,8 +1631,8 @@
     <string name="file_edit_error_not_found">O arquivo não existe mais.</string>
     <string name="file_edit_error_not_text">Somente arquivos de texto UTF-8 podem ser editados.</string>
     <string name="file_edit_error_too_large">Este arquivo é grande demais para ser editado (limite: %1$d KB).</string>
-    <string name="file_edit_error_line_too_long">Uma linha deste arquivo é longa demais para ser editada (limite: %1$d caracteres).</string>
-    <string name="code_line_truncated">… linha truncada (%1$d caracteres, longa demais para exibir)</string>
+    <string name="file_edit_error_line_too_long">Uma linha deste arquivo é longa demais para ser editada (limite: %1$d bytes).</string>
+    <string name="code_line_truncated">Linha truncada (%1$d caracteres, longa demais para exibir) …</string>
     <string name="file_edit_error_read_only">Este arquivo é somente leitura.</string>
     <string name="file_edit_error_changed_on_disk">O arquivo foi alterado por outro processo desde que você o abriu, então suas edições não foram salvas. Copie seu texto, feche o editor e abra o arquivo novamente.</string>
     <string name="file_edit_error_write_failed">Não foi possível salvar o arquivo.</string>

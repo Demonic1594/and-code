@@ -329,7 +329,8 @@ fun PermissionCard(
                 modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
             ) {
-                val buttonModifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = PermissionCardSizes.BUTTON_MIN_HEIGHT.dp)
+                // Material keeps each at least 48dp tall for touch; the row is short because it is one row.
+                val buttonModifier = Modifier.weight(1f).fillMaxHeight()
                 val padding = PaddingValues(horizontal = Spacing.sm, vertical = 6.dp)
                 OutlinedButton(
                     onClick = { onPermission(permission.id, PermissionResponse.REJECT, false) },
@@ -368,22 +369,25 @@ private fun PermissionButtonLabel(text: String) {
 
 /**
  * What the permission card shows: a short tag in its header and the details in its code box. Claude
- * Code sends its tool as the one pattern and a label holding the command, OpenCode a short permission
- * type and the commands as patterns; either way the short one is the tag and the long ones the details.
+ * Code sends its tool as the one pattern and a label "Tool: ..." holding the command; OpenCode and
+ * Codex send a permission type (bash, edit) and the commands or paths as patterns. Details that only
+ * repeat the tag are left out.
  */
 internal fun permissionSummary(permission: PermissionRequest): Pair<String, List<String>> {
     val only = permission.patterns.singleOrNull()
-    return if (only != null && only.length < permission.permission.length) {
-        only to listOf(permission.permission)
-    } else {
-        permission.permission to permission.patterns
-    }
+    // Claude Code's hook writes "Tool: what it does — command"; its one pattern is that tool.
+    val (tag, details) =
+        if (only != null && permission.permission.startsWith("$only: ")) {
+            only to listOf(permission.permission)
+        } else {
+            permission.permission to permission.patterns
+        }
+    return tag to details.filterNot { it == tag }
 }
 
 internal object PermissionCardSizes {
     const val TAG_MAX_WIDTH = 120
     const val DETAIL_MAX_LINES = 6
-    const val BUTTON_MIN_HEIGHT = 36
 }
 
 @Composable

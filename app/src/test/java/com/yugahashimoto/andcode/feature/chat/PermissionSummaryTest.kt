@@ -33,4 +33,15 @@ class PermissionSummaryTest {
         assertEquals("edit", tag)
         assertEquals(emptyList<String>(), details)
     }
+
+    @Test
+    fun `a short command never takes the tag's place`() {
+        assertEquals("bash" to listOf("ls"), permissionSummary(request("bash", listOf("ls"))))
+        assertEquals("edit" to listOf("*"), permissionSummary(request("edit", listOf("*"))))
+    }
+
+    @Test
+    fun `details that only repeat the tag are left out`() {
+        assertEquals("Bash" to emptyList<String>(), permissionSummary(request("Bash", listOf("Bash"))))
+    }
 }
