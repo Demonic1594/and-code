@@ -761,7 +761,7 @@ internal fun displayRange(
     current: IntRange?,
 ): IntRange {
     val headEnd = displayEnd(start, end)
-    if (current == null || current.first < start || current.first > end || current.last < headEnd) return start..headEnd
+    if (current == null || current.first !in start..end || current.last < headEnd) return start..headEnd
     val windowStart = maxOf(start, current.first - LongLineLimits.MATCH_CONTEXT)
     return windowStart..minOf(end, windowStart + LongLineLimits.DISPLAY_CHARS)
 }
