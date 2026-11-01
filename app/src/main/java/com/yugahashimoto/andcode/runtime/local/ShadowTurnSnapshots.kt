@@ -3,6 +3,7 @@ package com.yugahashimoto.andcode.runtime.local
 import android.content.Context
 import android.content.SharedPreferences
 import com.yugahashimoto.andcode.core.api.OpenCodeFileChange
+import com.yugahashimoto.andcode.feature.chat.RestoreResult
 import com.yugahashimoto.andcode.feature.chat.TurnSnapshotIndex
 import com.yugahashimoto.andcode.feature.chat.TurnSnapshots
 
@@ -28,7 +29,7 @@ class ShadowTurnSnapshots(
         sessionId: String,
         turn: Int,
         directory: String,
-    ): String? = index.get(sessionId, turn)?.let { shadow.restore(directory, it) }
+    ): RestoreResult = index.get(sessionId, turn)?.let { shadow.restoreChecked(directory, it) } ?: RestoreResult.Failed
 
     override suspend fun undoRestore(
         directory: String,

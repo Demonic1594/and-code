@@ -1774,6 +1774,8 @@
     <string name="restore_files_banner_body">As mensagens não mudaram. Desfazer devolve os arquivos ao estado em que estavam.</string>
     <string name="restore_files_keep">Manter</string>
     <string name="restore_files_failed">Não foi possível restaurar os arquivos.</string>
+    <string name="restore_files_refused">Nada foi alterado: restaurar substituiria %1$s, que os snapshots não guardam. Mova-o para outro lugar e tente de novo.</string>
+    <string name="restore_files_refused_unknown">Nada foi alterado: restaurar substituiria um arquivo que os snapshots não guardam.</string>
     <string name="chat_menu_open_github">Abrir no GitHub</string>
     <string name="action_copied">Copiado</string>
     <string name="tool_copy_block">Copiar %1$s</string>
