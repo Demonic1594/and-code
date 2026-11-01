@@ -459,6 +459,7 @@ def tool_navigate(args: dict) -> str:
 
 
 STALE_REF = "that handle is gone from the page; call browser_read again for fresh ones"
+NO_TARGET = "pass a handle from browser_read, or both x and y"
 
 
 def tool_read(args: dict) -> str:
@@ -471,6 +472,8 @@ def tool_read(args: dict) -> str:
 
 
 def tool_click(args: dict) -> str:
+    if args.get("ref") is None and (args.get("x") is None or args.get("y") is None):
+        return NO_TARGET
     page = _session().open_page_session()
     try:
         if args.get("ref") is not None:

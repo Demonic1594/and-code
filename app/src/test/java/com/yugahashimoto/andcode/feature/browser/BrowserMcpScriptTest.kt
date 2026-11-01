@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit
  */
 class BrowserMcpScriptTest {
     private val staleRef = "that handle is gone from the page; call browser_read again for fresh ones"
+    private val noTarget = "pass a handle from browser_read, or both x and y"
 
     @get:Rule
     val folder = TemporaryFolder()
@@ -345,6 +346,22 @@ class BrowserMcpScriptTest {
             )
 
         assertEquals("${staleRef}\n$staleRef", answer)
+    }
+
+    @Test
+    fun `a click with neither a handle nor both coordinates says what to pass`() {
+        val answer =
+            run(
+                """
+                def fail():
+                    raise AssertionError("no page should be opened")
+                m._session = fail
+                print(m.tool_click({}))
+                print(m.tool_click({"x": 10}))
+                """.trimIndent(),
+            )
+
+        assertEquals("$noTarget\n$noTarget", answer)
     }
 
     @Test
