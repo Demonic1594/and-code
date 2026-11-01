@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit
 class BrowserMcpScriptTest {
     private val staleRef = "that handle is gone from the page; call browser_read again for fresh ones"
     private val noTarget = "pass a handle from browser_read, or both x and y"
+    private val notEditable = "that element does not take typed text; pass the handle of an enabled text field"
     private val badRef = "ref must be the whole-number handle shown in [brackets] by browser_read"
 
     @get:Rule
@@ -382,6 +383,30 @@ class BrowserMcpScriptTest {
             )
 
         assertEquals(List(5) { badRef }.joinToString("\n") + "\n1", answer)
+    }
+
+    @Test
+    fun `typing by handle into something that is not a text field types nothing`() {
+        val answer =
+            run(
+                """
+                calls = []
+                class Page:
+                    def call(self, method, **params):
+                        calls.append(method)
+                        return {"result": {"value": "not editable"}}
+                    def close(self):
+                        pass
+                class Session:
+                    def open_page_session(self):
+                        return Page()
+                m._session = lambda: Session()
+                print(m.tool_type({"ref": 2, "text": "hi"}))
+                print("Input.insertText" in calls)
+                """.trimIndent(),
+            )
+
+        assertEquals("$notEditable\nFalse", answer)
     }
 
     @Test

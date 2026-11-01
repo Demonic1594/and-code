@@ -492,6 +492,16 @@ def tool_navigate(args: dict) -> str:
 
 STALE_REF = "that handle is gone from the page; call browser_read again for fresh ones"
 NO_TARGET = "pass a handle from browser_read, or both x and y"
+NOT_EDITABLE = "that element does not take typed text; pass the handle of an enabled text field"
+# Focuses `el` only if it takes typed text, and confirms it got focus: otherwise Input.insertText
+# would type into whatever field had focus before.
+FOCUS_EDITABLE_JS = (
+    "const types = ['button', 'submit', 'reset', 'checkbox', 'radio', 'file', 'image', 'hidden', 'range', 'color']; "
+    "const editable = el.isContentEditable || el.tagName === 'TEXTAREA' || "
+    "(el.tagName === 'INPUT' && !types.includes(el.type)); "
+    "if (!editable || el.disabled || el.readOnly) return 'not editable'; "
+    "el.focus(); return document.activeElement === el ? 'ok' : 'not editable';"
+)
 
 
 def tool_read(args: dict) -> str:
@@ -525,8 +535,11 @@ def tool_type(args: dict) -> str:
     page = _session().open_page_session()
     try:
         if args.get("ref") is not None:
-            if _evaluate(page, ref_expression(args["ref"], "el.focus(); return 'ok';")) == "stale":
+            state = _evaluate(page, ref_expression(args["ref"], FOCUS_EDITABLE_JS))
+            if state == "stale":
                 return STALE_REF
+            if state != "ok":
+                return NOT_EDITABLE
         else:
             page.call("Runtime.evaluate", expression="document.activeElement && document.activeElement.focus()")
         page.call("Input.insertText", text=args["text"])
