@@ -713,7 +713,7 @@
     <string name="mcp_settings_row">MCP 服务器</string>
     <string name="command_rules_settings_row">命令规则</string>
     <string name="command_rules_title">命令规则</string>
-    <string name="command_rules_caption">Claude Code 在运行 shell 命令前会先询问。被阻止的命令会直接被拒绝（即使位于更长的命令中），并告知智能体不要重试。参数顺序不限（阻止“rm -rf”也会阻止“rm -fr”），但写法须一致：“--force”与“-f”不同。在审批时选择“始终允许”的命令会直接运行，不再询问。</string>
+    <string name="command_rules_caption">被阻止的命令会直接被拒绝（即使位于更长的命令中），并告知智能体不要重试。参数顺序不限（阻止“rm -rf”也会阻止“rm -fr”），但写法须一致：“--force”与“-f”不同。在审批时选择“始终允许”的命令会直接运行，不再询问。</string>
     <string name="command_rules_block_label">阻止包含以下内容的命令</string>
     <string name="command_rules_block_button">阻止</string>
     <string name="command_rules_blocked">已阻止</string>

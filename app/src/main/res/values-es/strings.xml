@@ -719,7 +719,7 @@
     <string name="mcp_settings_row">Servidores MCP</string>
     <string name="command_rules_settings_row">Reglas de comandos</string>
     <string name="command_rules_title">Reglas de comandos</string>
-    <string name="command_rules_caption">Claude Code pregunta antes de ejecutar un comando de shell. Un comando bloqueado se rechaza sin preguntar, también dentro de un comando más largo, y se le indica al agente que no lo reintente. Las opciones pueden ir en cualquier orden, así que bloquear “rm -rf” también bloquea “rm -fr”, pero deben escribirse igual: “--force” no es “-f”. Los comandos que permitiste siempre en una aprobación se ejecutan sin preguntar.</string>
+    <string name="command_rules_caption">Un comando bloqueado se rechaza sin preguntar, también dentro de un comando más largo, y se le indica al agente que no lo reintente. Las opciones pueden ir en cualquier orden, así que bloquear “rm -rf” también bloquea “rm -fr”, pero deben escribirse igual: “--force” no es “-f”. Los comandos que permitiste siempre en una aprobación se ejecutan sin preguntar.</string>
     <string name="command_rules_block_label">Bloquear comandos que contengan</string>
     <string name="command_rules_block_button">Bloquear</string>
     <string name="command_rules_blocked">Bloqueados</string>

@@ -45,6 +45,13 @@ deny() {
   fi
 }
 
+# Before a tool call there is nothing to do without blocked commands: leave at once, as this runs
+# before every Bash call.
+if [ "$MODE" = "--pre-tool-use" ] && [ ! -f "$BLOCKED" ]; then
+  cat >/dev/null
+  exit 0
+fi
+
 mkdir -p "$PENDING" "$RESPONSES"
 
 INPUT=$(cat)
@@ -56,8 +63,12 @@ fi
 # cannot show, and an approval would run it unseen. Refuse instead; the app's Linux environments
 # come with jq.
 if ! command -v jq >/dev/null 2>&1; then
-  # Before a tool call there is nothing to check against; the permission step refuses on its own.
-  [ "$MODE" = "--pre-tool-use" ] && exit 0
+  # Before a tool call the blocked commands cannot be checked, and in the modes that never ask
+  # nothing else would stop one, so refuse (a fixed text, nothing to escape).
+  if [ "$MODE" = "--pre-tool-use" ]; then
+    printf '%s\n' "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"$NO_JQ\"}}"
+    exit 0
+  fi
   deny "$NO_JQ"
   exit 0
 fi
@@ -123,9 +134,9 @@ fi
 
 # Auto-allow remembered rules without waking the UI.
 if [ -f "$ALWAYS" ]; then
-  CMD=$(printf '%s' "$TOOL_INPUT" | jq -r '.command // empty')
+  CMD=$(printf '%s' "$TOOL_INPUT" | jq -r 'if type == "object" then .command // empty else empty end' 2>/dev/null || true)
   # Absent or null only: an explicit "command": "" is a command (an empty one), as on the app side.
-  NO_CMD=$(printf '%s' "$TOOL_INPUT" | jq -r 'if .command == null then "yes" else "no" end')
+  NO_CMD=$(printf '%s' "$TOOL_INPUT" | jq -r 'if type == "object" and .command != null then "no" else "yes" end' 2>/dev/null || echo yes)
   # Same rules as ShellCommandRules on the app side: a call without a command matches a tool-wide
   # rule; a command matches only a rule naming its first words exactly, and never when it chains,
   # pipes, substitutes or redirects, or starts with a program that runs other code (bash -c ...).

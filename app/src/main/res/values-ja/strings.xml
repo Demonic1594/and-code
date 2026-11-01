@@ -727,7 +727,7 @@
     <string name="mcp_settings_row">MCPサーバー</string>
     <string name="command_rules_settings_row">コマンドルール</string>
     <string name="command_rules_title">コマンドルール</string>
-    <string name="command_rules_caption">Claude Code はシェルコマンドを実行する前に確認します。ブロックしたコマンドは、長いコマンドの一部であっても確認なしで拒否され、エージェントには再試行しないよう伝えます。オプションの順序は問いません（「rm -rf」をブロックすると「rm -fr」もブロックされます）が、表記は一致する必要があります。「--force」と「-f」は別のものとして扱われます。承認時に「常に許可」したコマンドは確認なしで実行されます。</string>
+    <string name="command_rules_caption">ブロックしたコマンドは、長いコマンドの一部であっても確認なしで拒否され、エージェントには再試行しないよう伝えます。オプションの順序は問いません（「rm -rf」をブロックすると「rm -fr」もブロックされます）が、表記は一致する必要があります。「--force」と「-f」は別のものとして扱われます。承認時に「常に許可」したコマンドは確認なしで実行されます。</string>
     <string name="command_rules_block_label">次を含むコマンドをブロック</string>
     <string name="command_rules_block_button">ブロック</string>
     <string name="command_rules_blocked">ブロック中</string>

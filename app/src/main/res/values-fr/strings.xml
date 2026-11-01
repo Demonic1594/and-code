@@ -719,7 +719,7 @@
     <string name="mcp_settings_row">Serveurs MCP</string>
     <string name="command_rules_settings_row">Règles de commandes</string>
     <string name="command_rules_title">Règles de commandes</string>
-    <string name="command_rules_caption">Claude Code demande avant d’exécuter une commande shell. Une commande bloquée est refusée sans demander, même au sein d’une commande plus longue, et l’agent est prié de ne pas réessayer. Les options peuvent venir dans n’importe quel ordre, donc bloquer « rm -rf » bloque aussi « rm -fr », mais elles doivent s’écrire pareil : « --force » n’est pas « -f ». Les commandes que vous avez toujours autorisées lors d’une approbation s’exécutent sans demander.</string>
+    <string name="command_rules_caption">Une commande bloquée est refusée sans demander, même au sein d’une commande plus longue, et l’agent est prié de ne pas réessayer. Les options peuvent venir dans n’importe quel ordre, donc bloquer « rm -rf » bloque aussi « rm -fr », mais elles doivent s’écrire pareil : « --force » n’est pas « -f ». Les commandes que vous avez toujours autorisées lors d’une approbation s’exécutent sans demander.</string>
     <string name="command_rules_block_label">Bloquer les commandes contenant</string>
     <string name="command_rules_block_button">Bloquer</string>
     <string name="command_rules_blocked">Bloquées</string>

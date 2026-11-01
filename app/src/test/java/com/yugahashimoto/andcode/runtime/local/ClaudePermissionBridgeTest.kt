@@ -344,7 +344,6 @@ class ClaudePermissionBridgeTest {
         assertEquals(listOf(ClaudePermissionBridge.CommandRule("Bash", "rm -rf", blocks = true)), bridge.rules.value)
         File(folder.root, "always-rules.json").writeText("""{"rules":[{"toolName":"Bash","commandPrefix":"rm -rf"}]}""")
         assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"rm -rf build"}"""))
-        assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"rm -rf build"}"""))
     }
 
     @Test

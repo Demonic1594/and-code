@@ -721,7 +721,7 @@
     <string name="mcp_settings_row">MCP servers</string>
     <string name="command_rules_settings_row">Command rules</string>
     <string name="command_rules_title">Command rules</string>
-    <string name="command_rules_caption">Claude Code asks before it runs a shell command. A blocked command is refused without asking, also inside a longer command, and the agent is told not to retry it. Flags may come in any order, so blocking “rm -rf” also blocks “rm -fr”, but must be spelled the same: “--force” is not “-f”. Commands you always allowed on an approval run without asking.</string>
+    <string name="command_rules_caption">A blocked command is refused without asking, also inside a longer command, and the agent is told not to retry it. Flags may come in any order, so blocking “rm -rf” also blocks “rm -fr”, but must be spelled the same: “--force” is not “-f”. Commands you always allowed on an approval run without asking.</string>
     <string name="command_rules_block_label">Block commands containing</string>
     <string name="command_rules_block_button">Block</string>
     <string name="command_rules_blocked">Blocked</string>
