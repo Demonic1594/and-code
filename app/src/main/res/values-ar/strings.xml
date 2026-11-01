@@ -194,6 +194,7 @@
     <string name="provider_add_custom">إضافة موفر مخصص</string>
     <string name="provider_add_custom_title">إضافة موفر مخصص</string>
     <string name="provider_custom_help">أضف أي واجهة برمجة تطبيقات متوافقة مع OpenAI غير موجودة في قائمة موفري OpenCode. سيُطلب منك مفتاح API الخاص بها بعد ذلك.</string>
+    <string name="provider_custom_local_help">هل تشغّل Ollama أو LM Studio؟ اختره لملء عنوانه المعتاد، وغيّر العنوان إن كان الخادم على حاسوب آخر، ثم اجلب النماذج لاختبار الاتصال. تقبل الخوادم المحلية أي مفتاح API.</string>
     <string name="provider_custom_id_label">معرف الموفر</string>
     <string name="provider_custom_id_hint">مثال: my-provider</string>
     <string name="provider_custom_name_label">الاسم المعروض</string>
@@ -728,7 +729,12 @@
     <string name="mcp_url_hint">عنوان URL (خادم عن بُعد)</string>
     <string name="mcp_add_help">أدخل أمرًا لخادم محلي أو عنوان URL لخادم عن بُعد.</string>
     <string name="mcp_settings_row">خوادم MCP</string>
+    <string name="mcp_missing_program">«%1$s» غير مثبّت في بيئة Linux، لذا لا يمكن تشغيل هذا الخادم.</string>
+    <string name="mcp_missing_node">«%1$s» يحتاج إلى Node.js غير المثبّت في بيئة Linux، لذا لا يمكن تشغيل هذا الخادم. ثبّته من الطرفية: apt install nodejs npm</string>
     <string name="command_rules_settings_row">قواعد الأوامر</string>
+    <string name="project_instructions_settings_row">تعليمات المشروع</string>
+    <string name="project_instructions_no_project">افتح مشروعًا في محادثة أولًا: ملف التعليمات موجود في مجلده.</string>
+    <string name="project_instructions_failed">تعذّر إنشاء CLAUDE.md في هذا المشروع.</string>
     <string name="command_rules_title">قواعد الأوامر</string>
     <string name="command_rules_caption">يُرفض الأمر المحظور دون سؤال، حتى داخل أمر أطول، ويُطلب من الوكيل عدم إعادة المحاولة. يمكن أن تأتي الخيارات بأي ترتيب، لذا فإن حظر «rm -rf» يحظر أيضًا «rm -fr»، لكن يجب أن تُكتب بالطريقة نفسها: «--force» ليس «-f». الأوامر التي سمحت بها دائمًا عند الموافقة تعمل دون سؤال.</string>
     <string name="command_rules_block_label">حظر الأوامر التي تحتوي على</string>
@@ -1429,6 +1435,7 @@
     <string name="devtools_viewport">إطار العرض</string>
     <string name="devtools_user_agent">وكيل المستخدم</string>
     <string name="guest_browser_webview_unavailable">يتعذّر تشغيل المتصفح الضيف لأن WebView لم يُحمَّل على هذا الجهاز. قد يحل تحديث Android System WebView أو إعادة تفعيله المشكلة.</string>
+    <string name="guest_browser_agent_controlling">وكيل يتحكم في هذه الصفحة</string>
     <string name="setup_step_development_tools">أدوات التطوير</string>
     <string name="setup_development_tools_description">يتم تثبيت مكونات التشغيل الضرورية فقط افتراضيًا، ويمكنك إضافة مجموعة أدوات التطوير الكاملة.</string>
     <string name="setup_required_tools_description">سيتم دائمًا تثبيت Linux والوكلاء المحددين وGit وأدوات الدعم التي يستخدمها AndCode.</string>

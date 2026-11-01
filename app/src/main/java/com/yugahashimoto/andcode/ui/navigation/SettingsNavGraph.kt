@@ -384,6 +384,7 @@ fun NavGraphBuilder.settingsNavGraph(
             onOpenSystemPrompt = { navController.navigate(ROUTE_SETTINGS_SYSTEM_PROMPT) },
             onOpenMcp = { navController.navigate(ROUTE_SETTINGS_MCP_CLAUDE) },
             onOpenCommandRules = { navController.navigate(ROUTE_SETTINGS_COMMAND_RULES) },
+            onOpenProjectInstructions = claudeActions.onOpenProjectInstructions,
             onOpenUrl = { url ->
                 UrlLauncher.openUrl(context, url)
             },
@@ -650,6 +651,8 @@ data class ClaudeSettingsActions(
     /** Blocks shell commands containing the given words; false when they name no command. */
     val onBlockCommand: (String) -> Boolean,
     val onForgetCommandRule: (com.yugahashimoto.andcode.runtime.local.ClaudePermissionBridge.CommandRule) -> Unit,
+    /** Opens the open project's CLAUDE.md in the editor, creating it when missing. */
+    val onOpenProjectInstructions: () -> Unit,
 )
 
 /** Antigravity actions the settings graph forwards to its agent screen. */

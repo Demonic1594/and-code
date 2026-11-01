@@ -2,6 +2,8 @@ package com.yugahashimoto.andcode.feature.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
@@ -9,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -57,6 +60,16 @@ fun CustomProviderDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (!state.editing) {
+                    LocalServerPresets(
+                        enabled = !state.isBusy,
+                        onPreset = { preset ->
+                            onIdChange(preset.id)
+                            onNameChange(preset.displayName)
+                            onBaseUrlChange(preset.baseUrl)
+                        },
+                    )
+                }
                 OutlinedTextField(
                     value = state.id,
                     onValueChange = onIdChange,
@@ -160,4 +173,41 @@ fun CustomProviderDialog(
             }
         },
     )
+}
+
+/**
+ * OpenAI-compatible model servers people run themselves. The address is where each listens by
+ * default on the same machine; one on another computer needs that computer's address instead.
+ */
+private enum class LocalServerPreset(
+    val id: String,
+    val displayName: String,
+    val baseUrl: String,
+) {
+    OLLAMA("ollama", "Ollama", "http://127.0.0.1:11434/v1"),
+    LM_STUDIO("lmstudio", "LM Studio", "http://127.0.0.1:1234/v1"),
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LocalServerPresets(
+    enabled: Boolean,
+    onPreset: (LocalServerPreset) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LocalServerPreset.entries.forEach { preset ->
+                AssistChip(
+                    onClick = { onPreset(preset) },
+                    enabled = enabled,
+                    label = { Text(preset.displayName) },
+                )
+            }
+        }
+        Text(
+            stringResource(R.string.provider_custom_local_help),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }

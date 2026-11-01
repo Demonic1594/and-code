@@ -192,6 +192,7 @@
     <string name="provider_add_custom">Добавить пользовательского провайдера</string>
     <string name="provider_add_custom_title">Добавить пользовательского провайдера</string>
     <string name="provider_custom_help">Добавьте любой совместимый с OpenAI API, которого нет в списке провайдеров OpenCode. Затем у вас запросят его API-ключ.</string>
+    <string name="provider_custom_local_help">Используете Ollama или LM Studio? Выберите его, чтобы подставить обычный адрес, измените адрес, если сервер на другом компьютере, затем загрузите модели, чтобы проверить подключение. Локальные серверы принимают любой ключ API.</string>
     <string name="provider_custom_id_label">ID провайдера</string>
     <string name="provider_custom_id_hint">напр. my-provider</string>
     <string name="provider_custom_name_label">Отображаемое имя</string>
@@ -722,7 +723,12 @@
     <string name="mcp_url_hint">URL (удалённый сервер)</string>
     <string name="mcp_add_help">Введите команду для локального сервера или URL для удалённого сервера.</string>
     <string name="mcp_settings_row">Серверы MCP</string>
+    <string name="mcp_missing_program">«%1$s» не установлен в среде Linux, поэтому этот сервер не может запуститься.</string>
+    <string name="mcp_missing_node">«%1$s» требует Node.js, который не установлен в среде Linux, поэтому этот сервер не может запуститься. Установите его из терминала: apt install nodejs npm</string>
     <string name="command_rules_settings_row">Правила команд</string>
+    <string name="project_instructions_settings_row">Инструкции проекта</string>
+    <string name="project_instructions_no_project">Сначала откройте проект в чате: файл инструкций находится в его папке.</string>
+    <string name="project_instructions_failed">Не удалось создать CLAUDE.md в этом проекте.</string>
     <string name="command_rules_title">Правила команд</string>
     <string name="command_rules_caption">Заблокированная команда отклоняется без вопроса, даже внутри более длинной команды, и агенту сообщается, что повторять её не нужно. Флаги могут идти в любом порядке, поэтому блокировка «rm -rf» блокирует и «rm -fr», но писать их нужно так же: «--force» — это не «-f». Команды, которые вы всегда разрешили при подтверждении, выполняются без вопроса.</string>
     <string name="command_rules_block_label">Блокировать команды, содержащие</string>
@@ -1419,6 +1425,7 @@
     <string name="devtools_viewport">Область просмотра</string>
     <string name="devtools_user_agent">Агент пользователя</string>
     <string name="guest_browser_webview_unavailable">Гостевой браузер не запускается: на этом устройстве не удалось загрузить WebView. Обновление или повторное включение Android System WebView может помочь.</string>
+    <string name="guest_browser_agent_controlling">Агент управляет этой страницей</string>
     <string name="setup_step_development_tools">Инструменты разработки</string>
     <string name="setup_development_tools_description">По умолчанию устанавливаются только необходимые компоненты. При желании можно добавить полный набор инструментов.</string>
     <string name="setup_required_tools_description">Linux, выбранные агенты, Git и вспомогательные инструменты AndCode. Они устанавливаются всегда.</string>

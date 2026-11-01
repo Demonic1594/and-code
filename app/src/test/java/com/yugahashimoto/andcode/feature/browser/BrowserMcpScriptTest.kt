@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.feature.browser
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
@@ -146,6 +147,65 @@ class BrowserMcpScriptTest {
             )
 
         assertEquals("True\nTrue", refused)
+    }
+
+    @Test
+    fun `each page session tells the browser an agent is acting, with the marker it listens for`() {
+        val sent =
+            run(
+                """
+                class FakeWs:
+                    def __init__(self):
+                        self.sent = []
+                    def send_text(self, text):
+                        self.sent.append(text)
+                    def recv_text(self):
+                        return '{"id": 1, "result": {}}'
+                ws = FakeWs()
+                m._PageSession(ws).announce()
+                import json
+                print(json.loads(ws.sent[0])["params"]["expression"])
+                """.trimIndent(),
+            )
+
+        assertEquals("console.debug(\"${AgentActivity.MARKER}\")", sent)
+    }
+
+    @Test
+    fun `a refused announcement is ignored but a broken socket still fails the tool`() {
+        val outcome =
+            run(
+                """
+                class RefusingWs:
+                    def send_text(self, text):
+                        pass
+                    def recv_text(self):
+                        return '{"id": 1, "error": {"message": "Cannot find context"}}'
+                class DeadWs:
+                    def send_text(self, text):
+                        raise TimeoutError("timed out")
+                m._PageSession(RefusingWs()).announce()
+                print("refused ignored")
+                try:
+                    m._PageSession(DeadWs()).announce()
+                    print("swallowed")
+                except OSError:
+                    print("raised")
+                """.trimIndent(),
+            )
+
+        assertEquals("refused ignored\nraised", outcome)
+    }
+
+    @Test
+    fun `the page console hook keeps the marker out of the user's console`() {
+        val devtools =
+            listOf("src/main/assets/devtools/andcode-devtools.js", "app/src/main/assets/devtools/andcode-devtools.js")
+                .map(::File)
+                .first { it.isFile }
+                .readText()
+
+        assertTrue(devtools.contains("var AGENT_ACTIVITY_MARKER = '${AgentActivity.MARKER}';"))
     }
 
     /** Loads the script as module `m` and runs [code], returning what it printed. */
