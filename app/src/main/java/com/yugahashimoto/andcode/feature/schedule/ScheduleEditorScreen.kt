@@ -158,7 +158,9 @@ fun ScheduleEditorScreen(
 ) {
     var name by rememberSaveable { mutableStateOf(existing?.name.orEmpty()) }
     var prompt by rememberSaveable { mutableStateOf(existing?.prompt.orEmpty()) }
-    var runtimeId by remember { mutableStateOf(existing?.runtimeId.orEmpty()) }
+    // A new schedule starts from the runtime the user is already chatting through: left empty it
+    // saved nothing until the picker's runtime section was noticed, with only "Choose an agent" said.
+    var runtimeId by remember { mutableStateOf(existing?.runtimeId ?: selectedRuntimeId.orEmpty()) }
     var providerId by remember { mutableStateOf(existing?.providerId) }
     var modelId by remember { mutableStateOf(existing?.modelId) }
     var workspacePath by remember { mutableStateOf(existing?.workspacePath.orEmpty()) }

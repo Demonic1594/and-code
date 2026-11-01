@@ -79,7 +79,10 @@ class RuntimeNotificationHelper(private val context: Context) {
                     // the app lock; with it on, the notification only opens the (locked) app.
                     if (!appLocked()) {
                         addAction(0, context.getString(R.string.allow_once), allowOnce)
-                        addAction(0, context.getString(R.string.always_allow), allowAlways)
+                        // Same rule as the card: never offer an "always" that cannot persist.
+                        if (request.canAlwaysAllow) {
+                            addAction(0, context.getString(R.string.always_allow), allowAlways)
+                        }
                         addAction(0, context.getString(R.string.reject), reject)
                     }
                 }

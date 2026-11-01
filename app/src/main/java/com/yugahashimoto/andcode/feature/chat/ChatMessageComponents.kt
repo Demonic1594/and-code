@@ -337,11 +337,15 @@ fun PermissionCard(
                     Text(stringResource(R.string.allow_once), textAlign = TextAlign.Center, maxLines = 2)
                 }
             }
-            TextButton(
-                onClick = { onPermission(permission.id, PermissionResponse.ALWAYS, true) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.always_allow))
+            // Only when the answer can persist something: a command that chains or redirects is
+            // approved once by design, so an "always" button would silently do nothing.
+            if (permission.canAlwaysAllow) {
+                TextButton(
+                    onClick = { onPermission(permission.id, PermissionResponse.ALWAYS, true) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.always_allow))
+                }
             }
         }
     }

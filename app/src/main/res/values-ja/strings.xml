@@ -1641,6 +1641,7 @@
     <string name="file_edit_error_not_found">ファイルが存在しません。</string>
     <string name="file_edit_error_not_text">編集できるのは UTF-8 のテキストファイルのみです。</string>
     <string name="file_edit_error_too_large">このファイルは大きすぎて編集できません（上限: %1$d KB）。</string>
+    <string name="file_edit_error_line_too_long">このファイルの1行が長すぎて編集できません（上限: %1$d 文字）。</string>
     <string name="file_edit_error_read_only">このファイルは読み取り専用です。</string>
     <string name="file_edit_error_changed_on_disk">ファイルを開いた後に他の処理によって変更されたため、編集内容は保存されませんでした。テキストをコピーし、エディターを閉じてからファイルを開き直してください。</string>
     <string name="file_edit_error_write_failed">ファイルを保存できませんでした。</string>

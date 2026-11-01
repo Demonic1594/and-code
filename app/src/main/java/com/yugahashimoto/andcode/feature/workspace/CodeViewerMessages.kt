@@ -30,6 +30,7 @@ interface CodeViewerMessages {
                 FileEditFailure.NOT_FOUND -> "The file no longer exists"
                 FileEditFailure.NOT_TEXT -> "Only UTF-8 text files can be edited"
                 FileEditFailure.TOO_LARGE -> "This file is too large to edit (limit: ${FileEditPolicy.MAX_EDIT_KIBIBYTES} KB)"
+                FileEditFailure.LINE_TOO_LONG -> "One line of this file is too long to edit (limit: ${FileEditPolicy.MAX_LINE_BYTES} characters)"
                 FileEditFailure.READ_ONLY -> "This file is read-only"
                 FileEditFailure.CHANGED_ON_DISK -> "The file was changed by something else since you opened it"
                 FileEditFailure.WRITE_FAILED -> "Could not save the file"
@@ -46,6 +47,7 @@ class AndroidCodeViewerMessages(private val context: Context) : CodeViewerMessag
             FileEditFailure.NOT_FOUND -> context.getString(R.string.file_edit_error_not_found)
             FileEditFailure.NOT_TEXT -> context.getString(R.string.file_edit_error_not_text)
             FileEditFailure.TOO_LARGE -> context.getString(R.string.file_edit_error_too_large, FileEditPolicy.MAX_EDIT_KIBIBYTES)
+            FileEditFailure.LINE_TOO_LONG -> context.getString(R.string.file_edit_error_line_too_long, FileEditPolicy.MAX_LINE_BYTES)
             FileEditFailure.READ_ONLY -> context.getString(R.string.file_edit_error_read_only)
             FileEditFailure.CHANGED_ON_DISK -> context.getString(R.string.file_edit_error_changed_on_disk)
             FileEditFailure.WRITE_FAILED -> context.getString(R.string.file_edit_error_write_failed)

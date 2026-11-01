@@ -195,6 +195,29 @@ class ClaudePermissionBridgeTest {
         assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"rm -rf ~"}"""))
     }
 
+    @Test
+    fun `always allow is offered only where a rule can be kept`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+
+        fun requestFor(command: String?) =
+            ClaudePermissionBridge.Request(
+                requestId = UUID.randomUUID().toString(),
+                androidSessionId = "session-1",
+                kind = ClaudePermissionBridge.Kind.PERMISSION,
+                toolName = "Bash",
+                toolInputJson = command?.let { buildJsonObject { put("command", it) }.toString() } ?: "{}",
+                permissionLabel = "Bash",
+            )
+
+        assertTrue(bridge.toPermissionRequest(requestFor("mkdir /tmp/always9")).canAlwaysAllow)
+        // Chained, redirected and wrapped commands are approved once by design: no button for them.
+        assertFalse(bridge.toPermissionRequest(requestFor("mkdir /tmp/x && touch /tmp/y")).canAlwaysAllow)
+        assertFalse(bridge.toPermissionRequest(requestFor("ls > /tmp/out")).canAlwaysAllow)
+        assertFalse(bridge.toPermissionRequest(requestFor("bash -c ls")).canAlwaysAllow)
+        // A call without a command becomes a tool-wide rule, so it can always be remembered.
+        assertTrue(bridge.toPermissionRequest(requestFor(null)).canAlwaysAllow)
+    }
+
     private fun approveAlways(
         bridge: ClaudePermissionBridge,
         command: String,

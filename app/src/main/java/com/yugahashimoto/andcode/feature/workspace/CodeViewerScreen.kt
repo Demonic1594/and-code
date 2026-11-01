@@ -58,6 +58,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
@@ -528,7 +529,18 @@ private fun CodeReader(
     fun lineText(index: Int): AnnotatedString {
         val start = lineStarts[index]
         val end = if (index + 1 < lineStarts.size) lineStarts[index + 1] - 1 else content.length
-        return highlightRange(content, start, end, tokens, palette, matches, currentMatch)
+        val shownEnd = displayEnd(start, end)
+        val shown = highlightRange(content, start, shownEnd, tokens, palette, matches, currentMatch)
+        if (shownEnd == end) return shown
+        // A line past the display cap cannot be laid out whole: show its start and say so, rather
+        // than freezing the reader on a row that never finishes laying out.
+        return AnnotatedString.Builder(shown)
+            .apply {
+                pushStyle(SpanStyle(color = palette.gutterText, fontStyle = FontStyle.Italic))
+                append("  … line truncated (${end - start} characters, too long to display)")
+                pop()
+            }
+            .toAnnotatedString()
     }
 
     LaunchedEffect(listState, wrap) {
@@ -683,7 +695,19 @@ internal object LongLineLimits {
 
     /** Most search marks on such a line; the viewer does not scroll sideways to a far match anyway. */
     const val SEARCH_MARKS = 500
+
+    /**
+     * Most characters of one line laid out for display. A line of about 200k characters scrolls
+     * and searches fine, while one of 825k never finishes laying out - the reader shows a fragment
+     * and stops responding - so past the cap a row shows its start and a truncation notice instead.
+     */
+    const val DISPLAY_CHARS = 200_000
 }
+
+/** Where a reader row's display of the line [start] until [end] stops: whole, or at the display cap. */
+internal fun displayEnd(start: Int,
+    end: Int,
+): Int = minOf(end, start + LongLineLimits.DISPLAY_CHARS)
 
 @Composable
 private fun GoToLineDialog(
