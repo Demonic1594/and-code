@@ -6,26 +6,11 @@ import com.yugahashimoto.andcode.feature.terminal.DevServerStatus
 import com.yugahashimoto.andcode.feature.terminal.DevServerTracker
 import com.yugahashimoto.andcode.feature.terminal.TerminalKey
 import com.yugahashimoto.andcode.runtime.local.DevServerProbe
-import com.yugahashimoto.andcode.runtime.local.DevServerSharing
-import com.yugahashimoto.andcode.runtime.local.GuestProcessHandle
-import com.yugahashimoto.andcode.runtime.local.GuestProcessLauncher
 import com.yugahashimoto.andcode.runtime.local.LocalTerminalLauncher
-import com.yugahashimoto.andcode.runtime.local.ProcessSupervisor
-import com.yugahashimoto.andcode.runtime.local.ShareState
-import com.yugahashimoto.andcode.runtime.local.SupervisedProcessSpec
-import com.yugahashimoto.andcode.runtime.local.SupervisorStore
 import com.yugahashimoto.andcode.runtime.local.TerminalOpenRequest
-import com.yugahashimoto.andcode.runtime.local.TerminalSession
-import com.yugahashimoto.andcode.runtime.local.TerminalSessionFactory
 import com.yugahashimoto.andcode.runtime.local.TerminalUnavailableException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -40,16 +25,10 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
-import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TerminalViewModelTest {
-    @get:Rule
-    val temp = TemporaryFolder()
-
     private val dispatcher = StandardTestDispatcher()
 
     @Before
@@ -57,63 +36,6 @@ class TerminalViewModelTest {
 
     @After
     fun tearDown() = Dispatchers.resetMain()
-
-    private class FakeSession : TerminalSession {
-        private val chunks = Channel<String>(Channel.UNLIMITED)
-        private val exit = MutableStateFlow<Int?>(null)
-        val written = mutableListOf<String>()
-        var closed = false
-            private set
-
-        override val output: Flow<String> = chunks.receiveAsFlow()
-        override val exitCode: StateFlow<Int?> = exit
-        override val isAlive: Boolean get() = exit.value == null && !closed
-
-        override fun write(text: String) {
-            if (!closed) written += text
-        }
-
-        override fun close() {
-            closed = true
-            finish(143)
-        }
-
-        fun emit(text: String) {
-            chunks.trySend(text)
-        }
-
-        fun finish(code: Int) {
-            exit.value = exit.value ?: code
-            chunks.close()
-        }
-    }
-
-    private class FakeFactory(
-        private val failure: Throwable? = null,
-        /** Runs while "opening", the way the screen can be closed during the real blocking open. */
-        private val whileOpening: () -> Unit = {},
-    ) : TerminalSessionFactory {
-        val requests = mutableListOf<TerminalOpenRequest>()
-        val sessions = mutableListOf<FakeSession>()
-
-        override fun open(request: TerminalOpenRequest): TerminalSession {
-            requests += request
-            failure?.let { throw it }
-            whileOpening()
-            return FakeSession().also { sessions += it }
-        }
-    }
-
-    /** Answers for the ports in [listening]; remembers every port it was asked about. */
-    private class FakeProbe : DevServerProbe {
-        val listening = mutableSetOf<Int>()
-        val asked = mutableListOf<Int>()
-
-        override suspend fun isListening(port: Int): Boolean {
-            asked += port
-            return port in listening
-        }
-    }
 
     private fun viewModel(
         factory: FakeFactory = FakeFactory(),
@@ -589,48 +511,6 @@ class TerminalViewModelTest {
             assertEquals(listOf(3000, 5173), viewModel.state.value.servers.map { it.port })
             viewModel.close()
         }
-
-    @Test
-    fun `a shared server that stops answering ends its link`() =
-        runTest(dispatcher) {
-            val probe = FakeProbe().apply { listening += 5173 }
-            val factory = FakeFactory()
-            val supervisor =
-                ProcessSupervisor(NoTunnel, temp.newFolder(), NoStore, RuntimeWorkTracker(), backgroundScope, restartDelayMillis = 1)
-            // Never done installing: the share stays put until something ends it.
-            val sharing = DevServerSharing(supervisor, install = { awaitCancellation() }, scope = backgroundScope)
-            val viewModel =
-                TerminalViewModel(factory, RuntimeWorkTracker(), "/workspace/app", probe, ioDispatcher = dispatcher, sharing = sharing)
-            viewModel.open(60, 24)
-            runCurrent()
-            factory.sessions.single().emit("http://localhost:5173/\r\n")
-            runCurrent()
-            viewModel.share(5173)
-            runCurrent()
-            assertEquals(ShareState.Installing, viewModel.state.value.shares[5173])
-
-            probe.listening.clear()
-            nextProbeRound()
-            nextProbeRound()
-
-            assertEquals(DevServerStatus.STOPPED, viewModel.state.value.servers.single().status)
-            assertNull(sharing.shares.value[5173])
-            assertTrue(viewModel.state.value.shares.isEmpty())
-            viewModel.close()
-        }
-
-    private object NoTunnel : GuestProcessLauncher {
-        override fun start(
-            spec: SupervisedProcessSpec,
-            log: File,
-        ): GuestProcessHandle = error("no tunnel is started in this test")
-    }
-
-    private object NoStore : SupervisorStore {
-        override fun load() = emptyList<SupervisedProcessSpec>()
-
-        override fun save(specs: List<SupervisedProcessSpec>) = Unit
-    }
 
     @Test
     fun `marks a server stopped when it stops answering and running again when it comes back`() =
