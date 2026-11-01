@@ -1,6 +1,6 @@
 # Follow-ups from the Oct 31 upstream sync (PR #52)
 
-Status: **in progress**. Items 4, 7, 8 and 9 are fixed. The rest is not started.
+Status: **in progress**. Items 4, 5, 7, 8 and 9 are fixed. The rest is not started.
 Raised during review of the upstream sync and deferred so the sync could
 merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing them upstream.
 
@@ -25,8 +25,9 @@ merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing
 5. **Long lines in the code viewer.** `highlightRange` has no per-line cap: a minified file under
    250k characters can put tens of thousands of spans on one line, and every line scans all search
    matches. Cap token spans and search marks on lines over 2,000 characters, with tests at, and
-   over, the limit. Upstream fixed its own viewer for this (#415, a per-line cap in `highlightLine`),
-   but the sync merge kept this fork's editor-based viewer, so `highlightRange` still has no cap.
+   over, the limit. **Done**: the fork's tokens are computed once per file, so here the cost was the
+   spans and a scan of every match on every line; a line over 2,000 characters gets no token spans,
+   matches are found by binary search, and a long line shows at most 500 marks plus the current one.
 6. **Drawer search field label.** The drawer search field has no Material label for TalkBack
    beyond its placeholder; give it a proper label without hiding the typed text (a
    `contentDescription` on the field does hide it, which was tried and reverted).

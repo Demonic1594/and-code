@@ -621,24 +621,68 @@ internal fun highlightRange(
         val mid = (low + high) / 2
         if (tokens[mid].end <= start) low = mid + 1 else high = mid
     }
+    // A minified file can put most of itself on one line, and every token on it would be a span.
+    val long = end - start > LongLineLimits.STYLED_CHARS
     var i = low
-    while (i < tokens.size && tokens[i].start < end) {
+    while (!long && i < tokens.size && tokens[i].start < end) {
         val token = tokens[i]
         spans += AnnotatedString.Range(palette.styleOf(token.kind), maxOf(token.start, start) - start, minOf(token.end, end) - start)
         i++
     }
-    matches.forEachIndexed { index, range ->
-        if (range.first < end && range.last >= start) {
-            val colour = if (index == currentMatch) palette.currentMatch else palette.match
-            spans +=
-                AnnotatedString.Range(
-                    SpanStyle(background = colour),
-                    maxOf(range.first, start) - start,
-                    minOf(range.last + 1, end) - start,
-                )
-        }
+    // Matches are in order too: start from the first that ends on or after this line, rather than
+    // checking every match on every line.
+    var m = firstMatchEndingFrom(matches, start)
+    val firstOnLine = m
+    var marks = 0
+    val markLimit = if (long) LongLineLimits.SEARCH_MARKS else Int.MAX_VALUE
+    while (m < matches.size && matches[m].first < end && marks < markLimit) {
+        spans += matchSpan(matches[m], m == currentMatch, start, end, palette)
+        marks++
+        m++
     }
+    // The current match is always shown, even past the cap on a long line.
+    val currentOnLine = currentMatch in firstOnLine until matches.size && matches[currentMatch].first < end
+    if (currentOnLine && currentMatch >= m) spans += matchSpan(matches[currentMatch], true, start, end, palette)
     return AnnotatedString(text, spans)
+}
+
+/** The index of the first of the ordered [matches] that ends on or after [offset]. */
+private fun firstMatchEndingFrom(
+    matches: List<IntRange>,
+    offset: Int,
+): Int {
+    var low = 0
+    var high = matches.size
+    while (low < high) {
+        val mid = (low + high) / 2
+        if (matches[mid].last < offset) low = mid + 1 else high = mid
+    }
+    return low
+}
+
+private fun matchSpan(
+    range: IntRange,
+    current: Boolean,
+    start: Int,
+    end: Int,
+    palette: EditorPalette,
+): AnnotatedString.Range<SpanStyle> =
+    AnnotatedString.Range(
+        SpanStyle(background = if (current) palette.currentMatch else palette.match),
+        maxOf(range.first, start) - start,
+        minOf(range.last + 1, end) - start,
+    )
+
+/**
+ * Limits for one very long line, as a minified file has. Lines are highlighted while composing, on
+ * the main thread; laying out the text is still the text's own job, but the spans are ours.
+ */
+internal object LongLineLimits {
+    /** Past this many characters a line is shown without token colours: each token would be a span. */
+    const val STYLED_CHARS = 2_000
+
+    /** Most search marks on such a line; the viewer does not scroll sideways to a far match anyway. */
+    const val SEARCH_MARKS = 500
 }
 
 @Composable
