@@ -1637,6 +1637,7 @@
     <string name="file_edit_error_not_text">Можно редактировать только текстовые файлы в кодировке UTF-8.</string>
     <string name="file_edit_error_too_large">Файл слишком большой для редактирования (лимит: %1$d КБ).</string>
     <string name="file_edit_error_line_too_long">Одна строка этого файла слишком длинна для редактирования (лимит: %1$d символов).</string>
+    <string name="code_line_truncated">… строка усечена (%1$d символов, слишком длинна для отображения)</string>
     <string name="file_edit_error_read_only">Файл доступен только для чтения.</string>
     <string name="file_edit_error_changed_on_disk">Файл был изменён другим процессом после того, как вы его открыли, поэтому ваши правки не сохранены. Скопируйте текст, закройте редактор и откройте файл снова.</string>
     <string name="file_edit_error_write_failed">Не удалось сохранить файл.</string>

@@ -15,7 +15,7 @@ enum class FileEditFailure {
     TOO_LARGE,
 
     /**
-     * A single line past [FileEditPolicy.MAX_LINE_CHARS]. The editor lays each line out as one row,
+     * A single line past [FileEditPolicy.MAX_LINE_BYTES]. The editor lays each line out as one row,
      * and a minified single-line file inside the size cap still freezes layout until the system
      * kills the app as unresponsive (verified on device at a 199k-character line).
      */
@@ -63,11 +63,11 @@ object FileEditPolicy {
         when {
             bytes.size > MAX_EDIT_BYTES -> FileEditFailure.TOO_LARGE
             bytes.any { it == 0.toByte() } || !isValidUtf8(bytes) -> FileEditFailure.NOT_TEXT
-            else -> longestLineIn(bytes)?.let { if (it > MAX_LINE_BYTES) FileEditFailure.LINE_TOO_LONG else null }
+            else -> longestLineIn(bytes).takeIf { it > MAX_LINE_BYTES }?.let { FileEditFailure.LINE_TOO_LONG }
         }
 
-    /** The longest line's length in bytes, or null when [bytes] holds no text lines at all. */
-    private fun longestLineIn(bytes: ByteArray): Long? {
+    /** The longest line's length in bytes; 0 for empty input. */
+    private fun longestLineIn(bytes: ByteArray): Long {
         var longest = 0L
         var current = 0L
         for (byte in bytes) {

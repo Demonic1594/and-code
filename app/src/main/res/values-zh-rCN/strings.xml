@@ -1622,6 +1622,7 @@
     <string name="file_edit_error_not_text">只能编辑 UTF-8 文本文件。</string>
     <string name="file_edit_error_too_large">此文件过大，无法编辑（上限：%1$d KB）。</string>
     <string name="file_edit_error_line_too_long">此文件中有一行过长，无法编辑（上限：%1$d 个字符）。</string>
+    <string name="code_line_truncated">… 行已截断（%1$d 个字符，过长无法显示）</string>
     <string name="file_edit_error_read_only">此文件为只读。</string>
     <string name="file_edit_error_changed_on_disk">自你打开此文件后，它已被其他程序修改，因此你的修改未保存。请复制你的文本，关闭编辑器，然后重新打开该文件。</string>
     <string name="file_edit_error_write_failed">无法保存文件。</string>

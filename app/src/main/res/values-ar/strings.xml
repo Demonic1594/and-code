@@ -1647,6 +1647,7 @@
     <string name="file_edit_error_not_text">يمكن تحرير ملفات النص بترميز UTF-8 فقط.</string>
     <string name="file_edit_error_too_large">هذا الملف كبير جدًا بحيث لا يمكن تحريره (الحد الأقصى: %1$d كيلوبايت).</string>
     <string name="file_edit_error_line_too_long">هناك سطر واحد في هذا الملف أطول مما يمكن تحريره (الحد الأقصى: %1$d حرفًا).</string>
+    <string name="code_line_truncated">… تم اقتصار السطر (%1$d حرفًا، أطول من أن يُعرض بالكامل)</string>
     <string name="file_edit_error_read_only">هذا الملف للقراءة فقط.</string>
     <string name="file_edit_error_changed_on_disk">تم تغيير الملف بواسطة عملية أخرى منذ فتحته، لذلك لم يتم حفظ تعديلاتك. انسخ نصك، وأغلق المحرر، ثم افتح الملف مرة أخرى.</string>
     <string name="file_edit_error_write_failed">تعذر حفظ الملف.</string>

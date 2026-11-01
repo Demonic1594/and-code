@@ -525,6 +525,7 @@ private fun CodeReader(
     val hScroll = rememberScrollState()
     val numberWidth = (maxOf(3, lineStarts.size.toString().length) * fontSize * 0.62f + 16).dp
     val lineHeight = (fontSize * 1.5f).sp
+    val truncatedNotice = stringResource(R.string.code_line_truncated)
 
     fun lineText(index: Int): AnnotatedString {
         val start = lineStarts[index]
@@ -537,7 +538,7 @@ private fun CodeReader(
         return AnnotatedString.Builder(shown)
             .apply {
                 pushStyle(SpanStyle(color = palette.gutterText, fontStyle = FontStyle.Italic))
-                append("  … line truncated (${end - start} characters, too long to display)")
+                append(truncatedNotice.format(end - start))
                 pop()
             }
             .toAnnotatedString()
@@ -705,9 +706,7 @@ internal object LongLineLimits {
 }
 
 /** Where a reader row's display of the line [start] until [end] stops: whole, or at the display cap. */
-internal fun displayEnd(start: Int,
-    end: Int,
-): Int = minOf(end, start + LongLineLimits.DISPLAY_CHARS)
+internal fun displayEnd(start: Int, end: Int): Int = minOf(end, start + LongLineLimits.DISPLAY_CHARS)
 
 @Composable
 private fun GoToLineDialog(

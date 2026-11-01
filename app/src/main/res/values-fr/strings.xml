@@ -1632,6 +1632,7 @@
     <string name="file_edit_error_not_text">Seuls les fichiers texte UTF-8 peuvent être modifiés.</string>
     <string name="file_edit_error_too_large">Ce fichier est trop volumineux pour être modifié (limite : %1$d Ko).</string>
     <string name="file_edit_error_line_too_long">Une ligne de ce fichier est trop longue pour être modifiée (limite : %1$d caractères).</string>
+    <string name="code_line_truncated">… ligne tronquée (%1$d caractères, trop longue à afficher)</string>
     <string name="file_edit_error_read_only">Ce fichier est en lecture seule.</string>
     <string name="file_edit_error_changed_on_disk">Le fichier a été modifié par autre chose depuis son ouverture ; vos modifications n’ont donc pas été enregistrées. Copiez votre texte, fermez l’éditeur, puis rouvrez le fichier.</string>
     <string name="file_edit_error_write_failed">Impossible d’enregistrer le fichier.</string>
