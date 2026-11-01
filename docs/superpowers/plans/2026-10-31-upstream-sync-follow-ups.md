@@ -1,6 +1,6 @@
 # Follow-ups from the Oct 31 upstream sync (PR #52)
 
-Status: **in progress**. Items 4 and 7 are fixed. The rest is not started.
+Status: **in progress**. Items 4, 7 and 9 are fixed. The rest is not started.
 Raised during review of the upstream sync and deferred so the sync could
 merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing them upstream.
 
@@ -46,6 +46,9 @@ merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing
    and delete a workspace's history when the workspace is deleted.
 9. **Restore refusal message.** A refused restore (an ignored file in the way) shows a generic
    failure; say that nothing changed and which path blocked it.
+   **Done**: the snapshots report Restored, Refused (with the ignored path, from the restore's own check
+   or git's "would be overwritten/removed" list) or Failed, and the chat says nothing changed and names
+   the file.
 10. **Process screen (supervisor part 2).** The in-app list of supervised processes, the restart
    offer after the app was closed, the Artifacts integration, and a notice when an instructions
    file was customised and lacks the `andcode-run` section.
