@@ -75,6 +75,8 @@ fi
 TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // .toolName // empty')
 SESSION_ID=$(printf '%s' "$INPUT" | jq -r '.session_id // .sessionId // empty')
 TOOL_INPUT=$(printf '%s' "$INPUT" | jq -c '.tool_input // .toolInput // {}')
+# Where the call runs: an always-allow rule kept for a project applies only there (and below).
+CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 
 if [ -z "$TOOL_NAME" ]; then
   TOOL_NAME="Tool"
@@ -141,15 +143,19 @@ if [ -f "$ALWAYS" ]; then
   # Same rules as ShellCommandRules on the app side: a call without a command matches a tool-wide
   # rule; a command matches only a rule naming its first words exactly, and never when it chains,
   # pipes, substitutes or redirects, or starts with a program that runs other code (bash -c ...).
-  MATCH=$(jq -r --arg t "$TOOL_NAME" --arg c "$CMD" --arg n "$NO_CMD" '
+  MATCH=$(jq -r --arg t "$TOOL_NAME" --arg c "$CMD" --arg n "$NO_CMD" --arg d "$CWD" '
     def words: [splits("\\s+")] | map(select(length > 0));
+    # Same as ClaudePermissionBridge.appliesIn: no project means everywhere; otherwise the call must
+    # run in that directory or one inside it.
+    ($d | sub("/+$"; "")) as $dir |
+    def inproject: (.project // "") as $p | $p == "" or ($dir | startswith("/")) and ($dir == $p or ($dir | startswith($p + "/")));
     def wrappers: ["bash", "sh", "zsh", "dash", "ash", "ksh", "fish", "busybox", "env", "xargs", "sudo",
       "su", "doas", "eval", "exec", "command", "time", "nohup", "timeout", "nice", "setsid", "stdbuf",
       "python", "node", "nodejs", "npx", "bun", "deno", "perl", "ruby", "php", "lua", "awk", "gawk"];
     def runsother: test("[=\"\u0027]") or (split("/") | last // "" | sub("[-.0-9]+$"; "") | IN(wrappers[]));
     ($c | test("[;&|`$<>()!\\\\\n\r]")) as $unsafe |
     (($c | words)[0] // "") as $first |
-    .rules[]? | select(.toolName == $t) |
+    .rules[]? | select(.toolName == $t) | select(inproject) |
     (.commandPrefix // "") as $p |
     if $n == "yes" then (if $p == "" then "yes" else empty end)
     elif $unsafe or ($first | runsother) or ($p | words | length) == 0 then empty
@@ -199,7 +205,8 @@ jq -n \
   --arg permissionLabel "$LABEL" \
   --argjson toolInput "$TOOL_INPUT" \
   --argjson createdAtMs "$(date +%s000)" \
-  '{v:1,kind:$kind,requestId:$requestId,androidSessionId:$androidSessionId,claudeSessionId:$claudeSessionId,toolName:$toolName,toolInput:$toolInput,permissionLabel:$permissionLabel,createdAtMs:$createdAtMs}' \
+  --arg cwd "$CWD" \
+  '{v:1,kind:$kind,requestId:$requestId,androidSessionId:$androidSessionId,claudeSessionId:$claudeSessionId,toolName:$toolName,toolInput:$toolInput,permissionLabel:$permissionLabel,createdAtMs:$createdAtMs} + (if $cwd == "" then {} else {cwd:$cwd} end)' \
   >"$REQUEST_FILE"
 
 if [ "$KIND" = "question" ]; then

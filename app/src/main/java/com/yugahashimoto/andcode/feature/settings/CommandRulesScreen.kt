@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.feature.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -173,7 +174,7 @@ private fun LazyListScope.ruleSection(
             modifier = Modifier.padding(top = 20.dp, bottom = 4.dp),
         )
     }
-    items(rules, key = { "${it.blocks}:${it.toolName}:${it.words}" }) { rule ->
+    items(rules, key = { "${it.blocks}:${it.toolName}:${it.words}:${it.project}" }) { rule ->
         RuleRow(rule = rule, onForget = { onForget(rule) })
         HorizontalDivider()
     }
@@ -195,12 +196,23 @@ private fun RuleRow(
             tint = if (rule.blocks) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
         )
         val label = rule.words ?: stringResource(R.string.command_rules_whole_tool, rule.toolName)
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            fontFamily = if (rule.words != null) FontFamily.Monospace else null,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                fontFamily = if (rule.words != null) FontFamily.Monospace else null,
+            )
+            // Blocking rules apply everywhere; an always-allow rule says where it applies.
+            if (!rule.blocks) {
+                Text(
+                    text =
+                        rule.project?.let { stringResource(R.string.command_rules_in_project, it) }
+                            ?: stringResource(R.string.command_rules_every_project),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         IconButton(onClick = onForget) {
             Icon(
                 Icons.Default.Delete,

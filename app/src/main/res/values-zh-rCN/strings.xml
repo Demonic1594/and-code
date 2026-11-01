@@ -729,6 +729,8 @@
     <string name="command_rules_allowed">始终允许</string>
     <string name="command_rules_no_allowed">还没有始终允许的命令。在审批时选择“始终允许”即可将命令添加到这里。</string>
     <string name="command_rules_whole_tool">每次 %1$s 调用</string>
+    <string name="command_rules_in_project">在 %1$s 中</string>
+    <string name="command_rules_every_project">所有项目</string>
     <string name="cd_forget_command_rule">删除 %1$s 的规则</string>
     <string name="command_rules_block_invalid">请只输入一条命令，不要包含 ;、|、&amp;、&lt;、&gt;、$、` 或换行。</string>
 

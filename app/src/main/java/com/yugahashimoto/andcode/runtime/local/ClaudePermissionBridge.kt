@@ -57,6 +57,8 @@ class ClaudePermissionBridge(
         val toolInputJson: String,
         val permissionLabel: String,
         val claudeSessionId: String? = null,
+        /** The guest directory the call runs in, as the hook reported it; an always-allow rule is kept for it. */
+        val cwd: String? = null,
     )
 
     @Serializable
@@ -70,6 +72,7 @@ class ClaudePermissionBridge(
         val toolInput: JsonElement = JsonObject(emptyMap()),
         val permissionLabel: String = "",
         val createdAtMs: Long = System.currentTimeMillis(),
+        val cwd: String? = null,
     )
 
     @Serializable
@@ -89,6 +92,11 @@ class ClaudePermissionBridge(
     private data class AlwaysRule(
         val toolName: String,
         val commandPrefix: String? = null,
+        /**
+         * The guest project directory the rule applies in (and below); null applies everywhere, as
+         * every rule did before rules were kept per project. Blocking rules are always everywhere.
+         */
+        val project: String? = null,
     )
 
     @Serializable
@@ -103,6 +111,8 @@ class ClaudePermissionBridge(
         val words: String?,
         /** True for a blocking rule, false for an always-allow one. */
         val blocks: Boolean,
+        /** The project directory an always-allow rule is kept for; null when it applies everywhere. */
+        val project: String? = null,
     )
 
     private val root = hostRoot.apply { mkdirs() }
@@ -129,6 +139,7 @@ class ClaudePermissionBridge(
                 toolName = request.toolName,
                 toolInput = toolInput,
                 permissionLabel = request.permissionLabel.ifBlank { request.toolName },
+                cwd = request.cwd,
             )
         val file = File(pendingDir, "${request.requestId}.json")
         file.parentFile?.mkdirs()
@@ -268,12 +279,14 @@ class ClaudePermissionBridge(
             toolInputJson = stored.toolInput.toString(),
             permissionLabel = stored.permissionLabel.ifBlank { stored.toolName },
             claudeSessionId = stored.claudeSessionId,
+            cwd = stored.cwd,
         )
     }
 
     fun isAlwaysAllowed(
         toolName: String,
         toolInputJson: String,
+        cwd: String? = null,
     ): Boolean {
         if (blockedBy(toolName, toolInputJson) != null) return false
         val rules = loadAlwaysRules()
@@ -285,7 +298,7 @@ class ClaudePermissionBridge(
         // first words, matched by ShellCommandRules so `git status; rm -rf ~` is not `git status`.
         return rules.any { rule ->
             val prefix = rule.commandPrefix
-            rule.toolName == toolName &&
+            rule.toolName == toolName && appliesIn(rule.project, cwd) &&
                 if (command == null) prefix.isNullOrBlank() else !prefix.isNullOrBlank() && ShellCommandRules.matches(prefix, command)
         }
     }
@@ -380,8 +393,10 @@ class ClaudePermissionBridge(
         // A blocked command is never allowed for good, even if it was let through once.
         if (command != null && blockedByCommand(stored.toolName, command) != null) return
         val existing = loadAlwaysRules().toMutableList()
-        val rule = AlwaysRule(toolName = stored.toolName, commandPrefix = prefix)
-        if (existing.none { it.toolName == rule.toolName && it.commandPrefix == rule.commandPrefix }) {
+        // Kept for the project it was approved in; a request without a directory keeps the old,
+        // everywhere rule rather than none.
+        val rule = AlwaysRule(toolName = stored.toolName, commandPrefix = prefix, project = projectOf(stored.cwd))
+        if (existing.none { it.toolName == rule.toolName && it.commandPrefix == rule.commandPrefix && it.project == rule.project }) {
             existing += rule
             writeRules(alwaysFile, existing)
         }
@@ -407,7 +422,11 @@ class ClaudePermissionBridge(
     fun forget(rule: CommandRule) {
         val file = if (rule.blocks) blockFile else alwaysFile
         val existing = readRulesStrictly(file) ?: return
-        val kept = existing.filterNot { it.toolName == rule.toolName && it.commandPrefix.orEmpty() == rule.words.orEmpty() }
+        val kept =
+            existing.filterNot {
+                it.toolName == rule.toolName && it.commandPrefix.orEmpty() == rule.words.orEmpty() &&
+                    (rule.blocks || it.project == rule.project)
+            }
         if (kept.size != existing.size) writeRules(file, kept)
     }
 
@@ -454,7 +473,7 @@ class ClaudePermissionBridge(
 
     private fun loadRules(): List<CommandRule> =
         loadBlockRules().map { CommandRule(it.toolName, it.commandPrefix, blocks = true) } +
-            loadAlwaysRules().map { CommandRule(it.toolName, it.commandPrefix, blocks = false) }
+            loadAlwaysRules().map { CommandRule(it.toolName, it.commandPrefix, blocks = false, project = it.project) }
 
     private fun loadAlwaysRules(): List<AlwaysRule> = readRules(alwaysFile)
 
@@ -481,6 +500,26 @@ class ClaudePermissionBridge(
 
         /** The tool whose calls carry a shell command, the only kind a blocking rule names. */
         const val SHELL_TOOL = "Bash"
+
+        /**
+         * The project directory a rule approved in [cwd] is kept for, trailing slash dropped; null
+         * (everywhere) for none, a relative path, or the root, which would cover every project.
+         */
+        fun projectOf(cwd: String?): String? =
+            cwd
+                ?.trim()
+                ?.trimEnd('/')
+                ?.takeIf { it.startsWith("/") && it.length > 1 }
+
+        /** Whether a rule kept for [project] applies to a call in [cwd]: that directory or one inside it. */
+        fun appliesIn(
+            project: String?,
+            cwd: String?,
+        ): Boolean {
+            if (project == null) return true
+            val dir = projectOf(cwd) ?: return false
+            return dir == project || dir.startsWith("$project/")
+        }
 
         /** What the agent reads when a blocking rule refuses its call; the hook sends the same text. */
         fun blockedMessage(words: String): String =

@@ -235,6 +235,7 @@ class ClaudePermissionBridgeTest {
     private fun approveAlways(
         bridge: ClaudePermissionBridge,
         command: String,
+        cwd: String? = null,
     ) {
         val requestId = UUID.randomUUID().toString()
         bridge.writeGuestRequest(
@@ -245,10 +246,55 @@ class ClaudePermissionBridgeTest {
                 toolName = "Bash",
                 toolInputJson = buildJsonObject { put("command", command) }.toString(),
                 permissionLabel = "Bash",
+                cwd = cwd,
             ),
         )
         bridge.pollPending()
         assertTrue(bridge.respond(requestId, PermissionResponse.ALWAYS, remember = true))
+    }
+
+    @Test
+    fun `always allow is kept for the project it was approved in`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        approveAlways(bridge, "npm test", cwd = "/root/shop/")
+
+        assertEquals(
+            listOf(ClaudePermissionBridge.CommandRule("Bash", "npm test", blocks = false, project = "/root/shop")),
+            bridge.rules.value,
+        )
+        val call = """{"command":"npm test"}"""
+        assertTrue(bridge.isAlwaysAllowed("Bash", call, cwd = "/root/shop"))
+        assertTrue(bridge.isAlwaysAllowed("Bash", call, cwd = "/root/shop/web"))
+        assertFalse(bridge.isAlwaysAllowed("Bash", call, cwd = "/root/shopfront"))
+        assertFalse(bridge.isAlwaysAllowed("Bash", call, cwd = null))
+
+        // The same command approved in another project is a second rule, forgotten on its own.
+        approveAlways(bridge, "npm test", cwd = "/root/blog")
+        bridge.forget(ClaudePermissionBridge.CommandRule("Bash", "npm test", blocks = false, project = "/root/shop"))
+
+        assertFalse(bridge.isAlwaysAllowed("Bash", call, cwd = "/root/shop"))
+        assertTrue(bridge.isAlwaysAllowed("Bash", call, cwd = "/root/blog"))
+    }
+
+    @Test
+    fun `a rule from before projects, or approved without a directory, applies everywhere`() {
+        File(folder.root, "always-rules.json").writeText("""{"rules":[{"toolName":"Bash","commandPrefix":"ls"}]}""")
+        val bridge = ClaudePermissionBridge(folder.root)
+        approveAlways(bridge, "git status", cwd = null)
+
+        assertTrue(bridge.rules.value.all { it.project == null })
+        assertTrue(bridge.isAlwaysAllowed("Bash", """{"command":"ls -la"}""", cwd = "/anywhere"))
+        assertTrue(bridge.isAlwaysAllowed("Bash", """{"command":"git status"}""", cwd = "/root/shop"))
+    }
+
+    @Test
+    fun `only an absolute directory below the root names a project`() {
+        assertEquals("/root/shop", ClaudePermissionBridge.projectOf(" /root/shop// "))
+        assertNull(ClaudePermissionBridge.projectOf("/"))
+        assertNull(ClaudePermissionBridge.projectOf("shop"))
+        assertNull(ClaudePermissionBridge.projectOf(""))
+        assertTrue(ClaudePermissionBridge.appliesIn(null, null))
+        assertFalse(ClaudePermissionBridge.appliesIn("/root/shop", "relative/shop"))
     }
 
     @Test

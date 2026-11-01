@@ -735,6 +735,8 @@
     <string name="command_rules_allowed">Toujours autorisées</string>
     <string name="command_rules_no_allowed">Rien n’est encore toujours autorisé. Choisissez « Toujours autoriser » lors d’une approbation pour ajouter une commande ici.</string>
     <string name="command_rules_whole_tool">Chaque appel à %1$s</string>
+    <string name="command_rules_in_project">Dans %1$s</string>
+    <string name="command_rules_every_project">Dans tous les projets</string>
     <string name="cd_forget_command_rule">Supprimer la règle pour %1$s</string>
     <string name="command_rules_block_invalid">Saisissez une seule commande, sans ; | &amp; &lt; &gt; $ ` ni retour à la ligne.</string>
 
