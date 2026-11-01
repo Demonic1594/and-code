@@ -2,6 +2,9 @@ package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.runtime.PermissionResponse
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -11,6 +14,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.io.File
 import java.util.UUID
 
 class ClaudePermissionBridgeTest {
@@ -267,5 +271,178 @@ class ClaudePermissionBridgeTest {
         assertTrue(merged.contains("echo hi"))
         assertTrue(merged.contains("PermissionRequest"))
         assertTrue(merged.contains(ClaudePermissionHooks.HOOK_GUEST_PATH))
+    }
+
+    @Test
+    fun `mergeSettings checks blocked commands before every Bash call and keeps the user's own`() {
+        val existing =
+            """
+            {
+              "hooks": {
+                "PreToolUse": [
+                  { "matcher": "Edit", "hooks": [{ "type": "command", "command": "my-lint" }] },
+                  { "matcher": "Bash", "hooks": [{ "type": "command", "command": "/old/and-code-claude-permission-hook.sh --pre-tool-use" }] }
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val preToolUse =
+            kotlinx.serialization.json.Json.parseToJsonElement(ClaudePermissionHooks.mergeSettingsJson(existing))
+                .jsonObject.getValue("hooks").jsonObject.getValue("PreToolUse").jsonArray
+        val commands =
+            preToolUse.map {
+                it.jsonObject.getValue(
+                    "hooks",
+                ).jsonArray.single().jsonObject.getValue("command").jsonPrimitive.content
+            }
+
+        assertEquals(listOf("my-lint", ClaudePermissionHooks.BLOCK_CHECK_COMMAND), commands)
+        assertEquals("Bash", preToolUse.last().jsonObject.getValue("matcher").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `a blocked command is refused and listed until it is forgotten`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+
+        assertTrue(bridge.block(" rm  -rf "))
+        assertFalse(bridge.block("  "))
+        val rule = ClaudePermissionBridge.CommandRule("Bash", "rm -rf", blocks = true)
+
+        assertEquals(listOf(rule), bridge.rules.value)
+        assertEquals(rule, bridge.blockedBy("Bash", """{"command":"cd x && rm -rf /"}"""))
+        assertNull(bridge.blockedBy("Bash", """{"command":"rm -r x"}"""))
+        assertNull(bridge.blockedBy("Read", """{"file_path":"/x"}"""))
+        // A second bridge on the same folder reads the same rules, as the guest hook does.
+        assertEquals(listOf(rule), ClaudePermissionBridge(folder.root).rules.value)
+
+        bridge.forget(rule)
+
+        assertTrue(bridge.rules.value.isEmpty())
+        assertNull(bridge.blockedBy("Bash", """{"command":"rm -rf /"}"""))
+    }
+
+    @Test
+    fun `a blocked command is never remembered as always allowed`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        bridge.block("rm -rf")
+        val requestId = UUID.randomUUID().toString()
+        bridge.writeGuestRequest(
+            ClaudePermissionBridge.Request(
+                requestId = requestId,
+                androidSessionId = "session-1",
+                kind = ClaudePermissionBridge.Kind.PERMISSION,
+                toolName = "Bash",
+                toolInputJson = """{"command":"rm -rf build"}""",
+                permissionLabel = "Bash",
+            ),
+        )
+        bridge.pollPending()
+
+        assertTrue(bridge.respond(requestId, PermissionResponse.ALWAYS, remember = true))
+
+        assertEquals(listOf(ClaudePermissionBridge.CommandRule("Bash", "rm -rf", blocks = true)), bridge.rules.value)
+        File(folder.root, "always-rules.json").writeText("""{"rules":[{"toolName":"Bash","commandPrefix":"rm -rf"}]}""")
+        assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"rm -rf build"}"""))
+    }
+
+    @Test
+    fun `an always-allow rule shows in the list and can be forgotten`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        val requestId = UUID.randomUUID().toString()
+        bridge.writeGuestRequest(
+            ClaudePermissionBridge.Request(
+                requestId = requestId,
+                androidSessionId = "session-1",
+                kind = ClaudePermissionBridge.Kind.PERMISSION,
+                toolName = "Bash",
+                toolInputJson = """{"command":"git status --short"}""",
+                permissionLabel = "Bash",
+            ),
+        )
+        bridge.pollPending()
+        bridge.respond(requestId, PermissionResponse.ALWAYS, remember = true)
+        val rule = ClaudePermissionBridge.CommandRule("Bash", "git status", blocks = false)
+
+        assertEquals(listOf(rule), bridge.rules.value)
+
+        bridge.forget(rule)
+
+        assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"git status"}"""))
+        assertTrue(bridge.rules.value.isEmpty())
+    }
+
+    @Test
+    fun `an approval of a command blocked while it waited still refuses it`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        val requestId = UUID.randomUUID().toString()
+        bridge.writeGuestRequest(
+            ClaudePermissionBridge.Request(
+                requestId = requestId,
+                androidSessionId = "session-1",
+                kind = ClaudePermissionBridge.Kind.PERMISSION,
+                toolName = "Bash",
+                toolInputJson = """{"command":"rm -rf build"}""",
+                permissionLabel = "Bash",
+            ),
+        )
+        bridge.pollPending()
+        bridge.block("rm -rf")
+
+        assertTrue(bridge.respond(requestId, PermissionResponse.ALWAYS, remember = true))
+
+        assertEquals("deny", bridge.readResponse(requestId)!!.decision)
+        assertEquals(ClaudePermissionBridge.blockedMessage("rm -rf"), bridge.readResponse(requestId)!!.message)
+        assertFalse(bridge.isAlwaysAllowed("Bash", """{"command":"rm -rf build"}"""))
+    }
+
+    @Test
+    fun `forgetting the last blocking rule removes the file the hook checks`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        bridge.block("rm -rf")
+
+        bridge.forget(ClaudePermissionBridge.CommandRule("Bash", "rm -rf", blocks = true))
+
+        assertFalse(File(folder.root, ClaudePermissionBridge.BLOCK_RULES_FILE).exists())
+    }
+
+    @Test
+    fun `an unreadable blocking rules file is kept rather than replaced`() {
+        val file = File(folder.root, ClaudePermissionBridge.BLOCK_RULES_FILE)
+        file.writeText("{not json")
+        val bridge = ClaudePermissionBridge(folder.root)
+
+        assertFalse(bridge.block("sudo"))
+        bridge.forget(ClaudePermissionBridge.CommandRule("Bash", "sudo", blocks = true))
+
+        assertEquals("{not json", file.readText())
+    }
+
+    @Test
+    fun `mergeSettings keeps the user's handlers that share a group with AndCode's`() {
+        val existing =
+            """
+            {
+              "hooks": {
+                "PreToolUse": [
+                  { "matcher": "Bash", "hooks": [
+                    { "type": "command", "command": "my-audit" },
+                    { "type": "command", "command": "/old/and-code-claude-permission-hook.sh --pre-tool-use" }
+                  ] }
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val groups =
+            kotlinx.serialization.json.Json.parseToJsonElement(ClaudePermissionHooks.mergeSettingsJson(existing))
+                .jsonObject.getValue("hooks").jsonObject.getValue("PreToolUse").jsonArray
+        val commands =
+            groups.map {
+                    group ->
+                group.jsonObject.getValue("hooks").jsonArray.map { it.jsonObject.getValue("command").jsonPrimitive.content }
+            }
+
+        assertEquals(listOf(listOf("my-audit"), listOf(ClaudePermissionHooks.BLOCK_CHECK_COMMAND)), commands)
     }
 }

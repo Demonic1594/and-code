@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.runtime.local
 
+import com.yugahashimoto.andcode.feature.chat.RestoreResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -95,6 +96,7 @@ class ShadowSnapshotsTest {
             val undo = snapshots.restore(workspace.path, before)
 
             assertNull("the restore fails instead of wiping data/", undo)
+            assertEquals(RestoreResult.Refused("data"), snapshots.restoreChecked(workspace.path, before))
             assertEquals("SECRET=1\n", File(workspace, "data/precious.env").readText())
             assertEquals("installed\n", File(workspace, "data/node_modules/pkg/index.js").readText())
         }
@@ -125,6 +127,7 @@ class ShadowSnapshotsTest {
             requireNotNull(snapshots.snapshot(workspace.path))
 
             assertNull("a target that holds a now-ignored file is refused", snapshots.restore(workspace.path, withEnv))
+            assertEquals(RestoreResult.Refused(".env"), snapshots.restoreChecked(workspace.path, withEnv))
             assertEquals("NEW=2\n", File(workspace, ".env").readText())
 
             File(workspace, "app.txt").writeText("v2\n")
@@ -133,6 +136,13 @@ class ShadowSnapshotsTest {
             assertNotNull(snapshots.restore(workspace.path, later))
             assertEquals("v2\n", File(workspace, "app.txt").readText())
             assertEquals("NEW=2\n", File(workspace, ".env").readText())
+
+            // Moved aside, as the refusal asks, nothing is in the way any more.
+            val aside = File(workspace.parentFile, "env-aside")
+            File(workspace, ".env").renameTo(aside)
+            assertNotNull(snapshots.restore(workspace.path, withEnv))
+            assertEquals("v1\n", File(workspace, "app.txt").readText())
+            assertEquals("NEW=2\n", aside.readText())
         }
 
     @Test

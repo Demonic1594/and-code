@@ -719,6 +719,17 @@
     <string name="mcp_url_hint">URL (servidor remoto)</string>
     <string name="mcp_add_help">Introduce un comando para un servidor local o una URL para un servidor remoto.</string>
     <string name="mcp_settings_row">Servidores MCP</string>
+    <string name="command_rules_settings_row">Reglas de comandos</string>
+    <string name="command_rules_title">Reglas de comandos</string>
+    <string name="command_rules_caption">Un comando bloqueado se rechaza sin preguntar, también dentro de un comando más largo, y se le indica al agente que no lo reintente. Las opciones pueden ir en cualquier orden, así que bloquear “rm -rf” también bloquea “rm -fr”, pero deben escribirse igual: “--force” no es “-f”. Los comandos que permitiste siempre en una aprobación se ejecutan sin preguntar.</string>
+    <string name="command_rules_block_label">Bloquear comandos que contengan</string>
+    <string name="command_rules_block_button">Bloquear</string>
+    <string name="command_rules_blocked">Bloqueados</string>
+    <string name="command_rules_allowed">Siempre permitidos</string>
+    <string name="command_rules_no_allowed">Todavía no hay nada permitido siempre. Elige “Permitir siempre” en una aprobación para añadir un comando aquí.</string>
+    <string name="command_rules_whole_tool">Cada llamada a %1$s</string>
+    <string name="cd_forget_command_rule">Quitar la regla de %1$s</string>
+    <string name="command_rules_block_invalid">Escribe un solo comando, sin ; | &amp; &lt; &gt; $ ` ni saltos de línea.</string>
 
     <string name="server_info_title">Información del servidor</string>
     <string name="server_info_config_saved">Configuración guardada</string>
@@ -1763,6 +1774,8 @@
     <string name="restore_files_banner_body">Los mensajes no han cambiado. Deshacer devuelve los archivos a como estaban.</string>
     <string name="restore_files_keep">Conservar</string>
     <string name="restore_files_failed">No se pudieron restaurar los archivos.</string>
+    <string name="restore_files_refused">No se cambió nada: restaurar sobrescribiría %1$s, que las instantáneas no guardan. Muévelo a otro sitio y vuelve a intentarlo.</string>
+    <string name="restore_files_refused_unknown">No se cambió nada: restaurar sobrescribiría un archivo que las instantáneas no guardan.</string>
     <string name="chat_menu_open_github">Abrir en GitHub</string>
     <string name="action_copied">Copiado</string>
     <string name="tool_copy_block">Copiar %1$s</string>
