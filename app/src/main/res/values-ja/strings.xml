@@ -1419,6 +1419,7 @@
     <string name="devtools_viewport">ビューポート</string>
     <string name="devtools_user_agent">ユーザーエージェント</string>
     <string name="guest_browser_webview_unavailable">この端末の WebView を読み込めないため、ゲストブラウザを開けません。Android System WebView を更新するか、有効にし直すと解決する場合があります。</string>
+    <string name="guest_browser_agent_controlling">エージェントがこのページを操作しています</string>
     <string name="setup_step_development_tools">開発ツール</string>
     <string name="setup_development_tools_description">既定では実行に必要なものだけをインストールします。完全な開発ツールチェーンも選択できます。</string>
     <string name="setup_required_tools_description">Linux、選択したエージェント、Git、および AndCode が使用するサポートツールです。これらは常にインストールされます。</string>

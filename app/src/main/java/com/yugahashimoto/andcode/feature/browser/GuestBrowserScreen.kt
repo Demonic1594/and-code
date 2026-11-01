@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -14,16 +15,22 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -62,6 +69,7 @@ import com.yugahashimoto.andcode.feature.browser.devtools.AndroidDevToolsMessage
 import com.yugahashimoto.andcode.feature.browser.devtools.DevToolsBridge
 import com.yugahashimoto.andcode.feature.browser.devtools.DevToolsPanel
 import com.yugahashimoto.andcode.feature.browser.devtools.DevToolsStore
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** Why the page could not be shown, for the error screen in its place. */
@@ -105,6 +113,15 @@ fun GuestBrowserScreen(
     var desktopMode by rememberSaveable { mutableStateOf(false) }
 
     AgentDebuggingHold(agentControl)
+    // Counts the agent's actions on the page; the banner shows for a while after the latest one.
+    var agentActions by remember { mutableIntStateOf(0) }
+    var agentActive by remember { mutableStateOf(false) }
+    LaunchedEffect(agentActions) {
+        if (agentActions == 0) return@LaunchedEffect
+        agentActive = true
+        delay(AgentActivity.BANNER_MILLIS)
+        agentActive = false
+    }
     var findOpen by rememberSaveable { mutableStateOf(false) }
     var findQuery by rememberSaveable { mutableStateOf("") }
     var findMatch by remember { mutableStateOf(FindMatch()) }
@@ -228,6 +245,7 @@ fun GuestBrowserScreen(
                                         configure(
                                             onProgress = { progress = it },
                                             onTitle = { title = it },
+                                            onAgentActivity = { agentActions++ },
                                             onPageStarted = { url ->
                                                 loadError = null
                                                 // The first page, if the agent opened it while the empty address
@@ -269,6 +287,15 @@ fun GuestBrowserScreen(
                                         },
                                     )
                                 currentUrl.isBlank() && !pageStarted -> BrowserStartState(onOpen = ::open)
+                            }
+                            // Over the page, not above it: pushing the page down while the agent measures
+                            // and taps it could move what it is about to tap.
+                            // The plain one: inside the page column the scoped overload would be picked.
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = agentActive && agentControl,
+                                modifier = Modifier.align(Alignment.TopCenter),
+                            ) {
+                                AgentControllingBanner()
                             }
                         }
                         if (devToolsOpen) {
@@ -373,6 +400,7 @@ private fun WebView.configure(
     onNavigationStateChange: (url: String, canGoBack: Boolean, canGoForward: Boolean) -> Unit,
     onPageLoaded: (WebView) -> Unit,
     onMainFrameError: (url: String, description: String) -> Unit,
+    onAgentActivity: () -> Unit,
 ) {
     // Guest pages (dev servers, dashboards, tool UIs) are interactive web apps that need JS.
     settings.javaScriptEnabled = true
@@ -401,6 +429,13 @@ private fun WebView.configure(
                 title: String?,
             ) {
                 onTitle(title.orEmpty())
+            }
+
+            // The agent's browser tool logs this before each action it takes on the page.
+            override fun onConsoleMessage(message: ConsoleMessage?): Boolean {
+                if (message?.message() != AgentActivity.MARKER) return super.onConsoleMessage(message)
+                onAgentActivity()
+                return true
             }
         }
     webViewClient =
@@ -492,4 +527,36 @@ private object AgentDebugging {
         runCatching { WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG || holders > 0) }
             .onFailure { error -> Log.w(TAG, "WebView debugging could not be changed", error) }
     }
+}
+
+/** Shown while an agent is acting on the page, so the user knows the taps and typing are not theirs. */
+@Composable
+private fun AgentControllingBanner() {
+    Surface(color = MaterialTheme.colorScheme.tertiaryContainer, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                Icons.Default.SmartToy,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+            Text(
+                stringResource(R.string.guest_browser_agent_controlling),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+        }
+    }
+}
+
+internal object AgentActivity {
+    /** What the agent's browser tool logs to the page console before each action (andcode-browser-mcp.py). */
+    const val MARKER = "andcode:agent-control"
+
+    /** How long the banner stays after the agent's last action. */
+    const val BANNER_MILLIS = 8_000L
 }

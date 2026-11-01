@@ -24,6 +24,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 COMMAND_FILE = Path(".and-code") / "browser-command.json"
+# Logged to the page console before each action; the app shows "An agent is controlling this page".
+AGENT_ACTIVITY_MARKER = "andcode:agent-control"
 
 
 DEVTOOLS_PREFIX = "webview_devtools_remote_"
@@ -267,7 +269,9 @@ class CdpSession:
             raise CdpError("The Guest Browser's page is already being inspected; close other DevTools and retry.")
         parsed = urlparse(ws_url)
         ws = _UnixWs(self._connect(), parsed.netloc or "localhost", parsed.path or "/")
-        return _PageSession(ws)
+        page = _PageSession(ws)
+        page.announce()
+        return page
 
 
 class _PageSession:
@@ -282,6 +286,15 @@ class _PageSession:
                 if "error" in msg:
                     raise CdpError(f"{method}: {msg['error']}")
                 return msg.get("result", {})
+
+    def announce(self) -> None:
+        """Tells the Guest Browser an agent is acting on the page, so it can say so on screen."""
+        # Only a refusal (no page context mid-navigation, say) is ignored: that reply was read in
+        # full. A socket error or timeout leaves the stream mid-reply, so it fails the tool as before.
+        try:
+            self.call("Runtime.evaluate", expression=f"console.debug({json.dumps(AGENT_ACTIVITY_MARKER)})")
+        except CdpError:
+            pass
 
     def close(self) -> None:
         self.ws.close()
