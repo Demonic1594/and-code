@@ -38,6 +38,7 @@ class UrlLauncherTest {
         assertTrue(isGitHubUrl("https://gist.github.com/someone/abc"))
         assertTrue(isGitHubUrl(" https://GitHub.com/owner "))
         assertFalse(isGitHubUrl("http://github.com/owner/repo"))
+        assertTrue(isGitHubUrl("HTTPS://github.com/owner/repo"))
         assertFalse(isGitHubUrl("https://github.com.evil.example/owner"))
         assertFalse(isGitHubUrl("https://raw.githubusercontent.com/owner/repo/main/a"))
         assertFalse(isGitHubUrl("not a url"))

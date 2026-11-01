@@ -121,7 +121,7 @@ private object GitHubLinks {
 fun isGitHubUrl(url: String): Boolean =
     runCatching {
         val uri = URI(url.trim())
-        uri.scheme == "https" &&
+        uri.scheme.equals("https", ignoreCase = true) &&
             uri.host?.lowercase() in GitHubLinks.hosts &&
             !GitHubLinks.downloadPath.containsMatchIn(uri.path.orEmpty())
     }.getOrDefault(false)
