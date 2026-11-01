@@ -1,7 +1,9 @@
 package com.yugahashimoto.andcode.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
@@ -17,6 +19,8 @@ import com.yugahashimoto.andcode.feature.activity.ActivityUiState
 import com.yugahashimoto.andcode.feature.chat.ChatHomeScreen
 import com.yugahashimoto.andcode.feature.chat.ChatUiState
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
+import com.yugahashimoto.andcode.feature.chat.FileMentionsUi
+import com.yugahashimoto.andcode.feature.chat.LocalFileMentions
 import com.yugahashimoto.andcode.feature.chat.SubagentInfo
 import com.yugahashimoto.andcode.feature.git.GitClient
 import com.yugahashimoto.andcode.feature.git.gitHubRepositoryUrl
@@ -130,181 +134,184 @@ internal fun ChatRoute(
             }
         origin.onSuccess { remote -> value = gitHubRepositoryUrl(remote) }
     }
-    ChatHomeScreen(
-        repositoryUrl = repositoryUrl,
-        findRequest = waiting.findRequest,
-        onFindRequestConsumed = waiting.clearFindRequest,
-        state = chatState,
-        providers = settingsState.providers,
-        agents = settingsState.agents,
-        agentsLoading = settingsState.agentsLoading,
-        selectedProviderId = chatState.selectedProviderId ?: fallbackProviderId,
-        selectedModelId = chatState.selectedModelId ?: fallbackModelId,
-        selectedAgentId = chatState.selectedAgentId ?: settingsState.agentId,
-        runtimeTargets = runtimeTargets,
-        selectedRuntimeId = selectedRuntime?.id,
-        claudePermissionMode =
-            workspaceState.claude
-                .takeIf { selectedRuntime?.agent == com.yugahashimoto.andcode.runtime.LocalAgent.CLAUDE_CODE }
-                ?.permissionMode,
-        supportsPermissions = selectedRuntime?.capabilities?.permissions != false,
-        onSelectClaudePermissionMode = { mode ->
-            workspaceViewModel.setClaudePermissionMode(mode, chatState.sessionId)
-        },
-        // Only Claude Code can carry one: its CLI takes --append-system-prompt,
-        // while agy has no equivalent flag, so the chip stays off elsewhere
-        // rather than offering a control that would do nothing.
-        systemPromptPresets =
-            workspaceState.claude
-                .takeIf { selectedRuntime?.agent == com.yugahashimoto.andcode.runtime.LocalAgent.CLAUDE_CODE }
-                ?.systemPromptPresets
-                .orEmpty(),
-        // The open chat's own preset, not the default new chats get: a session
-        // keeps what it was created with, so naming the default here would show
-        // a preset the send path is not going to use. Resolved off state rather
-        // than by asking the backend, so a switch moves the chip on the tap
-        // instead of on whatever recomposes next. A chat with no session yet
-        // answers from its own draft, which is where its choice lives until the
-        // first message creates the session to record it on.
-        selectedSystemPromptId =
-            workspaceState.claude
-                .takeIf { selectedRuntime?.agent == com.yugahashimoto.andcode.runtime.LocalAgent.CLAUDE_CODE }
-                ?.let { claude ->
-                    // Presence of the draft decides, not its id: choosing None
-                    // for this chat is a draft whose id is null, and an elvis
-                    // here would read that as "no draft" and show the default
-                    // while the first turn sent no prompt at all.
-                    val draft = chatState.draftSystemPrompt
-                    if (draft != null) draft.id else claude.systemPromptIdFor(chatState.sessionId)
-                },
-        onSelectSystemPrompt = chatViewModel::selectSystemPrompt,
-        // The mode settings shows, so the chip is not left naming whatever agent id
-        // another runtime last remembered - see AntigravityTarget.listAgents.
-        antigravityPermissionMode =
-            antigravityState
-                .takeIf { selectedRuntime?.agent == com.yugahashimoto.andcode.runtime.LocalAgent.ANTIGRAVITY }
-                ?.permissionMode,
-        onSelectAntigravityPermissionMode = { mode ->
-            app.antigravityController.setPermissionMode(mode, chatState.sessionId)
-        },
-        onModelPickerClosed = waiting.markHandoffReady,
-        onSelectRuntime = { id ->
-            if (id != selectedRuntime?.id) {
-                if (chatState.messages.isNotEmpty()) {
-                    actions.onHandoff(id)
-                } else {
-                    app.runtimeRegistry.select(id)
-                }
-            }
-        },
-        onOpenProviderSettings = {
-            // OpenCode's provider list cannot connect Codex: its sign-in lives on
-            // Codex's own settings screen.
-            val codexSelected = selectedRuntime?.agent == com.yugahashimoto.andcode.runtime.LocalAgent.CODEX
-            navController.navigate(if (codexSelected) ROUTE_SETTINGS_AGENT_CODEX else ROUTE_SETTINGS_PROVIDERS)
-        },
-        onSelectModel = settingsViewModel::selectModel,
-        onSelectAgent = settingsViewModel::selectAgent,
-        onRefreshAgents = app.catalogRepository::refreshAgents,
-        selectedVariant = chatState.selectedVariant,
-        onSelectVariant = chatViewModel::selectVariant,
-        onToggleFastMode = chatViewModel::setFastMode,
-        onToggleUltracode = chatViewModel::setUltracode,
-        onAttach = actions.onAttach,
-        onRemoveAttachment = chatViewModel::removeAttachment,
-        onImageAttachment = { bitmap ->
-            actions.importScope.launch {
-                runCatching {
-                    withContext(Dispatchers.IO) {
-                        com.yugahashimoto.andcode.runtime.local.AttachmentImporter(context).import(bitmap)
+    val mentionFiles by chatViewModel.fileMentions.results.collectAsState()
+    CompositionLocalProvider(LocalFileMentions provides FileMentionsUi(mentionFiles, chatViewModel.fileMentions::query)) {
+        ChatHomeScreen(
+            repositoryUrl = repositoryUrl,
+            findRequest = waiting.findRequest,
+            onFindRequestConsumed = waiting.clearFindRequest,
+            state = chatState,
+            providers = settingsState.providers,
+            agents = settingsState.agents,
+            agentsLoading = settingsState.agentsLoading,
+            selectedProviderId = chatState.selectedProviderId ?: fallbackProviderId,
+            selectedModelId = chatState.selectedModelId ?: fallbackModelId,
+            selectedAgentId = chatState.selectedAgentId ?: settingsState.agentId,
+            runtimeTargets = runtimeTargets,
+            selectedRuntimeId = selectedRuntime?.id,
+            claudePermissionMode =
+                workspaceState.claude
+                    .takeIf { selectedRuntime?.agent == com.yugahashimoto.andcode.runtime.LocalAgent.CLAUDE_CODE }
+                    ?.permissionMode,
+            supportsPermissions = selectedRuntime?.capabilities?.permissions != false,
+            onSelectClaudePermissionMode = { mode ->
+                workspaceViewModel.setClaudePermissionMode(mode, chatState.sessionId)
+            },
+            // Only Claude Code can carry one: its CLI takes --append-system-prompt,
+            // while agy has no equivalent flag, so the chip stays off elsewhere
+            // rather than offering a control that would do nothing.
+            systemPromptPresets =
+                workspaceState.claude
+                    .takeIf { selectedRuntime?.agent == com.yugahashimoto.andcode.runtime.LocalAgent.CLAUDE_CODE }
+                    ?.systemPromptPresets
+                    .orEmpty(),
+            // The open chat's own preset, not the default new chats get: a session
+            // keeps what it was created with, so naming the default here would show
+            // a preset the send path is not going to use. Resolved off state rather
+            // than by asking the backend, so a switch moves the chip on the tap
+            // instead of on whatever recomposes next. A chat with no session yet
+            // answers from its own draft, which is where its choice lives until the
+            // first message creates the session to record it on.
+            selectedSystemPromptId =
+                workspaceState.claude
+                    .takeIf { selectedRuntime?.agent == com.yugahashimoto.andcode.runtime.LocalAgent.CLAUDE_CODE }
+                    ?.let { claude ->
+                        // Presence of the draft decides, not its id: choosing None
+                        // for this chat is a draft whose id is null, and an elvis
+                        // here would read that as "no draft" and show the default
+                        // while the first turn sent no prompt at all.
+                        val draft = chatState.draftSystemPrompt
+                        if (draft != null) draft.id else claude.systemPromptIdFor(chatState.sessionId)
+                    },
+            onSelectSystemPrompt = chatViewModel::selectSystemPrompt,
+            // The mode settings shows, so the chip is not left naming whatever agent id
+            // another runtime last remembered - see AntigravityTarget.listAgents.
+            antigravityPermissionMode =
+                antigravityState
+                    .takeIf { selectedRuntime?.agent == com.yugahashimoto.andcode.runtime.LocalAgent.ANTIGRAVITY }
+                    ?.permissionMode,
+            onSelectAntigravityPermissionMode = { mode ->
+                app.antigravityController.setPermissionMode(mode, chatState.sessionId)
+            },
+            onModelPickerClosed = waiting.markHandoffReady,
+            onSelectRuntime = { id ->
+                if (id != selectedRuntime?.id) {
+                    if (chatState.messages.isNotEmpty()) {
+                        actions.onHandoff(id)
+                    } else {
+                        app.runtimeRegistry.select(id)
                     }
-                }.onSuccess { attachment ->
-                    chatViewModel.addImageAttachment(attachment, bitmap)
                 }
-            }
-        },
-        favoriteModelKeys = settingsState.favoriteModelKeys,
-        recentModelKeys = settingsState.recentModelKeys,
-        hiddenModelKeys =
-            settingsState.hiddenModelKeys.takeIf {
-                selectedRuntime?.capabilities?.providerModelList == true
-            }.orEmpty(),
-        onToggleFavorite = settingsViewModel::toggleFavoriteModel,
-        onSelectQuestionAnswer = chatViewModel::selectQuestionAnswer,
-        onSubmitQuestion = chatViewModel::submitQuestion,
-        onCancelQuestion = chatViewModel::cancelQuestion,
-        onDismissQuestion = chatViewModel::dismissQuestion,
-        onDismissTodoBar = chatViewModel::dismissTodoBar,
-        onDismissPullRequest = chatViewModel::dismissPullRequest,
-        autoAcceptPermissions = settingsState.autoAcceptPermissions,
-        onToggleAutoAccept = settingsViewModel::setAutoAcceptPermissions,
-        enterToSend = preferences.enterToSend,
-        autoExpandReasoning = preferences.autoExpandReasoning,
-        onSendMessage = chatViewModel::sendMessage,
-        onSendReview = { review, sent ->
-            sendGate {
-                chatViewModel.sendReview(review)
-                sent()
-            }
-        },
-        canEditMessages = selectedRuntime?.capabilities?.editMessages == true,
-        canRewind = selectedRuntime?.capabilities?.checkpoints == true,
-        onRewind = chatViewModel::rewindTo,
-        onUndoRewind = chatViewModel::undoRewind,
-        canRestoreFiles = chatViewModel::canRestoreFiles,
-        onRestoreFiles = chatViewModel::restoreFilesTo,
-        onUndoFileRestore = chatViewModel::undoFileRestore,
-        onDismissFileRestore = chatViewModel::dismissFileRestore,
-        onEditLastMessage = chatViewModel::editLastUserMessage,
-        onEditDraftConsumed = chatViewModel::consumeEditDraft,
-        onPermission = chatViewModel::respondToPermission,
-        onAbort = chatViewModel::abort,
-        onRecheckStall = chatViewModel::checkForStall,
-        onMic = actions.onMic,
-        onNewChat = {
-            waiting.clearSession()
-            chatViewModel.newSession()
-        },
-        onOpenLocalSetup = {
-            navController.navigate(ROUTE_ANDROID_SETUP) { launchSingleTop = true }
-        },
-        onOpenRemoteSetup = {
-            navController.navigate(ROUTE_REMOTE_CONNECTION) { launchSingleTop = true }
-        },
-        onRefreshCatalog = app.catalogRepository::refreshProvidersOnly,
-        onOpenDrawer = {
-            app.catalogRepository.refreshSessionsOnly()
-            actions.onOpenDrawer()
-        },
-        subagents = state.subagents,
-        onSubagentClick = { childSessionId ->
-            val childSession = activityState.sessions.firstOrNull { it.id == childSessionId }
-            app.activityRepository.markSessionRead(childSessionId)
-            // The chat this was opened from is the way back, so open the child
-            // directly instead of routing through the waiting session, which would drop
-            // the parent.
-            waiting.clearSession()
-            chatViewModel.openSubagentSession(
-                childSessionId,
-                childSession?.title ?: childSessionId,
-            )
-        },
-        onReturnToParentSession = {
-            waiting.clearSession()
-            chatViewModel.openParentSession()
-        },
-        onOpenUrl = { url ->
-            UrlLauncher.openUrl(context, url)
-        },
-        onOpenPatchDiff = chatViewModel::openPatchDiff,
-        onDismissPatchDiff = chatViewModel::dismissPatchDiff,
-        onOpenArtifact = chatViewModel::openArtifact,
-        onDismissArtifact = chatViewModel::dismissArtifact,
-        onOpenLocalUrl = { url -> navController.navigate(guestBrowserRoute(url)) { launchSingleTop = true } },
-        onLoadDraft = { sessionId -> chatViewModel.loadDraft(sessionId)?.text },
-        onSaveDraft = { sessionId, text -> chatViewModel.saveDraft(sessionId, text) },
-        savedPrompts = preferences.savedPrompts,
-    )
+            },
+            onOpenProviderSettings = {
+                // OpenCode's provider list cannot connect Codex: its sign-in lives on
+                // Codex's own settings screen.
+                val codexSelected = selectedRuntime?.agent == com.yugahashimoto.andcode.runtime.LocalAgent.CODEX
+                navController.navigate(if (codexSelected) ROUTE_SETTINGS_AGENT_CODEX else ROUTE_SETTINGS_PROVIDERS)
+            },
+            onSelectModel = settingsViewModel::selectModel,
+            onSelectAgent = settingsViewModel::selectAgent,
+            onRefreshAgents = app.catalogRepository::refreshAgents,
+            selectedVariant = chatState.selectedVariant,
+            onSelectVariant = chatViewModel::selectVariant,
+            onToggleFastMode = chatViewModel::setFastMode,
+            onToggleUltracode = chatViewModel::setUltracode,
+            onAttach = actions.onAttach,
+            onRemoveAttachment = chatViewModel::removeAttachment,
+            onImageAttachment = { bitmap ->
+                actions.importScope.launch {
+                    runCatching {
+                        withContext(Dispatchers.IO) {
+                            com.yugahashimoto.andcode.runtime.local.AttachmentImporter(context).import(bitmap)
+                        }
+                    }.onSuccess { attachment ->
+                        chatViewModel.addImageAttachment(attachment, bitmap)
+                    }
+                }
+            },
+            favoriteModelKeys = settingsState.favoriteModelKeys,
+            recentModelKeys = settingsState.recentModelKeys,
+            hiddenModelKeys =
+                settingsState.hiddenModelKeys.takeIf {
+                    selectedRuntime?.capabilities?.providerModelList == true
+                }.orEmpty(),
+            onToggleFavorite = settingsViewModel::toggleFavoriteModel,
+            onSelectQuestionAnswer = chatViewModel::selectQuestionAnswer,
+            onSubmitQuestion = chatViewModel::submitQuestion,
+            onCancelQuestion = chatViewModel::cancelQuestion,
+            onDismissQuestion = chatViewModel::dismissQuestion,
+            onDismissTodoBar = chatViewModel::dismissTodoBar,
+            onDismissPullRequest = chatViewModel::dismissPullRequest,
+            autoAcceptPermissions = settingsState.autoAcceptPermissions,
+            onToggleAutoAccept = settingsViewModel::setAutoAcceptPermissions,
+            enterToSend = preferences.enterToSend,
+            autoExpandReasoning = preferences.autoExpandReasoning,
+            onSendMessage = chatViewModel::sendMessage,
+            onSendReview = { review, sent ->
+                sendGate {
+                    chatViewModel.sendReview(review)
+                    sent()
+                }
+            },
+            canEditMessages = selectedRuntime?.capabilities?.editMessages == true,
+            canRewind = selectedRuntime?.capabilities?.checkpoints == true,
+            onRewind = chatViewModel::rewindTo,
+            onUndoRewind = chatViewModel::undoRewind,
+            canRestoreFiles = chatViewModel::canRestoreFiles,
+            onRestoreFiles = chatViewModel::restoreFilesTo,
+            onUndoFileRestore = chatViewModel::undoFileRestore,
+            onDismissFileRestore = chatViewModel::dismissFileRestore,
+            onEditLastMessage = chatViewModel::editLastUserMessage,
+            onEditDraftConsumed = chatViewModel::consumeEditDraft,
+            onPermission = chatViewModel::respondToPermission,
+            onAbort = chatViewModel::abort,
+            onRecheckStall = chatViewModel::checkForStall,
+            onMic = actions.onMic,
+            onNewChat = {
+                waiting.clearSession()
+                chatViewModel.newSession()
+            },
+            onOpenLocalSetup = {
+                navController.navigate(ROUTE_ANDROID_SETUP) { launchSingleTop = true }
+            },
+            onOpenRemoteSetup = {
+                navController.navigate(ROUTE_REMOTE_CONNECTION) { launchSingleTop = true }
+            },
+            onRefreshCatalog = app.catalogRepository::refreshProvidersOnly,
+            onOpenDrawer = {
+                app.catalogRepository.refreshSessionsOnly()
+                actions.onOpenDrawer()
+            },
+            subagents = state.subagents,
+            onSubagentClick = { childSessionId ->
+                val childSession = activityState.sessions.firstOrNull { it.id == childSessionId }
+                app.activityRepository.markSessionRead(childSessionId)
+                // The chat this was opened from is the way back, so open the child
+                // directly instead of routing through the waiting session, which would drop
+                // the parent.
+                waiting.clearSession()
+                chatViewModel.openSubagentSession(
+                    childSessionId,
+                    childSession?.title ?: childSessionId,
+                )
+            },
+            onReturnToParentSession = {
+                waiting.clearSession()
+                chatViewModel.openParentSession()
+            },
+            onOpenUrl = { url ->
+                UrlLauncher.openUrl(context, url)
+            },
+            onOpenPatchDiff = chatViewModel::openPatchDiff,
+            onDismissPatchDiff = chatViewModel::dismissPatchDiff,
+            onOpenArtifact = chatViewModel::openArtifact,
+            onDismissArtifact = chatViewModel::dismissArtifact,
+            onOpenLocalUrl = { url -> navController.navigate(guestBrowserRoute(url)) { launchSingleTop = true } },
+            onLoadDraft = { sessionId -> chatViewModel.loadDraft(sessionId)?.text },
+            onSaveDraft = { sessionId, text -> chatViewModel.saveDraft(sessionId, text) },
+            savedPrompts = preferences.savedPrompts,
+        )
+    }
 }
 
 /** The app objects the chat route works with. */

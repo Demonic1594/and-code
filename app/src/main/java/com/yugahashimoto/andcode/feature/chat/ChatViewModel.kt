@@ -1609,6 +1609,24 @@ class ChatViewModel(
     /** How many of the user's messages went out before the one being sent: its turn number. */
     private fun sentTurns(): Int = keepRewind(_uiState.value).count { it.isUser && it.id !in offlinePlaceholders }
 
+    /** Project files for the `@` mention being typed in the composer. */
+    val fileMentions =
+        FileMentionSearch(viewModelScope) { query ->
+            val directory = snapshotDirectory()
+            val currentBackend = backend
+            if (directory == null || currentBackend == null) {
+                emptyList()
+            } else {
+                currentBackend.findFiles(
+                    directory = directory,
+                    query = query,
+                    includeDirectories = false,
+                    type = "file",
+                    limit = FileMentionSearch.LIMIT,
+                )
+            }
+        }
+
     /** The folder the chat's snapshots are taken of: the session's, else the one picked for it. */
     private fun snapshotDirectory(sessionDirectory: String? = null): String? =
         _uiState.value.sessionDirectory ?: sessionDirectory ?: _uiState.value.selectedWorkspacePath

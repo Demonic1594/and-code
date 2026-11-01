@@ -845,6 +845,7 @@ fun ChatHomeScreen(
             }
 
             if (!runtimeNotReady) {
+                val fileMentions = LocalFileMentions.current
                 // Keyed to the chat, so one opened from elsewhere (a notification) starts with the
                 // composer's own state fresh: its full-screen editor closed.
                 key(state.sessionId) {
@@ -853,6 +854,7 @@ fun ChatHomeScreen(
                         onInputValueChange = {
                             inputValue = it
                             showSlashCommands = it.text.startsWith("/")
+                            fileMentions?.onQuery(FileMentions.queryAt(it)?.query)
                         },
                         isRunning = state.isRunning,
                         onSend = {
@@ -867,6 +869,7 @@ fun ChatHomeScreen(
                                     onSendMessage(text)
                                     inputValue = TextFieldValue("")
                                     showSlashCommands = false
+                                    fileMentions?.onQuery(null)
                                 }
                             }
                         },
