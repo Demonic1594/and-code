@@ -89,7 +89,8 @@ installed and run.
 
 ## Gradle / Android dependencies
 
-The `releaseRuntimeClasspath` Gradle configuration — everything actually resolved into a release
+The `githubReleaseRuntimeClasspath` Gradle configuration (the github flavor: the fdroid one plus
+Firebase) — everything actually resolved into a release
 build, direct **and** transitive — has ~190 distinct artifacts as of this writing. Rather than a
 hand-maintained table (which drifted from reality before: it previously listed Gson as a direct
 dependency, which it isn't, and omitted `org.tukaani:xz`, which is actually resolved), the authoritative, generated list is committed at
@@ -131,7 +132,7 @@ dependencies by keeping a single, arbitrarily-chosen copy (a "pick first" rule, 
 preservation) — inspecting the built APK showed only `okhttp3/internal/publicsuffix/NOTICE`
 survived; the Apache Commons artifacts' own `NOTICE` files did not make it into the APK at all.
 
-The actual NOTICE text for every `releaseRuntimeClasspath` artifact that ships one is aggregated,
+The actual NOTICE text for every `githubReleaseRuntimeClasspath` artifact that ships one is aggregated,
 straight out of the dependency archives (not the built APK), at
 [`THIRD_PARTY_LICENSES/NOTICE-aggregate.txt`](THIRD_PARTY_LICENSES/NOTICE-aggregate.txt) and
 `assets/legal/notice_aggregate.md` inside the APK, reachable from the in-app Legal screen. As of
