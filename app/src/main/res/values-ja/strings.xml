@@ -1188,6 +1188,17 @@
 
     <string name="nav_schedules">スケジュール</string>
     <string name="schedule_new">新しいスケジュール</string>
+    <string name="schedule_automation_menu">他のアプリから実行</string>
+    <string name="schedule_automation_title">他のアプリから実行</string>
+    <string name="schedule_automation_body">Tasker などの自動化アプリは、このアクションと 2 つのエクストラ（スケジュールの ID とトークン）を付けたブロードキャストを送ると、スケジュールを今すぐ実行できます。実行できるのはトークンを持つアプリだけで、スケジュールはオンである必要があります。新しいトークンを作ると古いトークンは使えなくなります。このアプリのパッケージ宛てに送ってください。そうしないと Android は届けません。</string>
+    <string name="schedule_automation_package">パッケージ</string>
+    <string name="schedule_automation_action">アクション</string>
+    <string name="schedule_automation_token">トークン（エクストラ「%1$s」）</string>
+    <string name="schedule_automation_ids">スケジュール ID（エクストラ「%1$s」）</string>
+    <string name="schedule_automation_off">オフ: 他のアプリはスケジュールを実行できません。</string>
+    <string name="schedule_automation_turn_on">オンにする</string>
+    <string name="schedule_automation_new_token">新しいトークン</string>
+    <string name="schedule_automation_turn_off">オフにする</string>
     <string name="schedule_edit">スケジュールを編集</string>
     <string name="schedule_name">名前</string>
     <string name="schedule_name_hint">任意。未入力の場合はプロンプトが使われます</string>

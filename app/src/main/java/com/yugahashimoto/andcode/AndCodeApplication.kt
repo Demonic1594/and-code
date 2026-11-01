@@ -42,6 +42,7 @@ import com.yugahashimoto.andcode.di.viewModelModule
 import com.yugahashimoto.andcode.feature.schedule.AppScheduleStore
 import com.yugahashimoto.andcode.feature.schedule.ScheduleBridge
 import com.yugahashimoto.andcode.feature.schedule.ScheduleManager
+import com.yugahashimoto.andcode.feature.schedule.ScheduleTriggerToken
 import com.yugahashimoto.andcode.feature.support.GitHubStarCoordinator
 import com.yugahashimoto.andcode.feature.support.GitHubStarService
 import com.yugahashimoto.andcode.feature.wakeword.VoskModelStore
@@ -210,6 +211,9 @@ class AndCodeApplication : Application() {
 
     lateinit var scheduleManager: ScheduleManager
         private set
+
+    /** The token other apps need to run a schedule (ScheduleTriggerReceiver). */
+    val scheduleTriggerToken: ScheduleTriggerToken by lazy { ScheduleTriggerToken(this) }
 
     lateinit var providerCredentials: LocalProviderCredentialStore
         private set

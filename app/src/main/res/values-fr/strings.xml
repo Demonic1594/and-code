@@ -1140,6 +1140,17 @@
     <string name="chat_response_duration_under_minute">&lt;1 min</string>
     <string name="nav_schedules">Planifications</string>
     <string name="schedule_new">Nouvelle planification</string>
+    <string name="schedule_automation_menu">Lancer depuis d’autres apps</string>
+    <string name="schedule_automation_title">Lancer depuis d’autres apps</string>
+    <string name="schedule_automation_body">Tasker ou une autre app d’automatisation peut lancer une planification maintenant en envoyant un broadcast avec cette action et deux extras : l’id de la planification et le jeton. Seule une app qui possède le jeton peut le faire, et la planification doit être activée. Un nouveau jeton invalide l’ancien. Envoyez-le au package de cette app, sinon Android ne le transmettra pas.</string>
+    <string name="schedule_automation_package">Package</string>
+    <string name="schedule_automation_action">Action</string>
+    <string name="schedule_automation_token">Jeton (extra « %1$s »)</string>
+    <string name="schedule_automation_ids">Ids des planifications (extra « %1$s »)</string>
+    <string name="schedule_automation_off">Désactivé : aucune autre app ne peut lancer vos planifications.</string>
+    <string name="schedule_automation_turn_on">Activer</string>
+    <string name="schedule_automation_new_token">Nouveau jeton</string>
+    <string name="schedule_automation_turn_off">Désactiver</string>
     <string name="schedule_edit">Modifier la planification</string>
     <string name="schedule_name">Nom</string>
     <string name="schedule_name_hint">Facultatif ; le prompt est utilisé sinon</string>

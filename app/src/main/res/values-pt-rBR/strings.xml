@@ -1140,6 +1140,17 @@
     <string name="chat_response_duration_under_minute">&lt;1 min</string>
     <string name="nav_schedules">Agendamentos</string>
     <string name="schedule_new">Novo agendamento</string>
+    <string name="schedule_automation_menu">Executar a partir de outros apps</string>
+    <string name="schedule_automation_title">Executar a partir de outros apps</string>
+    <string name="schedule_automation_body">O Tasker ou outro app de automação pode executar um agendamento agora enviando um broadcast com esta ação e dois extras: o id do agendamento e o token. Só um app que tenha o token pode fazer isso, e o agendamento precisa estar ativado. Um novo token invalida o anterior. Envie para o pacote deste app; caso contrário, o Android não o entregará.</string>
+    <string name="schedule_automation_package">Pacote</string>
+    <string name="schedule_automation_action">Ação</string>
+    <string name="schedule_automation_token">Token (extra “%1$s”)</string>
+    <string name="schedule_automation_ids">Ids dos agendamentos (extra “%1$s”)</string>
+    <string name="schedule_automation_off">Desativado: nenhum outro app pode executar seus agendamentos.</string>
+    <string name="schedule_automation_turn_on">Ativar</string>
+    <string name="schedule_automation_new_token">Novo token</string>
+    <string name="schedule_automation_turn_off">Desativar</string>
     <string name="schedule_edit">Editar agendamento</string>
     <string name="schedule_name">Nome</string>
     <string name="schedule_name_hint">Opcional; caso contrário, o prompt é usado</string>

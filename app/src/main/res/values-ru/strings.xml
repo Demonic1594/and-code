@@ -1143,6 +1143,17 @@
     <string name="chat_response_duration_under_minute">&lt;1 min</string>
     <string name="nav_schedules">Расписания</string>
     <string name="schedule_new">Новое расписание</string>
+    <string name="schedule_automation_menu">Запуск из других приложений</string>
+    <string name="schedule_automation_title">Запуск из других приложений</string>
+    <string name="schedule_automation_body">Tasker или другое приложение автоматизации может сразу запустить расписание, отправив broadcast с этим действием и двумя extra: идентификатором расписания и токеном. Это может только приложение, у которого есть токен, и расписание должно быть включено. Новый токен отменяет старый. Отправляйте его в пакет этого приложения, иначе Android его не доставит.</string>
+    <string name="schedule_automation_package">Пакет</string>
+    <string name="schedule_automation_action">Действие</string>
+    <string name="schedule_automation_token">Токен (extra «%1$s»)</string>
+    <string name="schedule_automation_ids">Идентификаторы расписаний (extra «%1$s»)</string>
+    <string name="schedule_automation_off">Выключено: другие приложения не могут запускать ваши расписания.</string>
+    <string name="schedule_automation_turn_on">Включить</string>
+    <string name="schedule_automation_new_token">Новый токен</string>
+    <string name="schedule_automation_turn_off">Выключить</string>
     <string name="schedule_edit">Изменить расписание</string>
     <string name="schedule_name">Название</string>
     <string name="schedule_name_hint">Необязательно; иначе используется промпт</string>

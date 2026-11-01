@@ -1179,6 +1179,17 @@
 
     <string name="nav_schedules">Schedules</string>
     <string name="schedule_new">New schedule</string>
+    <string name="schedule_automation_menu">Run from other apps</string>
+    <string name="schedule_automation_title">Run from other apps</string>
+    <string name="schedule_automation_body">Tasker or another automation app can run a schedule now by sending a broadcast with this action and two extras: the schedule’s id and the token. Only an app that has the token can do it, and the schedule must be on. A new token stops the old one working. Send it to this app’s package, or Android won’t deliver it.</string>
+    <string name="schedule_automation_package">Package</string>
+    <string name="schedule_automation_action">Action</string>
+    <string name="schedule_automation_token">Token (extra “%1$s”)</string>
+    <string name="schedule_automation_ids">Schedule ids (extra “%1$s”)</string>
+    <string name="schedule_automation_off">Off: no other app can run your schedules.</string>
+    <string name="schedule_automation_turn_on">Turn on</string>
+    <string name="schedule_automation_new_token">New token</string>
+    <string name="schedule_automation_turn_off">Turn off</string>
     <string name="schedule_edit">Edit schedule</string>
     <string name="schedule_name">Name</string>
     <string name="schedule_name_hint">Optional; the prompt is used otherwise</string>

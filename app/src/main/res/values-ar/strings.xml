@@ -1149,6 +1149,17 @@
     <string name="chat_response_duration_under_minute">&lt;1 min</string>
     <string name="nav_schedules">الجداول</string>
     <string name="schedule_new">جدول جديد</string>
+    <string name="schedule_automation_menu">التشغيل من تطبيقات أخرى</string>
+    <string name="schedule_automation_title">التشغيل من تطبيقات أخرى</string>
+    <string name="schedule_automation_body">يمكن لـ Tasker أو تطبيق أتمتة آخر تشغيل جدول الآن بإرسال بث بهذا الإجراء وقيمتين إضافيتين: معرّف الجدول والرمز. لا يستطيع ذلك إلا تطبيق لديه الرمز، ويجب أن يكون الجدول مفعّلًا. الرمز الجديد يُبطل القديم. أرسله إلى حزمة هذا التطبيق، وإلا فلن يوصله Android.</string>
+    <string name="schedule_automation_package">الحزمة</string>
+    <string name="schedule_automation_action">الإجراء</string>
+    <string name="schedule_automation_token">الرمز (القيمة الإضافية «%1$s»)</string>
+    <string name="schedule_automation_ids">معرّفات الجداول (القيمة الإضافية «%1$s»)</string>
+    <string name="schedule_automation_off">متوقف: لا يمكن لأي تطبيق آخر تشغيل جداولك.</string>
+    <string name="schedule_automation_turn_on">تشغيل</string>
+    <string name="schedule_automation_new_token">رمز جديد</string>
+    <string name="schedule_automation_turn_off">إيقاف</string>
     <string name="schedule_edit">تعديل الجدول</string>
     <string name="schedule_name">الاسم</string>
     <string name="schedule_name_hint">اختياري؛ وإلا يُستخدم الموجه</string>

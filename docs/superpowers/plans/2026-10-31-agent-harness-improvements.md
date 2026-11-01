@@ -132,7 +132,11 @@ copied without a licence review (LGPL-3.0, while AndCode is MIT); record any not
   quick-settings tile and shortcuts; an intent that runs a saved prompt in a chosen project fits
   next to them. Do not copy its auth: its intent receiver is exported with no permission or token
   (the external chat receiver in its `AndroidManifest.xml`), so any installed app can send the agent a prompt. Ours needs a
-  signature permission or a per-user token, because our agents run shell commands.
+  signature permission or a per-user token, because our agents run shell commands. **Done** as a trigger
+  for schedules (a saved prompt in a chosen project): another app sends
+  `com.yugahashimoto.andcode.TRIGGER_SCHEDULE` with `schedule_id` and a per-user `token`, set up from
+  "Run from other apps" on the schedules screen; off until the user creates a token. The run goes
+  through an exact alarm, the only start a background app may make.
 - **Say why an MCP server did not start.** Operit reports a status such as `NODEJS_MISSING` or
   `BRIDGE_FAILED`. Show the specific reason in the MCP list. **Done** for Claude Code's
   local servers: a failed one whose program is not installed in the Linux environment says so, with

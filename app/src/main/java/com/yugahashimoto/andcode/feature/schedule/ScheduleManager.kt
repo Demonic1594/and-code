@@ -72,6 +72,16 @@ class ScheduleManager(
         retryPendingIntent(scheduleId, attempt = 0, create = false)?.let(alarmManager::cancel)
     }
 
+    /**
+     * Runs [scheduleId] in a moment, for a trigger from another app: through an alarm, because a
+     * background broadcast may not start the run's foreground service but an exact alarm may.
+     */
+    fun runSoon(scheduleId: String) {
+        val pending =
+            runIntent(TRIGGER_REQUEST_CODE_PREFIX.plus(scheduleId).hashCode(), scheduleId, attempt = 0, create = true) ?: return
+        armAlarm(System.currentTimeMillis() + TRIGGER_DELAY_MS, pending)
+    }
+
     /** Runs [scheduleId] immediately, outside of its cron timing. */
     fun runNow(scheduleId: String): Boolean = ScheduleExecutionService.start(context, scheduleId, automatic = false)
 
@@ -142,6 +152,8 @@ class ScheduleManager(
 
     private companion object {
         const val RETRY_REQUEST_CODE_PREFIX = "schedule-retry:"
+        const val TRIGGER_REQUEST_CODE_PREFIX = "schedule-trigger:"
+        const val TRIGGER_DELAY_MS = 1_000L
     }
 }
 
