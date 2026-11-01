@@ -1136,7 +1136,8 @@
     <string name="schedule_new">Nueva programación</string>
     <string name="schedule_automation_menu">Ejecutar desde otras apps</string>
     <string name="schedule_automation_title">Ejecutar desde otras apps</string>
-    <string name="schedule_automation_body">Tasker u otra app de automatización puede ejecutar ahora una programación enviando un broadcast con esta acción y dos extras: el id de la programación y el token. Solo puede hacerlo una app que tenga el token, y la programación debe estar activada. Un token nuevo deja sin efecto el anterior.</string>
+    <string name="schedule_automation_body">Tasker u otra app de automatización puede ejecutar ahora una programación enviando un broadcast con esta acción y dos extras: el id de la programación y el token. Solo puede hacerlo una app que tenga el token, y la programación debe estar activada. Un token nuevo deja sin efecto el anterior. Envíalo al paquete de esta app; si no, Android no lo entregará.</string>
+    <string name="schedule_automation_package">Paquete</string>
     <string name="schedule_automation_action">Acción</string>
     <string name="schedule_automation_token">Token (extra «%1$s»)</string>
     <string name="schedule_automation_ids">Ids de programaciones (extra «%1$s»)</string>

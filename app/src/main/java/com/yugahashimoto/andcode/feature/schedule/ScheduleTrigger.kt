@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.util.Log
 import com.yugahashimoto.andcode.AndCodeApplication
+import com.yugahashimoto.andcode.data.security.EncryptedPreferences
 import java.security.MessageDigest
 import java.security.SecureRandom
 
@@ -43,7 +44,8 @@ class ScheduleTriggerToken(
     private val preferences: SharedPreferences,
     private val random: SecureRandom = SecureRandom(),
 ) {
-    constructor(context: Context) : this(context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE))
+    // Encrypted, like the other credentials: the token lets an app start agents that run commands.
+    constructor(context: Context) : this(EncryptedPreferences.open(context, PREFS_NAME))
 
     fun current(): String? = preferences.getString(KEY_TOKEN, null)
 

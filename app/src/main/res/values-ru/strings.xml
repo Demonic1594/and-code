@@ -1139,7 +1139,8 @@
     <string name="schedule_new">Новое расписание</string>
     <string name="schedule_automation_menu">Запуск из других приложений</string>
     <string name="schedule_automation_title">Запуск из других приложений</string>
-    <string name="schedule_automation_body">Tasker или другое приложение автоматизации может сразу запустить расписание, отправив broadcast с этим действием и двумя extra: идентификатором расписания и токеном. Это может только приложение, у которого есть токен, и расписание должно быть включено. Новый токен отменяет старый.</string>
+    <string name="schedule_automation_body">Tasker или другое приложение автоматизации может сразу запустить расписание, отправив broadcast с этим действием и двумя extra: идентификатором расписания и токеном. Это может только приложение, у которого есть токен, и расписание должно быть включено. Новый токен отменяет старый. Отправляйте его в пакет этого приложения, иначе Android его не доставит.</string>
+    <string name="schedule_automation_package">Пакет</string>
     <string name="schedule_automation_action">Действие</string>
     <string name="schedule_automation_token">Токен (extra «%1$s»)</string>
     <string name="schedule_automation_ids">Идентификаторы расписаний (extra «%1$s»)</string>

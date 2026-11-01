@@ -1130,7 +1130,8 @@
     <string name="schedule_new">新建计划</string>
     <string name="schedule_automation_menu">从其他应用运行</string>
     <string name="schedule_automation_title">从其他应用运行</string>
-    <string name="schedule_automation_body">Tasker 或其他自动化应用发送带有此操作和两个附加项（日程 ID 和令牌）的广播，即可立即运行日程。只有持有令牌的应用才能这样做，且日程必须处于开启状态。新令牌会使旧令牌失效。</string>
+    <string name="schedule_automation_body">Tasker 或其他自动化应用发送带有此操作和两个附加项（日程 ID 和令牌）的广播，即可立即运行日程。只有持有令牌的应用才能这样做，且日程必须处于开启状态。新令牌会使旧令牌失效。请发送到本应用的软件包，否则 Android 不会投递。</string>
+    <string name="schedule_automation_package">软件包</string>
     <string name="schedule_automation_action">操作</string>
     <string name="schedule_automation_token">令牌（附加项“%1$s”）</string>
     <string name="schedule_automation_ids">日程 ID（附加项“%1$s”）</string>

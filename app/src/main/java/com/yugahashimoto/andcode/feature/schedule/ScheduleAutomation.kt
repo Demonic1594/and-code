@@ -1,8 +1,10 @@
 package com.yugahashimoto.andcode.feature.schedule
 
 import android.content.ClipData
+import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.PersistableBundle
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -51,6 +53,11 @@ fun ScheduleAutomationDialog(
             ) {
                 Text(stringResource(R.string.schedule_automation_body), style = MaterialTheme.typography.bodyMedium)
                 CopyableValue(
+                    label = stringResource(R.string.schedule_automation_package),
+                    value = context.packageName,
+                    onCopy = { context.copy(context.packageName) },
+                )
+                CopyableValue(
                     label = stringResource(R.string.schedule_automation_action),
                     value = ScheduleTriggerToken.ACTION,
                     onCopy = { context.copy(ScheduleTriggerToken.ACTION) },
@@ -63,22 +70,7 @@ fun ScheduleAutomationDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
-                    CopyableValue(
-                        label = stringResource(R.string.schedule_automation_token, ScheduleTriggerToken.EXTRA_TOKEN),
-                        value = current,
-                        onCopy = { context.copy(current) },
-                    )
-                    Text(
-                        stringResource(R.string.schedule_automation_ids, ScheduleTriggerToken.EXTRA_SCHEDULE_ID),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                    schedules.forEach { schedule ->
-                        CopyableValue(
-                            label = schedule.name.ifBlank { schedule.prompt.lineSequence().firstOrNull().orEmpty() },
-                            value = schedule.id,
-                            onCopy = { context.copy(schedule.id) },
-                        )
-                    }
+                    TokenAndIds(token = current, schedules = schedules)
                 }
             }
         },
@@ -107,6 +99,41 @@ fun ScheduleAutomationDialog(
     )
 }
 
+/** The token and every schedule's id, each copyable: what another app's broadcast carries. */
+@Composable
+private fun TokenAndIds(
+    token: String,
+    schedules: List<Schedule>,
+) {
+    val context = LocalContext.current
+    CopyableValue(
+        label = stringResource(R.string.schedule_automation_token, ScheduleTriggerToken.EXTRA_TOKEN),
+        value = token,
+        onCopy = { context.copy(token, sensitive = true) },
+    )
+    Text(
+        stringResource(R.string.schedule_automation_ids, ScheduleTriggerToken.EXTRA_SCHEDULE_ID),
+        style = MaterialTheme.typography.labelLarge,
+    )
+    if (schedules.isEmpty()) {
+        Text(
+            stringResource(R.string.schedule_empty),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    schedules.forEach { schedule ->
+        CopyableValue(
+            label = scheduleLabel(schedule),
+            value = schedule.id,
+            onCopy = { context.copy(schedule.id) },
+        )
+    }
+}
+
+private fun scheduleLabel(schedule: Schedule): String =
+    schedule.name.ifBlank { schedule.prompt.lineSequence().firstOrNull().orEmpty() }.ifBlank { schedule.id }
+
 @Composable
 private fun CopyableValue(
     label: String,
@@ -128,8 +155,14 @@ private fun CopyableValue(
     }
 }
 
-private fun Context.copy(text: String) {
-    getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("AndCode", text))
+private fun Context.copy(
+    text: String,
+    sensitive: Boolean = false,
+) {
+    val clip = ClipData.newPlainText("AndCode", text)
+    // Keeps the token out of the clipboard preview Android 13 shows.
+    if (sensitive) clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
+    getSystemService(ClipboardManager::class.java)?.setPrimaryClip(clip)
     Toast.makeText(this, R.string.action_copied, Toast.LENGTH_SHORT).show()
 }
 

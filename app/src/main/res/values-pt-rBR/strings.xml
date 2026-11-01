@@ -1136,7 +1136,8 @@
     <string name="schedule_new">Novo agendamento</string>
     <string name="schedule_automation_menu">Executar a partir de outros apps</string>
     <string name="schedule_automation_title">Executar a partir de outros apps</string>
-    <string name="schedule_automation_body">O Tasker ou outro app de automação pode executar um agendamento agora enviando um broadcast com esta ação e dois extras: o id do agendamento e o token. Só um app que tenha o token pode fazer isso, e o agendamento precisa estar ativado. Um novo token invalida o anterior.</string>
+    <string name="schedule_automation_body">O Tasker ou outro app de automação pode executar um agendamento agora enviando um broadcast com esta ação e dois extras: o id do agendamento e o token. Só um app que tenha o token pode fazer isso, e o agendamento precisa estar ativado. Um novo token invalida o anterior. Envie para o pacote deste app; caso contrário, o Android não o entregará.</string>
+    <string name="schedule_automation_package">Pacote</string>
     <string name="schedule_automation_action">Ação</string>
     <string name="schedule_automation_token">Token (extra “%1$s”)</string>
     <string name="schedule_automation_ids">Ids dos agendamentos (extra “%1$s”)</string>

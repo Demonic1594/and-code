@@ -1136,7 +1136,8 @@
     <string name="schedule_new">Nouvelle planification</string>
     <string name="schedule_automation_menu">Lancer depuis d’autres apps</string>
     <string name="schedule_automation_title">Lancer depuis d’autres apps</string>
-    <string name="schedule_automation_body">Tasker ou une autre app d’automatisation peut lancer une planification maintenant en envoyant un broadcast avec cette action et deux extras : l’id de la planification et le jeton. Seule une app qui possède le jeton peut le faire, et la planification doit être activée. Un nouveau jeton invalide l’ancien.</string>
+    <string name="schedule_automation_body">Tasker ou une autre app d’automatisation peut lancer une planification maintenant en envoyant un broadcast avec cette action et deux extras : l’id de la planification et le jeton. Seule une app qui possède le jeton peut le faire, et la planification doit être activée. Un nouveau jeton invalide l’ancien. Envoyez-le au package de cette app, sinon Android ne le transmettra pas.</string>
+    <string name="schedule_automation_package">Package</string>
     <string name="schedule_automation_action">Action</string>
     <string name="schedule_automation_token">Jeton (extra « %1$s »)</string>
     <string name="schedule_automation_ids">Ids des planifications (extra « %1$s »)</string>
