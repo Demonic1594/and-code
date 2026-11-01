@@ -148,7 +148,7 @@ if [ -f "$ALWAYS" ]; then
     # Same as ClaudePermissionBridge.appliesIn: no project means everywhere; otherwise the call must
     # run in that directory or one inside it.
     ($d | sub("/+$"; "")) as $dir |
-    def inproject: (.project // "") as $p | $p == "" or ($dir | startswith("/")) and ($dir == $p or ($dir | startswith($p + "/")));
+    def inproject: (.project // "") as $p | $p == "" or ($dir | startswith("/")) and (($dir | split("/") | index("..")) == null) and ($dir == $p or ($dir | startswith($p + "/")));
     def wrappers: ["bash", "sh", "zsh", "dash", "ash", "ksh", "fish", "busybox", "env", "xargs", "sudo",
       "su", "doas", "eval", "exec", "command", "time", "nohup", "timeout", "nice", "setsid", "stdbuf",
       "python", "node", "nodejs", "npx", "bun", "deno", "perl", "ruby", "php", "lua", "awk", "gawk"];

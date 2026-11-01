@@ -295,6 +295,7 @@ class ClaudePermissionBridgeTest {
         assertNull(ClaudePermissionBridge.projectOf(""))
         assertTrue(ClaudePermissionBridge.appliesIn(null, null))
         assertFalse(ClaudePermissionBridge.appliesIn("/root/shop", "relative/shop"))
+        assertFalse(ClaudePermissionBridge.appliesIn("/root/shop", "/root/shop/../blog"))
     }
 
     @Test

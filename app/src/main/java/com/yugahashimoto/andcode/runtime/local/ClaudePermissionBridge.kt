@@ -518,6 +518,8 @@ class ClaudePermissionBridge(
         ): Boolean {
             if (project == null) return true
             val dir = projectOf(cwd) ?: return false
+            // `/proj/../other` would read as inside /proj; a path that climbs is never inside one.
+            if (dir.split('/').contains("..")) return false
             return dir == project || dir.startsWith("$project/")
         }
 

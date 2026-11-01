@@ -56,6 +56,8 @@ class PermissionHookScriptTest {
         )
 
         assertEquals("allow", runHook(bashCall("npm test", cwd = "/root/shop/web")).behavior())
+        val climbing = runHook(bashCall("npm test", cwd = "/root/shop/../blog"), response = """{"decision":"deny"}""")
+        assertEquals("deny", climbing.behavior())
 
         var asked: JsonObject? = null
         val elsewhere =
