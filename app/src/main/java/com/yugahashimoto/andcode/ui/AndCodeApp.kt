@@ -1005,6 +1005,7 @@ fun AndCodeApp(
                                         onAttach = { attachmentLauncher.launch("*/*") },
                                         onMic = requestVoiceInput,
                                         onOpenDrawer = { openDrawer() },
+                                        importScope = voiceScope,
                                     ),
                             )
                         }

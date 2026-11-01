@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -34,6 +33,7 @@ import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_AGENT_CODEX
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_PROVIDERS
 import com.yugahashimoto.andcode.ui.navigation.guestBrowserRoute
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -54,7 +54,6 @@ internal fun ChatRoute(
 ) {
     val context = LocalContext.current
     val sendGate = LocalSendGate.current
-    val scope = rememberCoroutineScope()
     val app = deps.app
     val navController = deps.navController
     val chatViewModel = deps.chatViewModel
@@ -214,7 +213,7 @@ internal fun ChatRoute(
         onAttach = actions.onAttach,
         onRemoveAttachment = chatViewModel::removeAttachment,
         onImageAttachment = { bitmap ->
-            scope.launch {
+            actions.importScope.launch {
                 runCatching {
                     withContext(Dispatchers.IO) {
                         com.yugahashimoto.andcode.runtime.local.AttachmentImporter(context).import(bitmap)
@@ -353,6 +352,8 @@ internal class ChatRouteActions(
     val onAttach: () -> Unit,
     val onMic: () -> Unit,
     val onOpenDrawer: () -> Unit,
+    /** Outlives the route, so an image being imported is not dropped when the chat is left. */
+    val importScope: CoroutineScope,
 )
 
 private object ChatRouteTiming {
