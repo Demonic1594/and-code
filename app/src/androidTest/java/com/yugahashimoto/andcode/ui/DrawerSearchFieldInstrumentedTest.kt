@@ -12,6 +12,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
@@ -37,6 +38,8 @@ class DrawerSearchFieldInstrumentedTest {
         composeRule.onNodeWithTag(FIELD).performTextInput("tests")
 
         composeRule.onNodeWithTag(FIELD).assert(hasText("tests")).assert(hasContentDescription(HINT))
+        // The visible hint is gone once there is text, so it is not read twice.
+        composeRule.onNodeWithText(HINT, useUnmergedTree = true).assertDoesNotExist()
         // A description on the field itself would make TalkBack read it in place of the typed text.
         composeRule
             .onNodeWithTag(FIELD, useUnmergedTree = true)
