@@ -212,4 +212,52 @@ class ShadowSnapshotsTest {
         assertTrue(a != b)
         assertEquals(a, ShadowSnapshots.gitDir("/snap", "/workspace/a"))
     }
+
+    @Test
+    fun `old snapshots are dropped once a workspace has more than it keeps`() =
+        runBlocking {
+            assumeTrue("git is needed for these tests", gitAvailable())
+            val workspace = temp.newFolder("pruned")
+            val root = temp.newFolder("pruned-snapshots")
+            val snapshots = ShadowSnapshots(shell(), Dispatchers.Unconfined, root = root.path, keep = 2, pruneSlack = 1, pruneEvery = 1)
+            val ids =
+                (1..4).map { n ->
+                    File(workspace, "a.txt").writeText("v$n\n")
+                    requireNotNull(snapshots.snapshot(workspace.path))
+                }
+
+            val gitDir = ShadowSnapshots.gitDir(root.path, workspace.path)
+            val refs =
+                shell()(
+                    "git --git-dir='$gitDir' for-each-ref refs/snapshots --format='%(objectname)'",
+                    10,
+                    4_000,
+                ).output.lines().filter(String::isNotBlank)
+            assertEquals(2, refs.size)
+            assertTrue("the newest snapshot is kept", ids.last() in refs)
+            File(workspace, "a.txt").writeText("changed\n")
+            assertNotNull(snapshots.restore(workspace.path, ids.last()))
+            assertEquals("v4\n", File(workspace, "a.txt").readText())
+        }
+
+    @Test
+    fun `a deleted workspace's history is removed`() =
+        runBlocking {
+            assumeTrue("git is needed for these tests", gitAvailable())
+            val root = temp.newFolder("swept-snapshots")
+            val snapshots = ShadowSnapshots(shell(), Dispatchers.Unconfined, root = root.path)
+            val gone = temp.newFolder("gone")
+            File(gone, "a.txt").writeText("a\n")
+            requireNotNull(snapshots.snapshot(gone.path))
+            val goneHistory = File(ShadowSnapshots.gitDir(root.path, gone.path))
+            assertTrue(goneHistory.isDirectory)
+            gone.deleteRecursively()
+
+            val kept = temp.newFolder("kept")
+            File(kept, "b.txt").writeText("b\n")
+            requireNotNull(snapshots.snapshot(kept.path))
+
+            assertFalse(goneHistory.exists())
+            assertTrue(File(ShadowSnapshots.gitDir(root.path, kept.path)).isDirectory)
+        }
 }

@@ -176,6 +176,7 @@
     <string name="provider_add_custom">Add custom provider</string>
     <string name="provider_add_custom_title">Add custom provider</string>
     <string name="provider_custom_help">Add any OpenAI-compatible API that is not in OpenCode\'s provider list. You will be asked for its API key next.</string>
+    <string name="provider_custom_local_help">Running Ollama or LM Studio? Pick it to fill in its usual address, change the address if the server is on another computer, then fetch models to test the connection. Local servers accept any API key.</string>
     <string name="provider_custom_id_label">Provider ID</string>
     <string name="provider_custom_id_hint">e.g. my-provider</string>
     <string name="provider_custom_name_label">Display name</string>
@@ -721,7 +722,12 @@
     <string name="mcp_url_hint">URL (remote server)</string>
     <string name="mcp_add_help">Enter a command for a local server or a URL for a remote server.</string>
     <string name="mcp_settings_row">MCP servers</string>
+    <string name="mcp_missing_program">“%1$s” is not installed in the Linux environment, so this server cannot start.</string>
+    <string name="mcp_missing_node">“%1$s” needs Node.js, which is not installed in the Linux environment, so this server cannot start. Install it from the terminal: apt install nodejs npm</string>
     <string name="command_rules_settings_row">Command rules</string>
+    <string name="project_instructions_settings_row">Project instructions</string>
+    <string name="project_instructions_no_project">Open a project in a chat first: the instructions file lives in its folder.</string>
+    <string name="project_instructions_failed">Could not create CLAUDE.md in this project.</string>
     <string name="command_rules_title">Command rules</string>
     <string name="command_rules_caption">A blocked command is refused without asking, also inside a longer command, and the agent is told not to retry it. Flags may come in any order, so blocking “rm -rf” also blocks “rm -fr”, but must be spelled the same: “--force” is not “-f”. Commands you marked “Always allow” on an approval run without asking again.</string>
     <string name="command_rules_block_label">Block commands containing</string>
@@ -1428,6 +1434,7 @@
     <string name="devtools_user_agent">User agent</string>
     <string name="devtools_url" translatable="false">URL</string>
     <string name="guest_browser_webview_unavailable">The Guest Browser cannot start because the WebView on this device failed to load. Updating or re-enabling Android System WebView may fix this.</string>
+    <string name="guest_browser_agent_controlling">An agent is controlling this page</string>
     <string name="setup_step_development_tools">Development tools</string>
     <string name="setup_development_tools_description">Install only the runtime by default, or include the complete development toolchain.</string>
     <string name="setup_required_tools_description">Linux, the selected agents, Git, and the support tools used by AndCode. These are always installed.</string>

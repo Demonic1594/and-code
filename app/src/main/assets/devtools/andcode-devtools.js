@@ -182,12 +182,16 @@
 
   var counters = {};
   var timers = {};
+  // Logged by the agent's browser tool so the app can show that an agent is acting on the page
+  // (AgentActivity.MARKER); it is a signal, not something the user's console should list.
+  var AGENT_ACTIVITY_MARKER = 'andcode:agent-control';
   ['log', 'info', 'warn', 'error', 'debug', 'trace', 'table', 'dir', 'assert', 'count', 'time', 'timeEnd', 'group', 'groupCollapsed', 'groupEnd', 'clear'].forEach(function (method) {
     var original = console[method];
     if (typeof original !== 'function') return;
     console[method] = function () {
       var args = Array.prototype.slice.call(arguments);
       if (!bridge) return original.apply(console, args);
+      if (method === 'debug' && args.length === 1 && args[0] === AGENT_ACTIVITY_MARKER) return original.apply(console, args);
       try {
         var level = method;
         var payload = args;

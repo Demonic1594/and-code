@@ -191,6 +191,7 @@
     <string name="provider_add_custom">Adicionar provedor personalizado</string>
     <string name="provider_add_custom_title">Adicionar provedor personalizado</string>
     <string name="provider_custom_help">Adicione qualquer API compatível com OpenAI que não esteja na lista de provedores do OpenCode. Em seguida, você será solicitado a informar a chave de API dele.</string>
+    <string name="provider_custom_local_help">Usa Ollama ou LM Studio? Escolha-o para preencher o endereço de costume, altere o endereço se o servidor estiver em outro computador e depois busque os modelos para testar a conexão. Servidores locais aceitam qualquer chave de API.</string>
     <string name="provider_custom_id_label">ID do provedor</string>
     <string name="provider_custom_id_hint">ex. my-provider</string>
     <string name="provider_custom_name_label">Nome de exibição</string>
@@ -719,7 +720,12 @@
     <string name="mcp_url_hint">URL (servidor remoto)</string>
     <string name="mcp_add_help">Insira um comando para um servidor local ou uma URL para um servidor remoto.</string>
     <string name="mcp_settings_row">Servidores MCP</string>
+    <string name="mcp_missing_program">“%1$s” não está instalado no ambiente Linux, então este servidor não pode iniciar.</string>
+    <string name="mcp_missing_node">“%1$s” precisa do Node.js, que não está instalado no ambiente Linux, então este servidor não pode iniciar. Instale pelo terminal: apt install nodejs npm</string>
     <string name="command_rules_settings_row">Regras de comandos</string>
+    <string name="project_instructions_settings_row">Instruções do projeto</string>
+    <string name="project_instructions_no_project">Abra um projeto em um chat primeiro: o arquivo de instruções fica na pasta dele.</string>
+    <string name="project_instructions_failed">Não foi possível criar CLAUDE.md neste projeto.</string>
     <string name="command_rules_title">Regras de comandos</string>
     <string name="command_rules_caption">Um comando bloqueado é recusado sem perguntar, também dentro de um comando maior, e o agente é orientado a não tentar de novo. As opções podem vir em qualquer ordem, então bloquear “rm -rf” também bloqueia “rm -fr”, mas precisam ser escritas igual: “--force” não é “-f”. Os comandos que você sempre permitiu em uma aprovação são executados sem perguntar.</string>
     <string name="command_rules_block_label">Bloquear comandos que contenham</string>
@@ -1403,6 +1409,7 @@
     <string name="devtools_viewport">Viewport</string>
     <string name="devtools_user_agent">User agent</string>
     <string name="guest_browser_webview_unavailable">O navegador convidado não pode ser iniciado porque o WebView não foi carregado neste dispositivo. Atualizar ou reativar o Android System WebView pode resolver o problema.</string>
+    <string name="guest_browser_agent_controlling">Um agente está controlando esta página</string>
     <string name="setup_step_development_tools">Ferramentas de desenvolvimento</string>
     <string name="setup_development_tools_description">Por padrão, instale apenas o necessário para executar, ou inclua a cadeia completa de desenvolvimento.</string>
     <string name="setup_required_tools_description">Linux, os agentes selecionados, Git e as ferramentas de suporte usadas pelo AndCode. São sempre instalados.</string>
