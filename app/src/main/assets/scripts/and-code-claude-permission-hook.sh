@@ -88,7 +88,8 @@ fi
 # A rules file that cannot be read refuses every command rather than letting a blocked one through.
 if [ -f "$BLOCKED" ]; then
   BLOCKED_CMD=$(printf '%s' "$TOOL_INPUT" | jq -r 'if type == "object" then .command // empty else empty end' 2>/dev/null || true)
-  if ! BLOCKED_BY=$(jq -r --arg t "$TOOL_NAME" --arg c "$BLOCKED_CMD" '
+  # An empty file is never written by the app (no rules deletes it), so it means a broken write.
+  if [ ! -s "$BLOCKED" ] || ! BLOCKED_BY=$(jq -r --arg t "$TOOL_NAME" --arg c "$BLOCKED_CMD" '
     def words: [splits("\\s+")] | map(gsub("[\"\u0027\\\\]"; "")) | map(select(length > 0));
     def parts: gsub("\\\\\r?\n"; "") | [splits("[;&|`(){}<>!$\n\r]")] | map(words);
     def prog: split("/") | last // "";

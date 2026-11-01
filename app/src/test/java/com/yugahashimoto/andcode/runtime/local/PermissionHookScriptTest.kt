@@ -107,6 +107,16 @@ class PermissionHookScriptTest {
     }
 
     @Test
+    fun `an empty rules file refuses like an unreadable one`() {
+        File(bridge, ClaudePermissionBridge.BLOCK_RULES_FILE).writeText("")
+
+        val answer = runHook(bashCall("ls"))
+
+        assertEquals("deny", answer.behavior())
+        assertTrue(answer.decision()["message"]?.jsonPrimitive?.content.orEmpty().contains("could not read"))
+    }
+
+    @Test
     fun `a user's rejection answers deny with the message for the agent`() {
         val answer = runHook(bashCall("rm -rf build"), response = """{"decision":"deny"}""")
 

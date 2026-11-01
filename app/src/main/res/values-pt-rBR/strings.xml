@@ -729,7 +729,7 @@
     <string name="command_rules_no_allowed">Nada é sempre permitido ainda. Escolha “Sempre permitir” em uma aprovação para adicionar um comando aqui.</string>
     <string name="command_rules_whole_tool">Cada chamada de %1$s</string>
     <string name="cd_forget_command_rule">Remover a regra de %1$s</string>
-    <string name="command_rules_block_invalid">Digite um único comando, sem ; | ou &amp;&amp;.</string>
+    <string name="command_rules_block_invalid">Digite um único comando, sem ; | &amp; &lt; &gt; $ ` ou quebras de linha.</string>
 
     <string name="server_info_title">Informações do servidor</string>
     <string name="server_info_config_saved">Configuração salva</string>

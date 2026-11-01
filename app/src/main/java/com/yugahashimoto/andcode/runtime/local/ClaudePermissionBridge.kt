@@ -367,12 +367,13 @@ class ClaudePermissionBridge(
 
     /**
      * Blocks shell commands containing the words of [text] (`rm -rf`, `git push --force`). Returns
-     * false when [text] names no command.
+     * false when [text] names no single command, or when the rules file exists but cannot be read
+     * (it is left as it is rather than replaced).
      */
     @Synchronized
     fun block(text: String): Boolean {
         val words = ShellCommandRules.blockRuleFor(text) ?: return false
-        val existing = loadBlockRules()
+        val existing = readRulesStrictly(blockFile) ?: return false
         if (existing.none { it.toolName == SHELL_TOOL && it.commandPrefix == words }) {
             writeRules(blockFile, existing + AlwaysRule(toolName = SHELL_TOOL, commandPrefix = words))
         }
@@ -383,7 +384,7 @@ class ClaudePermissionBridge(
     @Synchronized
     fun forget(rule: CommandRule) {
         val file = if (rule.blocks) blockFile else alwaysFile
-        val existing = if (rule.blocks) loadBlockRules() else loadAlwaysRules()
+        val existing = readRulesStrictly(file) ?: return
         val kept = existing.filterNot { it.toolName == rule.toolName && it.commandPrefix.orEmpty() == rule.words.orEmpty() }
         if (kept.size != existing.size) writeRules(file, kept)
     }
@@ -436,6 +437,12 @@ class ClaudePermissionBridge(
     private fun loadAlwaysRules(): List<AlwaysRule> = readRules(alwaysFile)
 
     private fun loadBlockRules(): List<AlwaysRule> = readRules(blockFile)
+
+    /** The rules in [file], or null when it exists but cannot be read, so it is never overwritten. */
+    private fun readRulesStrictly(file: File): List<AlwaysRule>? {
+        if (!file.exists()) return emptyList()
+        return runCatching { json.decodeFromString<AlwaysRulesFile>(file.readText()).rules }.getOrNull()
+    }
 
     private fun readRules(file: File): List<AlwaysRule> {
         if (!file.isFile) return emptyList()

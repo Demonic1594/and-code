@@ -227,7 +227,7 @@ class ClaudeCodeController(
 
     fun deleteSystemPromptPreset(id: String) = target.deleteSystemPromptPreset(id)
 
-    /** Blocks shell commands containing [words]; false when they name no command. */
+    /** Blocks shell commands containing [words]; false when they name no command or it could not be saved. */
     fun blockCommand(words: String): Boolean = runCatching { runtime.permissionBridge.block(words) }.getOrDefault(false)
 
     /** Forgets [rule]; a rules file that cannot be written leaves the list as it was, which the screen shows. */

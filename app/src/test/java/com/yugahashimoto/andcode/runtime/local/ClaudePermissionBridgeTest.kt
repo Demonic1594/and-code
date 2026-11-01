@@ -407,6 +407,18 @@ class ClaudePermissionBridgeTest {
     }
 
     @Test
+    fun `an unreadable blocking rules file is kept rather than replaced`() {
+        val file = File(folder.root, ClaudePermissionBridge.BLOCK_RULES_FILE)
+        file.writeText("{not json")
+        val bridge = ClaudePermissionBridge(folder.root)
+
+        assertFalse(bridge.block("sudo"))
+        bridge.forget(ClaudePermissionBridge.CommandRule("Bash", "sudo", blocks = true))
+
+        assertEquals("{not json", file.readText())
+    }
+
+    @Test
     fun `mergeSettings keeps the user's handlers that share a group with AndCode's`() {
         val existing =
             """

@@ -731,7 +731,7 @@
     <string name="command_rules_no_allowed">Nothing is always allowed yet. Choose “Always allow” on an approval to add a command here.</string>
     <string name="command_rules_whole_tool">Every %1$s call</string>
     <string name="cd_forget_command_rule">Remove the rule for %1$s</string>
-    <string name="command_rules_block_invalid">Type one command, without ; | or &amp;&amp;.</string>
+    <string name="command_rules_block_invalid">Type a single command, without ; | &amp; &lt; &gt; $ ` or line breaks.</string>
 
     <!-- Server info -->
     <string name="server_info_title">Server info</string>
