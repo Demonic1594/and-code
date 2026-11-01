@@ -5,7 +5,8 @@ Bridges the agent to the in-app Guest Browser of the AndCode Android app:
 
 - ``browser_show`` asks the app (via a command file in the active workspace) to
   open the guest browser so the user can watch and operate the page.
-- The remaining tools drive the same WebView over CDP. The app enables WebView
+- The remaining tools drive the same WebView over CDP. While the Guest Browser is
+  open with "Let agents control this browser" on, the app enables WebView
   debugging, which exposes ``webview_devtools_remote_<pid>`` as a Linux abstract
   socket; the guest shares the kernel (and the app UID), so it can attach.
 
@@ -25,23 +26,113 @@ from urllib.parse import urlparse
 COMMAND_FILE = Path(".and-code") / "browser-command.json"
 
 
-def _find_devtools_socket() -> str | None:
-    try:
-        with open("/proc/net/unix", encoding="ascii") as fh:
-            lines = fh.readlines()
-    except OSError:
-        return None
-    for line in lines[1:]:
+DEVTOOLS_PREFIX = "webview_devtools_remote_"
+
+NOT_REACHABLE = (
+    "The Guest Browser is not reachable: it is closed, or 'Let agents control this browser' is off "
+    "in its menu. Call browser_show with a URL to open it."
+)
+NO_PAGE = "The Guest Browser has no page loaded. Call browser_show or browser_navigate with a URL."
+AMBIGUOUS = (
+    "More than one of the app's web pages could be the Guest Browser (another one may be closing). "
+    "Wait a moment and retry, or close the other page."
+)
+
+
+def socket_names_from_proc_net_unix(text: str) -> list[str]:
+    """WebView DevTools socket names listed in /proc/net/unix, in order.
+
+    Linux prints an abstract socket's name as text after an ``@``; hex-encoded names are accepted
+    too, as some kernels and tools print them that way.
+    """
+    names: list[str] = []
+    for line in text.splitlines()[1:]:
         parts = line.split()
         if len(parts) < 8:
             continue
-        try:
-            name = bytes.fromhex(parts[-1]).decode("ascii")
-        except (ValueError, UnicodeDecodeError):
-            continue
-        if name.startswith("webview_devtools_remote_"):
+        path = parts[-1]
+        if path.startswith("@"):
+            name = path[1:]
+        else:
+            try:
+                name = bytes.fromhex(path).decode("ascii")
+            except (ValueError, UnicodeDecodeError):
+                continue
+        if name.startswith(DEVTOOLS_PREFIX) and name not in names:
+            names.append(name)
+    return names
+
+
+def _can_connect(name: str) -> bool:
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.settimeout(1)
+    try:
+        sock.connect("\0" + name)
+        return True
+    except OSError:
+        return False
+    finally:
+        sock.close()
+
+
+def _visible_pids() -> list[str]:
+    try:
+        return sorted((entry for entry in os.listdir("/proc") if entry.isdigit()), key=int)
+    except OSError:
+        return []
+
+
+def _owned_by_me(pid: str) -> bool:
+    try:
+        return os.stat(f"/proc/{pid}").st_uid == os.getuid()
+    except (OSError, ValueError):
+        return False
+
+
+def _find_devtools_socket() -> str | None:
+    try:
+        with open("/proc/net/unix", encoding="ascii", errors="replace") as fh:
+            listed = socket_names_from_proc_net_unix(fh.read())
+    except OSError:
+        listed = []
+    # Other apps' WebViews may be listed too; this app's own processes come first.
+    for name in sorted(listed, key=lambda n: not _owned_by_me(n[len(DEVTOOLS_PREFIX):])):
+        if _can_connect(name):
+            return name
+    # Android hides /proc/net/unix from apps. The socket is named after the app's process id, and
+    # an app (this guest included) sees only its own processes in /proc, so try each of those.
+    for pid in _visible_pids():
+        name = DEVTOOLS_PREFIX + pid
+        if name not in listed and _can_connect(name):
             return name
     return None
+
+
+def choose_target(targets: list[dict]) -> dict | None:
+    """The Guest Browser's page among the app's WebView targets.
+
+    The app has other WebViews (an artifact preview, say). DevTools marks the page on screen as
+    attached and visible, which is the browser. Two pages on screen at once (one fading out while
+    the other opens), or several with none on screen, cannot be told apart: raise rather than drive
+    the wrong one, and the agent can retry.
+    """
+    pages = [t for t in targets if t.get("type") in ("document", "page")]
+    if not pages:
+        return None
+    on_screen = [page for page in pages if _on_screen(page)]
+    if len(on_screen) == 1:
+        return on_screen[0]
+    if not on_screen and len(pages) == 1:
+        return pages[0]
+    raise CdpError(AMBIGUOUS)
+
+
+def _on_screen(page: dict) -> bool:
+    try:
+        description = json.loads(page.get("description") or "{}")
+    except (ValueError, TypeError):
+        return False
+    return isinstance(description, dict) and bool(description.get("attached") and description.get("visible"))
 
 
 class CdpError(RuntimeError):
@@ -168,10 +259,12 @@ class CdpSession:
         return json.loads(body)
 
     def open_page_session(self) -> "_PageSession":
-        targets = [t for t in self.list_targets() if t.get("type") in ("document", "page")]
-        if not targets:
-            raise CdpError("no WebView page target found; is the guest browser open?")
-        ws_url = targets[0]["webSocketDebuggerUrl"]
+        target = choose_target(self.list_targets())
+        if target is None:
+            raise CdpError(NO_PAGE)
+        ws_url = target.get("webSocketDebuggerUrl")
+        if not ws_url:
+            raise CdpError("The Guest Browser's page is already being inspected; close other DevTools and retry.")
         parsed = urlparse(ws_url)
         ws = _UnixWs(self._connect(), parsed.netloc or "localhost", parsed.path or "/")
         return _PageSession(ws)
@@ -197,10 +290,7 @@ class _PageSession:
 def _session() -> CdpSession:
     name = _find_devtools_socket()
     if name is None:
-        raise CdpError(
-            "WebView devtools socket not found. Open the Guest Browser first (browser_show) "
-            "and make sure the app build enables WebView debugging."
-        )
+        raise CdpError(NOT_REACHABLE)
     return CdpSession(name)
 
 
@@ -214,9 +304,11 @@ def tool_show(args: dict) -> str:
 def tool_status(args: dict) -> str:
     name = _find_devtools_socket()
     if name is None:
-        return "not connected: no WebView devtools socket; call browser_show first"
-    pages = [t.get("url", "") for t in CdpSession(name).list_targets() if t.get("type") in ("document", "page")]
-    return f"connected: {name} / pages: {pages}"
+        return f"not connected: {NOT_REACHABLE}"
+    target = choose_target(CdpSession(name).list_targets())
+    if target is None:
+        return f"connected: {name} / {NO_PAGE}"
+    return f"connected: {name} / page: {target.get('url', '')} ({target.get('title', '')})"
 
 
 def tool_navigate(args: dict) -> str:

@@ -46,12 +46,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.yugahashimoto.andcode.BuildConfig
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.UrlLauncher
@@ -77,6 +80,8 @@ private const val TAG = "GuestBrowser"
 @Composable
 fun GuestBrowserScreen(
     initialUrl: String,
+    agentControl: Boolean,
+    onAgentControlChange: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -98,6 +103,8 @@ fun GuestBrowserScreen(
     // The start screen gives way to the first page that loads, whoever loads it (the agent may).
     var pageStarted by remember { mutableStateOf(false) }
     var desktopMode by rememberSaveable { mutableStateOf(false) }
+
+    AgentDebuggingHold(agentControl)
     var findOpen by rememberSaveable { mutableStateOf(false) }
     var findQuery by rememberSaveable { mutableStateOf("") }
     var findMatch by remember { mutableStateOf(FindMatch()) }
@@ -200,11 +207,10 @@ fun GuestBrowserScreen(
                                     val created =
                                         viewOrNull(
                                             create = {
-                                                // Lets the in-guest agent drive this WebView over CDP (the devtools
-                                                // abstract socket is reachable from the guest, which shares the app's
-                                                // UID), so a page can be shown to the user and operated by human and
-                                                // agent at the same time.
-                                                WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+                                                // The in-guest agent drives this WebView over CDP (the devtools abstract
+                                                // socket is reachable from the guest, which shares the app's UID), so a
+                                                // page can be shown to the user and operated by human and agent at the
+                                                // same time. AgentDebugging, above, decides when that socket exists.
                                                 WebView(viewContext)
                                             },
                                             onFailure = { error -> Log.w(TAG, "The system WebView could not start", error) },
@@ -315,6 +321,8 @@ fun GuestBrowserScreen(
                                 }
                             },
                             onOpenExternal = { pageUrl()?.let { UrlLauncher.openUrl(context, it) } },
+                            agentControl = agentControl,
+                            onToggleAgentControl = { onAgentControlChange(!agentControl) },
                         ),
                 )
             }
@@ -369,6 +377,12 @@ private fun WebView.configure(
     // Guest pages (dev servers, dashboards, tool UIs) are interactive web apps that need JS.
     settings.javaScriptEnabled = true
     settings.domStorageEnabled = true
+    // Media may play, with sound, without a tap first, also in a cross-origin embed (a YouTube player
+    // the page unmutes); the agent drives pages nobody taps. With the default, a muted embed asked to
+    // unmute pauses instead.
+    settings.mediaPlaybackRequiresUserGesture = false
+    // A download (a release asset, an archive) goes to the phone's browser: this one cannot save it.
+    setDownloadListener { url, _, _, _, _ -> UrlLauncher.openUrl(context, url) }
     // Pinch to zoom, without the legacy on-screen zoom buttons; the menu zooms in steps too.
     settings.setSupportZoom(true)
     settings.builtInZoomControls = true
@@ -431,4 +445,51 @@ private fun WebView.configure(
                 }
             }
         }
+}
+
+/**
+ * Keeps the DevTools socket the agent drives this browser through on while the browser is on screen
+ * with [agentControl] on and the app is in the foreground; a browser left behind the home screen
+ * holds nothing. Otherwise the socket is the build's default (on only in debug builds, for Chrome's
+ * inspector). It is process-wide, so it covers the app's other WebViews too.
+ */
+@Composable
+private fun AgentDebuggingHold(agentControl: Boolean) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var started by remember(lifecycle) { mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) }
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event -> started = event.targetState.isAtLeast(Lifecycle.State.STARTED) }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+    val hold = agentControl && started
+    DisposableEffect(hold) {
+        if (hold) AgentDebugging.acquire()
+        onDispose { if (hold) AgentDebugging.release() }
+    }
+}
+
+/**
+ * How many Guest Browsers on screen want the DevTools socket on for the agent, counted so a browser
+ * closing while another opens cannot switch it off under the new one. Main thread only (it
+ * is driven from composition effects), so a plain counter is enough.
+ */
+private object AgentDebugging {
+    private var holders = 0
+
+    fun acquire() {
+        holders++
+        apply()
+    }
+
+    fun release() {
+        holders = (holders - 1).coerceAtLeast(0)
+        apply()
+    }
+
+    /** Turns the socket on or off; a device without a working WebView has none. */
+    private fun apply() {
+        runCatching { WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG || holders > 0) }
+            .onFailure { error -> Log.w(TAG, "WebView debugging could not be changed", error) }
+    }
 }

@@ -19,6 +19,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yugahashimoto.andcode.R
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Rule
 import org.junit.Test
@@ -42,13 +43,15 @@ class GuestBrowserScreenInstrumentedTest {
     private fun checkAddressBar(dark: Boolean) {
         composeRule.setContent {
             MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
-                GuestBrowserScreen(initialUrl = "", onBack = {})
+                GuestBrowserScreen(initialUrl = "", agentControl = false, onAgentControlChange = {}, onBack = {})
             }
         }
 
         lateinit var webView: WebView
         composeRule.runOnIdle {
             webView = requireNotNull(composeRule.activity.window.decorView.findWebView())
+            // Pages may start sound after a tap, as in Chrome (a cross-origin embed included).
+            assertFalse(webView.settings.mediaPlaybackRequiresUserGesture)
             webView.setBackgroundColor(Color.MAGENTA)
             webView.loadDataWithBaseURL(null, "<html style='background:#ff00ff'></html>", "text/html", "UTF-8", null)
         }

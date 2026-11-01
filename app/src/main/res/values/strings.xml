@@ -106,6 +106,8 @@
     <string name="home_assistant">Home assistant</string>
     <string name="set_default_assistant">Set as default digital assistant</string>
     <string name="voice">Voice</string>
+    <string name="cd_expand_composer">Expand message</string>
+    <string name="cd_collapse_composer">Collapse message</string>
     <string name="mic_permission_required">Microphone permission is required for voice features</string>
     <string name="voice_response">Read responses aloud</string>
     <string name="continuous_conversation">Continuous conversation</string>
@@ -1277,6 +1279,7 @@
     <string name="guest_browser_copy_link">Copy link</string>
     <string name="guest_browser_link_copied">Link copied</string>
     <string name="guest_browser_open_external">Open in browser</string>
+    <string name="guest_browser_agent_control">Let agents control this browser</string>
     <string name="guest_browser_close">Close browser</string>
     <string name="guest_browser_stop">Stop loading</string>
     <string name="guest_browser_devtools">DevTools</string>

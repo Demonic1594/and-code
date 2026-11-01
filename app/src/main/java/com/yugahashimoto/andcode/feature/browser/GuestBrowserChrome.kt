@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material.icons.outlined.Code
@@ -43,6 +44,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -70,6 +72,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -290,6 +294,9 @@ internal class BrowserMenuActions(
     val onCopyLink: () -> Unit,
     val onShare: () -> Unit,
     val onOpenExternal: () -> Unit,
+    /** Whether agents may drive this browser; see the Guest Browser's DevTools socket. */
+    val agentControl: Boolean,
+    val onToggleAgentControl: () -> Unit,
 )
 
 /** The controls along the bottom, where a thumb reaches them. */
@@ -386,6 +393,19 @@ private fun BrowserMenu(
         item(R.string.guest_browser_copy_link, Icons.Default.ContentCopy, actions.onCopyLink)
         item(R.string.guest_browser_share, Icons.Default.Share, actions.onShare)
         item(R.string.guest_browser_open_external, Icons.Default.OpenInBrowser, actions.onOpenExternal)
+        HorizontalDivider()
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.guest_browser_agent_control)) },
+            leadingIcon = { Icon(Icons.Default.SmartToy, contentDescription = null) },
+            trailingIcon = { Checkbox(checked = actions.agentControl, onCheckedChange = null) },
+            onClick = actions.onToggleAgentControl,
+            // The checkbox only draws the state; the item carries it for TalkBack.
+            modifier =
+                Modifier.semantics {
+                    role = Role.Checkbox
+                    toggleableState = ToggleableState(actions.agentControl)
+                },
+        )
     }
 }
 
