@@ -30,9 +30,19 @@ class ExpandedComposerInstrumentedTest {
         RuleChain
             .outerRule(
                 object : ExternalResource() {
+                    private val settings by lazy {
+                        SecureSettingsRepository(InstrumentationRegistry.getInstrumentation().targetContext)
+                    }
+                    private var onboardingWasCompleted = false
+
                     override fun before() {
-                        val context = InstrumentationRegistry.getInstrumentation().targetContext
-                        SecureSettingsRepository(context).onboardingCompleted = true
+                        onboardingWasCompleted = settings.onboardingCompleted
+                        settings.onboardingCompleted = true
+                    }
+
+                    // After the activity is gone, so the device keeps the onboarding state it had.
+                    override fun after() {
+                        settings.onboardingCompleted = onboardingWasCompleted
                     }
                 },
             ).around(composeTestRule)
