@@ -96,6 +96,7 @@ class ShadowSnapshotsTest {
             val undo = snapshots.restore(workspace.path, before)
 
             assertNull("the restore fails instead of wiping data/", undo)
+            assertEquals(RestoreResult.Refused("data"), snapshots.restoreChecked(workspace.path, before))
             assertEquals("SECRET=1\n", File(workspace, "data/precious.env").readText())
             assertEquals("installed\n", File(workspace, "data/node_modules/pkg/index.js").readText())
         }

@@ -69,7 +69,7 @@ The same cut applies to every Git view; the crash is just where it is loudest:
 - **Anything else that prints a lot**: stash list, branch list (long names), and the Changes /
   Commit actions in `WorkspaceShell` (`WorkspaceNavGraph.kt:339`), which share the same runner.
 - **Not Git, same cap:** the terminal (`TerminalViewModel`) and the ADB commands share the app's
-  runner instance. For the terminal the tail may be what a user expects; that should be decided,
+  runner instance (since then the terminal moved to an interactive session; see Status). For the terminal the tail may be what a user expects; that should be decided,
   not inherited. The Claude and Codex runtimes build their own `LocalRuntimeCommandRunner` for each
   command, and the dependency-injection module holds another instance, all with the same 4,000
   default, which is another reason to keep that default and add the per-call limit.

@@ -158,13 +158,13 @@ class ShadowSnapshots(
     }
 
     /**
-     * The path a refused restore named: ours, or the first one git lists under "would be overwritten"
-     * or "would be removed". Null when the restore failed for another reason.
+     * The path a refused restore named: ours, or the first one git lists after one of [GIT_REFUSALS]
+     * (a file in the way, or a folder that must become a file again). Null when it failed otherwise.
      */
     private fun refusedPath(result: LocalRuntimeCommandResult): String? {
         val lines = result.output.lines()
         val ours = lines.firstOrNull { it.startsWith(REFUSED_PREFIX) }?.removePrefix(REFUSED_PREFIX)?.trim()
-        val listed = lines.indexOfFirst { it.contains("would be overwritten by checkout") || it.contains("would be removed by checkout") }
+        val listed = lines.indexOfFirst { line -> GIT_REFUSALS.any { line.contains(it) } }
         val gits = if (listed < 0) null else lines.drop(listed + 1).firstOrNull { it.startsWith("\t") }?.trim()
         return ours ?: gits
     }
@@ -185,6 +185,10 @@ class ShadowSnapshots(
         /** How the restore command reports the ignored path that stopped it. */
         private const val REFUSED_PREFIX = "andcode-refused:"
         private const val REFUSED_EXIT = 3
+
+        /** How git introduces the paths a checkout refused to overwrite or remove. */
+        private val GIT_REFUSALS =
+            listOf("would be overwritten by checkout", "would be removed by checkout", "would lose untracked files in them")
         private const val DIFF_OUTPUT = 400_000
         private val HASH = Regex("^[0-9a-f]{40}$")
 

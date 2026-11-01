@@ -791,9 +791,7 @@ class ChatViewModel(
     /** Shown when putting the files back failed; localized by the app. */
     private val restoreFailedMessage: String = "The files could not be put back.",
     /** Shown when a restore was refused because an ignored file is in the way, named when known; localized by the app. */
-    private val restoreRefusedMessage: (
-        String?,
-    ) -> String = { path -> "Nothing was changed: restoring would overwrite ${path ?: "a file"} that git ignores." },
+    private val restoreRefusedMessage: (String?) -> String = { path -> "Nothing was changed: ${path ?: "an ignored file"} is in the way." },
     /** Persists the Codex fast-mode choice (null = follow the model default). */
     private val onCodexFastModeChanged: (Boolean?) -> Unit = {},
     /** The user's saved Codex fast-mode choice, read when the ViewModel starts. */
