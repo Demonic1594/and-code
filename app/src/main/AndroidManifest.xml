@@ -190,6 +190,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- Exported for automation apps; ScheduleTriggerReceiver refuses anything without the user's token. -->
+        <receiver
+            android:name=".feature.schedule.ScheduleTriggerReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.yugahashimoto.andcode.TRIGGER_SCHEDULE" />
+            </intent-filter>
+        </receiver>
+
         <receiver
             android:name=".startup.RuntimeAutoStartReceiver"
             android:exported="false">

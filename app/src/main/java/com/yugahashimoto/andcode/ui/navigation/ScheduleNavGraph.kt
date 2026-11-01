@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.feature.schedule.ScheduleAutomation
 import com.yugahashimoto.andcode.feature.schedule.ScheduleEditorScreen
 import com.yugahashimoto.andcode.feature.schedule.ScheduleListScreen
 import com.yugahashimoto.andcode.feature.schedule.ScheduleRunsScreen
@@ -76,6 +77,12 @@ private fun NavGraphBuilder.scheduleListRoute(
             // Alarms armed while the permission was missing are inexact; granting it only takes
             // effect once they are re-armed.
             onExactAlarmsGranted = app.scheduleManager::rescheduleAll,
+            automation =
+                ScheduleAutomation(
+                    token = app.scheduleTriggerToken::current,
+                    renew = app.scheduleTriggerToken::renew,
+                    turnOff = app.scheduleTriggerToken::turnOff,
+                ),
         )
     }
 }

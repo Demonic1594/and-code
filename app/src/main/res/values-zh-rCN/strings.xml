@@ -1128,6 +1128,16 @@
     <string name="chat_response_duration_under_minute">&lt;1 min</string>
     <string name="nav_schedules">计划</string>
     <string name="schedule_new">新建计划</string>
+    <string name="schedule_automation_menu">从其他应用运行</string>
+    <string name="schedule_automation_title">从其他应用运行</string>
+    <string name="schedule_automation_body">Tasker 或其他自动化应用发送带有此操作和两个附加项（日程 ID 和令牌）的广播，即可立即运行日程。只有持有令牌的应用才能这样做，且日程必须处于开启状态。新令牌会使旧令牌失效。</string>
+    <string name="schedule_automation_action">操作</string>
+    <string name="schedule_automation_token">令牌（附加项“%1$s”）</string>
+    <string name="schedule_automation_ids">日程 ID（附加项“%1$s”）</string>
+    <string name="schedule_automation_off">已关闭：其他应用无法运行你的日程。</string>
+    <string name="schedule_automation_turn_on">开启</string>
+    <string name="schedule_automation_new_token">新令牌</string>
+    <string name="schedule_automation_turn_off">关闭</string>
     <string name="schedule_edit">编辑计划</string>
     <string name="schedule_name">名称</string>
     <string name="schedule_name_hint">可选；否则使用提示词</string>

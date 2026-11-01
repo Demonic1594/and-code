@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
@@ -77,8 +78,10 @@ fun ScheduleListScreen(
     onToggleEnabled: (String, Boolean) -> Unit,
     exactAlarmsAllowed: () -> Boolean,
     onExactAlarmsGranted: () -> Unit,
+    automation: ScheduleAutomation,
 ) {
     var pendingDelete by remember { mutableStateOf<Schedule?>(null) }
+    var showAutomation by remember { mutableStateOf(false) }
     val context = LocalContext.current
     // Re-read on the way back from settings: granting is what makes scheduled runs able to start.
     var alarmsAreExact by remember { mutableStateOf(exactAlarmsAllowed()) }
@@ -103,6 +106,11 @@ fun ScheduleListScreen(
                         Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.menu_description))
                     }
                 },
+                actions = {
+                    IconButton(onClick = { showAutomation = true }) {
+                        Icon(Icons.Default.Bolt, contentDescription = stringResource(R.string.schedule_automation_menu))
+                    }
+                },
                 colors =
                     TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background,
@@ -120,6 +128,9 @@ fun ScheduleListScreen(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
+        if (showAutomation) {
+            ScheduleAutomationDialog(automation = automation, schedules = schedules, onDismiss = { showAutomation = false })
+        }
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (!alarmsAreExact) {
                 ExactAlarmBanner(
