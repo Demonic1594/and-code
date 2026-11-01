@@ -191,9 +191,6 @@ fun GuestBrowserScreen(
                 Box(modifier = Modifier.fillMaxWidth().height(2.dp)) {
                     if (loading) LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxSize())
                 }
-                AnimatedVisibility(visible = agentActive && agentControl) {
-                    AgentControllingBanner()
-                }
                 AnimatedVisibility(visible = findOpen) {
                     FindInPageBar(
                         query = findQuery,
@@ -290,6 +287,15 @@ fun GuestBrowserScreen(
                                         },
                                     )
                                 currentUrl.isBlank() && !pageStarted -> BrowserStartState(onOpen = ::open)
+                            }
+                            // Over the page, not above it: pushing the page down while the agent measures
+                            // and taps it could move what it is about to tap.
+                            // The plain one: inside the page column the scoped overload would be picked.
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = agentActive && agentControl,
+                                modifier = Modifier.align(Alignment.TopCenter),
+                            ) {
+                                AgentControllingBanner()
                             }
                         }
                         if (devToolsOpen) {

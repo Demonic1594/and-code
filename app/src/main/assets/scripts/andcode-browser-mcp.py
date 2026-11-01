@@ -289,9 +289,11 @@ class _PageSession:
 
     def announce(self) -> None:
         """Tells the Guest Browser an agent is acting on the page, so it can say so on screen."""
+        # Only a refusal (no page context mid-navigation, say) is ignored: that reply was read in
+        # full. A socket error or timeout leaves the stream mid-reply, so it fails the tool as before.
         try:
             self.call("Runtime.evaluate", expression=f"console.debug({json.dumps(AGENT_ACTIVITY_MARKER)})")
-        except (CdpError, OSError, ValueError):
+        except CdpError:
             pass
 
     def close(self) -> None:
