@@ -1797,6 +1797,8 @@
     <string name="share_server_installing">正在准备共享工具（仅首次）…</string>
     <string name="share_server_starting">正在建立链接…</string>
     <string name="share_server_too_many">正在运行的进程过多。请先停止一个，然后重试。</string>
+    <string name="share_server_not_answering">端口 %1$d 上没有任何响应，因此暂时没有可共享的内容。请先启动服务器，然后重试。</string>
+    <string name="share_server_name_in_use">已有其他进程以此共享的名称运行，因此未作改动。请在它结束后重试。</string>
     <string name="share_server_failed">无法共享：%1$s</string>
     <string name="share_server_warning">共享期间，任何拥有该链接的人都可以从任何地方访问 localhost:%1$d。链接是随机的，但一旦发送出去就不再保密。</string>
     <string name="share_server_start">开始共享</string>

@@ -1840,6 +1840,8 @@
     <string name="share_server_installing">Getting the sharing tool ready (first time only)…</string>
     <string name="share_server_starting">Starting the link…</string>
     <string name="share_server_too_many">Too many processes are running. Stop one, then try again.</string>
+    <string name="share_server_not_answering">Nothing answers on port %1$d, so there is nothing to share yet. Start the server, then try again.</string>
+    <string name="share_server_name_in_use">Another process already runs under this share’s name, so it was left alone. Try again once it has ended.</string>
     <string name="share_server_failed">Could not share: %1$s</string>
     <string name="share_server_warning">This makes localhost:%1$d reachable by anyone with the link, from anywhere, for as long as it stays shared. The link is random but not secret once you send it.</string>
     <string name="share_server_start">Start sharing</string>

@@ -197,8 +197,22 @@ class DevServerSharingTest {
 
             sharing.start(4000)
 
-            until { sharing.shares.value[4000] is ShareState.Failed }
+            until { sharing.shares.value[4000] == ShareState.NotAnswering }
             assertTrue(tunnel.commands.isEmpty())
+        }
+
+    @Test
+    fun `another process under the share's name is left alone and reported`() =
+        runBlocking {
+            val tunnel = FakeTunnel()
+            val supervisor = ProcessSupervisor(tunnel, temp.newFolder(), MemoryStore(), RuntimeWorkTracker(), scope, restartDelayMillis = 1)
+            supervisor.start(SupervisedProcessSpec(name = DevServerSharing.processName(5173), command = "something else"))
+            val sharing = sharing(tunnel, supervisor = supervisor)
+
+            sharing.start(5173)
+
+            until { sharing.shares.value[5173] == ShareState.NameInUse }
+            assertEquals(listOf("something else"), tunnel.commands)
         }
 
     @Test

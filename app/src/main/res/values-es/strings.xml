@@ -1823,6 +1823,8 @@
     <string name="share_server_installing">Preparando la herramienta para compartir (solo la primera vez)…</string>
     <string name="share_server_starting">Iniciando el enlace…</string>
     <string name="share_server_too_many">Hay demasiados procesos en ejecución. Detén uno y vuelve a intentarlo.</string>
+    <string name="share_server_not_answering">Nada responde en el puerto %1$d, así que aún no hay nada que compartir. Inicia el servidor y vuelve a intentarlo.</string>
+    <string name="share_server_name_in_use">Otro proceso ya se ejecuta con el nombre de este enlace, así que no se tocó. Vuelve a intentarlo cuando haya terminado.</string>
     <string name="share_server_failed">No se ha podido compartir: %1$s</string>
     <string name="share_server_warning">Esto hace que cualquiera con el enlace pueda acceder a localhost:%1$d desde cualquier lugar, mientras siga compartido. El enlace es aleatorio, pero deja de ser secreto en cuanto lo envías.</string>
     <string name="share_server_start">Empezar a compartir</string>

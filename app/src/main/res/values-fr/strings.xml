@@ -1823,6 +1823,8 @@
     <string name="share_server_installing">Préparation de l\'outil de partage (la première fois seulement)…</string>
     <string name="share_server_starting">Démarrage du lien…</string>
     <string name="share_server_too_many">Trop de processus sont en cours. Arrêtez-en un, puis réessayez.</string>
+    <string name="share_server_not_answering">Rien ne répond sur le port %1$d, il n’y a donc encore rien à partager. Démarrez le serveur, puis réessayez.</string>
+    <string name="share_server_name_in_use">Un autre processus tourne déjà sous le nom de ce partage, il a donc été laissé tel quel. Réessayez une fois qu’il est terminé.</string>
     <string name="share_server_failed">Partage impossible : %1$s</string>
     <string name="share_server_warning">localhost:%1$d devient accessible à toute personne disposant du lien, où qu\'elle soit, tant que le partage reste actif. Le lien est aléatoire, mais il n\'est plus secret une fois envoyé.</string>
     <string name="share_server_start">Démarrer le partage</string>

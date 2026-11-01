@@ -1823,6 +1823,8 @@
     <string name="share_server_installing">Preparando a ferramenta de compartilhamento (só na primeira vez)…</string>
     <string name="share_server_starting">Iniciando o link…</string>
     <string name="share_server_too_many">Há processos demais em execução. Pare um e tente novamente.</string>
+    <string name="share_server_not_answering">Nada responde na porta %1$d, então ainda não há o que compartilhar. Inicie o servidor e tente de novo.</string>
+    <string name="share_server_name_in_use">Outro processo já roda com o nome deste compartilhamento, então ele foi deixado como está. Tente de novo quando ele terminar.</string>
     <string name="share_server_failed">Não foi possível compartilhar: %1$s</string>
     <string name="share_server_warning">Isso torna localhost:%1$d acessível a qualquer pessoa com o link, de qualquer lugar, enquanto continuar compartilhado. O link é aleatório, mas deixa de ser secreto quando você o envia.</string>
     <string name="share_server_start">Começar a compartilhar</string>
