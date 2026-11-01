@@ -23,6 +23,7 @@ import com.yugahashimoto.andcode.feature.settings.ClaudeCodeAgentSettingsScreen
 import com.yugahashimoto.andcode.feature.settings.CodexAgentSettingsScreen
 import com.yugahashimoto.andcode.feature.settings.CodexSignInActions
 import com.yugahashimoto.andcode.feature.settings.CodexSignInViewModel
+import com.yugahashimoto.andcode.feature.settings.CommandRulesScreen
 import com.yugahashimoto.andcode.feature.settings.GITHUB_NEW_TOKEN_URL
 import com.yugahashimoto.andcode.feature.settings.GitHubSettingsScreen
 import com.yugahashimoto.andcode.feature.settings.ModelVisibilityScreen
@@ -382,9 +383,19 @@ fun NavGraphBuilder.settingsNavGraph(
             onSignOut = claudeActions.onSignOut,
             onOpenSystemPrompt = { navController.navigate(ROUTE_SETTINGS_SYSTEM_PROMPT) },
             onOpenMcp = { navController.navigate(ROUTE_SETTINGS_MCP_CLAUDE) },
+            onOpenCommandRules = { navController.navigate(ROUTE_SETTINGS_COMMAND_RULES) },
             onOpenUrl = { url ->
                 UrlLauncher.openUrl(context, url)
             },
+            onBack = { navController.popBackStack() },
+        )
+    }
+
+    composable(ROUTE_SETTINGS_COMMAND_RULES) {
+        CommandRulesScreen(
+            rules = claude().commandRules,
+            onBlock = claudeActions.onBlockCommand,
+            onForget = claudeActions.onForgetCommandRule,
             onBack = { navController.popBackStack() },
         )
     }
@@ -636,6 +647,9 @@ data class ClaudeSettingsActions(
     val onSelectSystemPrompt: (String?) -> Unit,
     val onSaveSystemPromptPreset: (name: String, prompt: String, id: String?) -> Unit,
     val onDeleteSystemPromptPreset: (String) -> Unit,
+    /** Blocks shell commands containing the given words; false when they name no command. */
+    val onBlockCommand: (String) -> Boolean,
+    val onForgetCommandRule: (com.yugahashimoto.andcode.runtime.local.ClaudePermissionBridge.CommandRule) -> Unit,
 )
 
 /** Antigravity actions the settings graph forwards to its agent screen. */

@@ -719,6 +719,17 @@
     <string name="mcp_url_hint">URL (serveur distant)</string>
     <string name="mcp_add_help">Saisissez une commande pour un serveur local ou une URL pour un serveur distant.</string>
     <string name="mcp_settings_row">Serveurs MCP</string>
+    <string name="command_rules_settings_row">Règles de commandes</string>
+    <string name="command_rules_title">Règles de commandes</string>
+    <string name="command_rules_caption">Une commande bloquée est refusée sans demander, même au sein d’une commande plus longue, et l’agent est prié de ne pas réessayer. Les options peuvent venir dans n’importe quel ordre, donc bloquer « rm -rf » bloque aussi « rm -fr », mais elles doivent s’écrire pareil : « --force » n’est pas « -f ». Les commandes que vous avez toujours autorisées lors d’une approbation s’exécutent sans demander.</string>
+    <string name="command_rules_block_label">Bloquer les commandes contenant</string>
+    <string name="command_rules_block_button">Bloquer</string>
+    <string name="command_rules_blocked">Bloquées</string>
+    <string name="command_rules_allowed">Toujours autorisées</string>
+    <string name="command_rules_no_allowed">Rien n’est encore toujours autorisé. Choisissez « Toujours autoriser » lors d’une approbation pour ajouter une commande ici.</string>
+    <string name="command_rules_whole_tool">Chaque appel à %1$s</string>
+    <string name="cd_forget_command_rule">Supprimer la règle pour %1$s</string>
+    <string name="command_rules_block_invalid">Saisissez une seule commande, sans ; | &amp; &lt; &gt; $ ` ni retour à la ligne.</string>
 
     <string name="server_info_title">Informations du serveur</string>
     <string name="server_info_config_saved">Configuration enregistrée</string>

@@ -67,6 +67,8 @@ data class ClaudeCodeUiState(
     val systemPromptId: String? = null,
     /** Which preset each existing chat carries, so the composer can name what the next turn sends. */
     val sessionSystemPromptIds: Map<String, String?> = emptyMap(),
+    /** The user's blocking and always-allow command rules. */
+    val commandRules: List<ClaudePermissionBridge.CommandRule> = emptyList(),
 ) {
     /**
      * The preset [sessionId]'s next turn will actually carry, by the same rule the runtime applies.
@@ -120,7 +122,8 @@ class ClaudeCodeController(
                 systemPromptId = prompt.first,
                 sessionSystemPromptIds = prompt.second,
             )
-        }.stateIn(scope, SharingStarted.Eagerly, ClaudeCodeUiState())
+        }.combine(runtime.permissionBridge.rules) { state, rules -> state.copy(commandRules = rules) }
+            .stateIn(scope, SharingStarted.Eagerly, ClaudeCodeUiState())
 
     private var installJob: Job? = null
 
@@ -223,6 +226,14 @@ class ClaudeCodeController(
     ): SystemPromptPreset = target.saveSystemPromptPreset(name, prompt, id)
 
     fun deleteSystemPromptPreset(id: String) = target.deleteSystemPromptPreset(id)
+
+    /** Blocks shell commands containing [words]; false when they name no command or it could not be saved. */
+    fun blockCommand(words: String): Boolean = runCatching { runtime.permissionBridge.block(words) }.getOrDefault(false)
+
+    /** Forgets [rule]; a rules file that cannot be written leaves the list as it was, which the screen shows. */
+    fun forgetCommandRule(rule: ClaudePermissionBridge.CommandRule) {
+        runCatching { runtime.permissionBridge.forget(rule) }
+    }
 
     fun beginSignIn() = target.auth.begin()
 

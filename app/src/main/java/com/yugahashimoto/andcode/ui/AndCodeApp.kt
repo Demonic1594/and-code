@@ -1260,6 +1260,8 @@ fun AndCodeApp(
                                         workspaceViewModel.saveClaudeSystemPromptPreset(name, prompt, id)
                                     },
                                     onDeleteSystemPromptPreset = workspaceViewModel::deleteClaudeSystemPromptPreset,
+                                    onBlockCommand = workspaceViewModel::blockClaudeCommand,
+                                    onForgetCommandRule = workspaceViewModel::forgetClaudeCommandRule,
                                 ),
                             antigravity = { antigravityState },
                             antigravityActions =
