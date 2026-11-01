@@ -89,7 +89,8 @@ installed and run.
 
 ## Gradle / Android dependencies
 
-The `releaseRuntimeClasspath` Gradle configuration — everything actually resolved into a release
+The `githubReleaseRuntimeClasspath` Gradle configuration (the github flavor: the fdroid one plus
+Firebase) — everything actually resolved into a release
 build, direct **and** transitive — has ~190 distinct artifacts as of this writing. Rather than a
 hand-maintained table (which drifted from reality before: it previously listed Gson as a direct
 dependency, which it isn't, and omitted `org.tukaani:xz`, which is actually resolved), the authoritative, generated list is committed at
@@ -110,7 +111,7 @@ claim that it is exhaustive — consult the generated file for the complete set.
 | OkHttp / OkHttp-SSE / Okio | `okhttp:4.12.0`, `okio:3.4.0`/`3.6.0` | Apache License 2.0 — [square.github.io/okhttp](https://square.github.io/okhttp/) |
 | kotlinx.serialization (JSON) | `1.7.3` | Apache License 2.0 — [github.com/Kotlin/kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization) |
 | ZXing (`com.journeyapps:zxing-android-embedded`, `com.google.zxing:core`) | `zxing-android-embedded:4.3.0`, `core:3.4.1` | Apache License 2.0 — [github.com/journeyapps/zxing-android-embedded](https://github.com/journeyapps/zxing-android-embedded), [github.com/zxing/zxing](https://github.com/zxing/zxing) |
-| Apache Commons Compress, Commons Codec, Commons IO, Commons Lang3 | `commons-compress:1.27.1`, `commons-codec:1.17.1`, `commons-io:2.16.1`, `commons-lang3:3.16.0` | Apache License 2.0 — [commons.apache.org](https://commons.apache.org/) |
+| Apache Commons Compress, Commons Codec, Commons IO, Commons Lang3 | `commons-compress:1.27.1`, `commons-codec:1.17.1`, `commons-io:2.20.0`, `commons-lang3:3.18.0` | Apache License 2.0 — [commons.apache.org](https://commons.apache.org/) |
 | **`org.tukaani:xz`** (used by `commons-compress` for `.xz` archive support) | `1.9` | Public-domain-style permissive license ("Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted"), per the project's own `COPYING` file — [github.com/tukaani-project/xz-java](https://github.com/tukaani-project/xz-java) |
 | Kotlin stdlib / Kotlin Gradle plugins | `2.0.21` | Apache License 2.0 — [kotlinlang.org](https://kotlinlang.org/) |
 | kotlinx.coroutines (Android, core, Play Services interop) | `1.9.0` | Apache License 2.0 — [github.com/Kotlin/kotlinx.coroutines](https://github.com/Kotlin/kotlinx.coroutines) |
@@ -131,7 +132,7 @@ dependencies by keeping a single, arbitrarily-chosen copy (a "pick first" rule, 
 preservation) — inspecting the built APK showed only `okhttp3/internal/publicsuffix/NOTICE`
 survived; the Apache Commons artifacts' own `NOTICE` files did not make it into the APK at all.
 
-The actual NOTICE text for every `releaseRuntimeClasspath` artifact that ships one is aggregated,
+The actual NOTICE text for every `githubReleaseRuntimeClasspath` artifact that ships one is aggregated,
 straight out of the dependency archives (not the built APK), at
 [`THIRD_PARTY_LICENSES/NOTICE-aggregate.txt`](THIRD_PARTY_LICENSES/NOTICE-aggregate.txt) and
 `assets/legal/notice_aggregate.md` inside the APK, reachable from the in-app Legal screen. As of
