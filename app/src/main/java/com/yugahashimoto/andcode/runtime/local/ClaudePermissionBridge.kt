@@ -506,8 +506,8 @@ class ClaudePermissionBridge(
          * (everywhere) for none, a relative path, or the root, which would cover every project.
          */
         fun projectOf(cwd: String?): String? =
+            // Not trimmed: spaces belong to a directory's name, and the hook compares the path as is.
             cwd
-                ?.trim()
                 ?.trimEnd('/')
                 ?.takeIf { it.startsWith("/") && it.length > 1 }
 

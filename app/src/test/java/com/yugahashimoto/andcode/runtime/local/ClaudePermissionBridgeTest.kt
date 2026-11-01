@@ -289,7 +289,10 @@ class ClaudePermissionBridgeTest {
 
     @Test
     fun `only an absolute directory below the root names a project`() {
-        assertEquals("/root/shop", ClaudePermissionBridge.projectOf(" /root/shop// "))
+        assertEquals("/root/shop", ClaudePermissionBridge.projectOf("/root/shop//"))
+        // A trailing space is part of the directory's name, so it is a different project.
+        assertEquals("/root/shop ", ClaudePermissionBridge.projectOf("/root/shop "))
+        assertFalse(ClaudePermissionBridge.appliesIn("/root/shop ", "/root/shop"))
         assertNull(ClaudePermissionBridge.projectOf("/"))
         assertNull(ClaudePermissionBridge.projectOf("shop"))
         assertNull(ClaudePermissionBridge.projectOf(""))
