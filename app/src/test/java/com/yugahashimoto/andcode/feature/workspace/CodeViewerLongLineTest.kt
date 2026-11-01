@@ -72,4 +72,41 @@ class CodeViewerLongLineTest {
         assertEquals(LongLineLimits.DISPLAY_CHARS, displayEnd(0, LongLineLimits.DISPLAY_CHARS + 50))
         assertEquals(10 + LongLineLimits.DISPLAY_CHARS, displayEnd(10, 10 + LongLineLimits.DISPLAY_CHARS + 50))
     }
+
+    @Test
+    fun `a current match past the cap moves the window to just before it`() {
+        val cap = LongLineLimits.DISPLAY_CHARS
+        val lineEnd = 10 + cap * 3
+        // No match, or one inside the head of the line: the head is shown, as before.
+        assertEquals(10..10 + cap, displayRange(10, lineEnd, null))
+        assertEquals(10..10 + cap, displayRange(10, lineEnd, 500..504))
+        // A match further in: the window starts a little before it, so it is near the row's start.
+        val far = 10 + cap * 2
+        assertEquals(far - LongLineLimits.MATCH_CONTEXT..far - LongLineLimits.MATCH_CONTEXT + cap, displayRange(10, lineEnd, far..far + 4))
+        // One that straddles the cap counts as hidden too.
+        val straddle = 10 + cap - 2
+        assertEquals(straddle - LongLineLimits.MATCH_CONTEXT, displayRange(10, lineEnd, straddle..straddle + 4).first)
+        // Near the end of the line the window stops at the line's end.
+        assertEquals(lineEnd, displayRange(10, lineEnd, lineEnd - 3..lineEnd - 1).last)
+        // A match on another line leaves this one alone, and a short line is always whole.
+        assertEquals(10..10 + cap, displayRange(10, lineEnd, lineEnd + 50..lineEnd + 55))
+        assertEquals(3..20, displayRange(3, 20, 5..7))
+        // A match that starts on a short line and runs on past it (a multi-line pattern) leaves it whole.
+        assertEquals(0..100, displayRange(0, 100, 95..104))
+        assertEquals(0..100, displayRange(0, 100, 100..101))
+        // On a long line, such a match starting past the cap still moves the window.
+        assertEquals(far - LongLineLimits.MATCH_CONTEXT, displayRange(10, lineEnd, far..lineEnd + 20).first)
+    }
+
+    @Test
+    fun `the match shown past the cap is highlighted as the current one`() {
+        val cap = LongLineLimits.DISPLAY_CHARS
+        val content = "a".repeat(cap * 2) + "needle" + "b".repeat(100)
+        val match = cap * 2 until cap * 2 + 6
+        val shown = displayRange(0, content.length, match)
+
+        val styled = highlightRange(content, shown.first, shown.last, emptyList(), palette, listOf(match), 0)
+
+        assertEquals("needle", styled.text.substring(styled.spanStyles.single().start, styled.spanStyles.single().end))
+    }
 }
