@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.History
@@ -235,6 +236,7 @@ fun ClaudeCodeAgentSettingsScreen(
     onOpenSystemPrompt: () -> Unit,
     onOpenMcp: () -> Unit,
     onOpenCommandRules: () -> Unit,
+    onOpenProjectInstructions: () -> Unit,
     onOpenUrl: (String) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -284,6 +286,13 @@ fun ClaudeCodeAgentSettingsScreen(
                 title = stringResource(R.string.command_rules_settings_row),
                 value = claude.commandRules.size.takeIf { it > 0 }?.toString(),
                 onClick = onOpenCommandRules,
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = Icons.Default.Description,
+                title = stringResource(R.string.project_instructions_settings_row),
+                value = ProjectInstructions.CLAUDE_FILE,
+                onClick = onOpenProjectInstructions,
             )
         }
     }

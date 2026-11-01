@@ -64,4 +64,36 @@ class ClaudeMcpParserTest {
 
         assertTrue(script.contains("""'evil'\''; rm -rf /; echo '\'''"""))
     }
+
+    @Test
+    fun `the program of a command skips assignments and paths`() {
+        assertEquals("npx", ClaudeMcpParser.programOf("npx -y firebase-tools mcp"))
+        assertEquals("uvx", ClaudeMcpParser.programOf("API_KEY=abc DEBUG=1 /usr/local/bin/uvx mcp-server-git"))
+        assertNull(ClaudeMcpParser.programOf("   "))
+    }
+
+    @Test
+    fun `a failed local server whose program is missing says so`() {
+        val output =
+            """
+            fs: npx -y @modelcontextprotocol/server-filesystem . - ✘ Failed to connect
+            git: uvx mcp-server-git - ✔ Connected
+            web: https://example.test/mcp (HTTP) - ✘ Failed to connect
+            """.trimIndent()
+        val servers = ClaudeMcpParser.parseList(output)
+
+        assertEquals(setOf("npx"), ClaudeMcpParser.failedPrograms(servers))
+        val checked = ClaudeMcpParser.withMissingPrograms(servers, setOf("npx", "uvx"))
+
+        assertEquals("npx", checked.first { it.name == "fs" }.missingProgram)
+        assertNull("a connected server is never flagged", checked.first { it.name == "git" }.missingProgram)
+        assertNull(checked.first { it.name == "web" }.missingProgram)
+    }
+
+    @Test
+    fun `the missing program check quotes every name`() {
+        val script = ClaudeMcpParser.missingProgramsScript(listOf("npx", "a'b"))
+
+        assertTrue(script.startsWith("for p in 'npx' 'a'\\''b'; do command -v"))
+    }
 }

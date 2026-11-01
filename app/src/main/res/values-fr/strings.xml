@@ -191,6 +191,7 @@
     <string name="provider_add_custom">Ajouter un fournisseur personnalisé</string>
     <string name="provider_add_custom_title">Ajouter un fournisseur personnalisé</string>
     <string name="provider_custom_help">Ajoutez toute API compatible OpenAI qui ne figure pas dans la liste des fournisseurs d\'OpenCode. Sa clé API vous sera ensuite demandée.</string>
+    <string name="provider_custom_local_help">Vous utilisez Ollama ou LM Studio ? Choisissez-le pour remplir son adresse habituelle, modifiez-la si le serveur est sur un autre ordinateur, puis récupérez les modèles pour tester la connexion. Les serveurs locaux acceptent n’importe quelle clé d’API.</string>
     <string name="provider_custom_id_label">ID du fournisseur</string>
     <string name="provider_custom_id_hint">ex. my-provider</string>
     <string name="provider_custom_name_label">Nom d\'affichage</string>
@@ -719,7 +720,12 @@
     <string name="mcp_url_hint">URL (serveur distant)</string>
     <string name="mcp_add_help">Saisissez une commande pour un serveur local ou une URL pour un serveur distant.</string>
     <string name="mcp_settings_row">Serveurs MCP</string>
+    <string name="mcp_missing_program">« %1$s » n’est pas installé dans l’environnement Linux, ce serveur ne peut donc pas démarrer.</string>
+    <string name="mcp_missing_node">« %1$s » nécessite Node.js, qui n’est pas installé dans l’environnement Linux : ce serveur ne peut donc pas démarrer. Installez-le depuis le terminal : apt install nodejs npm</string>
     <string name="command_rules_settings_row">Règles de commandes</string>
+    <string name="project_instructions_settings_row">Instructions du projet</string>
+    <string name="project_instructions_no_project">Ouvrez d’abord un projet dans une discussion : le fichier d’instructions se trouve dans son dossier.</string>
+    <string name="project_instructions_failed">Impossible de créer CLAUDE.md dans ce projet.</string>
     <string name="command_rules_title">Règles de commandes</string>
     <string name="command_rules_caption">Une commande bloquée est refusée sans demander, même au sein d’une commande plus longue, et l’agent est prié de ne pas réessayer. Les options peuvent venir dans n’importe quel ordre, donc bloquer « rm -rf » bloque aussi « rm -fr », mais elles doivent s’écrire pareil : « --force » n’est pas « -f ». Les commandes que vous avez toujours autorisées lors d’une approbation s’exécutent sans demander.</string>
     <string name="command_rules_block_label">Bloquer les commandes contenant</string>
