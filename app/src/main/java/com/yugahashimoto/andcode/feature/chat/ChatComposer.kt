@@ -81,6 +81,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.api.OpenCodeAgent
@@ -96,6 +97,7 @@ import com.yugahashimoto.andcode.runtime.local.ClaudePermissionMode
 import com.yugahashimoto.andcode.runtime.local.SystemPromptPreset
 import com.yugahashimoto.andcode.ui.components.VolumeMeter
 import com.yugahashimoto.andcode.ui.theme.AppShapes
+import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 import com.yugahashimoto.andcode.ui.theme.Spacing
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -241,6 +243,8 @@ internal fun ChatComposer(
                 }
             }
         }
+
+        FileMentionList(inputValue, onInputValueChange)
 
         PullRequestLinkBar(
             pullRequests = pullRequests,
@@ -623,6 +627,41 @@ internal fun ChatComposer(
             }
             if (isRunning && tokensPerSecond >= 0.05) {
                 CompactTokenSpeed(tokensPerSecond)
+            }
+        }
+    }
+}
+
+/** Project files matching the `@` mention at the cursor; picking one puts its path in the mention's place. */
+@Composable
+private fun FileMentionList(
+    inputValue: TextFieldValue,
+    onInputValueChange: (TextFieldValue) -> Unit,
+) {
+    val mentions = LocalFileMentions.current ?: return
+    val mention = FileMentions.queryAt(inputValue) ?: return
+    if (mentions.results.isEmpty()) return
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.xs),
+        shape = AppShapes.md,
+    ) {
+        Column(modifier = Modifier.padding(vertical = Spacing.xs)) {
+            mentions.results.forEach { path ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = path,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = CodeFontFamily,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    onClick = {
+                        onInputValueChange(FileMentions.insert(inputValue, mention, path))
+                        mentions.onQuery(null)
+                    },
+                )
             }
         }
     }
