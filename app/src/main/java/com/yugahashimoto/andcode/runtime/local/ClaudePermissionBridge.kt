@@ -302,15 +302,18 @@ class ClaudePermissionBridge(
             // approved once whatever the user taps ([rememberRule]). A blocked command is never
             // allowed at all, so it is not offered either.
             canAlwaysAllow =
-                runCatching {
-                    json.parseToJsonElement(request.toolInputJson).jsonObject["command"]?.jsonPrimitive?.contentOrNull
-                }.getOrNull().let { command ->
-                    if (command == null) {
-                        true
-                    } else {
-                        blockedByCommand(request.toolName, command) == null && ShellCommandRules.ruleFor(command) != null
-                    }
-                },
+                runCatching { json.parseToJsonElement(request.toolInputJson).jsonObject["command"] }
+                    .getOrNull()
+                    .let { element ->
+                        when {
+                            element == null -> true
+                            // A command that is not a string has no rule to keep (rememberRule skips it).
+                            element !is JsonPrimitive || !element.isString -> false
+                            else ->
+                                blockedByCommand(request.toolName, element.content) == null &&
+                                    ShellCommandRules.ruleFor(element.content) != null
+                        }
+                    },
             metadata =
                 mapOf(
                     "toolName" to JsonPrimitive(request.toolName),
@@ -360,8 +363,12 @@ class ClaudePermissionBridge(
 
     @Synchronized
     private fun rememberRule(stored: StoredRequest) {
-        val command =
-            (stored.toolInput as? JsonObject)?.get("command")?.jsonPrimitive?.contentOrNull
+        val element = (stored.toolInput as? JsonObject)?.get("command")
+        // A command that is not a string (an object, null) is approved once and never remembered:
+        // reading it as text would throw before the answer is written, and leaving it out would
+        // make a tool-wide rule.
+        if (element != null && (element !is JsonPrimitive || !element.isString)) return
+        val command = (element as? JsonPrimitive)?.content
         // A command that chains, pipes or redirects is approved once but never remembered: there is no
         // safe rule to keep for it, and a tool-wide rule would allow every command.
         val prefix =

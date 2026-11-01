@@ -216,6 +216,17 @@ class ClaudePermissionBridgeTest {
         assertFalse(bridge.toPermissionRequest(requestFor("bash -c ls")).canAlwaysAllow)
         // A call without a command becomes a tool-wide rule, so it can always be remembered.
         assertTrue(bridge.toPermissionRequest(requestFor(null)).canAlwaysAllow)
+        // A command that is not a string has no rule to keep, so it is not offered.
+        val objectCommand =
+            ClaudePermissionBridge.Request(
+                requestId = UUID.randomUUID().toString(),
+                androidSessionId = "session-1",
+                kind = ClaudePermissionBridge.Kind.PERMISSION,
+                toolName = "Bash",
+                toolInputJson = """{"command":{"nested":"rm"}}""",
+                permissionLabel = "Bash",
+            )
+        assertFalse(bridge.toPermissionRequest(objectCommand).canAlwaysAllow)
         // A blocked command is never allowed, so it is not offered either.
         bridge.block("mkdir")
         assertFalse(bridge.toPermissionRequest(requestFor("mkdir /tmp/always9")).canAlwaysAllow)

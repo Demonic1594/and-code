@@ -39,6 +39,7 @@
     <string name="model">Модель</string>
     <string name="agent">Агент</string>
     <string name="permission_required">Требуется одобрение</string>
+    <string name="permission_show_all">Показать полностью</string>
     <string name="allow_once">Разрешить один раз</string>
     <string name="always_allow">Всегда разрешать</string>
     <string name="reject">Отклонить</string>

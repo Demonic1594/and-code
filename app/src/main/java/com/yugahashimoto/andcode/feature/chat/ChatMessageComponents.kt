@@ -39,9 +39,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -257,6 +261,8 @@ fun PermissionCard(
     // compact row with the one given most often, "Allow once", last, under the thumb.
     val warningColor = LocalThemeColors.current.warning
     val (tag, details) = remember(permission) { permissionSummary(permission) }
+    var detailsExpanded by remember(permission.id) { mutableStateOf(false) }
+    var detailsOverflow by remember(permission.id) { mutableStateOf(false) }
     Surface(
         shape = AppShapes.lg,
         color = warningColor.copy(alpha = 0.07f),
@@ -310,9 +316,23 @@ fun PermissionCard(
                                 fontFamily = CodeFontFamily,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = PermissionCardSizes.DETAIL_MAX_LINES,
+                                maxLines = if (detailsExpanded) Int.MAX_VALUE else PermissionCardSizes.DETAIL_MAX_LINES,
                                 overflow = TextOverflow.Ellipsis,
+                                onTextLayout = { layout -> if (layout.hasVisualOverflow) detailsOverflow = true },
                             )
+                        }
+                        // What is approved must be readable in full first: a long command's tail can hold
+                        // the part that matters.
+                        if (detailsOverflow) {
+                            TextButton(
+                                onClick = { detailsExpanded = !detailsExpanded },
+                                contentPadding = PaddingValues(horizontal = Spacing.sm, vertical = 0.dp),
+                            ) {
+                                Text(
+                                    stringResource(if (detailsExpanded) R.string.collapse else R.string.permission_show_all),
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
                         }
                     }
                 }

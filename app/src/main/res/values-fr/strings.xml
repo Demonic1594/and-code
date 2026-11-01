@@ -39,6 +39,7 @@
     <string name="model">Modèle</string>
     <string name="agent">Agent</string>
     <string name="permission_required">Approbation requise</string>
+    <string name="permission_show_all">Tout afficher</string>
     <string name="allow_once">Autoriser une fois</string>
     <string name="always_allow">Toujours autoriser</string>
     <string name="reject">Refuser</string>
