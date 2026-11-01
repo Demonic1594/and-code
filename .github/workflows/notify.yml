@@ -6,6 +6,10 @@ on:
       - main
   pull_request:
     types: [opened, reopened, closed]
+  release:
+    types: [published]
+  workflow_run:
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -35,6 +39,7 @@ jobs:
         if: github.event_name == 'push'
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -eu
           if [ -z "$WEBHOOK" ]; then echo "No webhook secret; skipping."; exit 0; fi
@@ -54,6 +59,8 @@ jobs:
           repo=$(jq -r .repository.full_name "$event")
           branch=$(jq -r .ref "$event" | sed 's|^refs/heads/||')
           pusher=$(jq -r '.pusher.name // .sender.login // "unknown"' "$event")
+          avatar=$(jq -r '.sender.avatar_url // ""' "$event")
+          ts=$(jq -r '.head_commit.timestamp // ""' "$event")
           total=$(jq -r '.size // (.commits | length)' "$event")
 
           if [[ "$before" =~ ^0+$ ]]; then
@@ -73,13 +80,35 @@ jobs:
           unit=commits
           [ "$total" -eq 1 ] && unit=commit
 
+          # Enrich with +/− and file counts from the compare API; failures degrade silently.
+          stats=$(gh api "repos/$repo/compare/${before:0:12}...${after:0:12}" \
+            -q '{additions: (.additions // 0), deletions: (.deletions // 0),
+                 files: (.files | length? // 0)}' 2>/dev/null || echo '{}')
+          adds=$(jq -r '.additions // 0' <<<"$stats")
+          dels=$(jq -r '.deletions // 0' <<<"$stats")
+          files=$(jq -r '.files // 0' <<<"$stats")
+
           payload=$(jq -n \
             --arg title "$pusher pushed $total $unit to $repo#$branch" \
+            --arg pusher "$pusher" \
+            --arg avatar "$avatar" \
+            --arg ts "$ts" \
             --arg desc "$desc" \
             --arg url "$url" \
+            --arg repo "$repo" \
+            --argjson adds "$adds" --argjson dels "$dels" --argjson files "$files" \
             '{username: "and-code",
-              embeds: [{title: ($title | .[0:250]), url: $url,
-                        description: ($desc | .[0:4000]), color: 7506394}]}')
+              embeds: [{
+                title: ($title | .[0:250]), url: $url,
+                description: ($desc | .[0:4000]), color: 7506394,
+                author: {name: $pusher} + (if $avatar != "" then {icon_url: $avatar} else {} end)
+              }
+              + (if $ts != "" then {timestamp: $ts} else {} end)
+              + (if ($adds + $dels) > 0 then {fields: [
+                  {name: "Lines", value: "+\($adds) / −\($dels)", inline: true},
+                  {name: "Files", value: "\($files)", inline: true}
+                ]} else {} end)
+              + {footer: {text: $repo}}]}')
 
           curl -sf --max-time 30 --retry 4 --retry-all-errors \
             -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
@@ -104,7 +133,16 @@ jobs:
           title=$(jq -r .pull_request.title "$event")
           url=$(jq -r .pull_request.html_url "$event")
           author=$(jq -r .pull_request.user.login "$event")
+          avatar=$(jq -r '.pull_request.user.avatar_url // ""' "$event")
           branch=$(jq -r .pull_request.head.ref "$event")
+          base=$(jq -r .pull_request.base.ref "$event")
+          draft=$(jq -r .pull_request.draft "$event")
+          labels=$(jq -r '[.pull_request.labels[].name] | join(", ")' "$event")
+          ts=$(jq -r '.pull_request.updated_at // ""' "$event")
+          merged_by=$(jq -r '.pull_request.merged_by.login // ""' "$event")
+          adds=$(jq -r '.pull_request.additions // 0' "$event")
+          dels=$(jq -r '.pull_request.deletions // 0' "$event")
+          files=$(jq -r '.pull_request.changed_files // 0' "$event")
 
           label="opened"
           color=3066993
@@ -114,15 +152,135 @@ jobs:
           elif [ "$action" = "reopened" ]; then
             label="reopened"
           fi
+          if [ "$draft" = "true" ]; then
+            label="$label · draft"
+          fi
+
+          footer="$repo"
+          if [ "$merged_by" != "" ]; then
+            footer="$repo · merged by @$merged_by"
+          fi
+
+          desc="by @$author · \`$base\` → \`$branch\`"
+          if [ "$labels" != "" ]; then
+            desc="$desc"$'\n'"Labels: $labels"
+          fi
 
           payload=$(jq -n \
             --arg title "PR #$number $label: $title" \
-            --arg desc "by @$author from \`$branch\`" \
+            --arg author "$author" \
+            --arg avatar "$avatar" \
+            --arg ts "$ts" \
+            --arg desc "$desc" \
             --arg url "$url" \
+            --arg footer "$footer" \
             --argjson color "$color" \
+            --argjson adds "$adds" --argjson dels "$dels" --argjson files "$files" \
             '{username: "and-code",
-              embeds: [{title: ($title | .[0:250]), url: $url,
-                        description: $desc, color: $color}]}')
+              embeds: [{
+                title: ($title | .[0:250]), url: $url,
+                description: ($desc | .[0:4000]), color: $color,
+                author: {name: ("@" + $author)} + (if $avatar != "" then {icon_url: $avatar} else {} end)
+              }
+              + (if $ts != "" then {timestamp: $ts} else {} end)
+              + {fields: [
+                  {name: "Lines", value: "+\($adds) / −\($dels)", inline: true},
+                  {name: "Files", value: "\($files)", inline: true}
+                ]}
+              + {footer: {text: ($footer | .[0:200])}}]}')
+
+          curl -sf --max-time 30 --retry 4 --retry-all-errors \
+            -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
+
+      - name: Release published
+        if: github.event_name == 'release'
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          set -eu
+          if [ -z "$WEBHOOK" ]; then echo "No webhook secret; skipping."; exit 0; fi
+          event="$GITHUB_EVENT_PATH"
+
+          tag=$(jq -r '.release.tag_name // "release"' "$event")
+          name=$(jq -r '.release.name // ""' "$event")
+          url=$(jq -r '.release.html_url // ""' "$event")
+          prerelease=$(jq -r '.release.prerelease // false' "$event")
+          assets=$(jq -r '.release.assets | length // 0' "$event")
+          ts=$(jq -r '.release.published_at // ""' "$event")
+          author=$(jq -r '.sender.login // "unknown"' "$event")
+          avatar=$(jq -r '.sender.avatar_url // ""' "$event")
+          body=$(jq -r '.release.body // ""' "$event" | head -c 3000)
+
+          title="Release $tag"
+          if [ "$name" != "" ] && [ "$name" != "$tag" ]; then
+            title="Release $tag: $name"
+          fi
+          if [ "$prerelease" = "true" ]; then
+            title="$title (pre-release)"
+          fi
+
+          payload=$(jq -n \
+            --arg title "$title" \
+            --arg author "$author" \
+            --arg avatar "$avatar" \
+            --arg ts "$ts" \
+            --arg desc "$body" \
+            --arg url "$url" \
+            --argjson assets "$assets" \
+            --argjson pre "$prerelease" \
+            '{username: "and-code",
+              embeds: [{
+                title: ($title | .[0:250]), url: $url, color: 16098851,
+                description: (if $desc == "" then " " else ($desc | .[0:3900]) end),
+                author: {name: ("@" + $author)} + (if $avatar != "" then {icon_url: $avatar} else {} end)
+              }
+              + (if $ts != "" then {timestamp: $ts} else {} end)
+              + {fields: [
+                  {name: "Type", value: (if $pre then "pre-release" else "stable" end), inline: true},
+                  {name: "Assets", value: "\($assets)", inline: true}
+                ]}]}')
+
+          curl -sf --max-time 30 --retry 4 --retry-all-errors \
+            -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
+
+      - name: CI failed on main
+        if: github.event_name == 'workflow_run'
+          && github.event.workflow_run.conclusion == 'failure'
+          && github.event.workflow_run.head_branch == 'main'
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          set -eu
+          if [ -z "$WEBHOOK" ]; then echo "No webhook secret; skipping."; exit 0; fi
+          event="$GITHUB_EVENT_PATH"
+
+          wf=$(jq -r '.workflow_run.name // "workflow"' "$event")
+          url=$(jq -r '.workflow_run.html_url // ""' "$event")
+          branch=$(jq -r '.workflow_run.head_branch // "main"' "$event")
+          sha=$(jq -r '.workflow_run.head_sha // ""' "$event")
+          ts=$(jq -r '.workflow_run.updated_at // ""' "$event")
+          msg=$(jq -r '.workflow_run.head_commit.message // ""' "$event" | head -1)
+
+          sha7=${sha:0:7}
+          desc="on \`$branch\`"
+          if [ "$sha7" != "" ]; then
+            desc="on \`$branch\` · \`$sha7\`"
+          fi
+          if [ "$msg" != "" ]; then
+            desc="$desc"$'\n'"$msg"
+          fi
+
+          payload=$(jq -n \
+            --arg title "CI failed: $wf" \
+            --arg desc "$desc" \
+            --arg url "$url" \
+            --arg ts "$ts" \
+            '{username: "and-code",
+              embeds: [{
+                title: ($title | .[0:250]), url: $url,
+                description: ($desc | .[0:4000]), color: 15158332
+              }
+              + (if $ts != "" then {timestamp: $ts} else {} end)]}')
 
           curl -sf --max-time 30 --retry 4 --retry-all-errors \
             -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
