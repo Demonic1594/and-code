@@ -437,7 +437,7 @@ def _handle(ref: object) -> int:
         raise ValueError(BAD_REF)
     try:
         number = int(ref)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         raise ValueError(BAD_REF) from None
     if isinstance(ref, float) and ref != number:
         raise ValueError(BAD_REF)
