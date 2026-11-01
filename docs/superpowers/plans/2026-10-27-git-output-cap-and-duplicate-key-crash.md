@@ -1,6 +1,6 @@
 # Git panel: output cut at 4,000 characters crashes commit details, and cuts History and diffs
 
-Status: **done** (Tasks 1–4). The terminal and ADB keep the old 4,000-character tail. Decided (2026-11-01): keep it. The
+Status: **done** (Tasks 1–4). ADB keeps the old 4,000-character tail. Decided (2026-11-01): keep it. The
 terminal no longer goes through this runner (it is an interactive session with its own scrollback), and
 the ADB commands (pair, connect, get-state) print a line or two whose error is at the end.
 
@@ -68,9 +68,9 @@ The same cut applies to every Git view; the crash is just where it is loudest:
   header (branch name, ahead/behind) and the first files.
 - **Anything else that prints a lot**: stash list, branch list (long names), and the Changes /
   Commit actions in `WorkspaceShell` (`WorkspaceNavGraph.kt:339`), which share the same runner.
-- **Not Git, same cap:** the terminal (`TerminalViewModel`) and the ADB commands share the app's
-  runner instance (since then the terminal moved to an interactive session; see Status). For the terminal the tail may be what a user expects; that should be decided,
-  not inherited. The Claude and Codex runtimes build their own `LocalRuntimeCommandRunner` for each
+- **Not Git, same cap:** the ADB commands share the app's runner instance. The terminal
+  (`TerminalViewModel`) did too when this was written; it now runs an interactive session and does
+  not use this runner (see Status). The Claude and Codex runtimes build their own `LocalRuntimeCommandRunner` for each
   command, and the dependency-injection module holds another instance, all with the same 4,000
   default, which is another reason to keep that default and add the per-call limit.
 
@@ -105,7 +105,8 @@ whole output. Nothing tests the combination of the parser and the production run
   tail. This needs the runner to cut from the head for that call (a `keepStart` option), or Git to
   read the file itself.
 - Make `WorkspaceShell` use the same larger limit for the commands it parses.
-- Decide separately what the terminal and ADB should keep (decided: keep the tail; see Status).
+- Decide separately what ADB should keep (decided: keep the tail; see Status). The terminal no
+  longer uses this runner.
 
 **Task 3 — never mis-parse a cut stream**
 - `parseNameStatus` accepts a status token only if it is a valid git status: one letter of

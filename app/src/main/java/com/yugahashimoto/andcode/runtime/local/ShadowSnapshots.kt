@@ -131,11 +131,15 @@ class ShadowSnapshots(
             // and removes them. It refuses, changing nothing, rather than delete an ignored or excluded
             // file in its way (a folder that must become a file again, say), which read-tree would.
             val git = git(root, workspace)
+            val ws = WorkspaceShell.quote(workspace)
             val result =
                 run(
                     // A snapshot from before a path was ignored still holds it (a `.env` added before
-                    // its rule): checking it out would overwrite the ignored file, so refuse, naming it.
-                    "ignored=$($git ls-tree -r --name-only $target | $git check-ignore --no-index --stdin | head -n 1); " +
+                    // its rule): checking it out would overwrite the ignored file there now, so refuse,
+                    // naming it. One that is not there is simply written back.
+                    "ignored=$($git ls-tree -r --name-only $target | $git check-ignore --no-index --stdin | " +
+                        "while IFS= read -r p; do if [ -e $ws/\"${'$'}p\" ] || [ -L $ws/\"${'$'}p\" ]; then " +
+                        "printf '%s\\n' \"${'$'}p\"; break; fi; done); " +
                         "if [ -n \"${'$'}ignored\" ]; then printf '$REFUSED_PREFIX%s\\n' \"${'$'}ignored\"; exit $REFUSED_EXIT; fi; " +
                         "$git checkout -q --no-overwrite-ignore --detach $target",
                     RESTORE_TIMEOUT_SECONDS,
@@ -147,12 +151,15 @@ class ShadowSnapshots(
             // may already be rewritten: put them back as they were just before.
             // The killed checkout may have left its lock behind, which would refuse this one too.
             val lockFile = WorkspaceShell.quote("${gitDir(root, workspace)}/index.lock")
-            run(
-                // Back to the snapshot just taken: tracked files only, so ignored ones stay untouched.
-                "rm -f $lockFile; $git reset -q --hard $before",
-                RESTORE_TIMEOUT_SECONDS,
-                SMALL_OUTPUT,
-            )
+            val rollback =
+                run(
+                    // Back to the snapshot just taken: tracked files only, so ignored ones stay untouched.
+                    "rm -f $lockFile; $git reset -q --hard $before",
+                    RESTORE_TIMEOUT_SECONDS,
+                    SMALL_OUTPUT,
+                )
+            // Not put back: some files may be changed, so never say that nothing was.
+            if (rollback.exitCode != 0) return@withContext RestoreResult.Failed
             if (refusedPath != null || result.exitCode == REFUSED_EXIT) RestoreResult.Refused(refusedPath) else RestoreResult.Failed
         }
     }

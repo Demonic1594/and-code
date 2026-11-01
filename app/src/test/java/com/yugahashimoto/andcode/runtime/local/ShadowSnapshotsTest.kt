@@ -136,6 +136,13 @@ class ShadowSnapshotsTest {
             assertNotNull(snapshots.restore(workspace.path, later))
             assertEquals("v2\n", File(workspace, "app.txt").readText())
             assertEquals("NEW=2\n", File(workspace, ".env").readText())
+
+            // Moved aside, as the refusal asks, nothing is in the way any more.
+            val aside = File(workspace.parentFile, "env-aside")
+            File(workspace, ".env").renameTo(aside)
+            assertNotNull(snapshots.restore(workspace.path, withEnv))
+            assertEquals("v1\n", File(workspace, "app.txt").readText())
+            assertEquals("NEW=2\n", aside.readText())
         }
 
     @Test

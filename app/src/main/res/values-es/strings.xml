@@ -1763,8 +1763,8 @@
     <string name="restore_files_banner_body">Los mensajes no han cambiado. Deshacer devuelve los archivos a como estaban.</string>
     <string name="restore_files_keep">Conservar</string>
     <string name="restore_files_failed">No se pudieron restaurar los archivos.</string>
-    <string name="restore_files_refused">No se cambió nada: restaurar sobrescribiría %1$s, que git ignora. Muévelo a otro sitio y vuelve a intentarlo.</string>
-    <string name="restore_files_refused_unknown">No se cambió nada: restaurar sobrescribiría un archivo que git ignora.</string>
+    <string name="restore_files_refused">No se cambió nada: restaurar sobrescribiría %1$s, que las instantáneas no guardan. Muévelo a otro sitio y vuelve a intentarlo.</string>
+    <string name="restore_files_refused_unknown">No se cambió nada: restaurar sobrescribiría un archivo que las instantáneas no guardan.</string>
     <string name="chat_menu_open_github">Abrir en GitHub</string>
     <string name="action_copied">Copiado</string>
     <string name="tool_copy_block">Copiar %1$s</string>

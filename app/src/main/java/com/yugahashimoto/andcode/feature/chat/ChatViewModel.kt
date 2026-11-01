@@ -371,6 +371,8 @@ private data class QueuedPrompt(
      * chat's prompts are sent, so one queued in another chat never lands here.
      */
     val sessionId: String?,
+    /** The chat generation it was queued in, so a new chat's prompts follow only that chat's session. */
+    val chatGeneration: Long,
     /** False for a review from the diff screen, which must not touch the composer when it goes out. */
     val fromComposer: Boolean = true,
 )
@@ -2079,7 +2081,15 @@ class ChatViewModel(
 
         if (!_uiState.value.isConnected) {
             offlineMessageQueue.update {
-                it + QueuedPrompt(outgoingText, modelAttachments, pendingPreviews, _uiState.value.sessionId, fromComposer)
+                it +
+                    QueuedPrompt(
+                        outgoingText,
+                        modelAttachments,
+                        pendingPreviews,
+                        _uiState.value.sessionId,
+                        _uiState.value.chatGeneration,
+                        fromComposer,
+                    )
             }
             val userMessage =
                 ChatMessage(
@@ -2108,7 +2118,15 @@ class ChatViewModel(
         val mustQueue = (currentBackend as? RuntimeTarget)?.capabilities?.forcesQueue == true
         if ((_sendBehavior.value == "queue" || mustQueue || !fromComposer) && _uiState.value.isRunning) {
             messageQueue.update {
-                it + QueuedPrompt(outgoingText, modelAttachments, pendingPreviews, _uiState.value.sessionId, fromComposer)
+                it +
+                    QueuedPrompt(
+                        outgoingText,
+                        modelAttachments,
+                        pendingPreviews,
+                        _uiState.value.sessionId,
+                        _uiState.value.chatGeneration,
+                        fromComposer,
+                    )
             }
             if (fromComposer) _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
             return
@@ -2178,7 +2196,7 @@ class ChatViewModel(
                             sessionDirectory = session.directory ?: it.sessionDirectory,
                         )
                     }
-                    adoptHeldPrompts(session.id)
+                    adoptHeldPrompts(session.id, draftGeneration)
                     onSessionCreated()
                 }
                 if (existingSessionId != null && shouldSummarizeBeforePrompt()) {
@@ -2349,7 +2367,9 @@ class ChatViewModel(
         val messageIdsBeforeSend = _uiState.value.messages.map { it.id }.toSet()
 
         if (!_uiState.value.isConnected) {
-            offlineMessageQueue.update { it + QueuedPrompt(displayText, emptyList(), emptyList(), _uiState.value.sessionId) }
+            offlineMessageQueue.update {
+                it + QueuedPrompt(displayText, emptyList(), emptyList(), _uiState.value.sessionId, _uiState.value.chatGeneration)
+            }
             val userMessage =
                 ChatMessage(
                     isUser = true,
@@ -2370,7 +2390,16 @@ class ChatViewModel(
 
         val mustQueue = (currentBackend as? RuntimeTarget)?.capabilities?.forcesQueue == true
         if ((_sendBehavior.value == "queue" || mustQueue) && _uiState.value.isRunning) {
-            messageQueue.update { it + QueuedPrompt(displayText, emptyList(), emptyList(), _uiState.value.sessionId) }
+            messageQueue.update {
+                it +
+                    QueuedPrompt(
+                        displayText,
+                        emptyList(),
+                        emptyList(),
+                        _uiState.value.sessionId,
+                        _uiState.value.chatGeneration,
+                    )
+            }
             return
         }
         val interrupting = _uiState.value.isRunning
@@ -2429,7 +2458,7 @@ class ChatViewModel(
                             sessionDirectory = session.directory ?: it.sessionDirectory,
                         )
                     }
-                    adoptHeldPrompts(session.id)
+                    adoptHeldPrompts(session.id, draftGeneration)
                     onSessionCreated()
                 }
 
@@ -3480,9 +3509,17 @@ class ChatViewModel(
         sendQueued(open.first())
     }
 
-    /** A new chat's held prompts were queued before it had an id: they belong to the session it got. */
-    private fun adoptHeldPrompts(sessionId: String) {
-        val adopt = { queue: List<QueuedPrompt> -> queue.map { if (it.sessionId == null) it.copy(sessionId = sessionId) else it } }
+    /**
+     * A new chat's held prompts were queued before it had an id: they belong to the session it got.
+     * Only that chat's: one started after it, while its session was still being created, keeps its own.
+     */
+    private fun adoptHeldPrompts(
+        sessionId: String,
+        generation: Long,
+    ) {
+        val adopt = { queue: List<QueuedPrompt> ->
+            queue.map { if (it.sessionId == null && it.chatGeneration == generation) it.copy(sessionId = sessionId) else it }
+        }
         messageQueue.update(adopt)
         offlineMessageQueue.update(adopt)
     }

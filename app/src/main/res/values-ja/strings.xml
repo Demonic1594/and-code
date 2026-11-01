@@ -1757,8 +1757,8 @@
     <string name="restore_files_banner_body">メッセージは変わりません。「元に戻す」でファイルを戻す前の状態にします。</string>
     <string name="restore_files_keep">そのままにする</string>
     <string name="restore_files_failed">ファイルを戻せませんでした。</string>
-    <string name="restore_files_refused">何も変更されていません。復元すると git が無視している %1$s が上書きされます。別の場所に移してから、もう一度お試しください。</string>
-    <string name="restore_files_refused_unknown">何も変更されていません。復元すると git が無視しているファイルが上書きされます。</string>
+    <string name="restore_files_refused">何も変更されていません。復元するとスナップショットに保存されない %1$s が上書きされます。別の場所に移してから、もう一度お試しください。</string>
+    <string name="restore_files_refused_unknown">何も変更されていません。復元するとスナップショットに保存されないファイルが上書きされます。</string>
     <string name="chat_menu_open_github">GitHubで開く</string>
     <string name="action_copied">コピーしました</string>
     <string name="tool_copy_block">%1$s をコピー</string>
