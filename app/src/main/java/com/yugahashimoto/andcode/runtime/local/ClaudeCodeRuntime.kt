@@ -341,6 +341,20 @@ class ClaudeCodeRuntime(
 
     private fun emitPendingBridgeRequests() {
         permissionBridge.pollPending().forEach { request ->
+            // The hooks refuse a blocked command before it is asked about; this catches one that
+            // passed them just before the user blocked it, if it has not reached the sheet yet.
+            val blocked =
+                request.takeIf { it.kind == ClaudePermissionBridge.Kind.PERMISSION }
+                    ?.let { permissionBridge.blockedBy(it.toolName, it.toolInputJson) }
+            if (blocked != null) {
+                permissionBridge.respond(
+                    request.requestId,
+                    PermissionResponse.REJECT,
+                    remember = false,
+                    message = ClaudePermissionBridge.blockedMessage(blocked.words.orEmpty()),
+                )
+                return@forEach
+            }
             when (request.kind) {
                 ClaudePermissionBridge.Kind.QUESTION -> {
                     val question = permissionBridge.toQuestionRequest(request)

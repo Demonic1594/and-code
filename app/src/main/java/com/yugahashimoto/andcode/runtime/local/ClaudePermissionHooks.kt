@@ -7,14 +7,15 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.io.File
 
 /**
- * Installs AndCode's Claude Code PermissionRequest hook into the guest settings and binary path.
+ * Installs AndCode's Claude Code hooks into the guest settings and binary path: the PermissionRequest
+ * hook that asks the phone, and the same script as a PreToolUse hook for Bash, which refuses blocked
+ * commands before every call whatever the permission mode.
  */
 object ClaudePermissionHooks {
     const val HOOK_GUEST_PATH = "/usr/local/bin/and-code-claude-permission-hook.sh"
@@ -27,6 +28,10 @@ object ClaudePermissionHooks {
      * stays just under this so it gets to deny gracefully first.
      */
     const val HOOK_TIMEOUT_SEC = 3600
+
+    /** The blocking check reads a small file and answers at once. */
+    const val BLOCK_CHECK_TIMEOUT_SEC = 30
+    const val BLOCK_CHECK_COMMAND = "$HOOK_GUEST_PATH --pre-tool-use"
     private const val SETTINGS_RELATIVE = "root/.claude/settings.json"
     private const val HOOK_RELATIVE = "usr/local/bin/and-code-claude-permission-hook.sh"
 
@@ -53,10 +58,69 @@ object ClaudePermissionHooks {
                   }
                 ]
               }
+            ],
+            "PreToolUse": [
+              {
+                "matcher": "Bash",
+                "hooks": [
+                  {
+                    "type": "command",
+                    "command": "$BLOCK_CHECK_COMMAND",
+                    "timeout": $BLOCK_CHECK_TIMEOUT_SEC
+                  }
+                ]
+              }
             ]
           }
         }
         """.trimIndent()
+
+    /**
+     * [groups] with AndCode's own earlier handlers replaced by [ours]. The user's handlers stay, also
+     * when they share a group with ours; a group is dropped only when nothing of the user's is left.
+     */
+    private fun withOurGroup(
+        groups: kotlinx.serialization.json.JsonElement?,
+        ours: JsonObject,
+    ): JsonArray {
+        val kept =
+            (groups as? JsonArray).orEmpty().mapNotNull { group ->
+                val handlers = (group as? JsonObject)?.get("hooks") as? JsonArray ?: return@mapNotNull group
+                val theirs = handlers.filterNot(::isOurs)
+                when {
+                    theirs.size == handlers.size -> group
+                    theirs.isEmpty() -> null
+                    else -> JsonObject(group.jsonObject + ("hooks" to JsonArray(theirs)))
+                }
+            }
+        return JsonArray(kept + ours)
+    }
+
+    private fun isOurs(handler: kotlinx.serialization.json.JsonElement): Boolean =
+        (handler as? JsonObject)?.get("command")?.jsonPrimitive?.contentOrNull?.contains(HOOK_MARKER) == true
+
+    private fun hookGroup(
+        matcher: String,
+        command: String,
+        timeout: Int,
+        statusMessage: String? = null,
+    ): JsonObject =
+        buildJsonObject {
+            put("matcher", matcher)
+            put(
+                "hooks",
+                buildJsonArray {
+                    add(
+                        buildJsonObject {
+                            put("type", "command")
+                            put("command", command)
+                            put("timeout", timeout)
+                            statusMessage?.let { put("statusMessage", it) }
+                        },
+                    )
+                },
+            )
+        }
 
     fun mergeSettingsJson(existing: String?): String {
         val root =
@@ -67,35 +131,19 @@ object ClaudePermissionHooks {
                     .getOrDefault(buildJsonObject {})
             }
         val hooks = root["hooks"]?.jsonObject ?: buildJsonObject {}
-        val permissionGroups = hooks["PermissionRequest"]?.jsonArray?.toMutableList() ?: mutableListOf()
-        permissionGroups.removeAll { group ->
-            group.jsonObject["hooks"]?.jsonArray?.any { handler ->
-                handler.jsonObject["command"]?.jsonPrimitive?.contentOrNull?.contains(HOOK_MARKER) == true
-            } == true
-        }
-        permissionGroups +=
-            buildJsonObject {
-                put("matcher", "*")
-                put(
-                    "hooks",
-                    buildJsonArray {
-                        add(
-                            buildJsonObject {
-                                put("type", "command")
-                                put("command", HOOK_GUEST_PATH)
-                                put("timeout", HOOK_TIMEOUT_SEC)
-                                put("statusMessage", "Waiting for AndCode approval")
-                            },
-                        )
-                    },
-                )
-            }
+        val permissionGroups =
+            withOurGroup(
+                hooks["PermissionRequest"],
+                hookGroup("*", HOOK_GUEST_PATH, HOOK_TIMEOUT_SEC, "Waiting for AndCode approval"),
+            )
+        val blockGroups = withOurGroup(hooks["PreToolUse"], hookGroup("Bash", BLOCK_CHECK_COMMAND, BLOCK_CHECK_TIMEOUT_SEC))
         val mergedHooks =
             buildJsonObject {
                 hooks.forEach { (key, value) ->
-                    if (key != "PermissionRequest") put(key, value)
+                    if (key != "PermissionRequest" && key != "PreToolUse") put(key, value)
                 }
-                put("PermissionRequest", JsonArray(permissionGroups))
+                put("PermissionRequest", permissionGroups)
+                put("PreToolUse", blockGroups)
             }
         return json.encodeToString(
             JsonObject.serializer(),

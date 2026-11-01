@@ -17,6 +17,7 @@ import com.yugahashimoto.andcode.runtime.RuntimeType
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
 import com.yugahashimoto.andcode.runtime.local.ClaudeCodeController
 import com.yugahashimoto.andcode.runtime.local.ClaudeCodeUiState
+import com.yugahashimoto.andcode.runtime.local.ClaudePermissionBridge
 import com.yugahashimoto.andcode.runtime.local.ClaudePermissionMode
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeManager
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeServiceController
@@ -370,6 +371,10 @@ class WorkspaceViewModel(
     }
 
     fun deleteClaudeSystemPromptPreset(id: String) = claudeCode?.deleteSystemPromptPreset(id) ?: Unit
+
+    fun blockClaudeCommand(words: String): Boolean = claudeCode?.blockCommand(words) ?: false
+
+    fun forgetClaudeCommandRule(rule: ClaudePermissionBridge.CommandRule) = claudeCode?.forgetCommandRule(rule) ?: Unit
 
     fun beginClaudeSignIn() = claudeCode?.beginSignIn() ?: Unit
 
