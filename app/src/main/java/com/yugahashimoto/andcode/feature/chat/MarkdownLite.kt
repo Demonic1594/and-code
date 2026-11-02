@@ -129,8 +129,8 @@ object MarkdownLite {
             CommonMarkMapper.blocks(documentParser.parse(source))
         } catch (e: IllegalArgumentException) {
             // The parser refuses some extreme input (a table of over a million cells); show it as text
-            // rather than let the exception escape composition.
-            listOf(MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain(source))))
+            // rather than let the exception escape composition, in pieces a lazy list can lay out.
+            source.lines().chunked(LAZY_CODE_LINES).map { MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain(it.joinToString("\n")))) }
         }
 
     /**

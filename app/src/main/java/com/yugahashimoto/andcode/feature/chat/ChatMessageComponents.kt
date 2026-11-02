@@ -46,6 +46,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -483,8 +484,9 @@ internal fun RowScope.TableCellText(
     val textAlign =
         when (align) {
             MarkdownAlign.CENTER -> TextAlign.Center
-            MarkdownAlign.RIGHT -> TextAlign.End
-            MarkdownAlign.LEFT -> TextAlign.Start
+            // Markdown's left and right are physical, so they stay put in a right-to-left layout.
+            MarkdownAlign.RIGHT -> TextAlign.Right
+            MarkdownAlign.LEFT -> TextAlign.Left
             null -> TextAlign.Unspecified
         }
     Box(
@@ -497,8 +499,9 @@ internal fun RowScope.TableCellText(
         contentAlignment =
             when (align) {
                 MarkdownAlign.CENTER -> Alignment.TopCenter
-                MarkdownAlign.RIGHT -> Alignment.TopEnd
-                else -> Alignment.TopStart
+                MarkdownAlign.RIGHT -> AbsoluteAlignment.TopRight
+                MarkdownAlign.LEFT -> AbsoluteAlignment.TopLeft
+                null -> Alignment.TopStart
             },
     ) {
         InlineText(
