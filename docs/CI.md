@@ -11,9 +11,10 @@ the build automatically; remove and re-add the label when a fresh APK is needed.
 `.github/workflows/notify.yml` posts to the Discord webhook in the `DISCORD_WEBHOOK_URL` secret:
 
 - **Pushes to `main`:** one card per commit, from `.github/scripts/discord_commits.py`, with the
-  message body (trailers removed), lines and files changed, a link to its pull request and the
-  author. A PR merged into `main` is posted only as its commit, not a second time.
-- **Pull requests** opened or reopened, **releases**, and **CI failures on `main`** (Android CI,
+  message body (trailers removed) and the author. Lines and files changed are added when GitHub
+  returns the commit's details (for up to 60 commits per run), and a pull request link when the
+  subject ends with `(#123)`. A PR merged into `main` is posted only as its commit, not a second time.
+- **Pull requests** opened or reopened, and merged into a branch other than `main`, **releases**, and **CI failures on `main`** (Android CI,
   Release, Native runtime source build, Publish F-Droid repository, i18n Check).
 - **Backfill:** Actions → **Discord Notify** → Run workflow, `mode: backfill`, `since` = the last
   commit already posted, `until` = `main` (or a commit). Posts the commits in between under a
