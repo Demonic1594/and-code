@@ -291,6 +291,54 @@ class ClaudeStreamJsonParserTest {
     }
 
     @Test
+    fun `an https image is shown, while http and unusable sources are not`() {
+        val parsed =
+            parser().parse(
+                """{"type":"assistant","message":{"id":"m1","content":[""" +
+                    """{"type":"image","source":{"type":"url","url":"https://example.com/a.png"}},""" +
+                    """{"type":"image","source":{"type":"url","url":"http://example.com/b.png"}},""" +
+                    """{"type":"image","source":{"type":"base64","media_type":"image/png","data":""}},""" +
+                    """{"type":"image","source":{"type":"base64","media_type":"text/plain","data":"AAAA"}},""" +
+                    """{"type":"image","source":{"type":"file","file_id":"f1"}},""" +
+                    """{"type":"image"}]}}""",
+            )
+
+        // The chat's image loader only fetches https, so an http picture would be a broken one.
+        assertEquals(listOf("https://example.com/a.png"), parsed.messages.single().parts.map { it.url })
+    }
+
+    @Test
+    fun `the size note stays when a tool's picture cannot be shown`() {
+        val parser = parser()
+        parser.parse("""{"type":"assistant","message":{"id":"m","content":[{"type":"tool_use","id":"t1","name":"Read","input":{}}]}}""")
+        val result =
+            parser.parse(
+                """{"type":"user","message":{"id":"r","content":[{"type":"tool_result","tool_use_id":"t1","content":[""" +
+                    """{"type":"image","source":{"type":"url","url":"http://example.com/b.png"}},""" +
+                    """{"type":"text","text":"[Image: original 10x10, displayed at 10x10]"}]}]}}""",
+            )
+
+        val parts = result.messages.single().parts
+        assertTrue(parts.none { it.type == "file" })
+        val tool = parts.single { it.id == "t1" }
+        assertEquals("[Image: original 10x10, displayed at 10x10]", tool.state?.get("output")?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `a result for a call never seen is still shown as a finished tool`() {
+        val result =
+            parser().parse(
+                """{"type":"user","message":{"id":"r","content":[{"type":"tool_result","tool_use_id":"lost","content":"done"}]}}""",
+            )
+
+        val tool = result.messages.single().parts.single()
+        assertEquals("lost", tool.id)
+        assertEquals("tool", tool.tool)
+        assertEquals("completed", tool.state?.get("status")?.jsonPrimitive?.content)
+        assertEquals("done", tool.state?.get("output")?.jsonPrimitive?.content)
+    }
+
+    @Test
     fun `settles open tools when a turn ends with an error`() {
         val parser = parser()
         parser.parse(

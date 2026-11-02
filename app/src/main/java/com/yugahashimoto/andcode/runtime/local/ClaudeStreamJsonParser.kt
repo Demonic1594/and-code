@@ -411,27 +411,14 @@ class ClaudeStreamJsonParser(
             result
         }
 
-    /**
-     * An image content block as a file part the transcript shows as a picture: inline base64 as a
-     * data URL, or a URL source as is. Null for anything it cannot show.
-     */
+    /** An image content block as a file part the transcript shows as a picture, or null for one it cannot show. */
     private fun imagePart(
         messageId: String,
         partId: String,
         block: JsonObject,
     ): OpenCodePart? {
-        val source = block["source"] as? JsonObject ?: return null
-        val mime = source.string("media_type")
-        val url =
-            when (source.string("type")) {
-                "base64" -> {
-                    val data = source.string("data")
-                    if (mime != null && mime.startsWith("image/") && !data.isNullOrEmpty()) "data:$mime;base64,$data" else null
-                }
-                "url" -> source.string("url")?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
-                else -> null
-            } ?: return null
-        return OpenCodePart(id = partId, sessionId = sessionId, messageId = messageId, type = "file", mime = mime ?: "image/*", url = url)
+        val (mime, url) = block.shownImage() ?: return null
+        return OpenCodePart(id = partId, sessionId = sessionId, messageId = messageId, type = "file", mime = mime, url = url)
     }
 
     /** TodoWrite carries the whole list each time, so the newest block is the current state. */
@@ -497,7 +484,9 @@ class ClaudeStreamJsonParser(
                 is JsonPrimitive -> content.contentOrNull.orEmpty()
                 is JsonArray -> {
                     val elements = content.jsonArray
-                    val hasImage = elements.any { (it as? JsonObject)?.string("type") == "image" }
+                    // Only a picture that is actually shown replaces the note; one that cannot be
+                    // shown leaves the note as the only sign an image was there.
+                    val hasImage = elements.any { (it as? JsonObject)?.shownImage() != null }
                     elements
                         .filterNot { (it as? JsonObject)?.string("type") == "image" }
                         .mapNotNull { element ->
@@ -507,6 +496,25 @@ class ClaudeStreamJsonParser(
                 }
                 else -> content.toString()
             }
+
+        /**
+         * The (mime, url) an image content block is shown with: inline base64 as a data URL, or an
+         * https URL as is. Null for anything the chat cannot load, including plain http, which its
+         * image loader refuses.
+         */
+        fun JsonObject.shownImage(): Pair<String, String>? {
+            if (string("type") != "image") return null
+            val source = this["source"] as? JsonObject ?: return null
+            val mime = source.string("media_type")
+            return when (source.string("type")) {
+                "base64" -> {
+                    val data = source.string("data")
+                    if (mime != null && mime.startsWith("image/") && !data.isNullOrEmpty()) mime to "data:$mime;base64,$data" else null
+                }
+                "url" -> source.string("url")?.takeIf { it.startsWith("https://") }?.let { (mime ?: "image/*") to it }
+                else -> null
+            }
+        }
 
         private val IMAGE_NOTE = Regex("""\[Image: original \d+x\d+[^\]]*\]""")
     }
