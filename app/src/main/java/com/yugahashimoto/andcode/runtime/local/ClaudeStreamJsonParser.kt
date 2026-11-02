@@ -155,7 +155,7 @@ class ClaudeStreamJsonParser(
                         "tool_result" -> {
                             openTools.remove(block.string("tool_use_id") ?: partId)
                             // Pictures a tool returned (Read on an image, a screenshot) are shown as
-                            // pictures after the card, not as their base64 in its output.
+                            // pictures at the end of the message, not as their base64 in its output.
                             block.contentBlocks()
                                 .filter { it.string("type") == "image" }
                                 .forEachIndexed { n, image -> imagePart(messageId, "$partId-image-$n", image)?.let(::add) }
