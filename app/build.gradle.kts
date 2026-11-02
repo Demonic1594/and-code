@@ -233,13 +233,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-        freeCompilerArgs +=
-            listOf(
-                "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-            )
-    }
     buildFeatures {
         compose = true
         buildConfig = true
@@ -270,9 +263,8 @@ dependencies {
 
     // Firebase (github flavor only - the fdroid flavor ships with no Firebase/Google Play
     // services code so it can be built from source by F-Droid's own build server).
-    // 34.17.0 pulls Play Services Measurement compiled with Kotlin 2.2 metadata, while this
-    // project is currently on Kotlin 2.0/KSP 2.0. Keep the Firebase stack on the compatible
-    // 33.6 line until the Android build toolchain is upgraded together.
+    // Still on the 33.6 line: the project is now on Kotlin 2.4, which reads the Kotlin 2.2
+    // metadata of the 34.x line, but moving Firebase is a separate change from the toolchain one.
     "githubImplementation"(platform("com.google.firebase:firebase-bom:33.6.0"))
     "githubImplementation"("com.google.firebase:firebase-analytics")
     "githubImplementation"("com.google.firebase:firebase-crashlytics")
@@ -326,9 +318,9 @@ dependencies {
     implementation("io.insert-koin:koin-androidx-compose:4.0.1")
 
     // Room
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.room:room-runtime:2.7.2")
+    implementation("androidx.room:room-ktx:2.7.2")
+    ksp("androidx.room:room-compiler:2.7.2")
 
     // Baseline Profiles
     baselineProfile(project(":benchmark"))
@@ -404,5 +396,18 @@ tasks.register("generateNoticeAggregate") {
                 sections.joinToString("\n"),
         )
         println("Wrote ${sections.size} embedded NOTICE file(s) out of ${artifacts.size} artifacts to ${outputFile.path}")
+    }
+}
+
+kotlin {
+    // Kotlin 2.4's compiler and Gradle plugin, but 2.0's language and library API, and no newer a
+    // standard library than the libraries ask for (2.1 today): lint and R8 in this Android Gradle
+    // plugin cannot read Kotlin 2.4's metadata.
+    coreLibrariesVersion = "2.0.21"
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0)
+        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0)
+        optIn.add("androidx.compose.material3.ExperimentalMaterial3Api")
     }
 }

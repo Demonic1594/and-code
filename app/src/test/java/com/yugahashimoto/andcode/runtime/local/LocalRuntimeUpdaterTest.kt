@@ -344,7 +344,7 @@ class VerifiedRuntimeDownloaderTest {
     @Test
     fun `http failure preserves existing destination`() =
         runTest {
-            val root = createTempDir(prefix = "verified-downloader-http-")
+            val root = kotlin.io.path.createTempDirectory("verified-downloader-http-").toFile()
             try {
                 val destination = root.resolve("asset.tar.gz").apply { writeText("existing") }
                 server.enqueue(MockResponse().setResponseCode(503).setBody("unavailable"))
@@ -369,7 +369,7 @@ class VerifiedRuntimeDownloaderTest {
     @Test
     fun `sha mismatch deletes partial and does not replace destination`() =
         runTest {
-            val root = createTempDir(prefix = "verified-downloader-")
+            val root = kotlin.io.path.createTempDirectory("verified-downloader-").toFile()
             try {
                 val destination = root.resolve("asset.tar.gz")
                 destination.writeText("existing")
@@ -398,7 +398,7 @@ class VerifiedRuntimeDownloaderTest {
     @Test
     fun `partial download resumes with an HTTP range request`() =
         runTest {
-            val root = createTempDir(prefix = "verified-downloader-resume-")
+            val root = kotlin.io.path.createTempDirectory("verified-downloader-resume-").toFile()
             try {
                 val destination = root.resolve("asset.tar.gz")
                 root.resolve("asset.tar.gz.partial").writeText("hello ")
@@ -428,7 +428,7 @@ class VerifiedRuntimeDownloaderTest {
     @Test
     fun `server ignoring range restarts the partial download`() =
         runTest {
-            val root = createTempDir(prefix = "verified-downloader-restart-")
+            val root = kotlin.io.path.createTempDirectory("verified-downloader-restart-").toFile()
             try {
                 val destination = root.resolve("asset.tar.gz")
                 root.resolve("asset.tar.gz.partial").writeText("stale prefix")
@@ -518,7 +518,7 @@ class VerifiedRuntimeDownloaderTest {
     @Test
     fun `complete partial download is reused without another request`() =
         runTest {
-            val root = createTempDir(prefix = "verified-downloader-complete-partial-")
+            val root = kotlin.io.path.createTempDirectory("verified-downloader-complete-partial-").toFile()
             try {
                 val destination = root.resolve("asset.tar.gz")
                 val payload = "complete payload"
@@ -541,7 +541,7 @@ class VerifiedRuntimeDownloaderTest {
     @Test
     fun `range not satisfiable retries once from byte zero`() =
         runTest {
-            val root = createTempDir(prefix = "verified-downloader-range-retry-")
+            val root = kotlin.io.path.createTempDirectory("verified-downloader-range-retry-").toFile()
             try {
                 val destination = root.resolve("asset.tar.gz")
                 root.resolve("asset.tar.gz.partial").writeText("stale")
@@ -566,7 +566,7 @@ class VerifiedRuntimeDownloaderTest {
     @Test
     fun `failed retry preserves a preexisting backup`() =
         runTest {
-            val root = createTempDir(prefix = "verified-downloader-backup-")
+            val root = kotlin.io.path.createTempDirectory("verified-downloader-backup-").toFile()
             try {
                 val destination = root.resolve("asset.tar.gz").apply { writeText("unverified-current") }
                 val backup = root.resolve("asset.tar.gz.backup").apply { writeText("last-known-good") }
@@ -592,7 +592,7 @@ class VerifiedRuntimeDownloaderTest {
     @Test
     fun `successful retry removes stale backup`() =
         runTest {
-            val root = createTempDir(prefix = "verified-downloader-stale-")
+            val root = kotlin.io.path.createTempDirectory("verified-downloader-stale-").toFile()
             try {
                 val destination = root.resolve("asset.tar.gz").apply { writeText("unverified-current") }
                 val backup = root.resolve("asset.tar.gz.backup").apply { writeText("last-known-good") }
@@ -617,7 +617,7 @@ class VerifiedRuntimeDownloaderTest {
     @Test
     fun `verified download atomically replaces destination`() =
         runTest {
-            val root = createTempDir(prefix = "verified-downloader-")
+            val root = kotlin.io.path.createTempDirectory("verified-downloader-").toFile()
             try {
                 val destination = root.resolve("asset.tar.gz")
                 destination.writeText("old")

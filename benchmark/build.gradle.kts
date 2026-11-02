@@ -33,9 +33,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
 }
 
 baselineProfile {
@@ -54,5 +51,17 @@ dependencies {
 androidComponents {
     beforeVariants(selector().all()) {
         it.enable = it.buildType == "benchmark"
+    }
+}
+
+kotlin {
+    // Kotlin 2.4's compiler and Gradle plugin, but 2.0's language and library API, and no newer a
+    // standard library than the libraries ask for (2.1 today): lint and R8 in this Android Gradle
+    // plugin cannot read Kotlin 2.4's metadata.
+    coreLibrariesVersion = "2.0.21"
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0)
+        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0)
     }
 }
