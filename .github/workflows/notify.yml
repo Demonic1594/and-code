@@ -9,8 +9,24 @@ on:
   release:
     types: [published]
   workflow_run:
+    # GitHub rejects a workflow_run trigger that names no workflows, and then fails every run of
+    # this file, which is what silenced all notifications from 2026-11-01 on.
+    workflows: ["Android CI", "Release", "Native runtime source build", "Publish F-Droid repository", "i18n Check"]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "test: post one test message. backfill: post the commits after `since`, up to `until`."
+        type: choice
+        options: [test, backfill]
+        default: test
+      since:
+        description: "backfill: the last commit that was already posted (exclusive)"
+        required: false
+      until:
+        description: "backfill: the last commit to post (inclusive)"
+        required: false
+        default: main
 
 permissions:
   contents: read
@@ -21,7 +37,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Manual test message
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'test'
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
@@ -35,83 +51,44 @@ jobs:
           curl -sf --max-time 30 --retry 4 --retry-all-errors \
             -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
 
+      - name: Check out the notifier
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'backfill')
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
       - name: Commits pushed
         if: github.event_name == 'push'
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          BRANCH: ${{ github.ref_name }}
+          ACTOR: ${{ github.event.pusher.name || github.actor }}
+          FORCED: ${{ github.event.forced }}
+          MODE: push
         run: |
-          set -eu
           if [ -z "$WEBHOOK" ]; then echo "No webhook secret; skipping."; exit 0; fi
-          event="$GITHUB_EVENT_PATH"
+          python3 .github/scripts/discord_commits.py
 
-          # Skips only merge commits; squash/rebase merges will notify twice (push + PR merged).
-          merge_of_pr=$(jq -r \
-            '(.commits | length) == 1 and (.commits[0].message | startswith("Merge pull request #"))' \
-            "$event")
-          if [ "$merge_of_pr" = "true" ]; then
-            echo "Single merge commit from a PR; the PR embed covers it."
-            exit 0
-          fi
-
-          before=$(jq -r .before "$event")
-          after=$(jq -r .after "$event")
-          repo=$(jq -r .repository.full_name "$event")
-          branch=$(jq -r .ref "$event" | sed 's|^refs/heads/||')
-          pusher=$(jq -r '.pusher.name // .sender.login // "unknown"' "$event")
-          avatar=$(jq -r '.sender.avatar_url // ""' "$event")
-          ts=$(jq -r '.head_commit.timestamp // ""' "$event")
-          total=$(jq -r '.size // (.commits | length)' "$event")
-
-          if [[ "$before" =~ ^0+$ ]]; then
-            url="https://github.com/$repo/commit/$after"
-          else
-            url="https://github.com/$repo/compare/${before:0:12}...${after:0:12}"
-          fi
-
-          desc=$(jq -r --arg repo "$repo" '
-            [.commits[]
-              | "[`\(.id[0:7])`](https://github.com/\($repo)/commit/\(.id)) \((.message | split("\n")[0])[0:120]) — \(.author.username // .author.name)"]
-            | .[0:15] | join("\n")' "$event")
-          if [ "$total" -gt 15 ]; then
-            desc="$desc"$'\n'"…and $((total - 15)) more"
-          fi
-
-          unit=commits
-          [ "$total" -eq 1 ] && unit=commit
-
-          # Enrich with +/− and file counts from the compare API; failures degrade silently.
-          stats=$(gh api "repos/$repo/compare/${before:0:12}...${after:0:12}" \
-            -q '{additions: (.additions // 0), deletions: (.deletions // 0),
-                 files: (.files | length? // 0)}' 2>/dev/null || echo '{}')
-          adds=$(jq -r '.additions // 0' <<<"$stats")
-          dels=$(jq -r '.deletions // 0' <<<"$stats")
-          files=$(jq -r '.files // 0' <<<"$stats")
-
-          payload=$(jq -n \
-            --arg title "$pusher pushed $total $unit to $repo#$branch" \
-            --arg pusher "$pusher" \
-            --arg avatar "$avatar" \
-            --arg ts "$ts" \
-            --arg desc "$desc" \
-            --arg url "$url" \
-            --arg repo "$repo" \
-            --argjson adds "$adds" --argjson dels "$dels" --argjson files "$files" \
-            '{username: "and-code",
-              embeds: [{
-                title: ($title | .[0:250]), url: $url,
-                description: ($desc | .[0:4000]), color: 7506394,
-                author: {name: $pusher} + (if $avatar != "" then {icon_url: $avatar} else {} end)
-              }
-              + (if $ts != "" then {timestamp: $ts} else {} end)
-              + (if ($adds + $dels) > 0 then {fields: [
-                  {name: "Lines", value: "+\($adds) / −\($dels)", inline: true},
-                  {name: "Files", value: "\($files)", inline: true}
-                ]} else {} end)
-              + {footer: {text: $repo}}]}')
-
-          curl -sf --max-time 30 --retry 4 --retry-all-errors \
-            -X POST "$WEBHOOK" -H 'Content-Type: application/json' -d "$payload"
+      - name: Backfill commits that were not posted
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'backfill'
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BEFORE: ${{ inputs.since }}
+          AFTER: ${{ inputs.until }}
+          BRANCH: main
+          MODE: backfill
+        run: |
+          if [ -z "$WEBHOOK" ]; then echo "No webhook secret; skipping."; exit 1; fi
+          if [ -z "$BEFORE" ]; then echo "Set 'since' to the last commit already posted."; exit 1; fi
+          if [ -z "$AFTER" ]; then echo "Set 'until' to the last commit to post, or leave it as main."; exit 1; fi
+          python3 .github/scripts/discord_commits.py
 
       - name: Pull request events
         if: github.event_name == 'pull_request'
@@ -125,6 +102,12 @@ jobs:
           action=$(jq -r .action "$event")
           merged=$(jq -r .pull_request.merged "$event")
           if [ "$action" = "closed" ] && [ "$merged" != "true" ]; then
+            exit 0
+          fi
+          # A PR merged into main lands as a push to main, whose commit card links back to the PR.
+          base_ref=$(jq -r .pull_request.base.ref "$event")
+          if [ "$merged" = "true" ] && [ "$base_ref" = "main" ]; then
+            echo "Merged into main; the commit card covers it."
             exit 0
           fi
 
@@ -248,6 +231,7 @@ jobs:
           && (github.event.workflow_run.conclusion == 'failure'
               || github.event.workflow_run.conclusion == 'timed_out')
           && github.event.workflow_run.head_branch == 'main'
+          && github.event.workflow_run.event != 'pull_request'
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
