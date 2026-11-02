@@ -135,6 +135,25 @@ class ArtifactsTest {
     ).toChatPart("m1")!!
 
     @Test
+    fun `a write that failed is not an artifact`() {
+        val failed =
+            OpenCodePart(
+                id = "w1",
+                sessionId = "s1",
+                messageId = "m1",
+                type = "tool",
+                tool = "Write",
+                state =
+                    mapOf(
+                        "status" to JsonPrimitive("error"),
+                        "input" to json("""{"file_path":"/workspace/denied.html"}"""),
+                    ),
+            ).toChatPart("m1")!!
+
+        assertTrue(collectArtifacts(listOf(assistant(failed))).isEmpty())
+    }
+
+    @Test
     fun `a file an OpenCode write made is an artifact, though its input is shown as text`() {
         val artifacts =
             collectArtifacts(
@@ -239,5 +258,31 @@ class SupervisedArtifactsTest {
         val mentioned = listOf<Artifact>(Artifact.Server("http://localhost:3000"))
 
         org.junit.Assert.assertEquals(mentioned, withSupervised(mentioned, listOf(stopped, crashed, watcher)))
+    }
+}
+
+class ClaudeArtifactsTest {
+    @Test
+    fun `a file Claude wrote is listed once its tool has finished`() {
+        val parser =
+            com.yugahashimoto.andcode.runtime.local.ClaudeStreamJsonParser(
+                "session-1",
+                kotlinx.serialization.json.Json { ignoreUnknownKeys = true },
+            )
+        parser.parse(
+            """{"type":"assistant","message":{"id":"m","content":[{"type":"tool_use","id":"t1","name":"Edit",""" +
+                """"input":{"file_path":"/workspace/site/index.html","old_string":"a","new_string":"b"}}]}}""",
+        )
+        val finished =
+            parser.parse(
+                """{"type":"user","message":{"id":"r","content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]}}""",
+            ).messages.single()
+
+        val message = ChatMessage(isUser = false, parts = finished.parts.mapNotNull { it.toChatPart(finished.info.id) })
+
+        org.junit.Assert.assertEquals(
+            listOf(Artifact.File("/workspace/site/index.html", ArtifactKind.HTML)),
+            collectArtifacts(listOf(message)),
+        )
     }
 }

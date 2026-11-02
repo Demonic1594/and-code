@@ -135,15 +135,31 @@ class ClaudeStreamJsonParser(
             }
         val messageId = originMessageId ?: message.string("id") ?: newMessageId()
         currentMessageId = messageId
+        val existing = messagesById[messageId]
         val newParts =
             buildList {
                 blocks.forEach { block ->
+                    if (block.string("type") == "image") {
+                        // Claude Code sends each block of a message on a line of its own, so the
+                        // block index repeats; the picture's own content names it instead.
+                        imagePart(messageId, "$messageId-image-${block.hashCode()}", block)?.let(::add)
+                        return@forEach
+                    }
                     val part = parseContentBlock(messageId, block) ?: return@forEach
-                    add(part)
+                    // A tool_result carries only the outcome; keeping the call's name and input is
+                    // what lets the finished card (and the artifacts list) still say what it did.
+                    add(existing?.parts?.firstOrNull { it.id == part.id }?.let { started -> completedTool(started, part) } ?: part)
                     val partId = part.id ?: return@forEach
                     when (block.string("type")) {
                         "tool_use" -> openTools[partId] = OpenTool(messageId, partId)
-                        "tool_result" -> openTools.remove(block.string("tool_use_id") ?: partId)
+                        "tool_result" -> {
+                            openTools.remove(block.string("tool_use_id") ?: partId)
+                            // Pictures a tool returned (Read on an image, a screenshot) are shown as
+                            // pictures at the end of the message, not as their base64 in its output.
+                            block.contentBlocks()
+                                .filter { it.string("type") == "image" }
+                                .forEachIndexed { n, image -> imagePart(messageId, "$partId-image-$n", image)?.let(::add) }
+                        }
                     }
                 }
             }
@@ -151,7 +167,6 @@ class ClaudeStreamJsonParser(
         // Tool results arrive on a "user" message; surfacing them as assistant activity keeps the
         // transcript readable instead of interleaving fake user turns.
         val effectiveRole = if (role == "user") "assistant" else role
-        val existing = messagesById[messageId]
         // Each API response's usage, deduplicated by message id since every block of one response
         // repeats it. Input and cache counts are exact here; output is a placeholder from the
         // response's start, so it is left out and the turn's real total is added from the result.
@@ -382,6 +397,30 @@ class ClaudeStreamJsonParser(
         }
     }
 
+    /** [result] (a tool_result) folded into the tool_use part it answers, keeping that call's name and input. */
+    private fun completedTool(
+        started: OpenCodePart,
+        result: OpenCodePart,
+    ): OpenCodePart =
+        if (started.type == "tool" && result.type == "tool") {
+            result.copy(
+                tool = started.tool ?: result.tool,
+                state = started.state.orEmpty() + result.state.orEmpty(),
+            )
+        } else {
+            result
+        }
+
+    /** An image content block as a file part the transcript shows as a picture, or null for one it cannot show. */
+    private fun imagePart(
+        messageId: String,
+        partId: String,
+        block: JsonObject,
+    ): OpenCodePart? {
+        val (mime, url) = block.shownImage() ?: return null
+        return OpenCodePart(id = partId, sessionId = sessionId, messageId = messageId, type = "file", mime = mime, url = url)
+    }
+
     /** TodoWrite carries the whole list each time, so the newest block is the current state. */
     private fun parseTodos(block: JsonObject): List<OpenCodeTodo>? {
         if (block.string("name") != "TodoWrite") return null
@@ -431,18 +470,53 @@ class ClaudeStreamJsonParser(
         fun JsonObject.stringList(key: String): List<String>? =
             (this[key] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
 
-        /** Tool result payloads are either a string or a list of content blocks. */
+        /** The blocks of a tool result whose content is a list; none when it is a plain string. */
+        fun JsonObject.contentBlocks(): List<JsonObject> = (this["content"] as? JsonArray)?.mapNotNull { it as? JsonObject }.orEmpty()
+
+        /**
+         * Tool result payloads are either a string or a list of content blocks. Image blocks are
+         * shown as pictures, so they and the size note Claude Code puts beside them
+         * ("[Image: original 1280x2130, displayed at …]") are left out of the text.
+         */
         fun JsonObject.contentText(): String =
             when (val content = this["content"]) {
                 null -> ""
                 is JsonPrimitive -> content.contentOrNull.orEmpty()
-                is JsonArray ->
-                    content.jsonArray.joinToString("\n") { element ->
-                        (element as? JsonObject)?.let { it["text"] as? JsonPrimitive }?.contentOrNull
-                            ?: element.toString()
-                    }
+                is JsonArray -> {
+                    val elements = content.jsonArray
+                    // Only a picture that is actually shown replaces the note; one that cannot be
+                    // shown leaves the note as the only sign an image was there.
+                    val hasImage = elements.any { (it as? JsonObject)?.shownImage() != null }
+                    elements
+                        .filterNot { (it as? JsonObject)?.string("type") == "image" }
+                        .mapNotNull { element ->
+                            val text = (element as? JsonObject)?.let { it["text"] as? JsonPrimitive }?.contentOrNull ?: element.toString()
+                            text.takeUnless { hasImage && IMAGE_NOTE.matches(it.trim()) }
+                        }.joinToString("\n")
+                }
                 else -> content.toString()
             }
+
+        /**
+         * The (mime, url) an image content block is shown with: inline base64 as a data URL, or an
+         * https URL as is. Null for anything the chat cannot load, including plain http, which its
+         * image loader refuses.
+         */
+        fun JsonObject.shownImage(): Pair<String, String>? {
+            if (string("type") != "image") return null
+            val source = this["source"] as? JsonObject ?: return null
+            val mime = source.string("media_type")
+            return when (source.string("type")) {
+                "base64" -> {
+                    val data = source.string("data")
+                    if (mime != null && mime.startsWith("image/") && !data.isNullOrEmpty()) mime to "data:$mime;base64,$data" else null
+                }
+                "url" -> source.string("url")?.takeIf { it.startsWith("https://") }?.let { (mime ?: "image/*") to it }
+                else -> null
+            }
+        }
+
+        private val IMAGE_NOTE = Regex("""\[Image: original \d+x\d+[^\]]*\]""")
     }
 }
 
