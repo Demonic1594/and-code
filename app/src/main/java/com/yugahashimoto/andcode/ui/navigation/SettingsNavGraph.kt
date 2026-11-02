@@ -583,7 +583,8 @@ fun NavGraphBuilder.settingsNavGraph(
             onRestart = processesViewModel::restart,
             onStart = processesViewModel::start,
             onStartAll = processesViewModel::startAll,
-            logTail = processesViewModel::logTail,
+            onToggleLog = processesViewModel::toggleLog,
+            onProblemShown = processesViewModel::problemShown,
             onBack = { navController.popBackStack() },
         )
     }

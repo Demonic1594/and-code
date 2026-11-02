@@ -1759,6 +1759,12 @@
     <string name="processes_status_exited">Encerrado</string>
     <string name="processes_status_stopped">Parado</string>
     <string name="processes_port">Porta %1$d</string>
+    <string name="processes_action_description">%1$s: %2$s</string>
+    <string name="processes_problem_running">%1$s já está em execução.</string>
+    <string name="processes_problem_limit">Até %1$d processos podem rodar ao mesmo tempo. Pare um primeiro.</string>
+    <string name="processes_problem_port">A porta %1$d já está em uso por %2$s.</string>
+    <string name="processes_problem_name">Esse nome não pode ser usado para um processo.</string>
+    <string name="processes_problem_failed">Não foi possível iniciar: %1$s</string>
     <string name="storage_used_by_app">Usado pelo AndCode</string>
     <string name="storage_device_free">%1$s livres de %2$s</string>
     <string name="storage_other_apps">Todo o resto: %1$s</string>

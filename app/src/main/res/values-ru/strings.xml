@@ -1770,6 +1770,12 @@
     <string name="processes_status_exited">Завершён</string>
     <string name="processes_status_stopped">Остановлен</string>
     <string name="processes_port">Порт %1$d</string>
+    <string name="processes_action_description">%1$s: %2$s</string>
+    <string name="processes_problem_running">%1$s уже запущен.</string>
+    <string name="processes_problem_limit">Одновременно может работать не более %1$d процессов. Сначала остановите один.</string>
+    <string name="processes_problem_port">Порт %1$d уже занят процессом %2$s.</string>
+    <string name="processes_problem_name">Это имя нельзя использовать для процесса.</string>
+    <string name="processes_problem_failed">Не удалось запустить: %1$s</string>
     <string name="storage_used_by_app">Занято AndCode</string>
     <string name="storage_device_free">Свободно %1$s из %2$s</string>
     <string name="storage_other_apps">Всё остальное: %1$s</string>

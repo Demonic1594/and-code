@@ -1792,6 +1792,12 @@
     <string name="processes_status_exited">انتهى</string>
     <string name="processes_status_stopped">متوقف</string>
     <string name="processes_port">المنفذ %1$d</string>
+    <string name="processes_action_description">%1$s: %2$s</string>
+    <string name="processes_problem_running">%1$s قيد التشغيل بالفعل.</string>
+    <string name="processes_problem_limit">يمكن تشغيل %1$d عمليات كحد أقصى في وقت واحد. أوقف إحداها أولًا.</string>
+    <string name="processes_problem_port">المنفذ %1$d مستخدم بالفعل من قِبل %2$s.</string>
+    <string name="processes_problem_name">لا يمكن استخدام هذا الاسم لعملية.</string>
+    <string name="processes_problem_failed">تعذّر التشغيل: %1$s</string>
     <string name="storage_used_by_app">مستخدم بواسطة AndCode</string>
     <string name="storage_device_free">%1$s متاحة من %2$s</string>
     <string name="storage_other_apps">كل ما عدا ذلك: %1$s</string>

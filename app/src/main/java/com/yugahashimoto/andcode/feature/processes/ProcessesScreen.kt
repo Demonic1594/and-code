@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -21,21 +22,24 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.runtime.local.StartResult
 import com.yugahashimoto.andcode.runtime.local.SupervisedProcess
 import com.yugahashimoto.andcode.runtime.local.SupervisedProcessSpec
 import com.yugahashimoto.andcode.runtime.local.SupervisedStatus
@@ -50,10 +54,20 @@ fun ProcessesScreen(
     onRestart: (String) -> Unit,
     onStart: (SupervisedProcessSpec) -> Unit,
     onStartAll: () -> Unit,
-    logTail: (String) -> String?,
+    onToggleLog: (String) -> Unit,
+    onProblemShown: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val snackbar = remember { SnackbarHostState() }
+    val problem = state.problem?.let { problemText(it) }
+    LaunchedEffect(state.problem) {
+        if (problem != null) {
+            snackbar.showSnackbar(problem)
+            onProblemShown()
+        }
+    }
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.processes_title)) },
@@ -81,7 +95,7 @@ fun ProcessesScreen(
                 item { Text(stringResource(R.string.processes_empty), style = MaterialTheme.typography.bodyMedium) }
             }
             items(state.processes, key = { "run:" + it.spec.name }) { process ->
-                ProcessRow(process, onStop, onRestart, logTail)
+                ProcessRow(process, state.log?.takeIf { it.name == process.spec.name }, onStop, onRestart, onToggleLog)
                 HorizontalDivider()
             }
             if (state.fromLastTime.isNotEmpty()) {
@@ -92,7 +106,7 @@ fun ProcessesScreen(
                             Text(spec.name, style = MaterialTheme.typography.titleSmall)
                             CommandText(spec.command)
                         }
-                        TextButton(onClick = { onStart(spec) }) { Text(stringResource(R.string.processes_start)) }
+                        ActionButton(R.string.processes_start, spec.name) { onStart(spec) }
                     }
                 }
             }
@@ -122,44 +136,67 @@ private fun FromLastTimeHeader(onStartAll: () -> Unit) {
 @Composable
 private fun ProcessRow(
     process: SupervisedProcess,
+    log: ShownLog?,
     onStop: (String) -> Unit,
     onRestart: (String) -> Unit,
-    logTail: (String) -> String?,
+    onToggleLog: (String) -> Unit,
 ) {
     val name = process.spec.name
-    var showLog by remember(name) { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(name, style = MaterialTheme.typography.titleSmall)
         CommandText(process.spec.command)
         Text(statusLine(process), style = MaterialTheme.typography.bodySmall, color = statusColor(process.status))
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             val running = process.status == SupervisedStatus.RUNNING || process.status == SupervisedStatus.RESTARTING
-            if (running) TextButton(onClick = { onStop(name) }) { Text(stringResource(R.string.processes_stop)) }
-            TextButton(onClick = { onRestart(name) }) { Text(stringResource(R.string.processes_restart)) }
-            TextButton(onClick = { showLog = !showLog }) {
-                Text(stringResource(if (showLog) R.string.processes_hide_log else R.string.processes_show_log))
-            }
+            if (running) ActionButton(R.string.processes_stop, name) { onStop(name) }
+            ActionButton(R.string.processes_restart, name) { onRestart(name) }
+            ActionButton(if (log != null) R.string.processes_hide_log else R.string.processes_show_log, name) { onToggleLog(name) }
         }
-        if (showLog) {
-            // Read when shown, and again each time the row recomposes (a status change).
-            val log = logTail(name)?.takeIf { it.isNotBlank() } ?: stringResource(R.string.processes_no_log)
+        if (log != null) {
+            val text = log.text?.takeIf { it.isNotBlank() } ?: stringResource(R.string.processes_no_log)
             Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceVariant) {
-                Text(
-                    log,
-                    fontFamily = CodeFontFamily,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 240.dp)
-                            .verticalScroll(rememberScrollState())
-                            .horizontalScroll(rememberScrollState())
-                            .padding(8.dp),
-                )
+                SelectionContainer {
+                    Text(
+                        text,
+                        fontFamily = CodeFontFamily,
+                        style = MaterialTheme.typography.bodySmall,
+                        softWrap = false,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 240.dp)
+                                .verticalScroll(rememberScrollState())
+                                .horizontalScroll(rememberScrollState())
+                                .padding(8.dp),
+                    )
+                }
             }
         }
     }
 }
+
+/** A row's button, named with its process for TalkBack, where every row's buttons read the same. */
+@Composable
+private fun ActionButton(
+    label: Int,
+    processName: String,
+    onClick: () -> Unit,
+) {
+    val text = stringResource(label)
+    val description = stringResource(R.string.processes_action_description, text, processName)
+    TextButton(onClick = onClick, modifier = Modifier.semantics { contentDescription = description }) { Text(text) }
+}
+
+@Composable
+private fun problemText(problem: StartResult): String? =
+    when (problem) {
+        is StartResult.Started -> null
+        is StartResult.AlreadyRunning -> stringResource(R.string.processes_problem_running, problem.process.spec.name)
+        is StartResult.LimitReached -> stringResource(R.string.processes_problem_limit, problem.limit)
+        is StartResult.PortTaken -> stringResource(R.string.processes_problem_port, problem.port, problem.by)
+        StartResult.InvalidName -> stringResource(R.string.processes_problem_name)
+        is StartResult.Failed -> stringResource(R.string.processes_problem_failed, problem.reason)
+    }
 
 @Composable
 private fun CommandText(command: String) {

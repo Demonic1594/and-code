@@ -1759,6 +1759,12 @@
     <string name="processes_status_exited">Terminé</string>
     <string name="processes_status_stopped">Arrêté</string>
     <string name="processes_port">Port %1$d</string>
+    <string name="processes_action_description">%1$s : %2$s</string>
+    <string name="processes_problem_running">%1$s est déjà en cours d’exécution.</string>
+    <string name="processes_problem_limit">Jusqu’à %1$d processus peuvent tourner à la fois. Arrêtez-en un d’abord.</string>
+    <string name="processes_problem_port">Le port %1$d est déjà utilisé par %2$s.</string>
+    <string name="processes_problem_name">Ce nom ne peut pas être utilisé pour un processus.</string>
+    <string name="processes_problem_failed">Impossible de le démarrer : %1$s</string>
     <string name="storage_used_by_app">Utilisé par AndCode</string>
     <string name="storage_device_free">%1$s libres sur %2$s</string>
     <string name="storage_other_apps">Tout le reste : %1$s</string>

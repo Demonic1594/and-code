@@ -1757,6 +1757,12 @@
     <string name="processes_status_exited">終了</string>
     <string name="processes_status_stopped">停止済み</string>
     <string name="processes_port">ポート %1$d</string>
+    <string name="processes_action_description">%1$s：%2$s</string>
+    <string name="processes_problem_running">%1$s はすでに実行中です。</string>
+    <string name="processes_problem_limit">同時に実行できるプロセスは %1$d 個までです。先にどれかを停止してください。</string>
+    <string name="processes_problem_port">ポート %1$d はすでに %2$s が使用しています。</string>
+    <string name="processes_problem_name">その名前はプロセスに使えません。</string>
+    <string name="processes_problem_failed">起動できませんでした：%1$s</string>
     <string name="storage_used_by_app">AndCode の使用量</string>
     <string name="storage_device_free">%2$s 中 %1$s 空き</string>
     <string name="storage_other_apps">その他: %1$s</string>

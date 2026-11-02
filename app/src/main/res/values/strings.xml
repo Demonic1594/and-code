@@ -1778,6 +1778,12 @@
     <string name="processes_status_exited">Exited</string>
     <string name="processes_status_stopped">Stopped</string>
     <string name="processes_port">Port %1$d</string>
+    <string name="processes_action_description">%1$s: %2$s</string>
+    <string name="processes_problem_running">%1$s is already running.</string>
+    <string name="processes_problem_limit">Up to %1$d processes can run at once. Stop one first.</string>
+    <string name="processes_problem_port">Port %1$d is already used by %2$s.</string>
+    <string name="processes_problem_name">That name can’t be used for a process.</string>
+    <string name="processes_problem_failed">Couldn’t start it: %1$s</string>
     <string name="storage_used_by_app">Used by AndCode</string>
     <string name="storage_device_free">%1$s free of %2$s</string>
     <string name="storage_other_apps">Everything else: %1$s</string>
