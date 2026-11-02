@@ -13,7 +13,7 @@ supported variant, not a leftover.
 |-------|------|-----|
 | Package suffix `.heap` | `app/build.gradle.kts` (`buildTypes.debug.applicationIdSuffix`) | Installs as `com.yugahashimoto.andcode.heap`, so it lives side by side with an upstream release build and keeps its own data, runtime and sign-ins. |
 | Runtime port offset | `app/build.gradle.kts` (`LOCAL_RUNTIME_PORT_OFFSET`, `1` in `buildTypes.debug`) | Loopback is shared by every app on the device, so two installs both serving OpenCode on `127.0.0.1:4097` collide: the one that starts second reaches the other's server, which rejects its password, and providers and replies never load. A debug build installs its runtime on `4098` instead. The port is recorded when the runtime is installed, so a debug install made before this change keeps `4097` until its runtime is reinstalled. |
-| Launcher label `AndCode LH` | `app/src/debug/res/values/strings.xml` | Tells the two installs apart on the home screen and in the recents list. Debug-only resources are outside the i18n parity check, which only covers `app/src/main/res`. |
+| Launcher label `AndCode LH` | `app/src/debug/res/values*/strings.xml` | Tells the two installs apart on the home screen and in the recents list. One copy per app language, because each locale's `app_name` in `app/src/main/res` would otherwise win. Debug-only resources are outside the i18n parity check, which only covers `app/src/main/res`. |
 | Placeholder Firebase config | `app/src/debug/google-services.json` | The google-services Gradle plugin needs a client entry for the exact package name. This file carries a placeholder project with no real keys, so debug builds compile and never report to the upstream Firebase project. |
 | Large heap | `android:largeHeap="true"` in `AndroidManifest.xml` | Upstream adopted this in v1.2.26, so the fork no longer carries its own copy. Listed here so nobody re-adds a duplicate. |
 
@@ -45,9 +45,13 @@ is on `main`, run **Fork release** from the Actions tab. It creates the release 
   (`and-code-lh-<tag>-mapping.txt`) for reading crash stacks.
 - `and-code-lh-<tag>-debug.apk`, the debug-signed build, for updating an existing debug install.
 
+Crash and usage reporting in the signed build talks to the placeholder Firebase project, so even
+when a user opts in nothing is collected (the debug build never sends either).
+
 Each APK has a `.sha256` file. The signed build needs the repository secrets
 `RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and
-`RELEASE_KEY_PASSWORD`; without them only the debug APK is published. Keep the keystore and its
+`RELEASE_KEY_PASSWORD`; without them only the debug APK is published. Set them before the first run
+for a tag: the release notes are written once, when the release is created. Keep the keystore and its
 password backed up outside the repository: a signed install only accepts updates signed with the
 same key. Android does not let a debug-signed install update to the signed one (or back), so moving
 between them means uninstalling first, which removes that install's data.

@@ -68,8 +68,8 @@ jobs:
             exit 0
           fi
           export AND_CODE_STORE_FILE="$RUNNER_TEMP/release.keystore"
-          echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$AND_CODE_STORE_FILE"
           trap 'rm -f "$AND_CODE_STORE_FILE"' EXIT
+          echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$AND_CODE_STORE_FILE"
           # The fork's release keeps the placeholder Firebase project, like the debug build, so it
           # never reports to upstream's (docs/FORK.md). Only in this job's checkout, never committed.
           mkdir -p app/src/githubRelease
