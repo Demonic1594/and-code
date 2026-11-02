@@ -302,7 +302,6 @@ dependencies {
     implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.32.0")
     implementation("org.commonmark:commonmark-ext-task-list-items:0.32.0")
     implementation("org.commonmark:commonmark-ext-footnotes:0.32.0")
-    implementation("org.commonmark:commonmark-ext-autolink:0.32.0")
 
     // QR code scanning for connection setup
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")

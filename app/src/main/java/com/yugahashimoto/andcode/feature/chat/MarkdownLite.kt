@@ -1,7 +1,5 @@
 package com.yugahashimoto.andcode.feature.chat
 
-import org.commonmark.ext.autolink.AutolinkExtension
-import org.commonmark.ext.autolink.AutolinkType
 import org.commonmark.ext.footnotes.FootnotesExtension
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
 import org.commonmark.ext.gfm.tables.TablesExtension
@@ -87,8 +85,10 @@ object MarkdownLite {
 
     /**
      * The whole-document parser, for what an agent writes and for Markdown files: CommonMark with
-     * GitHub's tables, strikethrough and task lists, footnotes, and bare `scheme://` links. Built once;
-     * a commonmark-java parser is safe to share between threads.
+     * GitHub's tables, strikethrough and task lists, and footnotes. Built once; a commonmark-java
+     * parser is safe to share between threads. Bare URLs are linked by [linkBareUrls], not by the
+     * parser's autolink extension, which reads on to the next space and so swallows the Japanese or
+     * Chinese text that follows a URL with no space between.
      */
     private val documentParser: Parser =
         Parser
@@ -99,10 +99,29 @@ object MarkdownLite {
                     StrikethroughExtension.create(),
                     TaskListItemsExtension.create(),
                     FootnotesExtension.create(),
-                    // Only scheme links, as before: an email address or a bare "www." stays text.
-                    AutolinkExtension.builder().linkTypes(AutolinkType.URL).build(),
                 ),
             ).build()
+
+    private val bareUrlRegex = Regex("(?<![\\w@])(https?://[A-Za-z0-9][A-Za-z0-9._~:/?#\\[\\]@!&'()*+,;=%-]*)")
+
+    /**
+     * [text] with each bare http(s) URL in it as a link, trimmed of trailing punctuation the way
+     * [parseInline] trims it. Only ASCII URL characters count, so a URL ends where text in another
+     * script starts.
+     */
+    internal fun linkBareUrls(text: String): List<MarkdownInline> {
+        val result = mutableListOf<MarkdownInline>()
+        var lastIndex = 0
+        for (match in bareUrlRegex.findAll(text)) {
+            val url = trimUrlTail(match.value)
+            if (url.isEmpty()) continue
+            if (match.range.first > lastIndex) result += MarkdownInline.Plain(text.substring(lastIndex, match.range.first))
+            result += MarkdownInline.Link(url, url)
+            lastIndex = match.range.first + url.length
+        }
+        if (lastIndex < text.length) result += MarkdownInline.Plain(text.substring(lastIndex))
+        return result
+    }
 
     fun parse(source: String): List<MarkdownBlock> = CommonMarkMapper.blocks(documentParser.parse(source))
 
@@ -196,7 +215,7 @@ fun lazyMarkdownBlocks(blocks: List<MarkdownBlock>): List<MarkdownBlock> =
                 if (block.rows.size <= LAZY_TABLE_ROWS) {
                     listOf(block)
                 } else {
-                    block.rows.chunked(LAZY_TABLE_ROWS).map { MarkdownBlock.Table(block.headers, it) }
+                    block.rows.chunked(LAZY_TABLE_ROWS).map { block.copy(rows = it) }
                 }
             else -> listOf(block)
         }

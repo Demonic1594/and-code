@@ -153,7 +153,6 @@ class LegalDisclosureComplianceTest {
             "Apache-2.0.txt",
             "OFL-1.1-JetBrainsMono.txt",
             "BSD-2-Clause-commonmark-java.txt",
-            "MIT-autolink-java.txt",
         ).forEach { name ->
             val text = readRepoFile("app/src/main/assets/legal/licenses/$name")
             assertTrue("$name should be non-trivial license text", text.length > 200)
@@ -298,7 +297,6 @@ class LegalDisclosureComplianceTest {
                 "LGPL-3.0.txt",
                 "BSD-3-Clause-libandroid-shmem.txt",
                 "BSD-2-Clause-commonmark-java.txt",
-                "MIT-autolink-java.txt",
             )
         licenseFiles.forEach { name ->
             val sourceText = readRepoFile("THIRD_PARTY_LICENSES/$name")

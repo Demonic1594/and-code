@@ -129,14 +129,8 @@ internal fun MarkdownListItemView(
     Row {
         Text("$shownMarker  ", style = MaterialTheme.typography.bodyLarge, color = contentColor)
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (item.inlines.isNotEmpty()) {
-                InlineText(
-                    inlines = item.inlines,
-                    style = MaterialTheme.typography.bodyLarge.copy(color = contentColor),
-                    linkColor = MaterialTheme.colorScheme.primary,
-                    codeBackground = MaterialTheme.colorScheme.surfaceVariant,
-                )
-            }
+            // Through the paragraph view, so a picture in an item shows as a picture.
+            if (item.inlines.isNotEmpty()) MarkdownBlockView(MarkdownBlock.Paragraph(item.inlines), onImageClick, contentColor)
             item.children.forEach { child -> MarkdownBlockView(child, onImageClick, contentColor) }
         }
     }

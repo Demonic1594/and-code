@@ -35,11 +35,24 @@ import org.commonmark.node.ThematicBreak
  * looks, how links are opened and how images are loaded.
  */
 internal object CommonMarkMapper {
+    private const val MAX_NESTING = 24
+
     private val BR_TAG = Regex("""<br\s*/?>""", RegexOption.IGNORE_CASE)
 
-    fun blocks(parent: Node): List<MarkdownBlock> {
+    fun blocks(parent: Node): List<MarkdownBlock> = blocks(parent, 0)
+
+    private fun blocks(
+        parent: Node,
+        depth: Int,
+    ): List<MarkdownBlock> {
+        // Quotes and lists nest into composables that call each other; past this depth the rest is
+        // shown as plain text, so a pathological `>>>>…` cannot overflow the stack while laying out.
+        if (depth > MAX_NESTING) {
+            val text = allText(parent).trim()
+            return if (text.isEmpty()) emptyList() else listOf(MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain(text))))
+        }
         val result = mutableListOf<MarkdownBlock>()
-        parent.children().flatMap(::block).forEach { block ->
+        parent.children().flatMap { block(it, depth) }.forEach { block ->
             val previous = result.lastOrNull()
             // A bullet list that switches marker (`-` to `*`) is a new list by the spec, but reads as
             // one: keep it one, as before.
@@ -52,16 +65,22 @@ internal object CommonMarkMapper {
         return result
     }
 
-    private fun block(node: Node): List<MarkdownBlock> =
+    private fun block(
+        node: Node,
+        depth: Int,
+    ): List<MarkdownBlock> =
         when (node) {
             is LinkReferenceDefinition -> emptyList()
             // An empty paragraph shows nothing.
-            is Paragraph -> listOfNotNull(knownBlock(node))
+            is Paragraph -> listOfNotNull(knownBlock(node, depth))
             // A block type an extension adds that is not mapped here: keep what it contains.
-            else -> knownBlock(node)?.let(::listOf) ?: blocks(node)
+            else -> knownBlock(node, depth)?.let(::listOf) ?: blocks(node, depth)
         }
 
-    private fun knownBlock(node: Node): MarkdownBlock? =
+    private fun knownBlock(
+        node: Node,
+        depth: Int,
+    ): MarkdownBlock? =
         when (node) {
             is Paragraph -> inlines(node).takeIf { it.isNotEmpty() }?.let { MarkdownBlock.Paragraph(it) }
             is Heading -> MarkdownBlock.Heading(node.level.coerceIn(1, 6), inlines(node))
@@ -74,15 +93,18 @@ internal object CommonMarkMapper {
             // Raw HTML is shown as the text it is, never interpreted.
             is HtmlBlock -> MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain(node.literal.orEmpty().trimEnd('\n'))))
             is ThematicBreak -> MarkdownBlock.HorizontalRule
-            is BlockQuote -> MarkdownBlock.Blockquote(blocks(node))
-            is BulletList -> MarkdownBlock.BulletList(listItems(node))
-            is OrderedList -> MarkdownBlock.OrderedList(listItems(node), node.markerStartNumber ?: 1)
+            is BlockQuote -> MarkdownBlock.Blockquote(blocks(node, depth + 1))
+            is BulletList -> MarkdownBlock.BulletList(listItems(node, depth + 1))
+            is OrderedList -> MarkdownBlock.OrderedList(listItems(node, depth + 1), node.markerStartNumber ?: 1)
             is TableBlock -> table(node)
-            is FootnoteDefinition -> MarkdownBlock.Footnote(node.label, blocks(node))
+            is FootnoteDefinition -> MarkdownBlock.Footnote(node.label, blocks(node, depth + 1))
             else -> null
         }
 
-    private fun listItems(list: Node): List<MarkdownListItem> =
+    private fun listItems(
+        list: Node,
+        depth: Int,
+    ): List<MarkdownListItem> =
         list.children().filterIsInstance<ListItem>().map { item ->
             val children = item.children()
             val checked = (children.firstOrNull() as? TaskListItemMarker)?.isChecked
@@ -91,7 +113,7 @@ internal object CommonMarkMapper {
             MarkdownListItem(
                 inlines = lead?.let(::inlines).orEmpty(),
                 checked = checked,
-                children = content.drop(if (lead != null) 1 else 0).flatMap(::block),
+                children = content.drop(if (lead != null) 1 else 0).flatMap { block(it, depth) },
             )
         }
 
@@ -123,7 +145,7 @@ internal object CommonMarkMapper {
 
     private fun inline(node: Node): List<MarkdownInline> =
         when (node) {
-            is Text -> listOf(MarkdownInline.Plain(node.literal.orEmpty()))
+            is Text -> MarkdownLite.linkBareUrls(node.literal.orEmpty())
             // Agents lean on single newlines, so a soft break stays a line break, as before.
             is SoftLineBreak, is HardLineBreak -> listOf(MarkdownInline.Plain("\n"))
             is Code -> listOf(MarkdownInline.Code(node.literal.orEmpty()))
@@ -141,6 +163,15 @@ internal object CommonMarkMapper {
 
     /** A link's or image's own text, flattened: the model keeps a link's label as plain text. */
     private fun plainText(node: Node): String = node.children().flatMap(::inline).joinToString("") { it.text }
+
+    /** Every piece of text under [node], for content nested too deep to lay out as blocks. */
+    private fun allText(node: Node): String =
+        when (node) {
+            is Text -> node.literal.orEmpty()
+            is Code -> node.literal.orEmpty()
+            is SoftLineBreak, is HardLineBreak -> "\n"
+            else -> node.children().joinToString(if (node is Paragraph || node is ListItem) "\n" else "", transform = ::allText)
+        }
 
     /** Neighbouring text runs as one, so the model does not depend on how the parser split them. */
     private fun mergePlain(inlines: List<MarkdownInline>): List<MarkdownInline> {

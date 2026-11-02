@@ -453,4 +453,69 @@ class MarkdownLiteTest {
             inlines,
         )
     }
+
+    @Test
+    fun `a long table split for lazy rendering keeps its column alignment`() {
+        val source = "| a | b |\n|:-:|-:|\n" + (1..130).joinToString("\n") { "| $it | x |" }
+        val table = MarkdownLite.parse(source).single() as MarkdownBlock.Table
+
+        val pieces = lazyMarkdownBlocks(listOf(table)).filterIsInstance<MarkdownBlock.Table>()
+
+        assertEquals(3, pieces.size)
+        assertTrue(pieces.all { it.alignments == listOf(MarkdownAlign.CENTER, MarkdownAlign.RIGHT) })
+    }
+
+    @Test
+    fun `a bare url ends where Japanese or Chinese text starts`() {
+        val joined = MarkdownLite.parse("サーバーを http://localhost:3000で起動しました").single() as MarkdownBlock.Paragraph
+        val bracketed = MarkdownLite.parse("（http://localhost:3000）を開いて").single() as MarkdownBlock.Paragraph
+        val chinese = MarkdownLite.parse("打开http://localhost:5173查看").single() as MarkdownBlock.Paragraph
+
+        assertEquals(
+            listOf(
+                MarkdownInline.Plain("サーバーを "),
+                MarkdownInline.Link("http://localhost:3000", "http://localhost:3000"),
+                MarkdownInline.Plain("で起動しました"),
+            ),
+            joined.inlines,
+        )
+        assertEquals(
+            listOf(
+                MarkdownInline.Plain("（"),
+                MarkdownInline.Link("http://localhost:3000", "http://localhost:3000"),
+                MarkdownInline.Plain("）を開いて"),
+            ),
+            bracketed.inlines,
+        )
+        assertEquals(MarkdownInline.Link("http://localhost:5173", "http://localhost:5173"), chinese.inlines[1])
+    }
+
+    @Test
+    fun `only http and https are linked bare, and code spans are left alone`() {
+        val paragraph = MarkdownLite.parse("file:///etc/passwd and `http://a.b` and ftp://x.y").single() as MarkdownBlock.Paragraph
+
+        assertEquals(
+            listOf(
+                MarkdownInline.Plain("file:///etc/passwd and "),
+                MarkdownInline.Code("http://a.b"),
+                MarkdownInline.Plain(" and ftp://x.y"),
+            ),
+            paragraph.inlines,
+        )
+    }
+
+    @Test
+    fun `deeply nested quotes stop nesting and keep their text`() {
+        var depth = 0
+        var block: MarkdownBlock = MarkdownLite.parse(">".repeat(200) + " deep").single()
+        while (block is MarkdownBlock.Blockquote) {
+            depth++
+            block = block.blocks.single()
+        }
+
+        // Bounded, whether the parser's own limit or the mapper's is hit first, and the text survives.
+        assertTrue("nesting reached $depth", depth <= 26)
+        val text = (block as MarkdownBlock.Paragraph).inlines.joinToString("") { it.text }
+        assertTrue(text, text.endsWith("deep"))
+    }
 }

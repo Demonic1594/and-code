@@ -1442,7 +1442,6 @@
     <string name="runtime_full_development_tools_start_failed">无法开始安装开发工具</string>
     <string name="legal_license_ofl">SIL 开放字体许可协议 1.1（JetBrains Mono）</string>
     <string name="legal_license_bsd2">BSD-2-Clause (commonmark-java)</string>
-    <string name="legal_license_mit_autolink">MIT 许可证（autolink-java）</string>
     <string name="drawer_search_hint">搜索聊天</string>
     <string name="drawer_search_clear">清除搜索</string>
     <string name="drawer_search_no_results">没有匹配的聊天</string>

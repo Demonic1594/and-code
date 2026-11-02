@@ -181,7 +181,6 @@ javax.inject:javax.inject:1
 net.java.dev.jna:jna:5.18.1
 org.apache.commons:commons-compress:1.27.1
 org.apache.commons:commons-lang3:3.18.0
-org.commonmark:commonmark-ext-autolink:0.32.0
 org.commonmark:commonmark-ext-footnotes:0.32.0
 org.commonmark:commonmark-ext-gfm-strikethrough:0.32.0
 org.commonmark:commonmark-ext-gfm-tables:0.32.0
@@ -211,5 +210,4 @@ org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.7.3
 org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3
 org.jetbrains:annotations:23.0.0
 org.jspecify:jspecify:1.0.1
-org.nibor.autolink:autolink:0.12.0
 org.tukaani:xz:1.9

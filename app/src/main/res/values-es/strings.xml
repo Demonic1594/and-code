@@ -1452,7 +1452,6 @@
     <string name="runtime_full_development_tools_start_failed">No se pudo iniciar la instalación de herramientas</string>
     <string name="legal_license_ofl">Licencia SIL Open Font 1.1 (JetBrains Mono)</string>
     <string name="legal_license_bsd2">BSD-2-Clause (commonmark-java)</string>
-    <string name="legal_license_mit_autolink">Licencia MIT (autolink-java)</string>
     <string name="drawer_search_hint">Buscar chats</string>
     <string name="drawer_search_clear">Borrar búsqueda</string>
     <string name="drawer_search_no_results">Ningún chat coincide</string>
