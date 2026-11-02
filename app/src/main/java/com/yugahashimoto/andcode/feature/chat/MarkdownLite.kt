@@ -84,6 +84,7 @@ object MarkdownLite {
                 "|\\*([^*]+)\\*" +
                 "|(?<![\\w@])(https?://[A-Za-z0-9][A-Za-z0-9._~:/?#\\[\\]@!&'()*+,;=%-]*)",
         )
+
     /**
      * The whole-document parser, for what an agent writes and for Markdown files: CommonMark with
      * GitHub's tables, strikethrough and task lists, footnotes, and bare `scheme://` links. Built once;

@@ -97,6 +97,7 @@ internal object CommonMarkMapper {
 
     private fun table(table: TableBlock): MarkdownBlock.Table {
         val rows = mutableListOf<TableRow>()
+
         fun collect(node: Node) {
             node.children().forEach { if (it is TableRow) rows += it else collect(it) }
         }
