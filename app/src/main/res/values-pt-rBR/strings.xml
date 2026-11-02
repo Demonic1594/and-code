@@ -1629,6 +1629,7 @@
     <string name="artifacts_title">Artefatos</string>
     <string name="artifacts_menu">Artefatos (%1$d)</string>
     <string name="artifacts_local_server">Servidor local neste dispositivo</string>
+    <string name="artifacts_kept_server">Mantido em execução pelo AndCode · %1$s</string>
     <string name="artifact_preview">Prévia</string>
     <string name="artifact_source">Código-fonte</string>
     <string name="artifact_unavailable">Não foi possível mostrar este arquivo.</string>

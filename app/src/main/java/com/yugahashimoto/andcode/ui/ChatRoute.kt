@@ -21,6 +21,7 @@ import com.yugahashimoto.andcode.feature.chat.ChatUiState
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
 import com.yugahashimoto.andcode.feature.chat.FileMentionsUi
 import com.yugahashimoto.andcode.feature.chat.LocalFileMentions
+import com.yugahashimoto.andcode.feature.chat.LocalSupervisedProcesses
 import com.yugahashimoto.andcode.feature.chat.SubagentInfo
 import com.yugahashimoto.andcode.feature.git.GitClient
 import com.yugahashimoto.andcode.feature.git.gitHubRepositoryUrl
@@ -135,7 +136,11 @@ internal fun ChatRoute(
         origin.onSuccess { remote -> value = gitHubRepositoryUrl(remote) }
     }
     val mentionFiles by chatViewModel.fileMentions.results.collectAsState()
-    CompositionLocalProvider(LocalFileMentions provides FileMentionsUi(mentionFiles, chatViewModel.fileMentions::query)) {
+    val supervised by app.processSupervisor.processes.collectAsState()
+    CompositionLocalProvider(
+        LocalFileMentions provides FileMentionsUi(mentionFiles, chatViewModel.fileMentions::query),
+        LocalSupervisedProcesses provides supervised,
+    ) {
         ChatHomeScreen(
             repositoryUrl = repositoryUrl,
             findRequest = waiting.findRequest,

@@ -127,13 +127,20 @@ internal fun ArtifactsSheet(
                             subtitle = artifact.path.substringBeforeLast('/', ""),
                             onClick = { onOpenFile(artifact) },
                         )
-                    is Artifact.Server ->
+                    is Artifact.Server -> {
+                        val address = artifact.url.removePrefix("http://").removePrefix("https://")
                         ArtifactRow(
                             icon = Icons.Outlined.Language,
-                            title = artifact.url.removePrefix("http://").removePrefix("https://"),
-                            subtitle = stringResource(R.string.artifacts_local_server),
+                            title = artifact.name ?: address,
+                            subtitle =
+                                if (artifact.name != null) {
+                                    stringResource(R.string.artifacts_kept_server, address)
+                                } else {
+                                    stringResource(R.string.artifacts_local_server)
+                                },
                             onClick = { onOpenServer(artifact.url) },
                         )
+                    }
                 }
             }
         }

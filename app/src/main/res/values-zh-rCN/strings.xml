@@ -1619,6 +1619,7 @@
     <string name="artifacts_title">产物</string>
     <string name="artifacts_menu">产物 (%1$d)</string>
     <string name="artifacts_local_server">此设备上的本地服务器</string>
+    <string name="artifacts_kept_server">由 AndCode 保持运行 · %1$s</string>
     <string name="artifact_preview">预览</string>
     <string name="artifact_source">源码</string>
     <string name="artifact_unavailable">无法显示此文件。</string>

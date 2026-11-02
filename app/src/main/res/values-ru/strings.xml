@@ -1634,6 +1634,7 @@
     <string name="artifacts_title">Артефакты</string>
     <string name="artifacts_menu">Артефакты (%1$d)</string>
     <string name="artifacts_local_server">Локальный сервер на этом устройстве</string>
+    <string name="artifacts_kept_server">AndCode держит его запущенным · %1$s</string>
     <string name="artifact_preview">Просмотр</string>
     <string name="artifact_source">Исходник</string>
     <string name="artifact_unavailable">Не удалось показать этот файл.</string>

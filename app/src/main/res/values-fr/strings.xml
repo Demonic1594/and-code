@@ -1629,6 +1629,7 @@
     <string name="artifacts_title">Artefacts</string>
     <string name="artifacts_menu">Artefacts (%1$d)</string>
     <string name="artifacts_local_server">Serveur local sur cet appareil</string>
+    <string name="artifacts_kept_server">Maintenu en marche par AndCode · %1$s</string>
     <string name="artifact_preview">Aperçu</string>
     <string name="artifact_source">Source</string>
     <string name="artifact_unavailable">Impossible d\'afficher ce fichier.</string>

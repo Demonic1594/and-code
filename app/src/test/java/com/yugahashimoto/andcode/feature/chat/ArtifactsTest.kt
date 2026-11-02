@@ -183,3 +183,40 @@ class ArtifactsTest {
         assertEquals("/w/proj" to "/tmp/", artifactReadPair("/tmp/", "/w/proj"))
     }
 }
+
+class SupervisedArtifactsTest {
+    private fun process(
+        name: String,
+        port: Int?,
+        status: com.yugahashimoto.andcode.runtime.local.SupervisedStatus =
+            com.yugahashimoto.andcode.runtime.local.SupervisedStatus.RUNNING,
+    ) = com.yugahashimoto.andcode.runtime.local.SupervisedProcess(
+        spec = com.yugahashimoto.andcode.runtime.local.SupervisedProcessSpec(name = name, command = "npm run dev"),
+        status = status,
+        startedAtMillis = 0,
+        port = port,
+    )
+
+    @Test
+    fun `kept servers come first under their names, and a mention of the same port is not listed twice`() {
+        val page = Artifact.File("/workspace/index.html", ArtifactKind.HTML)
+        val mentioned = listOf(Artifact.Server("http://127.0.0.1:5173/"), page, Artifact.Server("http://localhost:8000"))
+
+        val listed = withSupervised(mentioned, listOf(process("web", 5173)))
+
+        org.junit.Assert.assertEquals(
+            listOf(Artifact.Server("http://localhost:5173", "web"), page, Artifact.Server("http://localhost:8000")),
+            listed,
+        )
+    }
+
+    @Test
+    fun `stopped, crashed and portless processes have nothing to open`() {
+        val stopped = process("api", 3000, com.yugahashimoto.andcode.runtime.local.SupervisedStatus.STOPPED)
+        val crashed = process("db", 5432, com.yugahashimoto.andcode.runtime.local.SupervisedStatus.CRASHED)
+        val watcher = process("watch", null)
+        val mentioned = listOf<Artifact>(Artifact.Server("http://localhost:3000"))
+
+        org.junit.Assert.assertEquals(mentioned, withSupervised(mentioned, listOf(stopped, crashed, watcher)))
+    }
+}
