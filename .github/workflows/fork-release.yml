@@ -70,7 +70,14 @@ jobs:
           fi
           export AND_CODE_STORE_FILE="$RUNNER_TEMP/release.keystore"
           trap 'rm -f "$AND_CODE_STORE_FILE"' EXIT
-          echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$AND_CODE_STORE_FILE"
+          # Pasted secrets often carry CRLF line ends, spaces, or certutil's BEGIN/END lines.
+          if ! printf '%s' "$RELEASE_KEYSTORE_BASE64" | grep -v -e '^-----' | tr -d '[:space:]' \
+            | base64 -d > "$AND_CODE_STORE_FILE"; then
+            echo "::error::RELEASE_KEYSTORE_BASE64 is not valid base64. Re-create it from the .jks with" \
+              "'base64 -w0 <file>' (Linux), 'base64 -i <file>' (macOS) or" \
+              "'[Convert]::ToBase64String([IO.File]::ReadAllBytes(\"<file>\"))' (PowerShell)."
+            exit 1
+          fi
           # The fork's release keeps the placeholder Firebase project, like the debug build, so it
           # never reports to upstream's (docs/FORK.md). Only in this job's checkout, never committed.
           mkdir -p app/src/githubRelease
