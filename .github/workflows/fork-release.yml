@@ -70,12 +70,35 @@ jobs:
           fi
           export AND_CODE_STORE_FILE="$RUNNER_TEMP/release.keystore"
           trap 'rm -f "$AND_CODE_STORE_FILE"' EXIT
-          # Pasted secrets often carry CRLF line ends, spaces, or certutil's BEGIN/END lines.
-          if ! printf '%s' "$RELEASE_KEYSTORE_BASE64" | grep -v -e '^[[:space:]]*-----' | tr -d '[:space:]' \
-            | base64 -d > "$AND_CODE_STORE_FILE" || [ ! -s "$AND_CODE_STORE_FILE" ]; then
-            echo "::error::RELEASE_KEYSTORE_BASE64 is not valid base64. Re-create it from the .jks with" \
+          # Pasted secrets often carry CRLF line ends, spaces, certutil's BEGIN/END lines, URL-safe
+          # characters or no trailing padding; normalise all of that before decoding.
+          B64="$(printf '%s' "$RELEASE_KEYSTORE_BASE64" | grep -v -e '^[[:space:]]*-----' \
+            | tr -d '[:space:]' | tr '_-' '/+')"
+          B64="${B64//=/}"
+          case $(( ${#B64} % 4 )) in 2) B64="$B64==" ;; 3) B64="$B64=" ;; esac
+          if ! printf '%s' "$B64" | base64 -d > "$AND_CODE_STORE_FILE" || [ ! -s "$AND_CODE_STORE_FILE" ]; then
+            # Counts only: never print any part of the secret.
+            ODD="$(printf '%s' "$B64" | tr -d 'A-Za-z0-9+/=' | wc -c)"
+            echo "::error::RELEASE_KEYSTORE_BASE64 is not valid base64 (${#B64} characters after cleanup, $ODD outside the base64 alphabet, length mod 4 = $(( ${#B64} % 4 ))). A real keystore encodes to thousands of characters. Re-create it from the .jks with" \
               "'base64 -w0 <file>' (Linux), 'base64 -i <file>' (macOS) or" \
               "'[Convert]::ToBase64String([IO.File]::ReadAllBytes(\"<full path>\"))' (PowerShell)."
+            exit 1
+          fi
+          # Open it with the store password and alias now, so a wrong secret is named here rather than
+          # failing deep inside Gradle. The password goes in by environment variable, never on argv.
+          if ! keytool -list -keystore "$AND_CODE_STORE_FILE" -storepass:env AND_CODE_STORE_PASSWORD \
+            -alias "$AND_CODE_KEY_ALIAS" > "$RUNNER_TEMP/keytool.err" 2>&1; then
+            # Fixed sentences only: keytool's own text can echo the alias, so it is matched, never printed.
+            if grep -q -i 'password was incorrect' "$RUNNER_TEMP/keytool.err"; then
+              WHY="the store password (RELEASE_KEYSTORE_PASSWORD) does not match this keystore"
+            elif grep -q -i 'does not exist' "$RUNNER_TEMP/keytool.err"; then
+              WHY="the alias (RELEASE_KEY_ALIAS) is not in this keystore"
+            elif grep -q -i 'keystore format' "$RUNNER_TEMP/keytool.err"; then
+              WHY="RELEASE_KEYSTORE_BASE64 decodes to something that is not a keystore"
+            else
+              WHY="keytool could not open it"
+            fi
+            echo "::error::The decoded keystore could not be opened: $WHY."
             exit 1
           fi
           # The fork's release keeps the placeholder Firebase project, like the debug build, so it
