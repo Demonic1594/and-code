@@ -518,4 +518,19 @@ class MarkdownLiteTest {
         val text = (block as MarkdownBlock.Paragraph).inlines.joinToString("") { it.text }
         assertTrue(text, text.endsWith("deep"))
     }
+
+    @Test
+    fun `deeply nested lists stop nesting and keep their text`() {
+        val source = (0 until 120).joinToString("\n") { "  ".repeat(it) + "- item $it" }
+        var depth = 0
+        var block: MarkdownBlock = MarkdownLite.parse(source).single()
+        while (block is MarkdownBlock.BulletList) {
+            depth++
+            block = block.items.single().children.singleOrNull() ?: break
+        }
+
+        assertTrue("nesting reached $depth", depth <= 26)
+        val all = MarkdownLite.parse(source).toString()
+        assertTrue(all.contains("item 119"))
+    }
 }

@@ -69,6 +69,16 @@ internal object CommonMarkMapper {
         node: Node,
         depth: Int,
     ): List<MarkdownBlock> =
+        when {
+            // Lists inside list items reach here without passing through [blocks]: cap them too.
+            depth > MAX_NESTING -> blocks(node, depth)
+            else -> mappedBlock(node, depth)
+        }
+
+    private fun mappedBlock(
+        node: Node,
+        depth: Int,
+    ): List<MarkdownBlock> =
         when (node) {
             is LinkReferenceDefinition -> emptyList()
             // An empty paragraph shows nothing.
@@ -170,7 +180,11 @@ internal object CommonMarkMapper {
             is Text -> node.literal.orEmpty()
             is Code -> node.literal.orEmpty()
             is SoftLineBreak, is HardLineBreak -> "\n"
-            else -> node.children().joinToString(if (node is Paragraph || node is ListItem) "\n" else "", transform = ::allText)
+            else ->
+                node.children().joinToString(
+                    if (node is Paragraph || node is ListItem || node is BlockQuote) "\n" else "",
+                    transform = ::allText,
+                )
         }
 
     /** Neighbouring text runs as one, so the model does not depend on how the parser split them. */
