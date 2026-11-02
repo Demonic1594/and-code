@@ -140,3 +140,15 @@ store under `/root` inside the sandbox.
 
 Session metadata and normalized Claude messages are stored in the app-private runtime directory.
 Writes are coalesced to turn boundaries rather than issued per streamed line.
+
+## Tool results and pictures
+
+Claude Code reports a finished tool as a `tool_result` that carries only a status and output.
+`ClaudeStreamJsonParser` folds it into the `tool_use` part it answers, so the finished card keeps the
+tool's name and input; Artifacts reads the written file's path from that input. A tool marked
+`error` names no file, so a failed write is not listed.
+
+Image blocks, in a tool's result (Read on a picture, a screenshot) or in Claude's own message,
+become pictures in the chat: base64 as a data URL, URL images only over https, since the chat's image
+loader refuses plain http. Claude Code's size note beside a picture ("[Image: original 1280x2130,
+displayed at …]") is dropped only when that picture is actually shown.
