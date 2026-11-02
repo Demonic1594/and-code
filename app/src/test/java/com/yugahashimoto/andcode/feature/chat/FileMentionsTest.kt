@@ -53,6 +53,14 @@ class FileMentionsTest {
     }
 
     @Test
+    fun `a mention at the end of a line keeps the line break after it`() {
+        val value = TextFieldValue("see @ma\nand more", TextRange(7))
+        val mention = FileMentions.queryAt(value)!!
+
+        assertEquals("see @src/main.kt \nand more", FileMentions.insert(value, mention, "src/main.kt").text)
+    }
+
+    @Test
     fun `only the last query is searched, after a pause, and a failed search shows nothing`() =
         runTest {
             val asked = mutableListOf<String>()
