@@ -153,17 +153,25 @@ if [ -f "$CLASSES" ]; then
     EDIT_REAL=$(realpath -m -- "$EDIT_PATH" 2>/dev/null || true)
     PROJECT_REAL=$(realpath -m -- "$CWD" 2>/dev/null || true)
     BRIDGE_REAL=$(realpath -m -- "$BRIDGE" 2>/dev/null || printf '%s' "$BRIDGE")
-    case "$EDIT_REAL" in
-      "" | */.git | */.git/* | */.claude | */.claude/* | */.mcp.json | "$BRIDGE_REAL" | "$BRIDGE_REAL"/*) TOOL_KIND="" ;;
-    esac
+    # Checked as written and as resolved: a protected name reached through a symlink, or a
+    # protected entry that is itself a symlink to somewhere else in the project, is still protected.
+    for P in "$EDIT_PATH" "$EDIT_REAL"; do
+      case "$P" in
+        "" | */.git | */.git/* | */.claude | */.claude/* | */.mcp.json | "$BRIDGE_REAL" | "$BRIDGE_REAL"/*) TOOL_KIND="" ;;
+      esac
+    done
+    for ENTRY in .git .claude .mcp.json; do
+      TARGET=$(realpath -m -- "$PROJECT_REAL/$ENTRY" 2>/dev/null || true)
+      case "$EDIT_REAL" in "$TARGET" | "$TARGET"/*) TOOL_KIND="" ;; esac
+    done
     if [ -z "$PROJECT_REAL" ] || [ "$PROJECT_REAL" = "/" ]; then
       TOOL_KIND=""
     else
       case "$EDIT_REAL" in "$PROJECT_REAL"/*) ;; *) TOOL_KIND="" ;; esac
     fi
   fi
-  # Only a list of kinds counts: a damaged file allows nothing.
-  if [ -n "$TOOL_KIND" ] && jq -e --arg k "$TOOL_KIND" '(.allow | type == "array") and any(.allow[]; . == $k)' "$CLASSES" >/dev/null 2>&1; then
+  # Only a list of kinds (all strings, as the app reads it) counts: a damaged file allows nothing.
+  if [ -n "$TOOL_KIND" ] && jq -e --arg k "$TOOL_KIND" '(.allow | type == "array") and all(.allow[]; type == "string") and any(.allow[]; . == $k)' "$CLASSES" >/dev/null 2>&1; then
     printf '%s\n' "$ALLOW"
     exit 0
   fi

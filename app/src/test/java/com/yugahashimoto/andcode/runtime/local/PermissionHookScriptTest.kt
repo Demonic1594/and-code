@@ -104,10 +104,30 @@ class PermissionHookScriptTest {
     }
 
     @Test
-    fun `a damaged kinds file allows nothing`() {
-        File(bridge, "class-rules.json").writeText("""{"allow":"xreadx"}""")
+    fun `editing by kind does not reach settings or git through a symlink`() {
+        File(bridge, "class-rules.json").writeText("""{"allow":["edit"]}""")
+        val project = folder.newFolder("shop")
+        File(project, "config").mkdirs()
+        File(project, "sub").mkdirs()
+        // The project's own .claude is a link to config, and sub/.claude is a link to config too.
+        java.nio.file.Files.createSymbolicLink(File(project, ".claude").toPath(), File(project, "config").toPath())
+        java.nio.file.Files.createSymbolicLink(File(project, "sub/.claude").toPath(), File(project, "config").toPath())
 
-        assertEquals("deny", runHook(toolCall("Read", """{"file_path":"a"}"""), response = declined).behavior())
+        listOf("config/settings.json", "sub/.claude/settings.json", ".claude/settings.json").forEach { path ->
+            val call = toolCall("Write", buildJsonObject { put("file_path", path) }.toString(), cwd = project.path)
+            assertEquals(path, "deny", runHook(call, response = declined).behavior())
+        }
+        val ordinary = toolCall("Write", """{"file_path":"src/a.kt"}""", cwd = project.path)
+        assertEquals("allow", runHook(ordinary).behavior())
+    }
+
+    @Test
+    fun `a damaged kinds file allows nothing`() {
+        listOf("""{"allow":"xreadx"}""", """{"allow":["read",1]}""", """{"allow":["read",{}]}""").forEach { damaged ->
+            File(bridge, "class-rules.json").writeText(damaged)
+
+            assertEquals(damaged, "deny", runHook(toolCall("Read", """{"file_path":"a"}"""), response = declined).behavior())
+        }
     }
 
     @Test
@@ -246,7 +266,9 @@ class PermissionHookScriptTest {
     private fun toolCall(
         tool: String,
         input: String,
-    ): String = """{"hook_event_name":"PermissionRequest","session_id":"s1","cwd":"/root/shop","tool_name":"$tool","tool_input":$input}"""
+        cwd: String = "/root/shop",
+    ): String =
+        """{"hook_event_name":"PermissionRequest","session_id":"s1","cwd":${JsonPrimitive(cwd)},"tool_name":"$tool","tool_input":$input}"""
 
     private fun bashCall(
         command: String,
