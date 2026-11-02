@@ -56,7 +56,8 @@ Each APK has a `.sha256` file. The signed build needs the repository secrets
 `RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and
 `RELEASE_KEY_PASSWORD`; without all four only the debug APK is published. `RELEASE_KEYSTORE_BASE64` is
 the `.jks` file in base64: `base64 -w0 <file>` on Linux, `base64 -i <file>` on macOS, or
-`[Convert]::ToBase64String([IO.File]::ReadAllBytes("<file>"))` in PowerShell. Set them before the first run
+`[Convert]::ToBase64String([IO.File]::ReadAllBytes("<full path>")) | Set-Clipboard` in PowerShell
+(it needs the full path to the file). Set them before the first run
 for a tag: the release notes are written once, when the release is created. Keep the keystore and its
 password backed up outside the repository: a signed install only accepts updates signed with the
 same key. Android does not let a debug-signed install update to the signed one (or back), so moving
