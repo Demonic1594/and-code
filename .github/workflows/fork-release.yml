@@ -71,7 +71,7 @@ jobs:
           export AND_CODE_STORE_FILE="$RUNNER_TEMP/release.keystore"
           trap 'rm -f "$AND_CODE_STORE_FILE"' EXIT
           # Pasted secrets often carry CRLF line ends, spaces, or certutil's BEGIN/END lines.
-          if ! printf '%s' "$RELEASE_KEYSTORE_BASE64" | grep -v -e '^-----' | tr -d '[:space:]' \
+          if ! printf '%s' "$RELEASE_KEYSTORE_BASE64" | grep -v -e '^[[:space:]]*-----' | tr -d '[:space:]' \
             | base64 -d > "$AND_CODE_STORE_FILE" || [ ! -s "$AND_CODE_STORE_FILE" ]; then
             echo "::error::RELEASE_KEYSTORE_BASE64 is not valid base64. Re-create it from the .jks with" \
               "'base64 -w0 <file>' (Linux), 'base64 -i <file>' (macOS) or" \
