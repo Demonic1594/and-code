@@ -30,18 +30,32 @@ installable "AndCode LH" APK attached to a PR, add the `build-apk` label (or run
 
 ## Releases
 
-This fork has no release signing key, so it publishes the debug-signed "AndCode LH" build instead.
 Bump `versionName` and `versionCode` in `app/build.gradle.kts`, `.release-version`,
 `ReleaseMetadataTest` and add `fastlane/metadata/android/*/changelogs/<versionCode>.txt`; once that
-is on `main`, run **Fork release** from the Actions tab. It builds the APK, creates the release for
-the tag in `.release-version` and attaches `and-code-lh-<tag>-debug.apk` and its SHA-256. A debug
-signature can only update other builds signed the same way, and the APK installs beside an upstream
-AndCode.
+is on `main`, run **Fork release** from the Actions tab. It creates the release for the tag in
+`.release-version` and attaches:
 
-`release.yml` (the signed upstream flow) is skipped on a repository whose
-`AND_CODE_GITHUB_CLIENT_ID` variable is not set, so a version bump does not start a run that stops at
-the missing keystore. That variable is also what puts a GitHub sign-in client ID into the APK, so
-setting it here switches `release.yml` back on: add the four `RELEASE_*` signing secrets first.
+- `and-code-lh-<tag>.apk`, the release build signed with the fork's own key. It is built with
+  `-Pandcode.lhRelease=true`, which gives the release build type the debug build's `.heap` package
+  suffix, runtime port offset and "AndCode LH" label, and turns off the Crashlytics mapping upload.
+  The job copies the placeholder `app/src/debug/google-services.json` to
+  `app/src/githubRelease/` in its own checkout (never committed), so this build never reports to
+  upstream's Firebase project. It checks the signature and that the package is
+  `com.yugahashimoto.andcode.heap` before publishing, and attaches the R8 mapping
+  (`and-code-lh-<tag>-mapping.txt`) for reading crash stacks.
+- `and-code-lh-<tag>-debug.apk`, the debug-signed build, for updating an existing debug install.
+
+Each APK has a `.sha256` file. The signed build needs the repository secrets
+`RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and
+`RELEASE_KEY_PASSWORD`; without them only the debug APK is published. Keep the keystore and its
+password backed up outside the repository: a signed install only accepts updates signed with the
+same key. Android does not let a debug-signed install update to the signed one (or back), so moving
+between them means uninstalling first, which removes that install's data.
+
+`release.yml` (upstream's signed flow, which builds `com.yugahashimoto.andcode` with upstream's
+Firebase project) is skipped on a repository whose `AND_CODE_GITHUB_CLIENT_ID` variable is not set.
+Leave that variable unset here: setting it would switch `release.yml` back on and publish an APK
+that clashes with an upstream install.
 
 ## Syncing with upstream
 
