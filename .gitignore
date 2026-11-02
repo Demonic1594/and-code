@@ -17,3 +17,6 @@ __pycache__/
 .cxx/
 captures/
 docs/superpowers/
+
+# Placeholder Firebase config the fork release job copies in (docs/FORK.md); never committed.
+app/src/githubRelease/google-services.json
