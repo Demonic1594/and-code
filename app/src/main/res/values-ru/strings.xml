@@ -1775,6 +1775,10 @@
     <string name="processes_status_exited">Завершён</string>
     <string name="processes_status_stopped">Остановлен</string>
     <string name="processes_port">Порт %1$d</string>
+    <string name="processes_instructions_title">Некоторые агенты не знают об andcode-run</string>
+    <string name="processes_instructions_body">Эти файлы инструкций были изменены, поэтому AndCode перестал их обновлять. Их агенты могут запускать серверы через nohup, а такие серверы останавливаются, когда телефон засыпает.</string>
+    <string name="processes_instructions_add">Добавить</string>
+    <string name="processes_instructions_dismiss">Скрыть</string>
     <string name="processes_action_description">%1$s: %2$s</string>
     <string name="processes_problem_running">%1$s уже запущен.</string>
     <string name="processes_problem_limit">Одновременно может работать не более %1$d процессов. Сначала остановите один.</string>

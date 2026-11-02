@@ -575,7 +575,19 @@ fun NavGraphBuilder.settingsNavGraph(
             androidx.lifecycle.viewmodel.compose.viewModel(
                 factory =
                     com.yugahashimoto.andcode.ui.ViewModelFactory {
-                        com.yugahashimoto.andcode.feature.processes.ProcessesViewModel(app.processSupervisor)
+                        com.yugahashimoto.andcode.feature.processes.ProcessesViewModel(
+                            app.processSupervisor,
+                            com.yugahashimoto.andcode.runtime.local.GuestRunInstructions(
+                                rootfs = { app.localRuntimeInstaller.installedRuntime()?.rootfs },
+                                blurb = {
+                                    runCatching {
+                                        app.assets.open(com.yugahashimoto.andcode.runtime.local.AND_CODE_AGENT_CONTEXT_ASSET)
+                                            .use { it.readBytes().decodeToString() }
+                                    }.getOrNull()
+                                },
+                                dismissedFile = java.io.File(app.filesDir, "run-instructions-dismissed.txt"),
+                            ),
+                        )
                     },
             )
         val processes by processesViewModel.state.collectAsState()
@@ -588,6 +600,11 @@ fun NavGraphBuilder.settingsNavGraph(
             onToggleLog = processesViewModel::toggleLog,
             onProblemShown = processesViewModel::problemShown,
             onBack = { navController.popBackStack() },
+            instructionsActions =
+                com.yugahashimoto.andcode.feature.processes.InstructionsActions(
+                    onAdd = processesViewModel::addRunSection,
+                    onDismiss = processesViewModel::dismissInstructions,
+                ),
         )
     }
 

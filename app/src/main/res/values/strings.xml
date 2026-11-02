@@ -1783,6 +1783,10 @@
     <string name="processes_status_exited">Exited</string>
     <string name="processes_status_stopped">Stopped</string>
     <string name="processes_port">Port %1$d</string>
+    <string name="processes_instructions_title">Some agents don’t know about andcode-run</string>
+    <string name="processes_instructions_body">These instruction files were changed, so AndCode stopped updating them. Their agents may start servers with nohup, which stop when the phone sleeps.</string>
+    <string name="processes_instructions_add">Add</string>
+    <string name="processes_instructions_dismiss">Dismiss</string>
     <string name="processes_action_description">%1$s: %2$s</string>
     <string name="processes_problem_running">%1$s is already running.</string>
     <string name="processes_problem_limit">Up to %1$d processes can run at once. Stop one first.</string>

@@ -1762,6 +1762,10 @@
     <string name="processes_status_exited">終了</string>
     <string name="processes_status_stopped">停止済み</string>
     <string name="processes_port">ポート %1$d</string>
+    <string name="processes_instructions_title">andcode-run を知らないエージェントがあります</string>
+    <string name="processes_instructions_body">これらの指示ファイルは変更されているため、AndCode は更新を止めています。そのエージェントは nohup でサーバーを起動する可能性があり、スマートフォンがスリープすると止まります。</string>
+    <string name="processes_instructions_add">追加</string>
+    <string name="processes_instructions_dismiss">閉じる</string>
     <string name="processes_action_description">%1$s：%2$s</string>
     <string name="processes_problem_running">%1$s はすでに実行中です。</string>
     <string name="processes_problem_limit">同時に実行できるプロセスは %1$d 個までです。先にどれかを停止してください。</string>
