@@ -108,7 +108,12 @@ fun ScheduleAutomationDialog(
         ConfirmTokenChange(
             change = change,
             onConfirm = {
-                token = if (change == TokenChange.RENEW) automation.renew() else null.also { automation.turnOff() }
+                if (change == TokenChange.RENEW) {
+                    token = automation.renew()
+                } else {
+                    automation.turnOff()
+                    token = null
+                }
                 confirming = null
             },
             onDismiss = { confirming = null },
