@@ -68,6 +68,7 @@ jobs:
           AFTER: ${{ github.event.after }}
           BRANCH: ${{ github.ref_name }}
           ACTOR: ${{ github.event.pusher.name || github.actor }}
+          FORCED: ${{ github.event.forced }}
           MODE: push
         run: |
           if [ -z "$WEBHOOK" ]; then echo "No webhook secret; skipping."; exit 0; fi
@@ -86,6 +87,7 @@ jobs:
         run: |
           if [ -z "$WEBHOOK" ]; then echo "No webhook secret; skipping."; exit 1; fi
           if [ -z "$BEFORE" ]; then echo "Set 'since' to the last commit already posted."; exit 1; fi
+          if [ -z "$AFTER" ]; then echo "Set 'until' to the last commit to post, or leave it as main."; exit 1; fi
           python3 .github/scripts/discord_commits.py
 
       - name: Pull request events

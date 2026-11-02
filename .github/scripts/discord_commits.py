@@ -62,7 +62,15 @@ def commits_in_range(repo, before, after):
     """Oldest first, as GitHub lists them. A new branch (zero `before`) is just its head commit."""
     if not before or set(before) == {"0"}:
         return [github(f"/repos/{repo}/commits/{after}")]
-    return github(f"/repos/{repo}/compare/{before}...{after}").get("commits", [])
+    # The compare API pages its commit list; without paging it stops at 250.
+    commits, page = [], 1
+    while True:
+        result = github(f"/repos/{repo}/compare/{before}...{after}?per_page=100&page={page}")
+        batch = result.get("commits", [])
+        commits += batch
+        if not batch or len(commits) >= result.get("total_commits", 0) or page >= 20:
+            return commits
+        page += 1
 
 
 def clean_body(message):
@@ -138,18 +146,27 @@ def batches(embeds):
 def post(webhook, payload):
     data = json.dumps(payload).encode()
     for attempt in range(6):
-        request = urllib.request.Request(
-            webhook + ("&" if "?" in webhook else "?") + "wait=true",
-            data=data,
-            headers={"Content-Type": "application/json", "User-Agent": "and-code-notify"},
-        )
+        try:
+            request = urllib.request.Request(
+                webhook + ("&" if "?" in webhook else "?") + "wait=true",
+                data=data,
+                headers={"Content-Type": "application/json", "User-Agent": "and-code-notify"},
+            )
+        except ValueError:
+            # Never echo the URL: it is the secret.
+            raise SystemExit("The webhook secret is not a valid URL.") from None
+        # A send that times out is not retried: Discord may already have taken it, and a retry would
+        # post it twice. A failed run can be repeated with the backfill run instead.
         try:
             with urllib.request.urlopen(request, timeout=30):
                 return
         except urllib.error.HTTPError as error:
             if error.code == 429:
-                retry = json.loads(error.read() or b"{}").get("retry_after", 2)
-                time.sleep(float(retry) + 0.5)
+                try:
+                    retry = float(json.loads(error.read() or b"{}").get("retry_after", 2))
+                except ValueError:
+                    retry = float(error.headers.get("Retry-After") or 2)
+                time.sleep(retry + 0.5)
             elif error.code >= 500 and attempt < 5:
                 time.sleep(2**attempt)
             else:
@@ -168,10 +185,17 @@ def main():
     branch = os.environ.get("BRANCH", "main")
     actor = os.environ.get("ACTOR", "")
     mode = os.environ.get("MODE", "push")
+    forced = os.environ.get("FORCED", "") == "true"
     webhook = os.environ.get("WEBHOOK", "")
 
     commits = commits_in_range(repo, before, after)
-    # A merge commit only joins commits already listed; GitHub's own PR merges show as squashes.
+    # A merge commit only joins commits already listed; its pull request is named in the header.
+    merged_prs = []
+    for commit in commits:
+        if len(commit.get("parents") or []) > 1:
+            found = re.match(r"Merge pull request #(\d+)", commit["commit"]["message"])
+            if found:
+                merged_prs.append(found.group(1))
     commits = [c for c in commits if len(c.get("parents") or []) < 2]
     if not commits:
         print("No commits to post.")
@@ -183,7 +207,7 @@ def main():
         if index < DETAILED_COMMITS:
             try:
                 detail = github(f"/repos/{repo}/commits/{commit['sha']}")
-            except (urllib.error.URLError, ValueError) as error:
+            except (OSError, ValueError) as error:
                 print(f"No stats for {commit['sha'][:7]}: {error}", file=sys.stderr)
         embeds.append(embed_for(repo, commit, detail))
 
@@ -192,7 +216,11 @@ def main():
     if mode == "backfill":
         header = f"Catching up: {count} {noun} on `{branch}` that were not posted"
     else:
-        header = f"**{actor or 'Someone'}** pushed {count} {noun} to `{branch}`"
+        verb = "force-pushed" if forced else "pushed"
+        header = f"**{actor or 'Someone'}** {verb} {count} {noun} to `{branch}`"
+    if merged_prs:
+        links = ", ".join(f"[#{n}](https://github.com/{repo}/pull/{n})" for n in merged_prs)
+        header += f" · merges {links}"
     if before and set(before) != {"0"} and count > 1:
         header += f" · [compare](https://github.com/{repo}/compare/{before[:12]}...{after[:12]})"
 
