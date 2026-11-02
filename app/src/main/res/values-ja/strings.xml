@@ -746,6 +746,11 @@
     <string name="command_rules_block_button">ブロック</string>
     <string name="command_rules_blocked">ブロック中</string>
     <string name="command_rules_allowed">常に許可</string>
+    <string name="command_rules_kinds_title">種類ごとに常に許可</string>
+    <string name="command_rules_kinds_caption">これらの種類の呼び出しは、すべてのプロジェクトで確認なしに実行されます。コマンドは種類ごとには許可されず、1 つずつのルールのままです。</string>
+    <string name="command_rules_kind_reading">ファイルの読み取り</string>
+    <string name="command_rules_kind_web">ウェブの検索と閲覧</string>
+    <string name="command_rules_kind_editing">プロジェクトのファイル編集（.git や .claude などの保護されたファイルを除く）</string>
     <string name="command_rules_no_allowed">常に許可しているコマンドはまだありません。承認時に「常に許可」を選ぶと、ここに追加されます。</string>
     <string name="command_rules_whole_tool">%1$s のすべての呼び出し</string>
     <string name="command_rules_in_project">%1$s 内</string>

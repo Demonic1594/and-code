@@ -738,6 +738,11 @@
     <string name="command_rules_block_button">Bloquear</string>
     <string name="command_rules_blocked">Bloqueados</string>
     <string name="command_rules_allowed">Siempre permitidos</string>
+    <string name="command_rules_kinds_title">Permitir siempre por tipo</string>
+    <string name="command_rules_kinds_caption">Las llamadas de estos tipos se ejecutan sin preguntar, en todos los proyectos. Los comandos nunca se permiten por tipo; siguen siendo una regla cada vez.</string>
+    <string name="command_rules_kind_reading">Leer archivos</string>
+    <string name="command_rules_kind_web">Buscar y leer en la web</string>
+    <string name="command_rules_kind_editing">Editar archivos del proyecto (no los protegidos, como .git o .claude)</string>
     <string name="command_rules_no_allowed">Todavía no hay nada permitido siempre. Elige “Permitir siempre” en una aprobación para añadir un comando aquí.</string>
     <string name="command_rules_whole_tool">Cada llamada a %1$s</string>
     <string name="command_rules_in_project">En %1$s</string>

@@ -396,8 +396,10 @@ fun NavGraphBuilder.settingsNavGraph(
     composable(ROUTE_SETTINGS_COMMAND_RULES) {
         CommandRulesScreen(
             rules = claude().commandRules,
+            allowedKinds = claude().allowedToolClasses,
             onBlock = claudeActions.onBlockCommand,
             onForget = claudeActions.onForgetCommandRule,
+            onSetKindAllowed = claudeActions.onSetToolClassAllowed,
             onBack = { navController.popBackStack() },
         )
     }
@@ -674,6 +676,8 @@ data class ClaudeSettingsActions(
     /** Blocks shell commands containing the given words; false when they name no command. */
     val onBlockCommand: (String) -> Boolean,
     val onForgetCommandRule: (com.yugahashimoto.andcode.runtime.local.ClaudePermissionBridge.CommandRule) -> Unit,
+    /** Lets a kind of call (reading, editing files) run without asking, or stops it. */
+    val onSetToolClassAllowed: (com.yugahashimoto.andcode.runtime.local.ToolClassRules.Kind, Boolean) -> Unit,
     /** Opens the open project's CLAUDE.md in the editor, creating it when missing. */
     val onOpenProjectInstructions: () -> Unit,
 )

@@ -20,6 +20,7 @@ PENDING="$BRIDGE/pending"
 RESPONSES="$BRIDGE/responses"
 ALWAYS="$BRIDGE/always-rules.json"
 BLOCKED="$BRIDGE/block-rules.json"
+CLASSES="$BRIDGE/class-rules.json"
 TIMEOUT_SEC="${ANDCODE_PERMISSION_TIMEOUT_SEC:-300}"
 # A question can legitimately wait much longer than a permission: the user may be away from the
 # device and the turn is blocked until they answer. Keep it under the hook timeout Claude Code
@@ -133,6 +134,48 @@ fi
 # Before a tool call only blocking applies; whether to ask is the permission step's business.
 if [ "$MODE" = "--pre-tool-use" ]; then
   exit 0
+fi
+
+# Kinds of calls the user allows without asking (ToolClassRules). Same tool lists as
+# ToolClassRules.Kind; running commands is never allowed by kind.
+if [ -f "$CLASSES" ]; then
+  case "$TOOL_NAME" in
+    Read|Grep|Glob|LS|NotebookRead) TOOL_KIND="read" ;;
+    WebFetch|WebSearch) TOOL_KIND="web" ;;
+    Write|Edit|MultiEdit|NotebookEdit) TOOL_KIND="edit" ;;
+    *) TOOL_KIND="" ;;
+  esac
+  if [ "$TOOL_KIND" = "edit" ]; then
+    # Editing by kind covers the project's own files only: never this hook's rules, Claude Code's
+    # settings, MCP servers or git's hooks, through which an edit could let commands run unasked.
+    EDIT_PATH=$(printf '%s' "$TOOL_INPUT" | jq -r '.file_path // .notebook_path // .path // empty' 2>/dev/null || true)
+    case "$EDIT_PATH" in /*) ;; *) EDIT_PATH="$CWD/$EDIT_PATH" ;; esac
+    EDIT_REAL=$(realpath -m -- "$EDIT_PATH" 2>/dev/null || true)
+    PROJECT_REAL=$(realpath -m -- "$CWD" 2>/dev/null || true)
+    BRIDGE_REAL=$(realpath -m -- "$BRIDGE" 2>/dev/null || printf '%s' "$BRIDGE")
+    # Checked as written and as resolved: a protected name reached through a symlink, or a
+    # protected entry that is itself a symlink to somewhere else in the project, is still protected.
+    for P in "$EDIT_PATH" "$EDIT_REAL"; do
+      case "$P" in
+        "" | */.git | */.git/* | */.claude | */.claude/* | */.mcp.json | "$BRIDGE_REAL" | "$BRIDGE_REAL"/*) TOOL_KIND="" ;;
+      esac
+    done
+    for ENTRY in .git .claude .mcp.json; do
+      TARGET=$(realpath -m -- "$PROJECT_REAL/$ENTRY" 2>/dev/null || true)
+      case "$EDIT_REAL" in "$TARGET" | "$TARGET"/*) TOOL_KIND="" ;; esac
+    done
+    if [ -z "$PROJECT_REAL" ] || [ "$PROJECT_REAL" = "/" ]; then
+      TOOL_KIND=""
+    else
+      case "$EDIT_REAL" in "$PROJECT_REAL"/*) ;; *) TOOL_KIND="" ;; esac
+    fi
+  fi
+  # Only one document with a list of kinds (all strings, as the app reads it) counts: a damaged
+  # file allows nothing.
+  if [ -n "$TOOL_KIND" ] && jq -s -e --arg k "$TOOL_KIND" '(length == 1) and (.[0] | (.allow | type == "array") and all(.allow[]; type == "string") and any(.allow[]; . == $k))' "$CLASSES" >/dev/null 2>&1; then
+    printf '%s\n' "$ALLOW"
+    exit 0
+  fi
 fi
 
 # Auto-allow remembered rules without waking the UI.

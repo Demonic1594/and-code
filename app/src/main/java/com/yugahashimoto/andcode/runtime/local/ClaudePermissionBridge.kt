@@ -120,6 +120,9 @@ class ClaudePermissionBridge(
     private val responsesDir = File(root, "responses").apply { mkdirs() }
     private val alwaysFile = File(root, "always-rules.json")
     private val blockFile = File(root, BLOCK_RULES_FILE)
+
+    /** Kinds of calls (reading, editing files) the user allows without asking, in every project. */
+    val toolClasses = ToolClassRules(root)
     private val mutableRules = MutableStateFlow(loadRules())
 
     /** Every remembered rule, blocking ones first. */

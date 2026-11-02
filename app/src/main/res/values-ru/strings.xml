@@ -741,6 +741,11 @@
     <string name="command_rules_block_button">Блокировать</string>
     <string name="command_rules_blocked">Заблокированы</string>
     <string name="command_rules_allowed">Всегда разрешены</string>
+    <string name="command_rules_kinds_title">Всегда разрешать по виду</string>
+    <string name="command_rules_kinds_caption">Вызовы этих видов выполняются без вопросов во всех проектах. Команды по виду не разрешаются никогда: для каждой команды нужно отдельное правило.</string>
+    <string name="command_rules_kind_reading">Чтение файлов</string>
+    <string name="command_rules_kind_web">Поиск и чтение в интернете</string>
+    <string name="command_rules_kind_editing">Изменение файлов проекта (кроме защищённых, таких как .git и .claude)</string>
     <string name="command_rules_no_allowed">Пока ничего не разрешено всегда. Выберите «Всегда разрешать» при подтверждении, чтобы добавить сюда команду.</string>
     <string name="command_rules_whole_tool">Каждый вызов %1$s</string>
     <string name="command_rules_in_project">В %1$s</string>
