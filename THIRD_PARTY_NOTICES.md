@@ -113,7 +113,7 @@ claim that it is exhaustive — consult the generated file for the complete set.
 | ZXing (`com.journeyapps:zxing-android-embedded`, `com.google.zxing:core`) | `zxing-android-embedded:4.3.0`, `core:3.4.1` | Apache License 2.0 — [github.com/journeyapps/zxing-android-embedded](https://github.com/journeyapps/zxing-android-embedded), [github.com/zxing/zxing](https://github.com/zxing/zxing) |
 | Apache Commons Compress, Commons Codec, Commons IO, Commons Lang3 | `commons-compress:1.27.1`, `commons-codec:1.17.1`, `commons-io:2.20.0`, `commons-lang3:3.18.0` | Apache License 2.0 — [commons.apache.org](https://commons.apache.org/) |
 | **`org.tukaani:xz`** (used by `commons-compress` for `.xz` archive support) | `1.9` | Public-domain-style permissive license ("Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted"), per the project's own `COPYING` file — [github.com/tukaani-project/xz-java](https://github.com/tukaani-project/xz-java) |
-| Kotlin stdlib / Kotlin Gradle plugins | `2.4.21` | Apache License 2.0 — [kotlinlang.org](https://kotlinlang.org/) |
+| Kotlin stdlib / Kotlin Gradle plugins | `stdlib 2.1.10`, `plugins 2.4.21` | Apache License 2.0 — [kotlinlang.org](https://kotlinlang.org/) |
 | kotlinx.coroutines (Android, core, Play Services interop) | `1.9.0` | Apache License 2.0 — [github.com/Kotlin/kotlinx.coroutines](https://github.com/Kotlin/kotlinx.coroutines) |
 | Koin (`koin-android`, `koin-androidx-compose`, `koin-core`) | `4.0.1` | Apache License 2.0 — [insert-koin.io](https://insert-koin.io/) |
 | **`com.alphacephei:vosk-android`** (wake-word speech recognition; bundles Kaldi) | `0.3.75` | Apache License 2.0 — [github.com/alphacep/vosk-api](https://github.com/alphacep/vosk-api) |
