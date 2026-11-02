@@ -122,6 +122,7 @@ fun LegalScreen(
                             LegalDocument.LICENSE_GPL_3_0,
                             LegalDocument.LICENSE_LGPL_3_0,
                             LegalDocument.LICENSE_BSD_3_CLAUSE,
+                            LegalDocument.LICENSE_BSD_2_CLAUSE,
                             LegalDocument.LICENSE_APACHE_2_0,
                             LegalDocument.LICENSE_OFL_1_1,
                         )

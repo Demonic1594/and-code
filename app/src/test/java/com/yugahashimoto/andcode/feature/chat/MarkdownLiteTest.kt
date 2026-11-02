@@ -5,6 +5,92 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MarkdownLiteTest {
+    private fun paragraph(text: String) = MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain(text)))
+
+    @Test
+    fun `lists nest, keep several paragraphs and code per item, and start where written`() {
+        val blocks =
+            MarkdownLite.parse(
+                """
+                3. three
+                4. four
+
+                   more about four
+
+                   ```sh
+                   make
+                   ```
+                   - nested
+                     - deeper
+                """.trimIndent(),
+            )
+
+        val list = blocks.single() as MarkdownBlock.OrderedList
+        assertEquals(3, list.start)
+        val four = list.items[1].blocks
+        assertEquals(paragraph("four"), four[0])
+        assertEquals(paragraph("more about four"), four[1])
+        assertEquals(MarkdownBlock.CodeBlock("make", "sh"), four[2])
+        val nested = four[3] as MarkdownBlock.BulletList
+        assertEquals(paragraph("nested"), nested.items.single().blocks[0])
+        assertTrue(nested.items.single().blocks[1] is MarkdownBlock.BulletList)
+    }
+
+    @Test
+    fun `task list items carry their box`() {
+        val list = MarkdownLite.parse("- [x] done\n- [ ] todo\n- plain").single() as MarkdownBlock.BulletList
+
+        assertEquals(listOf(true, false, null), list.items.map { it.checked })
+        assertEquals(paragraph("done"), list.items[0].blocks.single())
+    }
+
+    @Test
+    fun `a quote holds whole blocks`() {
+        val quote = MarkdownLite.parse("> # Note\n> - one\n>\n> said **this**").single() as MarkdownBlock.Blockquote
+
+        assertTrue(quote.blocks[0] is MarkdownBlock.Heading)
+        assertTrue(quote.blocks[1] is MarkdownBlock.BulletList)
+        assertEquals(
+            MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain("said "), MarkdownInline.Bold(listOf(MarkdownInline.Plain("this"))))),
+            quote.blocks[2],
+        )
+    }
+
+    @Test
+    fun `table cells are formatted and columns aligned`() {
+        val table =
+            MarkdownLite.parse("| Name | Size |\n|:-----|-----:|\n| `a.kt` | **2** KB |").single() as MarkdownBlock.Table
+
+        assertEquals(listOf(MarkdownAlignment.START, MarkdownAlignment.END), table.alignments)
+        assertEquals(listOf(MarkdownInline.Code("a.kt")), table.rows.single()[0])
+        assertEquals(listOf(MarkdownInline.Bold(listOf(MarkdownInline.Plain("2"))), MarkdownInline.Plain(" KB")), table.rows.single()[1])
+    }
+
+    @Test
+    fun `underscores, escapes, line breaks and lone tildes read as written`() {
+        val inlines = (MarkdownLite.parse("__bold__ _it_ \\*not\\* about ~5 min\nnext line").single() as MarkdownBlock.Paragraph).inlines
+
+        assertEquals(
+            listOf(
+                MarkdownInline.Bold(listOf(MarkdownInline.Plain("bold"))),
+                MarkdownInline.Plain(" "),
+                MarkdownInline.Italic(listOf(MarkdownInline.Plain("it"))),
+                MarkdownInline.Plain(" *not* about ~5 min\nnext line"),
+            ),
+            inlines,
+        )
+    }
+
+    @Test
+    fun `indented code, setext headings, rules and raw html are understood`() {
+        val blocks = MarkdownLite.parse("Title\n=====\n\n    indented()\n\n***\n\n<div>raw</div>")
+
+        assertEquals(MarkdownBlock.Heading(1, listOf(MarkdownInline.Plain("Title"))), blocks[0])
+        assertEquals(MarkdownBlock.CodeBlock("indented()"), blocks[1])
+        assertEquals(MarkdownBlock.HorizontalRule, blocks[2])
+        assertEquals(paragraph("<div>raw</div>"), blocks[3])
+    }
+
     @Test
     fun `plain paragraph becomes a single paragraph block`() {
         val blocks = MarkdownLite.parse("Just plain text.")
@@ -161,12 +247,13 @@ class MarkdownLiteTest {
 
     @Test
     fun `bullet list with dash and star markers`() {
+        // As in CommonMark, a different bullet character starts a new list.
         val blocks = MarkdownLite.parse("- first\n- second\n* third")
-        val list = blocks.single() as MarkdownBlock.BulletList
-        assertEquals(3, list.items.size)
-        assertEquals(listOf(MarkdownInline.Plain("first")), list.items[0])
-        assertEquals(listOf(MarkdownInline.Plain("second")), list.items[1])
-        assertEquals(listOf(MarkdownInline.Plain("third")), list.items[2])
+        assertEquals(listOf(2, 1), blocks.map { (it as MarkdownBlock.BulletList).items.size })
+        val first = blocks[0] as MarkdownBlock.BulletList
+        assertEquals(listOf(paragraph("first")), first.items[0].blocks)
+        assertEquals(listOf(paragraph("second")), first.items[1].blocks)
+        assertEquals(listOf(paragraph("third")), (blocks[1] as MarkdownBlock.BulletList).items[0].blocks)
     }
 
     @Test
@@ -233,8 +320,7 @@ class MarkdownLiteTest {
             listOf(
                 MarkdownInline.Plain("Visit "),
                 MarkdownInline.Link("https://example.com", "https://example.com"),
-                MarkdownInline.Plain(","),
-                MarkdownInline.Plain(" then continue"),
+                MarkdownInline.Plain(", then continue"),
             ),
             paragraph.inlines,
         )
@@ -301,8 +387,14 @@ class MarkdownLiteTest {
     @Test
     fun `long blocks are split for lazy rendering, keeping numbering and table headers`() {
         val code = MarkdownBlock.CodeBlock((1..400).joinToString("\n") { "line $it" }, "kt")
-        val list = MarkdownBlock.OrderedList((1..90).map { listOf(MarkdownInline.Plain("item $it")) })
-        val table = MarkdownBlock.Table(listOf("a", "b"), (1..130).map { listOf("$it", "x") })
+        val list = MarkdownBlock.OrderedList((1..90).map { MarkdownListItem(listOf(paragraph("item $it"))) })
+        val headers = listOf(listOf(MarkdownInline.Plain("a")), listOf(MarkdownInline.Plain("b")))
+        val table =
+            MarkdownBlock.Table(
+                headers,
+                (1..130).map { listOf(listOf(MarkdownInline.Plain("$it")), listOf(MarkdownInline.Plain("x"))) },
+                listOf(MarkdownAlignment.END, null),
+            )
         val short = MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain("hi")))
 
         val split = lazyMarkdownBlocks(listOf(short, code, list, table))
@@ -314,7 +406,7 @@ class MarkdownLiteTest {
         assertEquals(listOf(1, 41, 81), split.filterIsInstance<MarkdownBlock.OrderedList>().map { it.start })
         val tables = split.filterIsInstance<MarkdownBlock.Table>()
         assertEquals(listOf(60, 60, 10), tables.map { it.rows.size })
-        assertTrue(tables.all { it.headers == listOf("a", "b") })
+        assertTrue(tables.all { it.headers == headers && it.alignments == listOf(MarkdownAlignment.END, null) })
         assertEquals(short, split.first())
     }
 }

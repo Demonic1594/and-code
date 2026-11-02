@@ -146,6 +146,7 @@ object MarkdownLite {
             is OrderedList -> MarkdownBlock.OrderedList(itemsOf(node), node.markerStartNumber ?: 1)
             is BlockQuote -> MarkdownBlock.Blockquote(blocksOf(node))
             is ThematicBreak -> MarkdownBlock.HorizontalRule
+            is TaskListItemMarker -> null
             is TableBlock -> tableOf(node)
             // Raw HTML is shown as the text it is, never interpreted.
             is HtmlBlock -> MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain(node.literal.trimEnd())))
@@ -154,12 +155,17 @@ object MarkdownLite {
 
     private fun itemsOf(list: Node): List<MarkdownListItem> =
         children(list).filterIsInstance<ListItem>().map { item ->
-            val marker = children(item).firstNotNullOfOrNull { child -> children(child).firstOrNull() as? TaskListItemMarker }
+            // The box is the item's first child (or, in some versions, its paragraph's).
+            val marker =
+                children(item).firstNotNullOfOrNull { child ->
+                    child as? TaskListItemMarker ?: children(child).firstOrNull() as? TaskListItemMarker
+                }
             MarkdownListItem(blocksOf(item), marker?.isChecked)
         }.toList()
 
     private fun tableOf(table: TableBlock): MarkdownBlock.Table {
         val rows = mutableListOf<List<TableCell>>()
+
         fun collect(node: Node) {
             children(node).forEach { child ->
                 if (child is TableRow) rows += children(child).filterIsInstance<TableCell>().toList() else collect(child)
@@ -191,7 +197,10 @@ object MarkdownLite {
             is StrongEmphasis -> listOf(MarkdownInline.Bold(inlinesOf(node)))
             is Emphasis -> listOf(MarkdownInline.Italic(inlinesOf(node)))
             is GfmStrikethrough -> listOf(MarkdownInline.Strikethrough(inlinesOf(node)))
-            is Link -> listOf(MarkdownInline.Link(inlinesOf(node).joinToString("") { it.text }.ifEmpty { node.destination }, node.destination))
+            is Link ->
+                listOf(
+                    MarkdownInline.Link(inlinesOf(node).joinToString("") { it.text }.ifEmpty { node.destination }, node.destination),
+                )
             is Image -> listOf(MarkdownInline.Image(inlinesOf(node).joinToString("") { it.text }, node.destination))
             // Chat text keeps its line breaks, as typed.
             is SoftLineBreak, is HardLineBreak -> listOf(MarkdownInline.Plain("\n"))
