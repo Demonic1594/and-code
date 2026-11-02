@@ -1797,6 +1797,10 @@
     <string name="processes_status_exited">انتهى</string>
     <string name="processes_status_stopped">متوقف</string>
     <string name="processes_port">المنفذ %1$d</string>
+    <string name="processes_instructions_title">بعض الوكلاء لا يعرفون andcode-run</string>
+    <string name="processes_instructions_body">تم تغيير ملفات التعليمات هذه، لذا توقف AndCode عن تحديثها. قد يشغّل وكلاؤها الخوادم باستخدام nohup، فتتوقف عندما ينام الهاتف.</string>
+    <string name="processes_instructions_add">إضافة</string>
+    <string name="processes_instructions_dismiss">تجاهل</string>
     <string name="processes_action_description">%1$s: %2$s</string>
     <string name="processes_problem_running">%1$s قيد التشغيل بالفعل.</string>
     <string name="processes_problem_limit">يمكن تشغيل %1$d عمليات كحد أقصى في وقت واحد. أوقف إحداها أولًا.</string>

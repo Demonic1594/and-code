@@ -260,3 +260,82 @@ private fun writeWrittenHashes(
         // Ignored: see the KDoc above.
     }
 }
+
+private object RunSection {
+    /** What a file must mention for its agent to know how to keep servers running. */
+    const val MARKER = "andcode-run"
+
+    /** Size past which an instructions file is not read for the run section (they are a few kilobytes). */
+    const val MAX_FILE_BYTES = 256L * 1024
+}
+
+/**
+ * The part of the bundled blurb that teaches `andcode-run`: from its heading to the next one.
+ * Null when the blurb has no such section.
+ */
+internal fun runSectionOf(agentContext: String): String? {
+    val lines = agentContext.lines()
+    val start = lines.indexOfFirst { it.startsWith("## ") && RunSection.MARKER in it }
+    if (start < 0) return null
+    val end = (start + 1 until lines.size).firstOrNull { lines[it].startsWith("## ") } ?: lines.size
+    return lines.subList(start, end).joinToString("\n").trimEnd() + "\n"
+}
+
+/**
+ * The instructions files ([AGENT_CONTEXT_PATHS], relative to [rootfs]) that exist but do not
+ * mention `andcode-run`: the user or an agent changed them, so [installAndCodeAgentContext] leaves
+ * them alone, and that agent was never told how to keep a server running. Files that are absent,
+ * unmanageable or too large to be instructions are not reported.
+ */
+internal fun instructionFilesWithoutRunSection(rootfs: File): List<String> {
+    val rootfsCanonical =
+        try {
+            rootfs.canonicalFile
+        } catch (e: IOException) {
+            rootfs.absoluteFile
+        }
+    return AGENT_CONTEXT_PATHS.filter { relativePath ->
+        val target = manageablePathOrNull(rootfsCanonical, File(rootfs, relativePath)) ?: return@filter false
+        try {
+            target.isFile && target.length() <= RunSection.MAX_FILE_BYTES && RunSection.MARKER !in target.readText()
+        } catch (e: IOException) {
+            false
+        }
+    }
+}
+
+/**
+ * Appends [section] to the instructions file at [relativePath], at the user's request, keeping
+ * everything already in it. False when the path is not one of [AGENT_CONTEXT_PATHS], cannot be
+ * managed safely, or the write fails.
+ */
+internal fun appendRunSection(
+    rootfs: File,
+    relativePath: String,
+    section: String,
+): Boolean {
+    if (relativePath !in AGENT_CONTEXT_PATHS) return false
+    val rootfsCanonical =
+        try {
+            rootfs.canonicalFile
+        } catch (e: IOException) {
+            rootfs.absoluteFile
+        }
+    val target = manageablePathOrNull(rootfsCanonical, File(rootfs, relativePath)) ?: return false
+    return try {
+        if (!target.isFile || target.length() > RunSection.MAX_FILE_BYTES) return false
+        val existing = target.readText()
+        val separator =
+            if (existing.endsWith("\n\n")) {
+                ""
+            } else if (existing.endsWith("\n")) {
+                "\n"
+            } else {
+                "\n\n"
+            }
+        target.appendText(separator + section)
+        true
+    } catch (e: IOException) {
+        false
+    }
+}
