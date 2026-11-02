@@ -53,6 +53,9 @@ class ProcessesViewModel(
     private val log = MutableStateFlow<ShownLog?>(null)
     private val problem = MutableStateFlow<StartResult?>(null)
     private val withoutRun = MutableStateFlow<List<String>>(emptyList())
+
+    /** Files dismissed while this screen is open, also before the dismissal is saved. */
+    private val dismissedHere = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private var logJob: Job? = null
 
     val state: StateFlow<ProcessesUiState> =
@@ -77,12 +80,17 @@ class ProcessesViewModel(
     /** Stops pointing out the files currently listed. */
     fun dismissInstructions() {
         val files = withoutRun.value
+        dismissedHere += files
         withoutRun.value = emptyList()
         viewModelScope.launch(io) { instructions?.dismiss(files) }
     }
 
     private fun refreshInstructions() {
-        viewModelScope.launch(io) { withoutRun.value = instructions?.missing().orEmpty() }
+        viewModelScope.launch(io) {
+            // A read that started before a dismissal must not bring the dismissed files back.
+            val missing = instructions?.missing().orEmpty()
+            withoutRun.value = missing.filterNot { it in dismissedHere }
+        }
     }
 
     fun stop(name: String) {

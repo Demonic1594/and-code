@@ -261,11 +261,13 @@ private fun writeWrittenHashes(
     }
 }
 
-/** What a file must mention for its agent to know how to keep servers running. */
-private const val RunSectionMarker = "andcode-run"
+private object RunSection {
+    /** What a file must mention for its agent to know how to keep servers running. */
+    const val MARKER = "andcode-run"
 
-/** Size past which an instructions file is not read for the run section (they are a few kilobytes). */
-private const val MaxInstructionsBytes = 256L * 1024
+    /** Size past which an instructions file is not read for the run section (they are a few kilobytes). */
+    const val MAX_FILE_BYTES = 256L * 1024
+}
 
 /**
  * The part of the bundled blurb that teaches `andcode-run`: from its heading to the next one.
@@ -273,7 +275,7 @@ private const val MaxInstructionsBytes = 256L * 1024
  */
 internal fun runSectionOf(agentContext: String): String? {
     val lines = agentContext.lines()
-    val start = lines.indexOfFirst { it.startsWith("## ") && RunSectionMarker in it }
+    val start = lines.indexOfFirst { it.startsWith("## ") && RunSection.MARKER in it }
     if (start < 0) return null
     val end = (start + 1 until lines.size).firstOrNull { lines[it].startsWith("## ") } ?: lines.size
     return lines.subList(start, end).joinToString("\n").trimEnd() + "\n"
@@ -295,7 +297,7 @@ internal fun instructionFilesWithoutRunSection(rootfs: File): List<String> {
     return AGENT_CONTEXT_PATHS.filter { relativePath ->
         val target = manageablePathOrNull(rootfsCanonical, File(rootfs, relativePath)) ?: return@filter false
         try {
-            target.isFile && target.length() <= MaxInstructionsBytes && RunSectionMarker !in target.readText()
+            target.isFile && target.length() <= RunSection.MAX_FILE_BYTES && RunSection.MARKER !in target.readText()
         } catch (e: IOException) {
             false
         }
@@ -321,7 +323,7 @@ internal fun appendRunSection(
         }
     val target = manageablePathOrNull(rootfsCanonical, File(rootfs, relativePath)) ?: return false
     return try {
-        if (!target.isFile || target.length() > MaxInstructionsBytes) return false
+        if (!target.isFile || target.length() > RunSection.MAX_FILE_BYTES) return false
         val existing = target.readText()
         val separator =
             if (existing.endsWith("\n\n")) {

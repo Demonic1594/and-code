@@ -41,6 +41,20 @@ class RunInstructionsTest {
     }
 
     @Test
+    fun `the bundled instructions still have a run section, ending before the artifacts one`() {
+        val asset =
+            listOf("src/main/assets/and-code-agent-context.md", "app/src/main/assets/and-code-agent-context.md")
+                .map(::File)
+                .first { it.isFile }
+                .readText()
+
+        val section = runSectionOf(asset)!!
+
+        assertTrue(section.startsWith("## ") && "andcode-run start" in section)
+        assertFalse("## Showing your work" in section)
+    }
+
+    @Test
     fun `only an edited file without the section is reported, and adding it keeps the user's text`() {
         val rootfs = temp.newFolder("rootfs")
         val claude = File(rootfs, "root/.claude/CLAUDE.md").apply { parentFile!!.mkdirs() }
