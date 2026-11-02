@@ -148,8 +148,22 @@ class ProcessSupervisor(
     /** The current run of each name, guarded by [lock]. */
     private val runs = mutableMapOf<String, Run>()
 
-    /** The processes that were kept when the app last ran, to offer to start again. */
-    fun saved(): List<SupervisedProcessSpec> = runCatching { store.load() }.getOrDefault(emptyList())
+    /**
+     * What the store held when the app started, read before anything this run saves over it.
+     *
+     * Read once: the store is rewritten on every start and stop, so reading it later would give this
+     * run's processes, not the last run's.
+     */
+    private val previous: List<SupervisedProcessSpec> by lazy { runCatching { store.load() }.getOrDefault(emptyList()) }
+
+    /**
+     * The processes that were kept when the app last ran and have not been started since, to offer
+     * to start again. Reads the store on first use, so call it off the main thread.
+     */
+    fun saved(): List<SupervisedProcessSpec> {
+        val started = mutableProcesses.value.map { it.spec.name }.toSet()
+        return previous.filterNot { it.name in started }
+    }
 
     fun start(spec: SupervisedProcessSpec): StartResult =
         synchronized(lock) {
@@ -362,10 +376,13 @@ class ProcessSupervisor(
         mutableProcesses.update { list -> list.map { if (it.spec.name == name) change(it) else it } }
     }
 
-    /** Saves the processes that should come back: those running, or meant to be restarted. */
+    /**
+     * Saves the processes that should come back: those running or meant to be restarted, and those
+     * from last time not started yet, so starting one of them does not lose the rest.
+     */
     private fun persist() {
         val kept = mutableProcesses.value.filter { it.isActive }.map { it.spec }
-        runCatching { store.save(kept) }
+        runCatching { store.save(kept + saved()) }
     }
 
     private fun rotate(log: File) {
