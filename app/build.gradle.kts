@@ -31,6 +31,12 @@ if (!isFdroidBuild) {
 // pinned-mirror path so they do not need an NDK.
 val useSourceNativeLibs = providers.gradleProperty("andcode.sourceNativeLibs").orNull.toBoolean()
 
+// The fork's signed release ("AndCode LH", see docs/FORK.md): the release build type takes the debug
+// build's package suffix, runtime port and launcher label, so it installs as
+// com.yugahashimoto.andcode.heap and never collides with an upstream AndCode. Off by default, so
+// upstream's own release build is unchanged. Set with -Pandcode.lhRelease=true.
+val isLhRelease = providers.gradleProperty("andcode.lhRelease").orNull.toBoolean()
+
 val repoRoot = rootProject.projectDir
 val sourceNativeDebsDir = repoRoot.resolve("build/termux-debs")
 val githubClientId =
@@ -133,8 +139,8 @@ android {
         applicationId = "com.yugahashimoto.andcode"
         minSdk = 26
         targetSdk = 35
-        versionCode = 68
-        versionName = "1.2.29"
+        versionCode = 69
+        versionName = "1.2.30"
         buildConfigField("String", "GITHUB_CLIENT_ID", "\"$githubClientId\"")
         // Added to the bundled runtime manifest's port when a runtime is installed. Loopback is
         // shared by every app on the device, so a debug build installed next to a release (see
@@ -203,6 +209,10 @@ android {
             buildConfigField("int", "LOCAL_RUNTIME_PORT_OFFSET", "1")
         }
         release {
+            if (isLhRelease) {
+                applicationIdSuffix = ".heap"
+                buildConfigField("int", "LOCAL_RUNTIME_PORT_OFFSET", "1")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -239,6 +249,8 @@ android {
     }
     sourceSets {
         getByName("main").jniLibs.srcDir(generatedRuntimeJni)
+        // The "AndCode LH" launcher label lives in the debug source set; the fork's release uses it too.
+        if (isLhRelease) getByName("release").res.srcDir("src/debug/res")
     }
     packaging {
         resources {
@@ -251,6 +263,12 @@ android {
     androidResources {
         noCompress += "tflite"
     }
+}
+
+if (isLhRelease) {
+    // The fork's release carries the placeholder Firebase config (see docs/FORK.md), so there is no
+    // project to upload R8 mappings to; they are published with the release instead.
+    tasks.matching { it.name.startsWith("uploadCrashlyticsMappingFile") }.configureEach { enabled = false }
 }
 
 tasks.named("preBuild").configure {

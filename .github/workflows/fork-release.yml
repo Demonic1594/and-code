@@ -1,7 +1,8 @@
 name: Fork release
 
-# Publishes the "AndCode LH" debug-signed APK as a GitHub release, for a fork that has no release
-# signing secrets. The signed upstream flow lives in release.yml.
+# Publishes "AndCode LH" as a GitHub release: the debug-signed APK always, and, when the RELEASE_*
+# signing secrets are set, a release APK signed with the fork's own key that keeps the .heap package
+# (built with -Pandcode.lhRelease=true; see docs/FORK.md). Upstream's signed flow is release.yml.
 on:
   workflow_dispatch:
     inputs:
@@ -51,21 +52,69 @@ jobs:
       - name: Build the debug APK
         run: ./gradlew :app:testGithubDebugUnitTest :app:assembleGithubDebug
         env:
-          GITHUB_CLIENT_ID: ${{ vars.AND_CODE_GITHUB_CLIENT_ID }}
-      - name: Create the release and upload the APK
+          GITHUB_CLIENT_ID: ${{ vars.FORK_GITHUB_CLIENT_ID }}
+      - name: Build the signed release APK
+        id: signed
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          AND_CODE_STORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          AND_CODE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          AND_CODE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          GITHUB_CLIENT_ID: ${{ vars.FORK_GITHUB_CLIENT_ID }}
+        run: |
+          if [ -z "$RELEASE_KEYSTORE_BASE64" ] || [ -z "$AND_CODE_STORE_PASSWORD" ] \
+            || [ -z "$AND_CODE_KEY_ALIAS" ] || [ -z "$AND_CODE_KEY_PASSWORD" ]; then
+            echo "Release signing secrets are missing or incomplete; publishing the debug APK only."
+            echo "built=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          export AND_CODE_STORE_FILE="$RUNNER_TEMP/release.keystore"
+          trap 'rm -f "$AND_CODE_STORE_FILE"' EXIT
+          echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$AND_CODE_STORE_FILE"
+          # The fork's release keeps the placeholder Firebase project, like the debug build, so it
+          # never reports to upstream's (docs/FORK.md). Only in this job's checkout, never committed.
+          mkdir -p app/src/githubRelease
+          cp app/src/debug/google-services.json app/src/githubRelease/google-services.json
+          ./gradlew :app:assembleGithubRelease -Pandcode.lhRelease=true
+          APK=app/build/outputs/apk/github/release/app-github-release.apk
+          BUILD_TOOLS="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
+          PACKAGE="$("$BUILD_TOOLS/aapt2" dump packagename "$APK")"
+          if [ "$PACKAGE" != "com.yugahashimoto.andcode.heap" ]; then
+            echo "The signed APK is $PACKAGE, not com.yugahashimoto.andcode.heap" >&2
+            exit 1
+          fi
+          echo "built=true" >> "$GITHUB_OUTPUT"
+      - name: Create the release and upload the APKs
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.tag.outputs.tag }}
+          SIGNED: ${{ steps.signed.outputs.built }}
         run: |
           CODE="$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts | head -1)"
           cp app/build/outputs/apk/github/debug/app-github-debug.apk "and-code-lh-$TAG-debug.apk"
           sha256sum "and-code-lh-$TAG-debug.apk" > "and-code-lh-$TAG-debug.apk.sha256"
+          ASSETS=("and-code-lh-$TAG-debug.apk" "and-code-lh-$TAG-debug.apk.sha256")
+          if [ "$SIGNED" = "true" ]; then
+            cp app/build/outputs/apk/github/release/app-github-release.apk "and-code-lh-$TAG.apk"
+            sha256sum "and-code-lh-$TAG.apk" > "and-code-lh-$TAG.apk.sha256"
+            ASSETS+=("and-code-lh-$TAG.apk" "and-code-lh-$TAG.apk.sha256")
+            # Release crash stacks arrive obfuscated; the mapping retraces them.
+            if [ -f app/build/outputs/mapping/githubRelease/mapping.txt ]; then
+              cp app/build/outputs/mapping/githubRelease/mapping.txt "and-code-lh-$TAG-mapping.txt"
+              ASSETS+=("and-code-lh-$TAG-mapping.txt")
+            fi
+          fi
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             {
               cat "fastlane/metadata/android/en-US/changelogs/$CODE.txt"
-              printf '\n**Install:** download `and-code-lh-%s-debug.apk`. It installs as **AndCode LH** (`com.yugahashimoto.andcode.heap`) beside an upstream AndCode, with its own data and local runtime port. It is debug-signed, so it updates only other builds signed the same way. SHA-256 is in the `.sha256` file.\n\n' "$TAG"
+              if [ "$SIGNED" = "true" ]; then
+                printf '\n**Install:** download `and-code-lh-%s.apk`, signed with the AndCode LH release key. It installs as **AndCode LH** (`com.yugahashimoto.andcode.heap`) beside an upstream AndCode, with its own data and local runtime port. A debug-signed AndCode LH cannot update to it: uninstall that once first, which removes its chats and settings. `and-code-lh-%s-debug.apk` is the debug-signed build, for updating an existing debug install. SHA-256s are in the `.sha256` files.\n\n' "$TAG" "$TAG"
+              else
+                printf '\n**Install:** download `and-code-lh-%s-debug.apk`. It installs as **AndCode LH** (`com.yugahashimoto.andcode.heap`) beside an upstream AndCode, with its own data and local runtime port. It is debug-signed, so it updates only other builds signed the same way. SHA-256 is in the `.sha256` file.\n\n' "$TAG"
+              fi
             } > notes.md
             gh release create "$TAG" --target "${{ github.sha }}" --title "AndCode LH $TAG" \
               --notes-file notes.md --generate-notes --latest
           fi
-          gh release upload "$TAG" --clobber "and-code-lh-$TAG-debug.apk" "and-code-lh-$TAG-debug.apk.sha256"
+          gh release upload "$TAG" --clobber "${ASSETS[@]}"
