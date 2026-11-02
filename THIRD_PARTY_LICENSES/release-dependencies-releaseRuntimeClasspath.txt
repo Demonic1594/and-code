@@ -181,6 +181,11 @@ javax.inject:javax.inject:1
 net.java.dev.jna:jna:5.18.1
 org.apache.commons:commons-compress:1.27.1
 org.apache.commons:commons-lang3:3.18.0
+org.commonmark:commonmark-ext-footnotes:0.32.0
+org.commonmark:commonmark-ext-gfm-strikethrough:0.32.0
+org.commonmark:commonmark-ext-gfm-tables:0.32.0
+org.commonmark:commonmark-ext-task-list-items:0.32.0
+org.commonmark:commonmark:0.32.0
 org.jetbrains.androidx.core:core-bundle-android:1.0.1
 org.jetbrains.androidx.core:core-bundle:1.0.1
 org.jetbrains.androidx.lifecycle:lifecycle-common:2.8.3

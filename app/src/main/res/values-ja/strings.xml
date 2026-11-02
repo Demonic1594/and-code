@@ -1461,6 +1461,7 @@
     <string name="install_full_development_tools_button">完全なツールチェーンをインストール</string>
     <string name="runtime_full_development_tools_start_failed">開発ツールのインストールを開始できません</string>
     <string name="legal_license_ofl">SIL Open Font License 1.1 (JetBrains Mono)</string>
+    <string name="legal_license_bsd2">BSD-2-Clause（commonmark-java）</string>
     <string name="drawer_search_hint">チャットを検索</string>
     <string name="drawer_search_clear">検索をクリア</string>
     <string name="drawer_search_no_results">一致するチャットはありません</string>

@@ -46,6 +46,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -450,7 +451,7 @@ internal object PermissionCardSizes {
 }
 
 @Composable
-private fun InlineText(
+internal fun InlineText(
     inlines: List<MarkdownInline>,
     style: TextStyle,
     linkColor: Color,
@@ -473,22 +474,39 @@ private fun InlineText(
 }
 
 @Composable
-private fun RowScope.TableCellText(
-    text: String,
+internal fun RowScope.TableCellText(
+    inlines: List<MarkdownInline>,
+    align: MarkdownAlign?,
     style: TextStyle,
     linkColor: Color,
     codeBackground: Color,
 ) {
-    val inlines = remember(text) { MarkdownLite.parseInline(text) }
+    val textAlign =
+        when (align) {
+            MarkdownAlign.CENTER -> TextAlign.Center
+            // Markdown's left and right are physical, so they stay put in a right-to-left layout.
+            MarkdownAlign.RIGHT -> TextAlign.Right
+            MarkdownAlign.LEFT -> TextAlign.Left
+            null -> TextAlign.Unspecified
+        }
     Box(
         modifier =
             Modifier
                 .weight(1f)
                 .padding(end = 8.dp),
+        // A short cell's text is only as wide as itself, so the cell places it; textAlign then aligns
+        // the lines of a cell that wraps.
+        contentAlignment =
+            when (align) {
+                MarkdownAlign.CENTER -> Alignment.TopCenter
+                MarkdownAlign.RIGHT -> AbsoluteAlignment.TopRight
+                MarkdownAlign.LEFT -> AbsoluteAlignment.TopLeft
+                null -> Alignment.TopStart
+            },
     ) {
         InlineText(
             inlines = inlines,
-            style = style,
+            style = style.copy(textAlign = textAlign),
             linkColor = linkColor,
             codeBackground = codeBackground,
         )
@@ -563,16 +581,14 @@ internal fun LazyMarkdownDocument(
 }
 
 @Composable
-private fun MarkdownBlockView(
+internal fun MarkdownBlockView(
     block: MarkdownBlock,
     onImageClick: (ChatImageSource) -> Unit,
+    contentColor: Color = MaterialTheme.colorScheme.onSurface,
 ) {
     val codeInlineBackground = MaterialTheme.colorScheme.surfaceVariant
     val linkColor = MaterialTheme.colorScheme.primary
-    val bodyStyle =
-        MaterialTheme.typography.bodyLarge.copy(
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+    val bodyStyle = MaterialTheme.typography.bodyLarge.copy(color = contentColor)
     when (block) {
         is MarkdownBlock.Heading ->
             InlineText(
@@ -582,7 +598,7 @@ private fun MarkdownBlockView(
                         1 -> MaterialTheme.typography.titleLarge
                         2 -> MaterialTheme.typography.titleMedium
                         else -> MaterialTheme.typography.titleSmall
-                    }.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface),
+                    }.copy(fontWeight = FontWeight.SemiBold, color = contentColor),
                 linkColor = linkColor,
                 codeBackground = codeInlineBackground,
             )
@@ -633,85 +649,17 @@ private fun MarkdownBlockView(
             }
         is MarkdownBlock.BulletList ->
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                block.items.forEach { item ->
-                    Row {
-                        Text("•  ", color = MaterialTheme.colorScheme.onSurface)
-                        InlineText(item, bodyStyle, linkColor, codeInlineBackground)
-                    }
-                }
+                block.items.forEach { item -> MarkdownListItemView(item, "•", onImageClick, contentColor) }
             }
         is MarkdownBlock.OrderedList ->
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 block.items.forEachIndexed { index, item ->
-                    Row {
-                        Text("${block.start + index}.  ", color = MaterialTheme.colorScheme.onSurface)
-                        InlineText(item, bodyStyle, linkColor, codeInlineBackground)
-                    }
+                    MarkdownListItemView(item, "${block.start + index}.", onImageClick, contentColor)
                 }
             }
-        is MarkdownBlock.Blockquote ->
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(6.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ) {
-                Box(
-                    modifier =
-                        Modifier.padding(
-                            start = 10.dp,
-                            end = 8.dp,
-                            top = 6.dp,
-                            bottom = 6.dp,
-                        ),
-                ) {
-                    InlineText(
-                        inlines = block.inlines,
-                        style = bodyStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                        linkColor = linkColor,
-                        codeBackground = codeInlineBackground,
-                    )
-                }
-            }
-        is MarkdownBlock.Table ->
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-            ) {
-                Column(
-                    modifier = Modifier.padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        block.headers.forEach { header ->
-                            TableCellText(
-                                text = header,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                linkColor = linkColor,
-                                codeBackground = codeInlineBackground,
-                            )
-                        }
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
-                    block.rows.forEach { row ->
-                        val padded =
-                            row.take(block.headers.size) +
-                                List((block.headers.size - row.size).coerceAtLeast(0)) { "" }
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            padded.forEach { cell ->
-                                TableCellText(
-                                    text = cell,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    linkColor = linkColor,
-                                    codeBackground = codeInlineBackground,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+        is MarkdownBlock.Blockquote -> MarkdownQuoteView(block, onImageClick)
+        is MarkdownBlock.Table -> MarkdownTableView(block, linkColor, codeInlineBackground)
+        is MarkdownBlock.Footnote -> MarkdownFootnoteView(block, onImageClick, contentColor)
         is MarkdownBlock.HorizontalRule ->
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),

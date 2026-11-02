@@ -295,6 +295,14 @@ dependencies {
     implementation("org.apache.commons:commons-compress:1.27.1")
     implementation("org.tukaani:xz:1.9")
 
+    // Markdown parsing for the chat and Markdown previews (CommonMark plus GitHub's extensions).
+    // Only the parser: the app renders the result itself. Keep every commonmark artifact on one version.
+    implementation("org.commonmark:commonmark:0.32.0")
+    implementation("org.commonmark:commonmark-ext-gfm-tables:0.32.0")
+    implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.32.0")
+    implementation("org.commonmark:commonmark-ext-task-list-items:0.32.0")
+    implementation("org.commonmark:commonmark-ext-footnotes:0.32.0")
+
     // QR code scanning for connection setup
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
