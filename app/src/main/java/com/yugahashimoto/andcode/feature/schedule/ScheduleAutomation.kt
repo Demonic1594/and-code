@@ -40,9 +40,12 @@ fun ScheduleAutomationDialog(
     automation: ScheduleAutomation,
     schedules: List<Schedule>,
     onDismiss: () -> Unit,
+    exactAlarmsAllowed: Boolean = true,
 ) {
     val context = LocalContext.current
     var token by remember { mutableStateOf(automation.token()) }
+    // Replacing or removing a token breaks whatever automation already uses it, so both ask first.
+    var confirming by remember { mutableStateOf<TokenChange?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.schedule_automation_title)) },
@@ -70,12 +73,19 @@ fun ScheduleAutomationDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
+                    if (!exactAlarmsAllowed) {
+                        Text(
+                            stringResource(R.string.schedule_automation_inexact),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                     TokenAndIds(token = current, schedules = schedules)
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { token = automation.renew() }) {
+            TextButton(onClick = { if (token == null) token = automation.renew() else confirming = TokenChange.RENEW }) {
                 Text(
                     stringResource(
                         if (token == null) R.string.schedule_automation_turn_on else R.string.schedule_automation_new_token,
@@ -87,15 +97,49 @@ fun ScheduleAutomationDialog(
             Row {
                 if (token != null) {
                     TextButton(
-                        onClick = {
-                            automation.turnOff()
-                            token = null
-                        },
+                        onClick = { confirming = TokenChange.TURN_OFF },
                     ) { Text(stringResource(R.string.schedule_automation_turn_off)) }
                 }
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.close_description)) }
             }
         },
+    )
+    confirming?.let { change ->
+        ConfirmTokenChange(
+            change = change,
+            onConfirm = {
+                token = if (change == TokenChange.RENEW) automation.renew() else null.also { automation.turnOff() }
+                confirming = null
+            },
+            onDismiss = { confirming = null },
+        )
+    }
+}
+
+/** A change that stops the current token working. */
+private enum class TokenChange { RENEW, TURN_OFF }
+
+@Composable
+private fun ConfirmTokenChange(
+    change: TokenChange,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val renew = change == TokenChange.RENEW
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                stringResource(if (renew) R.string.schedule_automation_confirm_renew else R.string.schedule_automation_confirm_off),
+            )
+        },
+        text = { Text(stringResource(R.string.schedule_automation_confirm_body)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(if (renew) R.string.schedule_automation_new_token else R.string.schedule_automation_turn_off))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 

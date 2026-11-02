@@ -1212,6 +1212,10 @@
     <string name="schedule_automation_turn_on">オンにする</string>
     <string name="schedule_automation_new_token">新しいトークン</string>
     <string name="schedule_automation_turn_off">オフにする</string>
+    <string name="schedule_automation_confirm_renew">トークンを置き換えますか？</string>
+    <string name="schedule_automation_confirm_off">他のアプリからの実行をオフにしますか？</string>
+    <string name="schedule_automation_confirm_body">現在のトークンを使っているアプリや自動化は動かなくなります。</string>
+    <string name="schedule_automation_inexact">正確なアラームがオフのため、AndCode がバックグラウンドにあるときはトリガーで実行が始まらないことがあります。スケジュール一覧のバナーから許可してください。</string>
     <string name="schedule_edit">スケジュールを編集</string>
     <string name="schedule_name">名前</string>
     <string name="schedule_name_hint">任意。未入力の場合はプロンプトが使われます</string>

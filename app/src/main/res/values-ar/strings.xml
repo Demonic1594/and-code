@@ -1173,6 +1173,10 @@
     <string name="schedule_automation_turn_on">تشغيل</string>
     <string name="schedule_automation_new_token">رمز جديد</string>
     <string name="schedule_automation_turn_off">إيقاف</string>
+    <string name="schedule_automation_confirm_renew">استبدال الرمز؟</string>
+    <string name="schedule_automation_confirm_off">إيقاف التشغيل من تطبيقات أخرى؟</string>
+    <string name="schedule_automation_confirm_body">ستتوقف التطبيقات والأتمتة التي تستخدم الرمز الحالي عن العمل.</string>
+    <string name="schedule_automation_inexact">المنبهات الدقيقة متوقفة، لذا قد لا يبدأ المشغّل تشغيلًا بينما يعمل AndCode في الخلفية. اسمح بها من الشريط في قائمة الجداول.</string>
     <string name="schedule_edit">تعديل الجدول</string>
     <string name="schedule_name">الاسم</string>
     <string name="schedule_name_hint">اختياري؛ وإلا يُستخدم الموجه</string>

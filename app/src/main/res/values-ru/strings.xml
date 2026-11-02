@@ -1167,6 +1167,10 @@
     <string name="schedule_automation_turn_on">Включить</string>
     <string name="schedule_automation_new_token">Новый токен</string>
     <string name="schedule_automation_turn_off">Выключить</string>
+    <string name="schedule_automation_confirm_renew">Заменить токен?</string>
+    <string name="schedule_automation_confirm_off">Отключить запуск из других приложений?</string>
+    <string name="schedule_automation_confirm_body">Приложения и автоматизации, использующие текущий токен, перестанут работать.</string>
+    <string name="schedule_automation_inexact">Точные будильники отключены, поэтому триггер может не запустить выполнение, пока AndCode в фоне. Разрешите их через баннер в списке расписаний.</string>
     <string name="schedule_edit">Изменить расписание</string>
     <string name="schedule_name">Название</string>
     <string name="schedule_name_hint">Необязательно; иначе используется промпт</string>

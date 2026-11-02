@@ -1164,6 +1164,10 @@
     <string name="schedule_automation_turn_on">Activer</string>
     <string name="schedule_automation_new_token">Nouveau jeton</string>
     <string name="schedule_automation_turn_off">Désactiver</string>
+    <string name="schedule_automation_confirm_renew">Remplacer le jeton ?</string>
+    <string name="schedule_automation_confirm_off">Désactiver le lancement depuis d’autres apps ?</string>
+    <string name="schedule_automation_confirm_body">Les apps et automatisations qui utilisent le jeton actuel cesseront de fonctionner.</string>
+    <string name="schedule_automation_inexact">Les alarmes exactes sont désactivées : un déclencheur risque de ne pas lancer d’exécution quand AndCode est en arrière-plan. Autorisez-les depuis la bannière de la liste des planifications.</string>
     <string name="schedule_edit">Modifier la planification</string>
     <string name="schedule_name">Nom</string>
     <string name="schedule_name_hint">Facultatif ; le prompt est utilisé sinon</string>

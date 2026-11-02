@@ -1164,6 +1164,10 @@
     <string name="schedule_automation_turn_on">Activar</string>
     <string name="schedule_automation_new_token">Nuevo token</string>
     <string name="schedule_automation_turn_off">Desactivar</string>
+    <string name="schedule_automation_confirm_renew">¿Reemplazar el token?</string>
+    <string name="schedule_automation_confirm_off">¿Desactivar la ejecución desde otras apps?</string>
+    <string name="schedule_automation_confirm_body">Las apps y automatizaciones que usan el token actual dejarán de funcionar.</string>
+    <string name="schedule_automation_inexact">Las alarmas exactas están desactivadas, así que un disparador puede no iniciar una ejecución mientras AndCode está en segundo plano. Permítelas desde el aviso de la lista de programaciones.</string>
     <string name="schedule_edit">Editar programación</string>
     <string name="schedule_name">Nombre</string>
     <string name="schedule_name_hint">Opcional; si no, se usa el prompt</string>

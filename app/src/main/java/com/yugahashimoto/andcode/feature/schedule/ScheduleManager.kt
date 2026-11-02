@@ -78,7 +78,7 @@ class ScheduleManager(
      */
     fun runSoon(scheduleId: String) {
         val pending =
-            runIntent(TRIGGER_REQUEST_CODE_PREFIX.plus(scheduleId).hashCode(), scheduleId, attempt = 0, create = true) ?: return
+            runIntent(triggerRequestCode(scheduleId), scheduleId, attempt = 0, create = true) ?: return
         armAlarm(System.currentTimeMillis() + TRIGGER_DELAY_MS, pending)
     }
 
@@ -120,7 +120,7 @@ class ScheduleManager(
     }
 
     private fun pendingIntent(scheduleId: String): PendingIntent =
-        requireNotNull(runIntent(scheduleId.hashCode(), scheduleId, attempt = 0, create = true))
+        requireNotNull(runIntent(cronRequestCode(scheduleId), scheduleId, attempt = 0, create = true))
 
     /**
      * The retry alarm's own intent. Extras take no part in PendingIntent matching, so cancelling
@@ -130,7 +130,7 @@ class ScheduleManager(
         scheduleId: String,
         attempt: Int,
         create: Boolean = true,
-    ): PendingIntent? = runIntent(RETRY_REQUEST_CODE_PREFIX.plus(scheduleId).hashCode(), scheduleId, attempt, create)
+    ): PendingIntent? = runIntent(retryRequestCode(scheduleId), scheduleId, attempt, create)
 
     private fun runIntent(
         requestCode: Int,
@@ -151,11 +151,19 @@ class ScheduleManager(
         )
 
     private companion object {
-        const val RETRY_REQUEST_CODE_PREFIX = "schedule-retry:"
-        const val TRIGGER_REQUEST_CODE_PREFIX = "schedule-trigger:"
         const val TRIGGER_DELAY_MS = 1_000L
     }
 }
+
+/**
+ * The request code of a schedule's cron alarm, its retry and a trigger's run. They must differ, or
+ * arming one would replace another's pending intent: a trigger would cancel the next cron run.
+ */
+internal fun cronRequestCode(scheduleId: String): Int = scheduleId.hashCode()
+
+internal fun retryRequestCode(scheduleId: String): Int = "schedule-retry:$scheduleId".hashCode()
+
+internal fun triggerRequestCode(scheduleId: String): Int = "schedule-trigger:$scheduleId".hashCode()
 
 /**
  * Screens that let the user grant exact alarms, best first.

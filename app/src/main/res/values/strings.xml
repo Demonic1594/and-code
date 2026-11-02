@@ -1203,6 +1203,10 @@
     <string name="schedule_automation_turn_on">Turn on</string>
     <string name="schedule_automation_new_token">New token</string>
     <string name="schedule_automation_turn_off">Turn off</string>
+    <string name="schedule_automation_confirm_renew">Replace the token?</string>
+    <string name="schedule_automation_confirm_off">Turn off running from other apps?</string>
+    <string name="schedule_automation_confirm_body">Apps and automations using the current token will stop working.</string>
+    <string name="schedule_automation_inexact">Exact alarms are off, so a trigger may not start a run while AndCode is in the background. Allow them from the banner on the schedules list.</string>
     <string name="schedule_edit">Edit schedule</string>
     <string name="schedule_name">Name</string>
     <string name="schedule_name_hint">Optional; the prompt is used otherwise</string>
