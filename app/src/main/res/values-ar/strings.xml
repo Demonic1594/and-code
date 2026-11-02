@@ -1466,6 +1466,8 @@
     <string name="install_full_development_tools_button">تثبيت مجموعة الأدوات الكاملة</string>
     <string name="runtime_full_development_tools_start_failed">تعذر بدء تثبيت أدوات التطوير</string>
     <string name="legal_license_ofl">رخصة SIL المفتوحة للخطوط 1.1 (JetBrains Mono)</string>
+    <string name="legal_license_bsd2">BSD-2-Clause (commonmark-java)</string>
+    <string name="legal_license_mit_autolink">رخصة MIT (autolink-java)</string>
     <string name="drawer_search_hint">البحث في المحادثات</string>
     <string name="drawer_search_clear">مسح البحث</string>
     <string name="drawer_search_no_results">لا توجد محادثات مطابقة</string>

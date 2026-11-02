@@ -1451,6 +1451,8 @@
     <string name="install_full_development_tools_button">Installer la chaîne complète</string>
     <string name="runtime_full_development_tools_start_failed">Impossible de démarrer l’installation des outils</string>
     <string name="legal_license_ofl">Licence SIL Open Font 1.1 (JetBrains Mono)</string>
+    <string name="legal_license_bsd2">BSD-2-Clause (commonmark-java)</string>
+    <string name="legal_license_mit_autolink">Licence MIT (autolink-java)</string>
     <string name="drawer_search_hint">Rechercher des discussions</string>
     <string name="drawer_search_clear">Effacer la recherche</string>
     <string name="drawer_search_no_results">Aucune discussion ne correspond</string>

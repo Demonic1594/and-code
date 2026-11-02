@@ -1,5 +1,13 @@
 package com.yugahashimoto.andcode.feature.chat
 
+import org.commonmark.ext.autolink.AutolinkExtension
+import org.commonmark.ext.autolink.AutolinkType
+import org.commonmark.ext.footnotes.FootnotesExtension
+import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
+import org.commonmark.ext.gfm.tables.TablesExtension
+import org.commonmark.ext.task.list.items.TaskListItemsExtension
+import org.commonmark.parser.Parser
+
 sealed interface MarkdownInline {
     val text: String
 
@@ -29,6 +37,15 @@ sealed interface MarkdownInline {
     data class Image(override val text: String, val url: String) : MarkdownInline
 }
 
+/** A list item: its first paragraph, a task box when it has one, and any blocks nested under it. */
+data class MarkdownListItem(
+    val inlines: List<MarkdownInline>,
+    val checked: Boolean? = null,
+    val children: List<MarkdownBlock> = emptyList(),
+)
+
+enum class MarkdownAlign { LEFT, CENTER, RIGHT }
+
 sealed interface MarkdownBlock {
     data class Heading(val level: Int, val inlines: List<MarkdownInline>) : MarkdownBlock
 
@@ -36,14 +53,22 @@ sealed interface MarkdownBlock {
 
     data class CodeBlock(val code: String, val language: String? = null) : MarkdownBlock
 
-    data class BulletList(val items: List<List<MarkdownInline>>) : MarkdownBlock
+    data class BulletList(val items: List<MarkdownListItem>) : MarkdownBlock
 
-    /** [start] is the first item's number: 1, or later for a long list split into pieces. */
-    data class OrderedList(val items: List<List<MarkdownInline>>, val start: Int = 1) : MarkdownBlock
+    /** [start] is the first item's number: what the source gave, or later for a long list split into pieces. */
+    data class OrderedList(val items: List<MarkdownListItem>, val start: Int = 1) : MarkdownBlock
 
-    data class Blockquote(val inlines: List<MarkdownInline>) : MarkdownBlock
+    data class Blockquote(val blocks: List<MarkdownBlock>) : MarkdownBlock
 
-    data class Table(val headers: List<String>, val rows: List<List<String>>) : MarkdownBlock
+    /** [alignments] has one entry per column; null where the separator row set none. */
+    data class Table(
+        val headers: List<List<MarkdownInline>>,
+        val rows: List<List<List<MarkdownInline>>>,
+        val alignments: List<MarkdownAlign?> = emptyList(),
+    ) : MarkdownBlock
+
+    /** A footnote's text, shown where the source defines it (usually the end). */
+    data class Footnote(val label: String, val blocks: List<MarkdownBlock>) : MarkdownBlock
 
     data object HorizontalRule : MarkdownBlock
 }
@@ -59,104 +84,32 @@ object MarkdownLite {
                 "|\\*([^*]+)\\*" +
                 "|(?<![\\w@])(https?://[A-Za-z0-9][A-Za-z0-9._~:/?#\\[\\]@!&'()*+,;=%-]*)",
         )
-    private val ORDERED_REGEX = Regex("^\\d+\\.\\s+")
-    private val HR_REGEX = Regex("^(-{3,}|\\*{3,}|_{3,})$")
-    private val TABLE_SEP_REGEX = Regex("^\\|?[\\s:|-]*-[\\s:|-]*\\|?$")
+    /**
+     * The whole-document parser, for what an agent writes and for Markdown files: CommonMark with
+     * GitHub's tables, strikethrough and task lists, footnotes, and bare `scheme://` links. Built once;
+     * a commonmark-java parser is safe to share between threads.
+     */
+    private val documentParser: Parser =
+        Parser
+            .builder()
+            .extensions(
+                listOf(
+                    TablesExtension.create(),
+                    StrikethroughExtension.create(),
+                    TaskListItemsExtension.create(),
+                    FootnotesExtension.create(),
+                    // Only scheme links, as before: an email address or a bare "www." stays text.
+                    AutolinkExtension.builder().linkTypes(AutolinkType.URL).build(),
+                ),
+            ).build()
 
-    fun parse(source: String): List<MarkdownBlock> {
-        val lines = source.split("\n")
-        val blocks = mutableListOf<MarkdownBlock>()
-        val paragraphBuffer = mutableListOf<String>()
+    fun parse(source: String): List<MarkdownBlock> = CommonMarkMapper.blocks(documentParser.parse(source))
 
-        fun flushParagraph() {
-            if (paragraphBuffer.isNotEmpty()) {
-                blocks += MarkdownBlock.Paragraph(parseInline(paragraphBuffer.joinToString("\n")))
-                paragraphBuffer.clear()
-            }
-        }
-
-        var i = 0
-        while (i < lines.size) {
-            val line = lines[i]
-            val trimmed = line.trimStart()
-            when {
-                trimmed.startsWith("```") -> {
-                    flushParagraph()
-                    val language = trimmed.removePrefix("```").trim().ifBlank { null }
-                    val codeLines = mutableListOf<String>()
-                    i++
-                    while (i < lines.size && !lines[i].trimStart().startsWith("```")) {
-                        codeLines += lines[i]
-                        i++
-                    }
-                    blocks += MarkdownBlock.CodeBlock(codeLines.joinToString("\n"), language)
-                }
-                HR_REGEX.matches(trimmed) -> {
-                    flushParagraph()
-                    blocks += MarkdownBlock.HorizontalRule
-                }
-                trimmed.startsWith("#") -> {
-                    flushParagraph()
-                    val level = trimmed.takeWhile { it == '#' }.length.coerceIn(1, 6)
-                    blocks += MarkdownBlock.Heading(level, parseInline(trimmed.drop(level).trim()))
-                }
-                trimmed.startsWith("> ") || trimmed == ">" -> {
-                    flushParagraph()
-                    val quoteLines = mutableListOf<String>()
-                    while (i < lines.size && (lines[i].trimStart().startsWith("> ") || lines[i].trimStart() == ">")) {
-                        quoteLines += lines[i].trimStart().removePrefix(">").trim()
-                        i++
-                    }
-                    blocks += MarkdownBlock.Blockquote(parseInline(quoteLines.joinToString(" ")))
-                    continue
-                }
-                trimmed.startsWith("- ") || trimmed.startsWith("* ") -> {
-                    flushParagraph()
-                    val items = mutableListOf<List<MarkdownInline>>()
-                    while (i < lines.size && (lines[i].trimStart().startsWith("- ") || lines[i].trimStart().startsWith("* "))) {
-                        items += parseInline(lines[i].trimStart().drop(2).trim())
-                        i++
-                    }
-                    blocks += MarkdownBlock.BulletList(items)
-                    continue
-                }
-                ORDERED_REGEX.containsMatchIn(trimmed) -> {
-                    flushParagraph()
-                    val items = mutableListOf<List<MarkdownInline>>()
-                    while (i < lines.size && ORDERED_REGEX.containsMatchIn(lines[i].trimStart())) {
-                        items += parseInline(ORDERED_REGEX.replaceFirst(lines[i].trimStart(), "").trim())
-                        i++
-                    }
-                    blocks += MarkdownBlock.OrderedList(items)
-                    continue
-                }
-                trimmed.contains("|") && i + 1 < lines.size &&
-                    TABLE_SEP_REGEX.matches(lines[i + 1].trim()) -> {
-                    flushParagraph()
-                    val headers = splitTableRow(trimmed)
-                    i += 2
-                    val rows = mutableListOf<List<String>>()
-                    while (i < lines.size && lines[i].contains("|") && lines[i].trim().isNotEmpty()) {
-                        rows += splitTableRow(lines[i].trim())
-                        i++
-                    }
-                    blocks += MarkdownBlock.Table(headers, rows)
-                    continue
-                }
-                trimmed.isBlank() -> flushParagraph()
-                else -> paragraphBuffer += line
-            }
-            i++
-        }
-        flushParagraph()
-        return blocks
-    }
-
-    private fun splitTableRow(line: String): List<String> =
-        line.trim().removePrefix("|").removeSuffix("|")
-            .split("|")
-            .map { it.trim() }
-
+    /**
+     * Inline Markdown in a single run of text, without block syntax. The user's own messages go
+     * through this, not [parse], so their `-`, `#`, `>` and blank lines show exactly as typed; only
+     * links (and emphasis around them) are picked out.
+     */
     internal fun parseInline(text: String): List<MarkdownInline> {
         val result = mutableListOf<MarkdownInline>()
         var lastIndex = 0

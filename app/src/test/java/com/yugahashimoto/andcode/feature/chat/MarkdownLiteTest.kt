@@ -164,9 +164,9 @@ class MarkdownLiteTest {
         val blocks = MarkdownLite.parse("- first\n- second\n* third")
         val list = blocks.single() as MarkdownBlock.BulletList
         assertEquals(3, list.items.size)
-        assertEquals(listOf(MarkdownInline.Plain("first")), list.items[0])
-        assertEquals(listOf(MarkdownInline.Plain("second")), list.items[1])
-        assertEquals(listOf(MarkdownInline.Plain("third")), list.items[2])
+        assertEquals(listOf(MarkdownInline.Plain("first")), list.items[0].inlines)
+        assertEquals(listOf(MarkdownInline.Plain("second")), list.items[1].inlines)
+        assertEquals(listOf(MarkdownInline.Plain("third")), list.items[2].inlines)
     }
 
     @Test
@@ -233,8 +233,7 @@ class MarkdownLiteTest {
             listOf(
                 MarkdownInline.Plain("Visit "),
                 MarkdownInline.Link("https://example.com", "https://example.com"),
-                MarkdownInline.Plain(","),
-                MarkdownInline.Plain(" then continue"),
+                MarkdownInline.Plain(", then continue"),
             ),
             paragraph.inlines,
         )
@@ -301,8 +300,10 @@ class MarkdownLiteTest {
     @Test
     fun `long blocks are split for lazy rendering, keeping numbering and table headers`() {
         val code = MarkdownBlock.CodeBlock((1..400).joinToString("\n") { "line $it" }, "kt")
-        val list = MarkdownBlock.OrderedList((1..90).map { listOf(MarkdownInline.Plain("item $it")) })
-        val table = MarkdownBlock.Table(listOf("a", "b"), (1..130).map { listOf("$it", "x") })
+        val list = MarkdownBlock.OrderedList((1..90).map { MarkdownListItem(listOf(MarkdownInline.Plain("item $it"))) })
+        val header = listOf(listOf(MarkdownInline.Plain("a")), listOf(MarkdownInline.Plain("b")))
+        val rows = (1..130).map { listOf(listOf(MarkdownInline.Plain("$it")), listOf(MarkdownInline.Plain("x"))) }
+        val table = MarkdownBlock.Table(header, rows)
         val short = MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain("hi")))
 
         val split = lazyMarkdownBlocks(listOf(short, code, list, table))
@@ -314,7 +315,142 @@ class MarkdownLiteTest {
         assertEquals(listOf(1, 41, 81), split.filterIsInstance<MarkdownBlock.OrderedList>().map { it.start })
         val tables = split.filterIsInstance<MarkdownBlock.Table>()
         assertEquals(listOf(60, 60, 10), tables.map { it.rows.size })
-        assertTrue(tables.all { it.headers == listOf("a", "b") })
+        assertTrue(tables.all { it.headers == header })
         assertEquals(short, split.first())
+    }
+
+    @Test
+    fun `nested lists stay nested under their item`() {
+        val list = MarkdownLite.parse("- a\n  - nested\n    - deeper\n- b").single() as MarkdownBlock.BulletList
+
+        assertEquals(2, list.items.size)
+        val nested = list.items[0].children.single() as MarkdownBlock.BulletList
+        assertEquals(listOf(MarkdownInline.Plain("nested")), nested.items.single().inlines)
+        val deeper = nested.items.single().children.single() as MarkdownBlock.BulletList
+        assertEquals(listOf(MarkdownInline.Plain("deeper")), deeper.items.single().inlines)
+    }
+
+    @Test
+    fun `task list items carry their box`() {
+        val list = MarkdownLite.parse("- [ ] todo\n- [x] done\n- plain").single() as MarkdownBlock.BulletList
+
+        assertEquals(listOf(false, true, null), list.items.map { it.checked })
+        assertEquals(listOf(MarkdownInline.Plain("todo")), list.items[0].inlines)
+    }
+
+    @Test
+    fun `an ordered list keeps the number it starts at, and plus bullets are a list`() {
+        val blocks = MarkdownLite.parse("+ plus\n\n3) three\n4) four")
+
+        assertTrue(blocks[0] is MarkdownBlock.BulletList)
+        val ordered = blocks[1] as MarkdownBlock.OrderedList
+        assertEquals(3, ordered.start)
+        assertEquals(2, ordered.items.size)
+    }
+
+    @Test
+    fun `underscore and triple emphasis follow the spec`() {
+        val paragraph = MarkdownLite.parse("__bold__ _it_ ***both*** **a*b**").single() as MarkdownBlock.Paragraph
+
+        assertEquals(
+            listOf(
+                MarkdownInline.Bold(listOf(MarkdownInline.Plain("bold"))),
+                MarkdownInline.Plain(" "),
+                MarkdownInline.Italic(listOf(MarkdownInline.Plain("it"))),
+                MarkdownInline.Plain(" "),
+                MarkdownInline.Italic(listOf(MarkdownInline.Bold(listOf(MarkdownInline.Plain("both"))))),
+                MarkdownInline.Plain(" "),
+                MarkdownInline.Bold(listOf(MarkdownInline.Plain("a*b"))),
+            ),
+            paragraph.inlines,
+        )
+    }
+
+    @Test
+    fun `a quote holds whole blocks, including a list and a nested quote`() {
+        val quote = MarkdownLite.parse("> quote\n> - item\n>> nested").single() as MarkdownBlock.Blockquote
+
+        assertTrue(quote.blocks[0] is MarkdownBlock.Paragraph)
+        assertTrue(quote.blocks[1] is MarkdownBlock.BulletList)
+        assertTrue(quote.blocks[2] is MarkdownBlock.Blockquote)
+    }
+
+    @Test
+    fun `a hashtag is not a heading, and an underlined title is`() {
+        val blocks = MarkdownLite.parse("#hashtag\n\nTitle\n=====")
+
+        assertEquals(MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain("#hashtag"))), blocks[0])
+        assertEquals(MarkdownBlock.Heading(1, listOf(MarkdownInline.Plain("Title"))), blocks[1])
+    }
+
+    @Test
+    fun `tilde fences and indented code are code`() {
+        val blocks = MarkdownLite.parse("~~~kotlin\nval x = 1\n~~~\n\n    indented")
+
+        assertEquals(MarkdownBlock.CodeBlock("val x = 1", "kotlin"), blocks[0])
+        assertEquals(MarkdownBlock.CodeBlock("indented", null), blocks[1])
+    }
+
+    @Test
+    fun `reference links, angle links and footnotes resolve`() {
+        val blocks = MarkdownLite.parse("[ref][1] <https://a.b> ok[^n]\n\n[1]: https://r.e\n[^n]: the note")
+
+        val paragraph = blocks[0] as MarkdownBlock.Paragraph
+        assertEquals(
+            listOf(
+                MarkdownInline.Link("ref", "https://r.e"),
+                MarkdownInline.Plain(" "),
+                MarkdownInline.Link("https://a.b", "https://a.b"),
+                MarkdownInline.Plain(" ok[n]"),
+            ),
+            paragraph.inlines,
+        )
+        val note = blocks[1] as MarkdownBlock.Footnote
+        assertEquals("n", note.label)
+        assertEquals(MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain("the note"))), note.blocks.single())
+    }
+
+    @Test
+    fun `table cells keep their formatting and columns their alignment`() {
+        val source = "| a | **b** | c |\n|:-|-:|:-:|\n| `c` | [d](https://e) | x<br>y |"
+        val table = MarkdownLite.parse(source).single() as MarkdownBlock.Table
+
+        assertEquals(listOf(MarkdownAlign.LEFT, MarkdownAlign.RIGHT, MarkdownAlign.CENTER), table.alignments)
+        assertEquals(listOf(MarkdownInline.Bold(listOf(MarkdownInline.Plain("b")))), table.headers[1])
+        val row = table.rows.single()
+        assertEquals(listOf(MarkdownInline.Code("c")), row[0])
+        assertEquals(listOf(MarkdownInline.Link("d", "https://e")), row[1])
+        assertEquals(listOf(MarkdownInline.Plain("x\ny")), row[2])
+    }
+
+    @Test
+    fun `raw html is shown as text, and emails and www stay plain`() {
+        val blocks = MarkdownLite.parse("<div>hi</div>\n\nmail a@b.co or www.x.org, see <b>x</b>")
+
+        assertEquals(MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain("<div>hi</div>"))), blocks[0])
+        assertEquals(
+            MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain("mail a@b.co or www.x.org, see <b>x</b>"))),
+            blocks[1],
+        )
+    }
+
+    @Test
+    fun `single newlines inside a paragraph stay line breaks`() {
+        val paragraph = MarkdownLite.parse("line one\nline two").single() as MarkdownBlock.Paragraph
+
+        assertEquals(listOf(MarkdownInline.Plain("line one\nline two")), paragraph.inlines)
+    }
+
+    @Test
+    fun `the user's own text keeps its block markers, with only links picked out`() {
+        val inlines = MarkdownLite.parseInline("- not a list\n# not a heading http://localhost:3000")
+
+        assertEquals(
+            listOf(
+                MarkdownInline.Plain("- not a list\n# not a heading "),
+                MarkdownInline.Link("http://localhost:3000", "http://localhost:3000"),
+            ),
+            inlines,
+        )
     }
 }
