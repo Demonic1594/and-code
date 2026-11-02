@@ -74,9 +74,8 @@ jobs:
           # characters or no trailing padding; normalise all of that before decoding.
           B64="$(printf '%s' "$RELEASE_KEYSTORE_BASE64" | grep -v -e '^[[:space:]]*-----' \
             | tr -d '[:space:]' | tr '_-' '/+')"
-          if [[ "$B64" != *= ]]; then
-            case $(( ${#B64} % 4 )) in 2) B64="$B64==" ;; 3) B64="$B64=" ;; esac
-          fi
+          B64="${B64//=/}"
+          case $(( ${#B64} % 4 )) in 2) B64="$B64==" ;; 3) B64="$B64=" ;; esac
           if ! printf '%s' "$B64" | base64 -d > "$AND_CODE_STORE_FILE" || [ ! -s "$AND_CODE_STORE_FILE" ]; then
             # Counts only: never print any part of the secret.
             ODD="$(printf '%s' "$B64" | tr -d 'A-Za-z0-9+/=' | wc -c)"
@@ -89,7 +88,17 @@ jobs:
           # failing deep inside Gradle. The password goes in by environment variable, never on argv.
           if ! keytool -list -keystore "$AND_CODE_STORE_FILE" -storepass:env AND_CODE_STORE_PASSWORD \
             -alias "$AND_CODE_KEY_ALIAS" > "$RUNNER_TEMP/keytool.err" 2>&1; then
-            echo "::error::The decoded keystore could not be opened with RELEASE_KEYSTORE_PASSWORD and RELEASE_KEY_ALIAS: $(grep -v '^Picked up' "$RUNNER_TEMP/keytool.err" | tr '\n' ' ')"
+            # Fixed sentences only: keytool's own text can echo the alias, so it is matched, never printed.
+            if grep -q -i 'password was incorrect' "$RUNNER_TEMP/keytool.err"; then
+              WHY="the store password (RELEASE_KEYSTORE_PASSWORD) does not match this keystore"
+            elif grep -q -i 'does not exist' "$RUNNER_TEMP/keytool.err"; then
+              WHY="the alias (RELEASE_KEY_ALIAS) is not in this keystore"
+            elif grep -q -i 'keystore format' "$RUNNER_TEMP/keytool.err"; then
+              WHY="RELEASE_KEYSTORE_BASE64 decodes to something that is not a keystore"
+            else
+              WHY="keytool could not open it"
+            fi
+            echo "::error::The decoded keystore could not be opened: $WHY."
             exit 1
           fi
           # The fork's release keeps the placeholder Firebase project, like the debug build, so it
