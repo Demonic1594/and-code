@@ -170,8 +170,9 @@ if [ -f "$CLASSES" ]; then
       case "$EDIT_REAL" in "$PROJECT_REAL"/*) ;; *) TOOL_KIND="" ;; esac
     fi
   fi
-  # Only a list of kinds (all strings, as the app reads it) counts: a damaged file allows nothing.
-  if [ -n "$TOOL_KIND" ] && jq -e --arg k "$TOOL_KIND" '(.allow | type == "array") and all(.allow[]; type == "string") and any(.allow[]; . == $k)' "$CLASSES" >/dev/null 2>&1; then
+  # Only one document with a list of kinds (all strings, as the app reads it) counts: a damaged
+  # file allows nothing.
+  if [ -n "$TOOL_KIND" ] && jq -s -e --arg k "$TOOL_KIND" '(length == 1) and (.[0] | (.allow | type == "array") and all(.allow[]; type == "string") and any(.allow[]; . == $k))' "$CLASSES" >/dev/null 2>&1; then
     printf '%s\n' "$ALLOW"
     exit 0
   fi

@@ -123,7 +123,13 @@ class PermissionHookScriptTest {
 
     @Test
     fun `a damaged kinds file allows nothing`() {
-        listOf("""{"allow":"xreadx"}""", """{"allow":["read",1]}""", """{"allow":["read",{}]}""").forEach { damaged ->
+        listOf(
+            """{"allow":"xreadx"}""",
+            """{"allow":["read",1]}""",
+            """{"allow":["read",{}]}""",
+            // Two documents: the app reads none of it, so the hook must not read the second.
+            """{"allow":[]} {"allow":["read"]}""",
+        ).forEach { damaged ->
             File(bridge, "class-rules.json").writeText(damaged)
 
             assertEquals(damaged, "deny", runHook(toolCall("Read", """{"file_path":"a"}"""), response = declined).behavior())
