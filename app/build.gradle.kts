@@ -400,8 +400,13 @@ tasks.register("generateNoticeAggregate") {
 }
 
 kotlin {
+    // Kotlin 2.4's compiler and Gradle plugin, but 2.0's language, library API and standard
+    // library: lint and R8 in this Android Gradle plugin read Kotlin metadata only up to 2.0.
+    coreLibrariesVersion = "2.0.21"
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0)
+        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0)
         optIn.add("androidx.compose.material3.ExperimentalMaterial3Api")
     }
 }
