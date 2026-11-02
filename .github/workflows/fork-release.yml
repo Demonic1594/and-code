@@ -52,7 +52,7 @@ jobs:
       - name: Build the debug APK
         run: ./gradlew :app:testGithubDebugUnitTest :app:assembleGithubDebug
         env:
-          GITHUB_CLIENT_ID: ${{ vars.AND_CODE_GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_ID: ${{ vars.FORK_GITHUB_CLIENT_ID }}
       - name: Build the signed release APK
         id: signed
         env:
@@ -60,10 +60,11 @@ jobs:
           AND_CODE_STORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           AND_CODE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           AND_CODE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-          GITHUB_CLIENT_ID: ${{ vars.AND_CODE_GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_ID: ${{ vars.FORK_GITHUB_CLIENT_ID }}
         run: |
-          if [ -z "$RELEASE_KEYSTORE_BASE64" ]; then
-            echo "No release signing secrets; publishing the debug APK only."
+          if [ -z "$RELEASE_KEYSTORE_BASE64" ] || [ -z "$AND_CODE_STORE_PASSWORD" ] \
+            || [ -z "$AND_CODE_KEY_ALIAS" ] || [ -z "$AND_CODE_KEY_PASSWORD" ]; then
+            echo "Release signing secrets are missing or incomplete; publishing the debug APK only."
             echo "built=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi

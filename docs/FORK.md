@@ -45,12 +45,16 @@ is on `main`, run **Fork release** from the Actions tab. It creates the release 
   (`and-code-lh-<tag>-mapping.txt`) for reading crash stacks.
 - `and-code-lh-<tag>-debug.apk`, the debug-signed build, for updating an existing debug install.
 
-Crash and usage reporting in the signed build talks to the placeholder Firebase project, so even
-when a user opts in nothing is collected (the debug build never sends either).
+Crash and usage reporting in the signed build uses the placeholder Firebase project, so nothing is
+sent to upstream's Firebase project. Collection stays off until the user opts in; the debug build
+keeps both reporters off.
+
+GitHub device sign-in needs an OAuth app's client ID, read from the optional repository variable
+`FORK_GITHUB_CLIENT_ID`. Without it, sign-in with a personal access token still works.
 
 Each APK has a `.sha256` file. The signed build needs the repository secrets
 `RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and
-`RELEASE_KEY_PASSWORD`; without them only the debug APK is published. Set them before the first run
+`RELEASE_KEY_PASSWORD`; without all four only the debug APK is published. Set them before the first run
 for a tag: the release notes are written once, when the release is created. Keep the keystore and its
 password backed up outside the repository: a signed install only accepts updates signed with the
 same key. Android does not let a debug-signed install update to the signed one (or back), so moving
