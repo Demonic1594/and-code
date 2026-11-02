@@ -50,7 +50,7 @@ object FileMentions {
         // The whole word goes, also what follows the cursor when it sits inside it (`@ma|in`).
         var end = mention.end
         while (end < value.text.length && !value.text[end].isWhitespace()) end++
-        if (end < value.text.length) end++
+        if (end < value.text.length && value.text[end] == ' ') end++
         val text = value.text.replaceRange(mention.start, end, inserted)
         return TextFieldValue(text, TextRange(mention.start + inserted.length))
     }
