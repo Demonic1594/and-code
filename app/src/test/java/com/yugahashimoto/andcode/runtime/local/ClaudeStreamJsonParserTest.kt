@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
+import com.yugahashimoto.andcode.feature.chat.toolFilePaths
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -196,6 +197,84 @@ class ClaudeStreamJsonParserTest {
         val tool = message.parts.single { it.id == "t1" }
         assertEquals("completed", tool.state?.get("status")?.jsonPrimitive?.content)
     }
+
+    @Test
+    fun `a tool_result keeps the name and input of the tool it answers`() {
+        val parser = parser()
+        parser.parse(toolUses("""{"type":"tool_use","id":"t1","name":"Write","input":{"file_path":"/workspace/page.html"}}"""))
+
+        val resultParsed = parser.parse(toolResults("""{"type":"tool_result","tool_use_id":"t1","content":"written"}"""))
+
+        val stored = resultParsed.messages.single().parts.single { it.id == "t1" }
+        val sent = (resultParsed.events.single() as OpenCodeEvent.MessagePartUpdated).part
+        for (part in listOf(stored, sent)) {
+            assertEquals("Write", part.tool)
+            assertEquals("completed", part.state?.get("status")?.jsonPrimitive?.content)
+            assertEquals("written", part.state?.get("output")?.jsonPrimitive?.content)
+            // What the chat's artifact list reads the written file from.
+            assertEquals(listOf("/workspace/page.html"), toolFilePaths(part.state?.get("input")))
+        }
+    }
+
+    @Test
+    fun `a failed tool_result keeps the tool's name and reports the error`() {
+        val parser = parser()
+        parser.parse(toolUses("""{"type":"tool_use","id":"t1","name":"Write","input":{"file_path":"/workspace/page.html"}}"""))
+
+        val resultParsed =
+            parser.parse(toolResults("""{"type":"tool_result","tool_use_id":"t1","content":"denied","is_error":true}"""))
+
+        val sent = (resultParsed.events.single() as OpenCodeEvent.MessagePartUpdated).part
+        assertEquals("Write", sent.tool)
+        assertEquals("error", sent.state?.get("status")?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `a tool_result only sends an event for the tool it answers`() {
+        val parser = parser()
+        parser.parse(
+            toolUses(
+                """{"type":"text","text":"Writing"}""",
+                """{"type":"tool_use","id":"t1","name":"Write","input":{}}""",
+                """{"type":"tool_use","id":"t2","name":"Bash","input":{}}""",
+            ),
+        )
+
+        val resultParsed = parser.parse(toolResults("""{"type":"tool_result","tool_use_id":"t2","content":"done"}"""))
+
+        val sent = resultParsed.events.map { (it as OpenCodeEvent.MessagePartUpdated).part }
+        assertEquals(listOf("t2"), sent.map { it.id })
+        assertEquals("Bash", sent.single().tool)
+    }
+
+    @Test
+    fun `results for parallel tools each settle onto their own tool`() {
+        val parser = parser()
+        parser.parse(
+            toolUses(
+                """{"type":"tool_use","id":"t1","name":"Write","input":{}}""",
+                """{"type":"tool_use","id":"t2","name":"Edit","input":{}}""",
+            ),
+        )
+
+        val resultParsed =
+            parser.parse(
+                toolResults(
+                    """{"type":"tool_result","tool_use_id":"t1","content":"one"}""",
+                    """{"type":"tool_result","tool_use_id":"t2","content":"two"}""",
+                ),
+            )
+
+        val sent = resultParsed.events.map { (it as OpenCodeEvent.MessagePartUpdated).part }
+        assertEquals(listOf("Write", "Edit"), sent.map { it.tool })
+        assertEquals(listOf("one", "two"), sent.map { it.state?.get("output")?.jsonPrimitive?.content })
+    }
+
+    private fun toolUses(vararg blocks: String) =
+        """{"type":"assistant","message":{"id":"m-tool","content":[${blocks.joinToString(",")}]}}"""
+
+    private fun toolResults(vararg blocks: String) =
+        """{"type":"user","message":{"id":"m-result","content":[${blocks.joinToString(",")}]}}"""
 
     @Test
     fun `settles open tools when a turn ends with an error`() {
