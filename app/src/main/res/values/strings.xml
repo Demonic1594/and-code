@@ -1654,6 +1654,7 @@
     <string name="artifacts_title">Artifacts</string>
     <string name="artifacts_menu">Artifacts (%1$d)</string>
     <string name="artifacts_local_server">Local server on this device</string>
+    <string name="artifacts_kept_server">Kept running by AndCode · %1$s</string>
     <string name="artifact_preview">Preview</string>
     <string name="artifact_source">Source</string>
     <string name="artifact_unavailable">This file could not be shown.</string>
