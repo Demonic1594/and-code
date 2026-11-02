@@ -211,10 +211,24 @@ class SupervisedArtifactsTest {
 
         val listed = withSupervised(mentioned, listOf(process("web", 5173)))
 
+        // The first mention on the port is the address it opens at.
         org.junit.Assert.assertEquals(
-            listOf(Artifact.Server("http://localhost:5173", "web"), page, Artifact.Server("http://localhost:8000")),
+            listOf(Artifact.Server("http://127.0.0.1:5173/", "web"), page, Artifact.Server("http://localhost:8000")),
             listed,
         )
+    }
+
+    @Test
+    fun `a kept server keeps the https address it announced, and is listed once per port`() {
+        val mentioned = listOf<Artifact>(Artifact.Server("https://localhost:8443/"))
+
+        val listed = withSupervised(mentioned, listOf(process("api", 8443), process("api-copy", 8443), process("web", 5173)))
+
+        org.junit.Assert.assertEquals(
+            listOf(Artifact.Server("https://localhost:8443/", "api"), Artifact.Server("http://localhost:5173", "web")),
+            listed,
+        )
+        org.junit.Assert.assertEquals(listed.size, listed.map { it.key }.toSet().size)
     }
 
     @Test

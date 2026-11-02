@@ -221,23 +221,37 @@ private val URL_PORT = Regex("""^https?://(?:\[[^\]]+\]|[^/:\[]+):(\d+)""", Rege
 
 /**
  * [artifacts] with the servers AndCode keeps running first, under their names: each running one
- * with a port, at `http://localhost:PORT`. A server the chat mentioned on the same port is that
- * one, so it is listed once, as the kept one. Stopped, exited and crashed processes have nothing
- * to open and are left out.
+ * with a port, once per port. A server the chat mentioned on the same port is that one, so it is
+ * listed once, as the kept one, at the address the chat gave (which keeps an `https` scheme and a
+ * path); one never mentioned is at `http://localhost:PORT`. Stopped, exited and crashed processes
+ * have nothing to open and are left out.
  */
 fun withSupervised(
     artifacts: List<Artifact>,
     processes: List<SupervisedProcess>,
 ): List<Artifact> {
-    val kept =
+    val running =
         processes
             .filter { it.status == SupervisedStatus.RUNNING || it.status == SupervisedStatus.RESTARTING }
-            .mapNotNull { process -> process.port?.let { port -> Artifact.Server("http://localhost:$port", process.spec.name) } }
-    if (kept.isEmpty()) return artifacts
-    val keptPorts = kept.map { it.url.substringAfterLast(':') }.toSet()
-    val others =
-        artifacts.filterNot { artifact ->
-            artifact is Artifact.Server && URL_PORT.find(artifact.url)?.groupValues?.get(1) in keptPorts
+            .filter { it.port != null }
+            // Two processes can report the same port; the list needs one entry (and key) per port.
+            .distinctBy { it.port }
+    if (running.isEmpty()) return artifacts
+    val mentionedByPort =
+        artifacts
+            .filterIsInstance<Artifact.Server>()
+            .mapNotNull { server -> portOf(server.url)?.let { it to server.url } }
+            // The list is newest first; the newest mention of a port is the one to open.
+            .distinctBy { it.first }
+            .toMap()
+    val kept =
+        running.map { process ->
+            val port = requireNotNull(process.port)
+            Artifact.Server(mentionedByPort[port] ?: "http://localhost:$port", process.spec.name)
         }
+    val keptPorts = running.mapNotNull { it.port }.toSet()
+    val others = artifacts.filterNot { it is Artifact.Server && portOf(it.url) in keptPorts }
     return kept + others
 }
+
+private fun portOf(url: String): Int? = URL_PORT.find(url)?.groupValues?.get(1)?.toIntOrNull()
