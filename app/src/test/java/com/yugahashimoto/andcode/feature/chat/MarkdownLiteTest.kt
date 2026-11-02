@@ -555,5 +555,7 @@ class MarkdownLiteTest {
 
         assertTrue(all, all.contains("bold and code here[n] <b>"))
         assertTrue(all, all.contains("fenced"))
+        val heading = MarkdownLite.parse("> ".repeat(30) + "# **hello** world").toString()
+        assertTrue(heading, heading.contains("hello world"))
     }
 }

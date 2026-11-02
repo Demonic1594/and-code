@@ -188,7 +188,7 @@ internal object CommonMarkMapper {
             is SoftLineBreak, is HardLineBreak -> "\n"
             // Inline pieces run on within their paragraph; the blocks inside a container (list items,
             // quotes, the paragraphs of an item) each start a line.
-            is Paragraph -> node.children().joinToString("", transform = ::allText)
+            is Paragraph, is Heading -> node.children().joinToString("", transform = ::allText)
             is Block -> node.children().joinToString("\n", transform = ::allText)
             else -> node.children().joinToString("", transform = ::allText)
         }
