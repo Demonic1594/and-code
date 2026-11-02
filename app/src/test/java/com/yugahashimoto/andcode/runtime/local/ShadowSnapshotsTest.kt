@@ -241,6 +241,40 @@ class ShadowSnapshotsTest {
         }
 
     @Test
+    fun `a history from before snapshots stood alone keeps its newest commits as snapshots`() =
+        runBlocking {
+            assumeTrue("git is needed for these tests", gitAvailable())
+            val workspace = temp.newFolder("legacy")
+            val root = temp.newFolder("legacy-snapshots")
+            val gitDir = ShadowSnapshots.gitDir(root.path, workspace.path)
+            val git = ShadowSnapshots.git(root.path, workspace.path)
+            // The old layout: one chain of commits on HEAD and no refs/snapshots at all.
+            assertEquals(
+                0,
+                shell()("mkdir -p '$gitDir' && git init -q --bare '$gitDir' && git --git-dir='$gitDir' config core.bare false", 10, 4_000)
+                    .exitCode,
+            )
+            val legacy =
+                (1..3).map { n ->
+                    File(workspace, "a.txt").writeText("v$n\n")
+                    val result = shell()("$git add -A -- ':/' && $git commit -q -m legacy && $git rev-parse HEAD", 10, 4_000)
+                    result.output.lines().last(String::isNotBlank).trim()
+                }
+
+            val snapshots = ShadowSnapshots(shell(), Dispatchers.Unconfined, root = root.path, keep = 2, pruneEvery = 1_000)
+            File(workspace, "a.txt").writeText("v4\n")
+            val newest = requireNotNull(snapshots.snapshot(workspace.path))
+
+            val refs =
+                shell()("git --git-dir='$gitDir' for-each-ref refs/snapshots --format='%(objectname)'", 10, 4_000)
+                    .output.lines().filter(String::isNotBlank).toSet()
+            assertEquals(setOf(legacy[1], legacy[2], newest), refs)
+            File(workspace, "a.txt").writeText("changed\n")
+            assertNotNull(snapshots.restore(workspace.path, legacy[2]))
+            assertEquals("v3\n", File(workspace, "a.txt").readText())
+        }
+
+    @Test
     fun `a deleted workspace's history is removed`() =
         runBlocking {
             assumeTrue("git is needed for these tests", gitAvailable())

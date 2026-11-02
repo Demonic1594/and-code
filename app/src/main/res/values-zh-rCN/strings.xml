@@ -1158,6 +1158,10 @@
     <string name="schedule_automation_turn_on">开启</string>
     <string name="schedule_automation_new_token">新令牌</string>
     <string name="schedule_automation_turn_off">关闭</string>
+    <string name="schedule_automation_confirm_renew">替换令牌？</string>
+    <string name="schedule_automation_confirm_off">关闭从其他应用运行？</string>
+    <string name="schedule_automation_confirm_body">使用当前令牌的应用和自动化将停止工作。</string>
+    <string name="schedule_automation_inexact">精确闹钟已关闭，因此 AndCode 在后台时触发器可能无法启动运行。请通过计划列表中的横幅允许精确闹钟。</string>
     <string name="schedule_edit">编辑计划</string>
     <string name="schedule_name">名称</string>
     <string name="schedule_name_hint">可选；否则使用提示词</string>

@@ -24,13 +24,15 @@ class ScheduleTriggerReceiver : BroadcastReceiver() {
         if (intent.action != ScheduleTriggerToken.ACTION) return
         val app = context.applicationContext as AndCodeApplication
         val scheduleId = intent.getStringExtra(ScheduleTriggerToken.EXTRA_SCHEDULE_ID)
-        val schedule = scheduleId?.let(app.scheduleRepository::schedule)
-        when {
-            !app.scheduleTriggerToken.accepts(intent.getStringExtra(ScheduleTriggerToken.EXTRA_TOKEN)) ->
-                Log.w(TAG, "Refused a schedule trigger: wrong or missing token, or triggers are off")
-            schedule == null -> Log.w(TAG, "Refused a schedule trigger: no such schedule")
-            !schedule.enabled -> Log.w(TAG, "Refused a schedule trigger: the schedule is off")
-            else -> app.scheduleManager.runSoon(schedule.id)
+        // The token is checked before the id is looked up, so a caller without it learns nothing
+        // about which schedules exist.
+        val accepted = app.scheduleTriggerToken.accepts(intent.getStringExtra(ScheduleTriggerToken.EXTRA_TOKEN))
+        val schedule = if (accepted) scheduleId?.let(app.scheduleRepository::schedule) else null
+        when (triggerDecision(accepted, schedule?.enabled)) {
+            TriggerDecision.BAD_TOKEN -> Log.w(TAG, "Refused a schedule trigger: wrong or missing token, or triggers are off")
+            TriggerDecision.NO_SCHEDULE -> Log.w(TAG, "Refused a schedule trigger: no such schedule")
+            TriggerDecision.SCHEDULE_OFF -> Log.w(TAG, "Refused a schedule trigger: the schedule is off")
+            TriggerDecision.RUN -> app.scheduleManager.runSoon(requireNotNull(schedule).id)
         }
     }
 
@@ -38,6 +40,23 @@ class ScheduleTriggerReceiver : BroadcastReceiver() {
         const val TAG = "ScheduleTrigger"
     }
 }
+
+internal enum class TriggerDecision { RUN, BAD_TOKEN, NO_SCHEDULE, SCHEDULE_OFF }
+
+/**
+ * What [ScheduleTriggerReceiver] does with a trigger: run only with the token, for a schedule that
+ * exists ([scheduleEnabled] non-null) and is on. A bad token wins over everything else.
+ */
+internal fun triggerDecision(
+    tokenAccepted: Boolean,
+    scheduleEnabled: Boolean?,
+): TriggerDecision =
+    when {
+        !tokenAccepted -> TriggerDecision.BAD_TOKEN
+        scheduleEnabled == null -> TriggerDecision.NO_SCHEDULE
+        !scheduleEnabled -> TriggerDecision.SCHEDULE_OFF
+        else -> TriggerDecision.RUN
+    }
 
 /** The user's token for [ScheduleTriggerReceiver]; none until they turn triggers on. */
 class ScheduleTriggerToken(

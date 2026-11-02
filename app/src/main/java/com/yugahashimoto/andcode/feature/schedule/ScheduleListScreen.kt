@@ -129,7 +129,12 @@ fun ScheduleListScreen(
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         if (showAutomation) {
-            ScheduleAutomationDialog(automation = automation, schedules = schedules, onDismiss = { showAutomation = false })
+            ScheduleAutomationDialog(
+                automation = automation,
+                schedules = schedules,
+                onDismiss = { showAutomation = false },
+                exactAlarmsAllowed = alarmsAreExact,
+            )
         }
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (!alarmsAreExact) {
