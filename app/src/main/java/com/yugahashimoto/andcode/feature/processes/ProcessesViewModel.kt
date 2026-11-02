@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -103,7 +104,7 @@ class ProcessesViewModel(
                     val text = supervisor.logTail(name)
                     // A hide or a switch to another process during the read must not be undone by it.
                     ensureActive()
-                    log.value = ShownLog(name, text)
+                    log.update { shown -> if (shown?.name == name) ShownLog(name, text) else shown }
                     delay(logRefreshMillis)
                 }
             }

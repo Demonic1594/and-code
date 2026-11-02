@@ -145,7 +145,7 @@ class ProcessesViewModelTest {
     }
 
     @Test
-    fun `output is read off the main thread when shown and dropped when hidden`() {
+    fun `output is read when shown and dropped when hidden`() {
         val viewModel = ProcessesViewModel(supervisor(Launcher(output = "listening on 3000"), Store(emptyList())), io = dispatcher)
         viewModel.start(web)
 

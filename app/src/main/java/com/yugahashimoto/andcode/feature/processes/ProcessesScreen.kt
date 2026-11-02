@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.feature.processes
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -178,7 +179,7 @@ private fun ProcessRow(
 /** A row's button, named with its process for TalkBack, where every row's buttons read the same. */
 @Composable
 private fun ActionButton(
-    label: Int,
+    @StringRes label: Int,
     processName: String,
     onClick: () -> Unit,
 ) {
