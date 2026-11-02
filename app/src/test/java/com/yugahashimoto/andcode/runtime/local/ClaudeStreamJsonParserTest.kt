@@ -198,6 +198,67 @@ class ClaudeStreamJsonParserTest {
     }
 
     @Test
+    fun `a finished tool keeps its name and input, so a written file is still known`() {
+        val parser = parser()
+        parser.parse(
+            """{"type":"assistant","message":{"id":"m-tool","content":[{"type":"tool_use","id":"t1","name":"Write",""" +
+                """"input":{"file_path":"/workspace/index.html","content":"<h1>hi</h1>"}}]}}""",
+        )
+
+        val result =
+            parser.parse(
+                """{"type":"user","message":{"id":"m-r","content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]}}""",
+            )
+
+        val tool = result.messages.single().parts.single { it.id == "t1" }
+        assertEquals("Write", tool.tool)
+        assertEquals("completed", tool.state?.get("status")?.jsonPrimitive?.content)
+        assertEquals("ok", tool.state?.get("output")?.jsonPrimitive?.content)
+        assertTrue(tool.state?.get("input").toString().contains("/workspace/index.html"))
+        // The update event the chat applies carries the same, whole part.
+        val event = result.events.filterIsInstance<OpenCodeEvent.MessagePartUpdated>().single()
+        assertEquals("Write", event.part.tool)
+    }
+
+    @Test
+    fun `an image a tool returns is a picture, not base64 or the size note in its output`() {
+        val parser = parser()
+        parser.parse(
+            """{"type":"assistant","message":{"id":"m-tool","content":[{"type":"tool_use","id":"t1","name":"Read",""" +
+                """"input":{"file_path":"/workspace/shot.png"}}]}}""",
+        )
+
+        val result =
+            parser.parse(
+                """{"type":"user","message":{"id":"m-r","content":[{"type":"tool_result","tool_use_id":"t1","content":[""" +
+                    """{"type":"image","source":{"type":"base64","media_type":"image/png","data":"iVBORw0KGgo="}},""" +
+                    """{"type":"text","text":"[Image: original 1280x2130, displayed at 1202x2000. """ +
+                    """Multiply coordinates by 1.06 to map to original image.]"}""" +
+                    """]}]}}""",
+            )
+
+        val parts = result.messages.single().parts
+        val tool = parts.single { it.id == "t1" }
+        assertEquals("", tool.state?.get("output")?.jsonPrimitive?.content)
+        val image = parts.single { it.type == "file" }
+        assertEquals("image/png", image.mime)
+        assertEquals("data:image/png;base64,iVBORw0KGgo=", image.url)
+    }
+
+    @Test
+    fun `an image the agent includes in its own message is a picture`() {
+        val parsed =
+            parser().parse(
+                """{"type":"assistant","message":{"id":"m1","content":[{"type":"text","text":"Here it is"},""" +
+                    """{"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":"/9j/4AAQ"}}]}}""",
+            )
+
+        val parts = parsed.messages.single().parts
+        assertEquals(listOf("text", "file"), parts.map { it.type })
+        assertEquals("data:image/jpeg;base64,/9j/4AAQ", parts[1].url)
+    }
+
+    @Test
     fun `settles open tools when a turn ends with an error`() {
         val parser = parser()
         parser.parse(

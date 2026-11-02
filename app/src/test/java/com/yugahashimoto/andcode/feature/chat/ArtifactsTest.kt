@@ -241,3 +241,29 @@ class SupervisedArtifactsTest {
         org.junit.Assert.assertEquals(mentioned, withSupervised(mentioned, listOf(stopped, crashed, watcher)))
     }
 }
+
+class ClaudeArtifactsTest {
+    @Test
+    fun `a file Claude wrote is listed once its tool has finished`() {
+        val parser =
+            com.yugahashimoto.andcode.runtime.local.ClaudeStreamJsonParser(
+                "session-1",
+                kotlinx.serialization.json.Json { ignoreUnknownKeys = true },
+            )
+        parser.parse(
+            """{"type":"assistant","message":{"id":"m","content":[{"type":"tool_use","id":"t1","name":"Edit",""" +
+                """"input":{"file_path":"/workspace/site/index.html","old_string":"a","new_string":"b"}}]}}""",
+        )
+        val finished =
+            parser.parse(
+                """{"type":"user","message":{"id":"r","content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]}}""",
+            ).messages.single()
+
+        val message = ChatMessage(isUser = false, parts = finished.parts.mapNotNull { it.toChatPart(finished.info.id) })
+
+        org.junit.Assert.assertEquals(
+            listOf(Artifact.File("/workspace/site/index.html", ArtifactKind.HTML)),
+            collectArtifacts(listOf(message)),
+        )
+    }
+}
