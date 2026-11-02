@@ -163,7 +163,7 @@ class ClaudeStreamJsonParser(
             if (existing != null) {
                 val byId = linkedMapOf<String?, OpenCodePart>()
                 existing.parts.forEach { byId[it.id] = it }
-                newParts.forEach { byId[it.id] = it }
+                newParts.forEach { byId[it.id] = settledOnto(byId[it.id], it) }
                 byId.values.toList()
             } else {
                 newParts
@@ -184,7 +184,9 @@ class ClaudeStreamJsonParser(
             )
         messagesById[messageId] = parsedMessage
         return Parsed(
-            events = newParts.map { OpenCodeEvent.MessagePartUpdated(it) },
+            // The merged parts, not the new ones: an event replaces the part it names, so a bare
+            // tool_result sent here would cost the tool card its name and input on screen too.
+            events = mergedParts.filter { merged -> newParts.any { it.id == merged.id } }.map { OpenCodeEvent.MessagePartUpdated(it) },
             messages = listOf(parsedMessage),
             claudeSessionId = root.string("session_id"),
             resolvedModel = message.string("model"),
@@ -326,6 +328,22 @@ class ClaudeStreamJsonParser(
         openTools.clear()
         return SettledTools(messages, events)
     }
+
+    /**
+     * What [incoming] leaves of the part already stored under its id. A tool_result carries only a
+     * status and output, under the placeholder name "tool", so it has to settle onto the tool_use
+     * it answers: replacing that part would lose the tool's name and input, and with them the file
+     * a write tool wrote, which is how a chat finds its artifacts.
+     */
+    private fun settledOnto(
+        stored: OpenCodePart?,
+        incoming: OpenCodePart,
+    ): OpenCodePart =
+        if (stored?.type == "tool" && incoming.type == "tool" && incoming.tool == "tool") {
+            stored.copy(state = stored.state.orEmpty() + incoming.state.orEmpty())
+        } else {
+            incoming
+        }
 
     private fun parseContentBlock(
         messageId: String,

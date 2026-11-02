@@ -135,6 +135,25 @@ class ArtifactsTest {
     ).toChatPart("m1")!!
 
     @Test
+    fun `a write that failed is not an artifact`() {
+        val failed =
+            OpenCodePart(
+                id = "w1",
+                sessionId = "s1",
+                messageId = "m1",
+                type = "tool",
+                tool = "Write",
+                state =
+                    mapOf(
+                        "status" to JsonPrimitive("error"),
+                        "input" to json("""{"file_path":"/workspace/denied.html"}"""),
+                    ),
+            ).toChatPart("m1")!!
+
+        assertTrue(collectArtifacts(listOf(assistant(failed))).isEmpty())
+    }
+
+    @Test
     fun `a file an OpenCode write made is an artifact, though its input is shown as text`() {
         val artifacts =
             collectArtifacts(

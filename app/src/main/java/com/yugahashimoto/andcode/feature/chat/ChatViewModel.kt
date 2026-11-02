@@ -398,10 +398,13 @@ internal fun OpenCodePart.toChatPart(messageId: String): ChatPart? {
             val truncated = rawOutput != null && rawOutput.length > MAX_TOOL_OUTPUT_CHARS
             val toolName = tool ?: "tool"
             val parsedTodos = if (toolName == "todowrite") parseTodosFromInput(stateMap["input"]) else emptyList()
+            val status = parseToolStatus(stateMap["status"]?.jsonPrimitiveOrNull())
+            // A write that failed left no file to show, so it names none for the artifact list.
+            val writesFiles = toolName.lowercase() in WRITING_TOOLS && status != ToolStatus.ERROR
             ChatPart.Tool(
                 id = partId,
                 name = toolName,
-                status = parseToolStatus(stateMap["status"]?.jsonPrimitiveOrNull()),
+                status = status,
                 title =
                     stateMap["title"]?.jsonPrimitiveOrNull()?.takeIf { it.isNotBlank() }
                         ?: inputText?.lineSequence()?.firstOrNull(),
@@ -410,7 +413,7 @@ internal fun OpenCodePart.toChatPart(messageId: String): ChatPart? {
                 outputTruncated = truncated,
                 error = stateMap["error"]?.jsonPrimitiveOrNull(),
                 todos = parsedTodos,
-                filePaths = if (toolName.lowercase() in WRITING_TOOLS) toolFilePaths(stateMap["input"]) else emptyList(),
+                filePaths = if (writesFiles) toolFilePaths(stateMap["input"]) else emptyList(),
             )
         }
         "patch" -> ChatPart.Patch(partId, extractPatchFiles(stateMap), messageId)
