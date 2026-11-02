@@ -1644,6 +1644,7 @@
     <string name="artifacts_title">العناصر الناتجة</string>
     <string name="artifacts_menu">العناصر الناتجة (%1$d)</string>
     <string name="artifacts_local_server">خادم محلي على هذا الجهاز</string>
+    <string name="artifacts_kept_server">يبقيه AndCode قيد التشغيل · %1$s</string>
     <string name="artifact_preview">معاينة</string>
     <string name="artifact_source">المصدر</string>
     <string name="artifact_unavailable">تعذّر عرض هذا الملف.</string>

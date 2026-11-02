@@ -295,9 +295,10 @@ fun ChatHomeScreen(
     var showSidePanel by remember { mutableStateOf(false) }
     var showChatMenu by remember { mutableStateOf(false) }
     // Scanned only while the menu or the sheet is open, not on every streamed token.
+    val supervised = LocalSupervisedProcesses.current
     val artifacts =
-        remember(shownMessages, showChatMenu || showArtifacts) {
-            if (showChatMenu || showArtifacts) collectArtifacts(shownMessages) else emptyList()
+        remember(shownMessages, supervised, showChatMenu || showArtifacts) {
+            if (showChatMenu || showArtifacts) withSupervised(collectArtifacts(shownMessages), supervised) else emptyList()
         }
     val haptics = rememberHaptics()
     val sendGate = LocalSendGate.current

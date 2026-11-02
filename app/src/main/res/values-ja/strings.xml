@@ -1639,6 +1639,7 @@
     <string name="artifacts_title">アーティファクト</string>
     <string name="artifacts_menu">アーティファクト (%1$d)</string>
     <string name="artifacts_local_server">この端末のローカルサーバー</string>
+    <string name="artifacts_kept_server">AndCode が実行を維持 · %1$s</string>
     <string name="artifact_preview">プレビュー</string>
     <string name="artifact_source">ソース</string>
     <string name="artifact_unavailable">このファイルは表示できませんでした。</string>

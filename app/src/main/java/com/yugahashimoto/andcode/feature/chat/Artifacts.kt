@@ -1,6 +1,9 @@
 package com.yugahashimoto.andcode.feature.chat
 
+import androidx.compose.runtime.staticCompositionLocalOf
 import com.yugahashimoto.andcode.core.localServerUrls
+import com.yugahashimoto.andcode.runtime.local.SupervisedProcess
+import com.yugahashimoto.andcode.runtime.local.SupervisedStatus
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -28,6 +31,8 @@ sealed interface Artifact {
 
     data class Server(
         val url: String,
+        /** The name it runs under when AndCode keeps it running (`andcode-run`), else null. */
+        val name: String? = null,
     ) : Artifact {
         override val key: String get() = "server:$url"
     }
@@ -207,4 +212,32 @@ sealed interface ArtifactPreviewState {
         /** What the runtime said, or null when there was no workspace to read from. */
         val message: String?,
     ) : ArtifactPreviewState
+}
+
+/** The processes AndCode keeps running (`andcode-run`), for the artifacts list; empty where unknown. */
+val LocalSupervisedProcesses = staticCompositionLocalOf<List<SupervisedProcess>> { emptyList() }
+
+private val URL_PORT = Regex("""^https?://(?:\[[^\]]+\]|[^/:\[]+):(\d+)""", RegexOption.IGNORE_CASE)
+
+/**
+ * [artifacts] with the servers AndCode keeps running first, under their names: each running one
+ * with a port, at `http://localhost:PORT`. A server the chat mentioned on the same port is that
+ * one, so it is listed once, as the kept one. Stopped, exited and crashed processes have nothing
+ * to open and are left out.
+ */
+fun withSupervised(
+    artifacts: List<Artifact>,
+    processes: List<SupervisedProcess>,
+): List<Artifact> {
+    val kept =
+        processes
+            .filter { it.status == SupervisedStatus.RUNNING || it.status == SupervisedStatus.RESTARTING }
+            .mapNotNull { process -> process.port?.let { port -> Artifact.Server("http://localhost:$port", process.spec.name) } }
+    if (kept.isEmpty()) return artifacts
+    val keptPorts = kept.map { it.url.substringAfterLast(':') }.toSet()
+    val others =
+        artifacts.filterNot { artifact ->
+            artifact is Artifact.Server && URL_PORT.find(artifact.url)?.groupValues?.get(1) in keptPorts
+        }
+    return kept + others
 }
