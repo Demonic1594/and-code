@@ -233,13 +233,15 @@ class ClaudeStreamJsonParserTest {
                 """{"type":"user","message":{"id":"m-r","content":[{"type":"tool_result","tool_use_id":"t1","content":[""" +
                     """{"type":"image","source":{"type":"base64","media_type":"image/png","data":"iVBORw0KGgo="}},""" +
                     """{"type":"text","text":"[Image: original 1280x2130, displayed at 1202x2000. """ +
-                    """Multiply coordinates by 1.06 to map to original image.]"}""" +
+                    """Multiply coordinates by 1.06 to map to original image.]"},""" +
+                    """{"type":"text","text":"[Image: a caption the tool wrote]"}""" +
                     """]}]}}""",
             )
 
         val parts = result.messages.single().parts
         val tool = parts.single { it.id == "t1" }
-        assertEquals("", tool.state?.get("output")?.jsonPrimitive?.content)
+        // Only Claude Code's size note goes; other text the tool wrote stays.
+        assertEquals("[Image: a caption the tool wrote]", tool.state?.get("output")?.jsonPrimitive?.content)
         val image = parts.single { it.type == "file" }
         assertEquals("image/png", image.mime)
         assertEquals("data:image/png;base64,iVBORw0KGgo=", image.url)

@@ -508,7 +508,7 @@ class ClaudeStreamJsonParser(
                 else -> content.toString()
             }
 
-        private val IMAGE_NOTE = Regex("""\[Image:[^\]]*\]""")
+        private val IMAGE_NOTE = Regex("""\[Image: original \d+x\d+[^\]]*\]""")
     }
 }
 
