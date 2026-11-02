@@ -546,4 +546,14 @@ class MarkdownLiteTest {
             paragraph.inlines,
         )
     }
+
+    @Test
+    fun `text past the nesting limit keeps code, html and footnote labels, and runs formatted words on`() {
+        val deep = "> ".repeat(30)
+        val source = "$deep **bold** and `code` here[^n] <b>\n$deep\n$deep ```\n$deep fenced\n$deep ```\n\n[^n]: note"
+        val all = MarkdownLite.parse(source).toString()
+
+        assertTrue(all, all.contains("bold and code here[n] <b>"))
+        assertTrue(all, all.contains("fenced"))
+    }
 }

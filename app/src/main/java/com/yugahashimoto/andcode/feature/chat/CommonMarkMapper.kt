@@ -7,6 +7,7 @@ import org.commonmark.ext.gfm.tables.TableBlock
 import org.commonmark.ext.gfm.tables.TableCell
 import org.commonmark.ext.gfm.tables.TableRow
 import org.commonmark.ext.task.list.items.TaskListItemMarker
+import org.commonmark.node.Block
 import org.commonmark.node.BlockQuote
 import org.commonmark.node.BulletList
 import org.commonmark.node.Code
@@ -179,12 +180,17 @@ internal object CommonMarkMapper {
         when (node) {
             is Text -> node.literal.orEmpty()
             is Code -> node.literal.orEmpty()
+            is FencedCodeBlock -> node.literal.orEmpty().trimEnd('\n')
+            is IndentedCodeBlock -> node.literal.orEmpty().trimEnd('\n')
+            is HtmlBlock -> node.literal.orEmpty().trimEnd('\n')
+            is HtmlInline -> if (BR_TAG.matches(node.literal.orEmpty())) "\n" else node.literal.orEmpty()
+            is FootnoteReference -> "[${node.label}]"
             is SoftLineBreak, is HardLineBreak -> "\n"
-            else ->
-                node.children().joinToString(
-                    if (node is Paragraph || node is ListItem || node is BlockQuote) "\n" else "",
-                    transform = ::allText,
-                )
+            // Inline pieces run on within their paragraph; the blocks inside a container (list items,
+            // quotes, the paragraphs of an item) each start a line.
+            is Paragraph -> node.children().joinToString("", transform = ::allText)
+            is Block -> node.children().joinToString("\n", transform = ::allText)
+            else -> node.children().joinToString("", transform = ::allText)
         }
 
     /** Neighbouring text runs as one, so the model does not depend on how the parser split them. */
