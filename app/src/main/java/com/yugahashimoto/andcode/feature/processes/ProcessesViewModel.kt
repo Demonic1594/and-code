@@ -3,6 +3,7 @@ package com.yugahashimoto.andcode.feature.processes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yugahashimoto.andcode.runtime.local.ProcessSupervisor
+import com.yugahashimoto.andcode.runtime.local.RunInstructions
 import com.yugahashimoto.andcode.runtime.local.StartResult
 import com.yugahashimoto.andcode.runtime.local.SupervisedProcess
 import com.yugahashimoto.andcode.runtime.local.SupervisedProcessSpec
@@ -32,6 +33,8 @@ data class ProcessesUiState(
     val log: ShownLog? = null,
     /** Why the last start or restart did not happen, until the screen has shown it. */
     val problem: StartResult? = null,
+    /** Agents' instructions files that do not teach `andcode-run`, so those agents may use `nohup`. */
+    val instructionsWithoutRun: List<String> = emptyList(),
 )
 
 /**
@@ -42,22 +45,52 @@ data class ProcessesUiState(
  */
 class ProcessesViewModel(
     private val supervisor: ProcessSupervisor,
+    private val instructions: RunInstructions? = null,
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val logRefreshMillis: Long = LOG_REFRESH_MILLIS,
 ) : ViewModel() {
     private val saved = MutableStateFlow<List<SupervisedProcessSpec>>(emptyList())
     private val log = MutableStateFlow<ShownLog?>(null)
     private val problem = MutableStateFlow<StartResult?>(null)
+    private val withoutRun = MutableStateFlow<List<String>>(emptyList())
+
+    /** Files dismissed while this screen is open, also before the dismissal is saved. */
+    private val dismissedHere = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private var logJob: Job? = null
 
     val state: StateFlow<ProcessesUiState> =
-        combine(supervisor.processes, saved, log, problem) { processes, kept, shown, failure ->
+        combine(supervisor.processes, saved, log, problem, withoutRun) { processes, kept, shown, failure, files ->
             val names = processes.map { it.spec.name }.toSet()
-            ProcessesUiState(processes, kept.filterNot { it.name in names }, shown, failure)
+            ProcessesUiState(processes, kept.filterNot { it.name in names }, shown, failure, files)
         }.stateIn(viewModelScope, SharingStarted.Eagerly, ProcessesUiState())
 
     init {
         refreshSaved()
+        refreshInstructions()
+    }
+
+    /** Adds the `andcode-run` section to the instructions file at [path], keeping what is in it. */
+    fun addRunSection(path: String) {
+        viewModelScope.launch(io) {
+            instructions?.add(path)
+            refreshInstructions()
+        }
+    }
+
+    /** Stops pointing out the files currently listed. */
+    fun dismissInstructions() {
+        val files = withoutRun.value
+        dismissedHere += files
+        withoutRun.value = emptyList()
+        viewModelScope.launch(io) { instructions?.dismiss(files) }
+    }
+
+    private fun refreshInstructions() {
+        viewModelScope.launch(io) {
+            // A read that started before a dismissal must not bring the dismissed files back.
+            val missing = instructions?.missing().orEmpty()
+            withoutRun.value = missing.filterNot { it in dismissedHere }
+        }
     }
 
     fun stop(name: String) {

@@ -1764,6 +1764,10 @@
     <string name="processes_status_exited">Terminó</string>
     <string name="processes_status_stopped">Detenido</string>
     <string name="processes_port">Puerto %1$d</string>
+    <string name="processes_instructions_title">Algunos agentes no conocen andcode-run</string>
+    <string name="processes_instructions_body">Estos archivos de instrucciones se modificaron, así que AndCode dejó de actualizarlos. Sus agentes pueden iniciar servidores con nohup, que se detienen cuando el teléfono entra en reposo.</string>
+    <string name="processes_instructions_add">Añadir</string>
+    <string name="processes_instructions_dismiss">Descartar</string>
     <string name="processes_action_description">%1$s: %2$s</string>
     <string name="processes_problem_running">%1$s ya se está ejecutando.</string>
     <string name="processes_problem_limit">Se pueden ejecutar hasta %1$d procesos a la vez. Detén uno primero.</string>

@@ -1742,6 +1742,10 @@
     <string name="processes_status_exited">已结束</string>
     <string name="processes_status_stopped">已停止</string>
     <string name="processes_port">端口 %1$d</string>
+    <string name="processes_instructions_title">部分智能体不了解 andcode-run</string>
+    <string name="processes_instructions_body">这些说明文件已被修改，因此 AndCode 不再更新它们。相应的智能体可能会用 nohup 启动服务器，而手机休眠时这些服务器会停止。</string>
+    <string name="processes_instructions_add">添加</string>
+    <string name="processes_instructions_dismiss">忽略</string>
     <string name="processes_action_description">%1$s：%2$s</string>
     <string name="processes_problem_running">%1$s 已在运行。</string>
     <string name="processes_problem_limit">最多可同时运行 %1$d 个进程。请先停止一个。</string>

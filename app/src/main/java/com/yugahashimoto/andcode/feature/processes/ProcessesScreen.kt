@@ -58,6 +58,7 @@ fun ProcessesScreen(
     onToggleLog: (String) -> Unit,
     onProblemShown: () -> Unit,
     onBack: () -> Unit,
+    instructionsActions: InstructionsActions = InstructionsActions(),
 ) {
     val snackbar = remember { SnackbarHostState() }
     val problem = state.problem?.let { problemText(it) }
@@ -92,6 +93,9 @@ fun ProcessesScreen(
                     modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                 )
             }
+            if (state.instructionsWithoutRun.isNotEmpty()) {
+                item { InstructionsNotice(state.instructionsWithoutRun, instructionsActions.onAdd, instructionsActions.onDismiss) }
+            }
             if (state.processes.isEmpty()) {
                 item { Text(stringResource(R.string.processes_empty), style = MaterialTheme.typography.bodyMedium) }
             }
@@ -110,6 +114,41 @@ fun ProcessesScreen(
                         ActionButton(R.string.processes_start, spec.name) { onStart(spec) }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** What the instructions notice can do: add the `andcode-run` section to a file, or stop showing. */
+data class InstructionsActions(
+    val onAdd: (String) -> Unit = {},
+    val onDismiss: () -> Unit = {},
+)
+
+/** Agents whose instructions file was changed, so AndCode never taught them `andcode-run`. */
+@Composable
+private fun InstructionsNotice(
+    files: List<String>,
+    onAdd: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.secondaryContainer) {
+        Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(R.string.processes_instructions_title), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.processes_instructions_body), style = MaterialTheme.typography.bodySmall)
+            files.forEach { path ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        path,
+                        fontFamily = CodeFontFamily,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ActionButton(R.string.processes_instructions_add, path) { onAdd(path) }
+                }
+            }
+            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
+                Text(stringResource(R.string.processes_instructions_dismiss))
             }
         }
     }
