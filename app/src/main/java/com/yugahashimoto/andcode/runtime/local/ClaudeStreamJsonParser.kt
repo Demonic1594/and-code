@@ -138,16 +138,18 @@ class ClaudeStreamJsonParser(
         val existing = messagesById[messageId]
         val newParts =
             buildList {
-                blocks.forEachIndexed { index, block ->
+                blocks.forEach { block ->
                     if (block.string("type") == "image") {
-                        imagePart(messageId, "$messageId-image-$index", block)?.let(::add)
-                        return@forEachIndexed
+                        // Claude Code sends each block of a message on a line of its own, so the
+                        // block index repeats; the picture's own content names it instead.
+                        imagePart(messageId, "$messageId-image-${block.hashCode()}", block)?.let(::add)
+                        return@forEach
                     }
-                    val part = parseContentBlock(messageId, block) ?: return@forEachIndexed
+                    val part = parseContentBlock(messageId, block) ?: return@forEach
                     // A tool_result carries only the outcome; keeping the call's name and input is
                     // what lets the finished card (and the artifacts list) still say what it did.
                     add(existing?.parts?.firstOrNull { it.id == part.id }?.let { started -> completedTool(started, part) } ?: part)
-                    val partId = part.id ?: return@forEachIndexed
+                    val partId = part.id ?: return@forEach
                     when (block.string("type")) {
                         "tool_use" -> openTools[partId] = OpenTool(messageId, partId)
                         "tool_result" -> {

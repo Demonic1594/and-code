@@ -246,6 +246,36 @@ class ClaudeStreamJsonParserTest {
     }
 
     @Test
+    fun `two pictures sent on separate lines of one message are both kept`() {
+        val parser = parser()
+        parser.parse(
+            """{"type":"assistant","message":{"id":"m1","content":[""" +
+                """{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AAAA"}}]}}""",
+        )
+        val second =
+            parser.parse(
+                """{"type":"assistant","message":{"id":"m1","content":[""" +
+                    """{"type":"image","source":{"type":"base64","media_type":"image/png","data":"BBBB"}}]}}""",
+            )
+
+        assertEquals(2, second.messages.single().parts.count { it.type == "file" })
+    }
+
+    @Test
+    fun `the size note stays when a tool result has no picture`() {
+        val parser = parser()
+        parser.parse("""{"type":"assistant","message":{"id":"m","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{}}]}}""")
+        val result =
+            parser.parse(
+                """{"type":"user","message":{"id":"r","content":[{"type":"tool_result","tool_use_id":"t1",""" +
+                    """"content":[{"type":"text","text":"[Image: not really]"}]}]}}""",
+            )
+
+        val tool = result.messages.single().parts.single { it.id == "t1" }
+        assertEquals("[Image: not really]", tool.state?.get("output")?.jsonPrimitive?.content)
+    }
+
+    @Test
     fun `an image the agent includes in its own message is a picture`() {
         val parsed =
             parser().parse(
