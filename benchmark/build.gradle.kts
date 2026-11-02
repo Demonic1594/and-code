@@ -33,9 +33,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
 }
 
 baselineProfile {
@@ -54,5 +51,11 @@ dependencies {
 androidComponents {
     beforeVariants(selector().all()) {
         it.enable = it.buildType == "benchmark"
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }

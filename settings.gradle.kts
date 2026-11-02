@@ -20,8 +20,7 @@ include(":benchmark")
 // Patched versions of libraries that only arrive through other dependencies: the Gradle plugins'
 // classpath, AGP's own tool configurations, and the app and benchmark graphs. A rule only ever
 // raises a version, and stays within the line that was asked for unless the fix only exists in
-// the next one. The Kotlin Gradle plugin is left alone: its build-cache fix only exists in a 2.4.20
-// pre-release.
+// the next one.
 object PatchedVersions {
     private const val NETTY = "4.1.137.Final"
     private const val GUAVA = "33.7.2"
