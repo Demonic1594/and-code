@@ -217,7 +217,7 @@ sealed interface ArtifactPreviewState {
 /** The processes AndCode keeps running (`andcode-run`), for the artifacts list; empty where unknown. */
 val LocalSupervisedProcesses = staticCompositionLocalOf<List<SupervisedProcess>> { emptyList() }
 
-private val URL_PORT = Regex("""^https?://[^/:]+:(\d+)""")
+private val URL_PORT = Regex("""^https?://(?:\[[^\]]+\]|[^/:\[]+):(\d+)""", RegexOption.IGNORE_CASE)
 
 /**
  * [artifacts] with the servers AndCode keeps running first, under their names: each running one

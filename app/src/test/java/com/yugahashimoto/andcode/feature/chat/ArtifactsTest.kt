@@ -200,7 +200,14 @@ class SupervisedArtifactsTest {
     @Test
     fun `kept servers come first under their names, and a mention of the same port is not listed twice`() {
         val page = Artifact.File("/workspace/index.html", ArtifactKind.HTML)
-        val mentioned = listOf(Artifact.Server("http://127.0.0.1:5173/"), page, Artifact.Server("http://localhost:8000"))
+        val mentioned =
+            listOf(
+                Artifact.Server("http://127.0.0.1:5173/"),
+                page,
+                Artifact.Server("http://[::1]:5173"),
+                Artifact.Server("HTTPS://localhost:5173/app"),
+                Artifact.Server("http://localhost:8000"),
+            )
 
         val listed = withSupervised(mentioned, listOf(process("web", 5173)))
 
