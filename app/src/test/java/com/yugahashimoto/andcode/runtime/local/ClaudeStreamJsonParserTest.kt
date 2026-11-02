@@ -338,6 +338,8 @@ class ClaudeStreamJsonParserTest {
         assertEquals("completed", tool.state?.get("status")?.jsonPrimitive?.content)
         assertEquals("done", tool.state?.get("output")?.jsonPrimitive?.content)
     }
+
+    @Test
     fun `a tool_result keeps the name and input of the tool it answers`() {
         val parser = parser()
         parser.parse(toolUses("""{"type":"tool_use","id":"t1","name":"Write","input":{"file_path":"/workspace/page.html"}}"""))
