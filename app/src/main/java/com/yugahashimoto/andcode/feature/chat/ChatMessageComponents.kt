@@ -156,10 +156,8 @@ fun MessageBubble(
                     }
                 }
                 if (displayText.isNotBlank()) {
-                    LinkedText(
-                        text = displayText,
-                        linkColor = MaterialTheme.colorScheme.primary,
-                    )
+                    // Your own text is Markdown too: lists, code, emphasis and links read as written.
+                    MarkdownText(displayText, onImageClick = onImageClick)
                 }
             }
         }
@@ -455,6 +453,7 @@ private fun InlineText(
     style: TextStyle,
     linkColor: Color,
     codeBackground: Color,
+    modifier: Modifier = Modifier,
 ) {
     val annotated =
         remember(inlines, linkColor, codeBackground) {
@@ -467,19 +466,19 @@ private fun InlineText(
             // Resolve paragraph direction from the content (first-strong heuristic) instead of
             // the app layout direction, so mixed Arabic/English text (issue #341) is not laid out
             // with a forced base direction that visually reverses line starts and ends.
-            Text(text = annotated, style = style.copy(textDirection = TextDirection.Content))
+            Text(text = annotated, style = style.copy(textDirection = TextDirection.Content), modifier = modifier)
         }
     }
 }
 
 @Composable
 private fun RowScope.TableCellText(
-    text: String,
+    inlines: List<MarkdownInline>,
+    alignment: MarkdownAlignment?,
     style: TextStyle,
     linkColor: Color,
     codeBackground: Color,
 ) {
-    val inlines = remember(text) { MarkdownLite.parseInline(text) }
     Box(
         modifier =
             Modifier
@@ -488,44 +487,19 @@ private fun RowScope.TableCellText(
     ) {
         InlineText(
             inlines = inlines,
-            style = style,
+            style =
+                style.copy(
+                    textAlign =
+                        when (alignment) {
+                            MarkdownAlignment.CENTER -> TextAlign.Center
+                            MarkdownAlignment.END -> TextAlign.End
+                            else -> TextAlign.Start
+                        },
+                ),
             linkColor = linkColor,
             codeBackground = codeBackground,
+            modifier = Modifier.fillMaxWidth(),
         )
-    }
-}
-
-@Composable
-private fun LinkedText(
-    text: String,
-    linkColor: Color,
-) {
-    val style = LocalTextStyle.current
-    val inlines = remember(text) { MarkdownLite.parseInline(text) }
-    val annotated =
-        remember(inlines, linkColor) {
-            buildAnnotatedString {
-                // User text is shown plain (no emphasis styling), but a link nested inside emphasis
-                // is still walked so `**http://localhost:4200**` remains tappable.
-                fun appendPlain(nodes: List<MarkdownInline>) {
-                    nodes.forEach { inline ->
-                        when (inline) {
-                            is MarkdownInline.Link ->
-                                withLink(linkAnnotation(inline.url, linkColor)) { append(inline.text) }
-                            is MarkdownInline.Bold -> appendPlain(inline.inlines)
-                            is MarkdownInline.Italic -> appendPlain(inline.inlines)
-                            is MarkdownInline.Strikethrough -> appendPlain(inline.inlines)
-                            else -> append(inline.text)
-                        }
-                    }
-                }
-                appendPlain(inlines)
-            }
-        }
-    // Same file:// guard as InlineText above (issue #300).
-    ProvideSafeUriHandler {
-        // Content-based paragraph direction for mixed RTL/LTR input (issue #341).
-        Text(text = annotated, style = style.copy(textDirection = TextDirection.Content))
     }
 }
 
@@ -581,7 +555,8 @@ private fun MarkdownBlockView(
                     when (block.level) {
                         1 -> MaterialTheme.typography.titleLarge
                         2 -> MaterialTheme.typography.titleMedium
-                        else -> MaterialTheme.typography.titleSmall
+                        3 -> MaterialTheme.typography.titleSmall
+                        else -> MaterialTheme.typography.labelLarge
                     }.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface),
                 linkColor = linkColor,
                 codeBackground = codeInlineBackground,
@@ -633,20 +608,12 @@ private fun MarkdownBlockView(
             }
         is MarkdownBlock.BulletList ->
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                block.items.forEach { item ->
-                    Row {
-                        Text("•  ", color = MaterialTheme.colorScheme.onSurface)
-                        InlineText(item, bodyStyle, linkColor, codeInlineBackground)
-                    }
-                }
+                block.items.forEach { item -> MarkdownListItemView(listMarker(item, "•"), item, onImageClick) }
             }
         is MarkdownBlock.OrderedList ->
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 block.items.forEachIndexed { index, item ->
-                    Row {
-                        Text("${block.start + index}.  ", color = MaterialTheme.colorScheme.onSurface)
-                        InlineText(item, bodyStyle, linkColor, codeInlineBackground)
-                    }
+                    MarkdownListItemView(listMarker(item, "${block.start + index}."), item, onImageClick)
                 }
             }
         is MarkdownBlock.Blockquote ->
@@ -665,12 +632,9 @@ private fun MarkdownBlockView(
                             bottom = 6.dp,
                         ),
                 ) {
-                    InlineText(
-                        inlines = block.inlines,
-                        style = bodyStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                        linkColor = linkColor,
-                        codeBackground = codeInlineBackground,
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        block.blocks.forEach { inner -> MarkdownBlockView(inner, onImageClick) }
+                    }
                 }
             }
         is MarkdownBlock.Table ->
@@ -685,9 +649,10 @@ private fun MarkdownBlockView(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        block.headers.forEach { header ->
+                        block.headers.forEachIndexed { column, header ->
                             TableCellText(
-                                text = header,
+                                inlines = header,
+                                alignment = block.alignments.getOrNull(column),
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                                 linkColor = linkColor,
                                 codeBackground = codeInlineBackground,
@@ -698,11 +663,12 @@ private fun MarkdownBlockView(
                     block.rows.forEach { row ->
                         val padded =
                             row.take(block.headers.size) +
-                                List((block.headers.size - row.size).coerceAtLeast(0)) { "" }
+                                List((block.headers.size - row.size).coerceAtLeast(0)) { emptyList() }
                         Row(modifier = Modifier.fillMaxWidth()) {
-                            padded.forEach { cell ->
+                            padded.forEachIndexed { column, cell ->
                                 TableCellText(
-                                    text = cell,
+                                    inlines = cell,
+                                    alignment = block.alignments.getOrNull(column),
                                     style = MaterialTheme.typography.bodyMedium,
                                     linkColor = linkColor,
                                     codeBackground = codeInlineBackground,
@@ -822,6 +788,32 @@ internal fun decodeImageFromUrlOrPath(
             }
         BitmapFactory.decodeFile(path, decodeOptions)
     }.getOrNull()
+}
+
+/** A list item's marker: its bullet or number, or a box for a task item. */
+private fun listMarker(
+    item: MarkdownListItem,
+    marker: String,
+): String =
+    when (item.checked) {
+        true -> "☑"
+        false -> "☐"
+        null -> marker
+    }
+
+/** One list item: its marker beside its blocks, which may be paragraphs, code or a nested list. */
+@Composable
+private fun MarkdownListItemView(
+    marker: String,
+    item: MarkdownListItem,
+    onImageClick: (ChatImageSource) -> Unit,
+) {
+    Row {
+        Text("$marker  ", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            item.blocks.forEach { inner -> MarkdownBlockView(inner, onImageClick) }
+        }
+    }
 }
 
 @Composable

@@ -1,5 +1,35 @@
 package com.yugahashimoto.andcode.feature.chat
 
+import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
+import org.commonmark.ext.gfm.tables.TableBlock
+import org.commonmark.ext.gfm.tables.TableCell
+import org.commonmark.ext.gfm.tables.TableRow
+import org.commonmark.ext.gfm.tables.TablesExtension
+import org.commonmark.ext.task.list.items.TaskListItemMarker
+import org.commonmark.ext.task.list.items.TaskListItemsExtension
+import org.commonmark.node.BlockQuote
+import org.commonmark.node.BulletList
+import org.commonmark.node.Code
+import org.commonmark.node.Emphasis
+import org.commonmark.node.FencedCodeBlock
+import org.commonmark.node.HardLineBreak
+import org.commonmark.node.Heading
+import org.commonmark.node.HtmlBlock
+import org.commonmark.node.HtmlInline
+import org.commonmark.node.Image
+import org.commonmark.node.IndentedCodeBlock
+import org.commonmark.node.Link
+import org.commonmark.node.ListItem
+import org.commonmark.node.Node
+import org.commonmark.node.OrderedList
+import org.commonmark.node.Paragraph
+import org.commonmark.node.SoftLineBreak
+import org.commonmark.node.StrongEmphasis
+import org.commonmark.node.Text
+import org.commonmark.node.ThematicBreak
+import org.commonmark.parser.Parser
+import org.commonmark.ext.gfm.strikethrough.Strikethrough as GfmStrikethrough
+
 sealed interface MarkdownInline {
     val text: String
 
@@ -29,6 +59,15 @@ sealed interface MarkdownInline {
     data class Image(override val text: String, val url: String) : MarkdownInline
 }
 
+/** One item of a list: any blocks (paragraphs, nested lists, code), and its box when it is a task. */
+data class MarkdownListItem(
+    val blocks: List<MarkdownBlock>,
+    /** True or false for a `- [x]` / `- [ ]` task item, null for an ordinary one. */
+    val checked: Boolean? = null,
+)
+
+enum class MarkdownAlignment { START, CENTER, END }
+
 sealed interface MarkdownBlock {
     data class Heading(val level: Int, val inlines: List<MarkdownInline>) : MarkdownBlock
 
@@ -36,168 +75,157 @@ sealed interface MarkdownBlock {
 
     data class CodeBlock(val code: String, val language: String? = null) : MarkdownBlock
 
-    data class BulletList(val items: List<List<MarkdownInline>>) : MarkdownBlock
+    data class BulletList(val items: List<MarkdownListItem>) : MarkdownBlock
 
-    /** [start] is the first item's number: 1, or later for a long list split into pieces. */
-    data class OrderedList(val items: List<List<MarkdownInline>>, val start: Int = 1) : MarkdownBlock
+    /** [start] is the first item's number: as written, or later for a long list split into pieces. */
+    data class OrderedList(val items: List<MarkdownListItem>, val start: Int = 1) : MarkdownBlock
 
-    data class Blockquote(val inlines: List<MarkdownInline>) : MarkdownBlock
+    data class Blockquote(val blocks: List<MarkdownBlock>) : MarkdownBlock
 
-    data class Table(val headers: List<String>, val rows: List<List<String>>) : MarkdownBlock
+    data class Table(
+        val headers: List<List<MarkdownInline>>,
+        val rows: List<List<List<MarkdownInline>>>,
+        /** One per column; shorter than [headers] when not given. */
+        val alignments: List<MarkdownAlignment?> = emptyList(),
+    ) : MarkdownBlock
 
     data object HorizontalRule : MarkdownBlock
 }
 
+/**
+ * CommonMark with GitHub's tables, strikethrough and task lists, read into [MarkdownBlock]s for
+ * Compose to draw. Bare URLs are linked here rather than by the autolink extension, so the rules
+ * already relied on (trailing punctuation, balanced parentheses) stay as they were.
+ */
 object MarkdownLite {
-    private val inlineRegex =
-        Regex(
-            "`([^`]+)`" +
-                "|\\*\\*([^*]+)\\*\\*" +
-                "|~~([^~]+)~~" +
-                "|!\\[([^\\]]*)\\]\\(([^)\\s]+)\\)" +
-                "|\\[([^\\]]+)\\]\\(([^)\\s]+)\\)" +
-                "|\\*([^*]+)\\*" +
-                "|(?<![\\w@])(https?://[A-Za-z0-9][A-Za-z0-9._~:/?#\\[\\]@!&'()*+,;=%-]*)",
-        )
-    private val ORDERED_REGEX = Regex("^\\d+\\.\\s+")
-    private val HR_REGEX = Regex("^(-{3,}|\\*{3,}|_{3,})$")
-    private val TABLE_SEP_REGEX = Regex("^\\|?[\\s:|-]*-[\\s:|-]*\\|?$")
+    private val bareUrl = Regex("(?<![\\w@])(https?://[A-Za-z0-9][A-Za-z0-9._~:/?#\\[\\]@!&'()*+,;=%-]*)")
 
-    fun parse(source: String): List<MarkdownBlock> {
-        val lines = source.split("\n")
-        val blocks = mutableListOf<MarkdownBlock>()
-        val paragraphBuffer = mutableListOf<String>()
+    private val parser: Parser =
+        Parser.builder()
+            .extensions(
+                listOf(
+                    TablesExtension.create(),
+                    // A single tilde ("~5 minutes") is not a strikethrough.
+                    StrikethroughExtension.builder().requireTwoTildes(true).build(),
+                    TaskListItemsExtension.create(),
+                ),
+            ).build()
 
-        fun flushParagraph() {
-            if (paragraphBuffer.isNotEmpty()) {
-                blocks += MarkdownBlock.Paragraph(parseInline(paragraphBuffer.joinToString("\n")))
-                paragraphBuffer.clear()
+    fun parse(source: String): List<MarkdownBlock> = blocksOf(parser.parse(source))
+
+    /** The inline content of [text], paragraphs joined by a line break. */
+    internal fun parseInline(text: String): List<MarkdownInline> {
+        val inlines =
+            parse(text).flatMapIndexed { index, block ->
+                val content =
+                    when (block) {
+                        is MarkdownBlock.Paragraph -> block.inlines
+                        is MarkdownBlock.Heading -> block.inlines
+                        else -> listOf(MarkdownInline.Plain(text))
+                    }
+                if (index == 0) content else listOf(MarkdownInline.Plain("\n")) + content
             }
-        }
-
-        var i = 0
-        while (i < lines.size) {
-            val line = lines[i]
-            val trimmed = line.trimStart()
-            when {
-                trimmed.startsWith("```") -> {
-                    flushParagraph()
-                    val language = trimmed.removePrefix("```").trim().ifBlank { null }
-                    val codeLines = mutableListOf<String>()
-                    i++
-                    while (i < lines.size && !lines[i].trimStart().startsWith("```")) {
-                        codeLines += lines[i]
-                        i++
-                    }
-                    blocks += MarkdownBlock.CodeBlock(codeLines.joinToString("\n"), language)
-                }
-                HR_REGEX.matches(trimmed) -> {
-                    flushParagraph()
-                    blocks += MarkdownBlock.HorizontalRule
-                }
-                trimmed.startsWith("#") -> {
-                    flushParagraph()
-                    val level = trimmed.takeWhile { it == '#' }.length.coerceIn(1, 6)
-                    blocks += MarkdownBlock.Heading(level, parseInline(trimmed.drop(level).trim()))
-                }
-                trimmed.startsWith("> ") || trimmed == ">" -> {
-                    flushParagraph()
-                    val quoteLines = mutableListOf<String>()
-                    while (i < lines.size && (lines[i].trimStart().startsWith("> ") || lines[i].trimStart() == ">")) {
-                        quoteLines += lines[i].trimStart().removePrefix(">").trim()
-                        i++
-                    }
-                    blocks += MarkdownBlock.Blockquote(parseInline(quoteLines.joinToString(" ")))
-                    continue
-                }
-                trimmed.startsWith("- ") || trimmed.startsWith("* ") -> {
-                    flushParagraph()
-                    val items = mutableListOf<List<MarkdownInline>>()
-                    while (i < lines.size && (lines[i].trimStart().startsWith("- ") || lines[i].trimStart().startsWith("* "))) {
-                        items += parseInline(lines[i].trimStart().drop(2).trim())
-                        i++
-                    }
-                    blocks += MarkdownBlock.BulletList(items)
-                    continue
-                }
-                ORDERED_REGEX.containsMatchIn(trimmed) -> {
-                    flushParagraph()
-                    val items = mutableListOf<List<MarkdownInline>>()
-                    while (i < lines.size && ORDERED_REGEX.containsMatchIn(lines[i].trimStart())) {
-                        items += parseInline(ORDERED_REGEX.replaceFirst(lines[i].trimStart(), "").trim())
-                        i++
-                    }
-                    blocks += MarkdownBlock.OrderedList(items)
-                    continue
-                }
-                trimmed.contains("|") && i + 1 < lines.size &&
-                    TABLE_SEP_REGEX.matches(lines[i + 1].trim()) -> {
-                    flushParagraph()
-                    val headers = splitTableRow(trimmed)
-                    i += 2
-                    val rows = mutableListOf<List<String>>()
-                    while (i < lines.size && lines[i].contains("|") && lines[i].trim().isNotEmpty()) {
-                        rows += splitTableRow(lines[i].trim())
-                        i++
-                    }
-                    blocks += MarkdownBlock.Table(headers, rows)
-                    continue
-                }
-                trimmed.isBlank() -> flushParagraph()
-                else -> paragraphBuffer += line
-            }
-            i++
-        }
-        flushParagraph()
-        return blocks
+        return merged(inlines).ifEmpty { listOf(MarkdownInline.Plain(text)) }
     }
 
-    private fun splitTableRow(line: String): List<String> =
-        line.trim().removePrefix("|").removeSuffix("|")
-            .split("|")
-            .map { it.trim() }
+    private fun children(node: Node): Sequence<Node> = generateSequence(node.firstChild) { it.next }
 
-    internal fun parseInline(text: String): List<MarkdownInline> {
-        val result = mutableListOf<MarkdownInline>()
-        var lastIndex = 0
-        for (match in inlineRegex.findAll(text)) {
-            if (match.range.first > lastIndex) {
-                result += MarkdownInline.Plain(text.substring(lastIndex, match.range.first))
+    private fun blocksOf(parent: Node): List<MarkdownBlock> = children(parent).mapNotNull(::blockOf).toList()
+
+    private fun blockOf(node: Node): MarkdownBlock? =
+        when (node) {
+            is Heading -> MarkdownBlock.Heading(node.level.coerceIn(1, 6), inlinesOf(node))
+            is Paragraph -> MarkdownBlock.Paragraph(inlinesOf(node))
+            is FencedCodeBlock ->
+                MarkdownBlock.CodeBlock(
+                    node.literal.removeSuffix("\n"),
+                    node.info?.trim()?.substringBefore(' ')?.ifBlank { null },
+                )
+            is IndentedCodeBlock -> MarkdownBlock.CodeBlock(node.literal.removeSuffix("\n"))
+            is BulletList -> MarkdownBlock.BulletList(itemsOf(node))
+            is OrderedList -> MarkdownBlock.OrderedList(itemsOf(node), node.markerStartNumber ?: 1)
+            is BlockQuote -> MarkdownBlock.Blockquote(blocksOf(node))
+            is ThematicBreak -> MarkdownBlock.HorizontalRule
+            is TableBlock -> tableOf(node)
+            // Raw HTML is shown as the text it is, never interpreted.
+            is HtmlBlock -> MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain(node.literal.trimEnd())))
+            else -> null
+        }
+
+    private fun itemsOf(list: Node): List<MarkdownListItem> =
+        children(list).filterIsInstance<ListItem>().map { item ->
+            val marker = children(item).firstNotNullOfOrNull { child -> children(child).firstOrNull() as? TaskListItemMarker }
+            MarkdownListItem(blocksOf(item), marker?.isChecked)
+        }.toList()
+
+    private fun tableOf(table: TableBlock): MarkdownBlock.Table {
+        val rows = mutableListOf<List<TableCell>>()
+        fun collect(node: Node) {
+            children(node).forEach { child ->
+                if (child is TableRow) rows += children(child).filterIsInstance<TableCell>().toList() else collect(child)
             }
-            val code = match.groups[1]?.value
-            val bold = match.groups[2]?.value
-            val strike = match.groups[3]?.value
-            val imageAlt = match.groups[4]?.value
-            val imageUrl = match.groups[5]?.value
-            val linkText = match.groups[6]?.value
-            val linkUrl = match.groups[7]?.value
-            val italic = match.groups[8]?.value
-            val bareUrl = match.groups[9]?.value
-            when {
-                code != null -> result += MarkdownInline.Code(code)
-                bold != null -> result += MarkdownInline.Bold(parseInline(bold))
-                strike != null -> result += MarkdownInline.Strikethrough(parseInline(strike))
-                imageAlt != null && imageUrl != null -> result += MarkdownInline.Image(imageAlt, imageUrl)
-                linkText != null && linkUrl != null -> result += MarkdownInline.Link(linkText, linkUrl)
-                italic != null -> result += MarkdownInline.Italic(parseInline(italic))
-                bareUrl != null -> {
-                    val url = trimUrlTail(bareUrl)
-                    result += MarkdownInline.Link(url, url)
-                    if (url.length < bareUrl.length) {
-                        result += MarkdownInline.Plain(bareUrl.substring(url.length))
+        }
+        collect(table)
+        val header = rows.firstOrNull().orEmpty()
+        return MarkdownBlock.Table(
+            headers = header.map(::inlinesOf),
+            rows = rows.drop(1).map { row -> row.map(::inlinesOf) },
+            alignments =
+                header.map { cell ->
+                    when (cell.alignment) {
+                        TableCell.Alignment.LEFT -> MarkdownAlignment.START
+                        TableCell.Alignment.CENTER -> MarkdownAlignment.CENTER
+                        TableCell.Alignment.RIGHT -> MarkdownAlignment.END
+                        else -> null
                     }
-                }
-            }
-            lastIndex = match.range.last + 1
+                },
+        )
+    }
+
+    private fun inlinesOf(parent: Node): List<MarkdownInline> = merged(children(parent).flatMap(::inlineOf).toList())
+
+    private fun inlineOf(node: Node): List<MarkdownInline> =
+        when (node) {
+            is Text -> linkified(node.literal)
+            is Code -> listOf(MarkdownInline.Code(node.literal))
+            is StrongEmphasis -> listOf(MarkdownInline.Bold(inlinesOf(node)))
+            is Emphasis -> listOf(MarkdownInline.Italic(inlinesOf(node)))
+            is GfmStrikethrough -> listOf(MarkdownInline.Strikethrough(inlinesOf(node)))
+            is Link -> listOf(MarkdownInline.Link(inlinesOf(node).joinToString("") { it.text }.ifEmpty { node.destination }, node.destination))
+            is Image -> listOf(MarkdownInline.Image(inlinesOf(node).joinToString("") { it.text }, node.destination))
+            // Chat text keeps its line breaks, as typed.
+            is SoftLineBreak, is HardLineBreak -> listOf(MarkdownInline.Plain("\n"))
+            is HtmlInline -> listOf(MarkdownInline.Plain(node.literal))
+            is TaskListItemMarker -> emptyList()
+            else -> inlinesOf(node)
         }
-        if (lastIndex < text.length) {
-            result += MarkdownInline.Plain(text.substring(lastIndex))
+
+    /** Plain text with each bare http(s) URL in it made a link. */
+    private fun linkified(text: String): List<MarkdownInline> {
+        val result = mutableListOf<MarkdownInline>()
+        var last = 0
+        bareUrl.findAll(text).forEach { match ->
+            if (match.range.first > last) result += MarkdownInline.Plain(text.substring(last, match.range.first))
+            val url = trimUrlTail(match.value)
+            result += MarkdownInline.Link(url, url)
+            if (url.length < match.value.length) result += MarkdownInline.Plain(match.value.substring(url.length))
+            last = match.range.last + 1
         }
-        if (result.isEmpty()) {
-            result += MarkdownInline.Plain(text)
-        }
+        if (last < text.length) result += MarkdownInline.Plain(text.substring(last))
         return result
     }
+
+    /** Neighbouring plain runs joined, so the text reads (and tests compare) as one piece. */
+    private fun merged(inlines: List<MarkdownInline>): List<MarkdownInline> =
+        inlines.fold(mutableListOf()) { acc, inline ->
+            val previous = acc.lastOrNull()
+            if (previous is MarkdownInline.Plain && inline is MarkdownInline.Plain) {
+                acc[acc.lastIndex] = MarkdownInline.Plain(previous.text + inline.text)
+            } else {
+                acc += inline
+            }
+            acc
+        }
 
     private fun trimUrlTail(raw: String): String {
         var s = raw
@@ -242,7 +270,7 @@ fun lazyMarkdownBlocks(blocks: List<MarkdownBlock>): List<MarkdownBlock> =
                 if (block.rows.size <= LAZY_TABLE_ROWS) {
                     listOf(block)
                 } else {
-                    block.rows.chunked(LAZY_TABLE_ROWS).map { MarkdownBlock.Table(block.headers, it) }
+                    block.rows.chunked(LAZY_TABLE_ROWS).map { MarkdownBlock.Table(block.headers, it, block.alignments) }
                 }
             else -> listOf(block)
         }
