@@ -492,6 +492,14 @@ internal fun RowScope.TableCellText(
             Modifier
                 .weight(1f)
                 .padding(end = 8.dp),
+        // A short cell's text is only as wide as itself, so the cell places it; textAlign then aligns
+        // the lines of a cell that wraps.
+        contentAlignment =
+            when (align) {
+                MarkdownAlign.CENTER -> Alignment.TopCenter
+                MarkdownAlign.RIGHT -> Alignment.TopEnd
+                else -> Alignment.TopStart
+            },
     ) {
         InlineText(
             inlines = inlines,

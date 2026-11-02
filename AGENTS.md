@@ -23,11 +23,12 @@ Then:
 
 Everything committed or opened in this repository is the owner's own work, under the owner's account.
 
-1. Before the first commit of a session, set the git identity to the owner's:
+1. Before the first commit of a session, set the git identity to the owner's, for this repository
+   only (worktrees share it):
 
    ```bash
-   git config --global user.name "Demonic1594"
-   git config --global user.email "137410379+Demonic1594@users.noreply.github.com"
+   git config user.name "Demonic1594"
+   git config user.email "137410379+Demonic1594@users.noreply.github.com"
    ```
 
    Never commit as another identity (for example a tool's or an assistant's own name or address).

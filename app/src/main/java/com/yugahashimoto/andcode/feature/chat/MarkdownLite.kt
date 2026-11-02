@@ -96,7 +96,8 @@ object MarkdownLite {
             .extensions(
                 listOf(
                     TablesExtension.create(),
-                    StrikethroughExtension.create(),
+                    // Two tildes only, as before: "PROGRA~1 and PROGRA~2" is not struck through.
+                    StrikethroughExtension.builder().requireTwoTildes(true).build(),
                     TaskListItemsExtension.create(),
                     FootnotesExtension.create(),
                 ),
@@ -123,7 +124,14 @@ object MarkdownLite {
         return result
     }
 
-    fun parse(source: String): List<MarkdownBlock> = CommonMarkMapper.blocks(documentParser.parse(source))
+    fun parse(source: String): List<MarkdownBlock> =
+        try {
+            CommonMarkMapper.blocks(documentParser.parse(source))
+        } catch (e: IllegalArgumentException) {
+            // The parser refuses some extreme input (a table of over a million cells); show it as text
+            // rather than let the exception escape composition.
+            listOf(MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain(source))))
+        }
 
     /**
      * Inline Markdown in a single run of text, without block syntax. The user's own messages go

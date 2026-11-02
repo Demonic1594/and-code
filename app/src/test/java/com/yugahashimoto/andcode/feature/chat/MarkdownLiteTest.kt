@@ -533,4 +533,17 @@ class MarkdownLiteTest {
         val all = MarkdownLite.parse(source).toString()
         assertTrue(all.contains("item 119"))
     }
+
+    @Test
+    fun `single tildes are not strikethrough`() {
+        val paragraph = MarkdownLite.parse("PROGRA~1 and PROGRA~2, ~~gone~~").single() as MarkdownBlock.Paragraph
+
+        assertEquals(
+            listOf(
+                MarkdownInline.Plain("PROGRA~1 and PROGRA~2, "),
+                MarkdownInline.Strikethrough(listOf(MarkdownInline.Plain("gone"))),
+            ),
+            paragraph.inlines,
+        )
+    }
 }
