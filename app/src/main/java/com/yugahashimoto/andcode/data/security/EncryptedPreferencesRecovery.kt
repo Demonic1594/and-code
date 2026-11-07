@@ -29,16 +29,22 @@ internal fun <T> openWithRecovery(
     discardMasterKey: () -> Unit,
     fallback: () -> T,
 ): T {
-    tryOpen(open).onSuccess { return it }
-    tryOpen(open).onSuccess { return it }
-
-    ignoringFailure(discardStoredPreferences)
-    tryOpen(open).onSuccess { return it }
-
-    ignoringFailure(discardStoredPreferences)
-    ignoringFailure(discardMasterKey)
-    tryOpen(open).onSuccess { return it }
-
+    // Each repair runs before its open attempt, cheapest first; the first open that works wins.
+    val repairs: List<() -> Unit> =
+        listOf(
+            {},
+            // The second try deletes nothing (case 0).
+            {},
+            { ignoringFailure(discardStoredPreferences) },
+            {
+                ignoringFailure(discardStoredPreferences)
+                ignoringFailure(discardMasterKey)
+            },
+        )
+    for (repair in repairs) {
+        repair()
+        tryOpen(open).onSuccess { return it }
+    }
     return fallback()
 }
 
