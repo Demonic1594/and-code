@@ -479,6 +479,185 @@ class BrowserMcpScriptTest {
     }
 
     @Test
+    fun `the console log lists entries oldest first and says what to pass next`() {
+        val log =
+            run(
+                """
+                print(m.format_console({
+                    "url": "http://127.0.0.1:5173/", "next": 9, "dropped": 3,
+                    "entries": [
+                        {"kind": "warn", "text": "slow render", "source": "http://127.0.0.1:5173/app.js:4"},
+                        {"kind": "exception", "text": "TypeError: x is undefined", "source": "app.js:3:9",
+                         "stack": "TypeError: x is undefined\n    at load (app.js:3:9)\n    at main (app.js:9:1)"},
+                        {"kind": "network", "text": "GET http://127.0.0.1:5173/api/users -> 404 Not Found"},
+                    ],
+                }, 0))
+                print(m.format_console({"url": "http://x/", "next": 9, "entries": []}, 9))
+                print(m.format_console({"url": "http://x/", "next": 3, "entries": [{"kind": "log", "text": str(i)} for i in range(3)]}, 0, 2))
+                """.trimIndent(),
+            )
+
+        assertEquals(
+            listOf(
+                "http://127.0.0.1:5173/",
+                "... 3 older entries were dropped to keep the log short",
+                "[warn] slow render (http://127.0.0.1:5173/app.js:4)",
+                "[exception] TypeError: x is undefined (app.js:3:9)",
+                "    at load (app.js:3:9)",
+                "    at main (app.js:9:1)",
+                "[network] GET http://127.0.0.1:5173/api/users -> 404 Not Found",
+                "next: 9 (pass since=9 to read only what comes after this)",
+                "http://x/",
+                "no console messages, errors or failed requests since the last read",
+                "next: 9 (pass since=9 to read only what comes after this)",
+                "http://x/",
+                "... 1 more entries before these are not shown",
+                "[log] 1",
+                "[log] 2",
+                "next: 3 (pass since=3 to read only what comes after this)",
+            ),
+            log.lines(),
+        )
+    }
+
+    @Test
+    fun `since must be a whole number, checked before the browser is reached`() {
+        val answers = run("""for since in ("3", -1, 2.5, True): print(m.tool_console({"since": since}))""")
+
+        assertEquals(List(4) { "since must be a whole number from an earlier browser_console reply" }, answers.lines())
+    }
+
+    @Test
+    fun `keys become the key events a person pressing them sends`() {
+        val events =
+            run(
+                """
+                import json
+                for spec in ("Enter", "shift+Tab", "ctrl+a", "A", "shift+b", "7", "ArrowDown", "space"):
+                    print(json.dumps(m.key_event(spec), sort_keys=True))
+                for spec in ("F13", "hyper+a", "", None, "ab", "é"):
+                    print(m.key_event(spec))
+                """.trimIndent(),
+            )
+
+        assertEquals(
+            listOf(
+                """{"code": "Enter", "key": "Enter", "modifiers": 0, "nativeVirtualKeyCode": 13, "text": "\r", "windowsVirtualKeyCode": 13}""",
+                """{"code": "Tab", "key": "Tab", "modifiers": 8, "nativeVirtualKeyCode": 9, "windowsVirtualKeyCode": 9}""",
+                """{"code": "KeyA", "key": "a", "modifiers": 2, "nativeVirtualKeyCode": 65, "windowsVirtualKeyCode": 65}""",
+                """{"code": "KeyA", "key": "a", "modifiers": 0, "nativeVirtualKeyCode": 65, "text": "a", "windowsVirtualKeyCode": 65}""",
+                """{"code": "KeyB", "key": "B", "modifiers": 8, "nativeVirtualKeyCode": 66, "text": "B", "windowsVirtualKeyCode": 66}""",
+                """{"code": "Digit7", "key": "7", "modifiers": 0, "nativeVirtualKeyCode": 55, "text": "7", "windowsVirtualKeyCode": 55}""",
+                """{"code": "ArrowDown", "key": "ArrowDown", "modifiers": 0, "nativeVirtualKeyCode": 40, "windowsVirtualKeyCode": 40}""",
+                """{"code": "Space", "key": " ", "modifiers": 0, "nativeVirtualKeyCode": 32, "text": " ", "windowsVirtualKeyCode": 32}""",
+                "None",
+                "None",
+                "None",
+                "None",
+                "None",
+                "None",
+            ),
+            events.lines(),
+        )
+    }
+
+    @Test
+    fun `a key that is not one says which keys there are, before the browser is reached`() {
+        val answer = run("""print(m.tool_press_key({"key": "F13"}))""")
+
+        assertTrue(answer, answer.startsWith("key must be a key name (Enter, Tab"))
+    }
+
+    @Test
+    fun `a scroll says where it ended up, or that nothing moved`() {
+        val answers =
+            run(
+                """
+                print(m.describe_scroll({"moved": True, "inner": False, "x": 0, "y": 1200, "width": 390, "height": 4000,
+                                         "viewWidth": 390, "viewHeight": 800}))
+                print(m.describe_scroll({"moved": True, "inner": True, "x": 0, "y": 300, "width": 390, "height": 900,
+                                         "viewWidth": 390, "viewHeight": 500}))
+                print(m.describe_scroll({"moved": False}))
+                print(m.tool_scroll.__name__ and m.SCROLL_DIRECTIONS.get("sideways"))
+                """.trimIndent(),
+            )
+
+        assertEquals(
+            listOf(
+                "scrolled the page to x=0, y=1200 of 390x4000 (view 390x800); call browser_read for what is now in view",
+                "scrolled a scrolling panel to x=0, y=300 of 390x900 (view 390x500); call browser_read for what is now in view",
+                "the page did not move: it is already at that end, or nothing here scrolls that way",
+                "None",
+            ),
+            answers.lines(),
+        )
+    }
+
+    @Test
+    fun `the page agent keeps a log of console lines, exceptions and failed requests for the tools`() {
+        val nodeStarts = runCatching { ProcessBuilder("node", "--version").start().waitFor(30, TimeUnit.SECONDS) }.getOrDefault(false)
+        assumeTrue("needs node", nodeStarts)
+        val agent =
+            listOf("src/main/assets/devtools/andcode-devtools.js", "app/src/main/assets/devtools/andcode-devtools.js")
+                .map(::File)
+                .first { it.isFile }
+        // Just enough of a browser for the agent to install its hooks.
+        val probe =
+            folder.newFile("probe.js").apply {
+                writeText(
+                    """
+                    const vm = require('vm');
+                    const listeners = {};
+                    const quiet = {};
+                    ['log', 'info', 'warn', 'error', 'debug', 'trace', 'table', 'dir', 'assert', 'count', 'time',
+                     'timeEnd', 'group', 'groupCollapsed', 'groupEnd', 'clear'].forEach((name) => { quiet[name] = () => {}; });
+                    const page = {
+                      console: quiet, location: { href: 'http://127.0.0.1:5173/' },
+                      document: { title: 'App', addEventListener() {} }, performance: { now: () => 1 },
+                      setTimeout: () => 0, Date, JSON, Math, String, Number, Array, Object, Error, Promise, Map, Set, RegExp, URL,
+                      addEventListener: (type, fn) => { (listeners[type] = listeners[type] || []).push(fn); },
+                      __andcodeDevtoolsBridge: { postMessage() {} },
+                      Request: function () {},
+                      fetch: (url) => Promise.resolve({ status: 404, statusText: 'Not Found', headers: { get: () => null, forEach() {} },
+                                                        type: 'basic', redirected: false, url: url }),
+                    };
+                    page.window = page;
+                    page.top = page;
+                    vm.createContext(page);
+                    vm.runInContext(require('fs').readFileSync(process.argv[2], 'utf8'), page);
+                    page.console.debug('${AgentActivity.MARKER}');
+                    page.console.error('boom', { a: 1 });
+                    page.console.log('hello');
+                    listeners.error.forEach((fn) => fn({ target: page, message: 'TypeError: x is undefined',
+                      filename: 'http://127.0.0.1:5173/app.js', lineno: 3, colno: 9 }));
+                    page.fetch('/api/users').then(() => {
+                      const all = JSON.parse(page.__andcodeDT.agentLog());
+                      console.log(all.entries.map((e) => e.seq + ' ' + e.kind + ' ' + e.text).join('\n'));
+                      console.log('next ' + all.next);
+                      console.log(JSON.parse(page.__andcodeDT.agentLog(3)).entries.map((e) => e.seq).join(','));
+                    });
+                    """.trimIndent(),
+                )
+            }
+
+        val process = ProcessBuilder("node", probe.absolutePath, agent.absolutePath).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText()
+        assertTrue(output, process.waitFor(30, TimeUnit.SECONDS) && process.exitValue() == 0)
+
+        assertEquals(
+            listOf(
+                "1 error boom {\"a\":1}",
+                "2 log hello",
+                "3 exception TypeError: x is undefined",
+                "4 network GET http://127.0.0.1:5173/api/users -> 404 Not Found",
+                "next 4",
+                "4",
+            ),
+            output.trim().lines(),
+        )
+    }
+
+    @Test
     fun `the page script that lists elements is valid javascript`() {
         val nodeStarts = runCatching { ProcessBuilder("node", "--version").start().waitFor(30, TimeUnit.SECONDS) }.getOrDefault(false)
         assumeTrue("needs node", nodeStarts)

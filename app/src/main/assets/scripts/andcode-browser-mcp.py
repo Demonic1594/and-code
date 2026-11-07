@@ -548,6 +548,193 @@ def tool_type(args: dict) -> str:
         page.close()
 
 
+# Reads the page agent's log (assets/devtools/andcode-devtools.js): console lines, uncaught errors,
+# failed loads and failed requests, after a sequence number.
+CONSOLE_JS = "(() => { const d = window.__andcodeDT; return d && d.agentLog ? d.agentLog(%d) : null; })()"
+CONSOLE_LIMIT = 100
+NO_AGENT_LOG = (
+    "this page has no log to read: it is an error page or a file the browser shows itself (a PDF, "
+    "an image), or it has not started loading"
+)
+BAD_SINCE = "since must be a whole number from an earlier browser_console reply"
+
+
+def format_console(data: dict, since: int, limit: int = CONSOLE_LIMIT) -> str:
+    """One line per entry, newest last, then the number to pass as since next time."""
+    entries = data.get("entries") or []
+    lines = [str(data.get("url", ""))]
+    if data.get("dropped"):
+        lines.append(f"... {data['dropped']} older entries were dropped to keep the log short")
+    if len(entries) > limit:
+        lines.append(f"... {len(entries) - limit} more entries before these are not shown")
+    for entry in entries[-limit:]:
+        line = f"[{entry.get('kind', '')}] {entry.get('text', '')}"
+        if entry.get("source"):
+            line += f" ({entry['source']})"
+        lines.append(line)
+        stack = [frame.strip() for frame in str(entry.get("stack") or "").splitlines()[1:4] if frame.strip()]
+        lines.extend(f"    {frame}" for frame in stack)
+    if not entries:
+        lines.append("no console messages, errors or failed requests" + (" since the last read" if since else ""))
+    following = data.get("next", since)
+    lines.append(f"next: {following} (pass since={following} to read only what comes after this)")
+    return "\n".join(lines)
+
+
+def tool_console(args: dict) -> str:
+    raw = args.get("since") or 0
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or raw != int(raw) or raw < 0:
+        return BAD_SINCE
+    since = int(raw)
+    page = _session().open_page_session()
+    try:
+        value = _evaluate(page, CONSOLE_JS % since)
+    finally:
+        page.close()
+    if value is None:
+        return NO_AGENT_LOG
+    return format_console(json.loads(str(value)), since)
+
+
+# Keys by the name the tool takes: (DOM key, DOM code, Windows virtual key code, text it types).
+NAMED_KEYS = {
+    "enter": ("Enter", "Enter", 13, "\r"),
+    "tab": ("Tab", "Tab", 9, None),
+    "escape": ("Escape", "Escape", 27, None),
+    "backspace": ("Backspace", "Backspace", 8, None),
+    "delete": ("Delete", "Delete", 46, None),
+    "space": (" ", "Space", 32, " "),
+    "arrowup": ("ArrowUp", "ArrowUp", 38, None),
+    "arrowdown": ("ArrowDown", "ArrowDown", 40, None),
+    "arrowleft": ("ArrowLeft", "ArrowLeft", 37, None),
+    "arrowright": ("ArrowRight", "ArrowRight", 39, None),
+    "home": ("Home", "Home", 36, None),
+    "end": ("End", "End", 35, None),
+    "pageup": ("PageUp", "PageUp", 33, None),
+    "pagedown": ("PageDown", "PageDown", 34, None),
+}
+# CDP's modifier bits.
+MODIFIER_BITS = {"alt": 1, "ctrl": 2, "control": 2, "meta": 4, "cmd": 4, "shift": 8}
+BAD_KEY = (
+    "key must be a key name (Enter, Tab, Escape, Backspace, Delete, Space, ArrowUp, ArrowDown, "
+    "ArrowLeft, ArrowRight, Home, End, PageUp, PageDown) or one letter or digit, optionally after "
+    "modifiers joined with +, such as ctrl+a or shift+Tab"
+)
+
+
+def key_event(spec: object) -> dict | None:
+    """The Input.dispatchKeyEvent fields for a key like "Enter" or "ctrl+a"; None when it is not one."""
+    if not isinstance(spec, str) or not spec.strip():
+        return None
+    parts = spec.strip().split("+")
+    name, modifiers = parts[-1], parts[:-1]
+    bits = 0
+    for modifier in modifiers:
+        bit = MODIFIER_BITS.get(modifier.strip().lower())
+        if bit is None:
+            return None
+        bits |= bit
+    if name.lower() in NAMED_KEYS:
+        key, code, vk, text = NAMED_KEYS[name.lower()]
+    elif len(name) == 1 and name.isascii() and name.isalnum():
+        upper = name.upper()
+        key = upper if bits & MODIFIER_BITS["shift"] else name.lower()
+        code = f"Key{upper}" if name.isalpha() else f"Digit{name}"
+        vk, text = ord(upper), key
+    else:
+        return None
+    # A shortcut (ctrl+a) types nothing; only a plain or shifted key does.
+    if bits & (MODIFIER_BITS["ctrl"] | MODIFIER_BITS["alt"] | MODIFIER_BITS["meta"]):
+        text = None
+    event = {"key": key, "code": code, "windowsVirtualKeyCode": vk, "nativeVirtualKeyCode": vk, "modifiers": bits}
+    if text is not None:
+        event["text"] = text
+    return event
+
+
+def tool_press_key(args: dict) -> str:
+    event = key_event(args.get("key"))
+    if event is None:
+        return BAD_KEY
+    page = _session().open_page_session()
+    try:
+        if args.get("ref") is not None:
+            state = _evaluate(page, ref_expression(args["ref"], "el.focus(); return 'ok';"))
+            if state == "stale":
+                return STALE_REF
+        page.call("Input.dispatchKeyEvent", type="keyDown" if "text" in event else "rawKeyDown", **event)
+        up = {name: value for name, value in event.items() if name != "text"}
+        page.call("Input.dispatchKeyEvent", type="keyUp", **up)
+        return f"pressed {args['key']}"
+    finally:
+        page.close()
+
+
+# Scrolls the window by (dx, dy); when the window cannot move that way, the nearest element under
+# the middle of the screen that can (apps that scroll an inner panel). Reports where it ended up.
+SCROLL_JS = r"""(() => {
+  const dx = %f, dy = %f;
+  const before = [scrollX, scrollY];
+  window.scrollBy(dx, dy);
+  let box = null;
+  if (scrollX === before[0] && scrollY === before[1]) {
+    let el = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
+    while (el && el !== document.documentElement) {
+      const style = getComputedStyle(el);
+      const canY = dy !== 0 && /(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight;
+      const canX = dx !== 0 && /(auto|scroll)/.test(style.overflowX) && el.scrollWidth > el.clientWidth;
+      if (canY || canX) {
+        const start = [el.scrollLeft, el.scrollTop];
+        el.scrollBy(dx, dy);
+        if (el.scrollLeft !== start[0] || el.scrollTop !== start[1]) { box = el; break; }
+      }
+      el = el.parentElement;
+    }
+  }
+  const at = box || document.scrollingElement || document.documentElement;
+  return JSON.stringify({
+    moved: box !== null || scrollX !== before[0] || scrollY !== before[1],
+    inner: box !== null,
+    x: Math.round(box ? box.scrollLeft : scrollX), y: Math.round(box ? box.scrollTop : scrollY),
+    width: at.scrollWidth, height: at.scrollHeight,
+    viewWidth: box ? box.clientWidth : innerWidth, viewHeight: box ? box.clientHeight : innerHeight
+  });
+})()"""
+SCROLL_DIRECTIONS = {"down": (0, 1), "up": (0, -1), "right": (1, 0), "left": (-1, 0)}
+BAD_DIRECTION = "direction must be down, up, left or right"
+
+
+def describe_scroll(data: dict) -> str:
+    if not data.get("moved"):
+        return "the page did not move: it is already at that end, or nothing here scrolls that way"
+    where = "a scrolling panel" if data.get("inner") else "the page"
+    return (
+        f"scrolled {where} to x={data['x']}, y={data['y']} of {data['width']}x{data['height']} "
+        f"(view {data['viewWidth']}x{data['viewHeight']}); call browser_read for what is now in view"
+    )
+
+
+def tool_scroll(args: dict) -> str:
+    page = _session().open_page_session()
+    try:
+        if args.get("ref") is not None:
+            state = _evaluate(page, ref_expression(args["ref"], "return 'ok';"))
+            return STALE_REF if state == "stale" else "scrolled the element into view"
+        direction = SCROLL_DIRECTIONS.get(str(args.get("direction") or "down").lower())
+        if direction is None:
+            return BAD_DIRECTION
+        amount = args.get("amount")
+        if amount is None:
+            # Most of a screen, so a line or two stays in view across the jump.
+            size = _evaluate(page, "JSON.stringify([innerWidth, innerHeight])")
+            width, height = json.loads(str(size))
+            amount = (width if direction[0] else height) * 0.8
+        dx, dy = direction[0] * float(amount), direction[1] * float(amount)
+        return describe_scroll(json.loads(str(_evaluate(page, SCROLL_JS % (dx, dy)))))
+    finally:
+        page.close()
+
+
 def tool_screenshot(args: dict) -> str:
     save_path = args.get("save_path") or "/tmp/andcode-browser.png"
     page = _session().open_page_session()
@@ -644,6 +831,52 @@ TOOLS = [
         },
     },
     {
+        "name": "browser_console",
+        "description": (
+            "Read what the Guest Browser page logged: console messages, uncaught exceptions, files that "
+            "failed to load, and requests that failed or answered 4xx/5xx, oldest first (at most the "
+            "last 100). The reply ends with next: N; pass since=N to read only what came after."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "since": {"type": "integer", "description": "The next number from an earlier reply; omit for everything kept."},
+            },
+        },
+    },
+    {
+        "name": "browser_press_key",
+        "description": (
+            "Press a key in the Guest Browser page, e.g. Enter to submit, Tab, Escape, the arrows, or a "
+            "shortcut like ctrl+a. With a handle from browser_read the element gets focus first; "
+            "otherwise the key goes to the focused element."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "key": {"type": "string", "description": "Enter, Tab, Escape, ArrowDown, a letter, ctrl+a, shift+Tab ..."},
+                "ref": {"type": "integer", "description": "Handle from browser_read to focus first."},
+            },
+            "required": ["key"],
+        },
+    },
+    {
+        "name": "browser_scroll",
+        "description": (
+            "Scroll the Guest Browser page (or, when the page itself does not scroll, the panel in the "
+            "middle of the screen) by most of a screen, or by amount CSS pixels, in a direction; or "
+            "bring the element with a handle from browser_read into view."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "direction": {"type": "string", "enum": ["down", "up", "left", "right"]},
+                "amount": {"type": "number", "description": "CSS pixels; most of a screen when omitted."},
+                "ref": {"type": "integer", "description": "Handle from browser_read to bring into view instead."},
+            },
+        },
+    },
+    {
         "name": "browser_screenshot",
         "description": "Capture the Guest Browser page as PNG and return the saved path.",
         "inputSchema": {
@@ -665,6 +898,9 @@ HANDLERS = {
     "browser_read": tool_read,
     "browser_click": tool_click,
     "browser_type": tool_type,
+    "browser_console": tool_console,
+    "browser_press_key": tool_press_key,
+    "browser_scroll": tool_scroll,
     "browser_screenshot": tool_screenshot,
     "browser_info": tool_info,
 }

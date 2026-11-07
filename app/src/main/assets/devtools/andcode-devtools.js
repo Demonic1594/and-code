@@ -56,7 +56,66 @@
     setTimeout(flush, 50);
   }
 
+  /*
+   * A short log of what an agent needs to debug the page, kept in the page itself: console lines,
+   * uncaught errors, failed loads and failed or 4xx/5xx requests. The browser tools read it through
+   * `agentLog`; the app's own DevTools panel keeps getting everything through the bridge.
+   */
+  var agentLog = [];
+  var agentSeq = 0;
+  var agentRequests = {};
+  var agentRequestIds = [];
+  var MAX_AGENT_LOG = 300;
+  var MAX_AGENT_TEXT = 1000;
+  var MAX_AGENT_REQUESTS = 500;
+
+  function agentText(args) {
+    return clip((args || []).map(function (a) {
+      if (typeof a === 'string') return a;
+      if (a && a.__t) return a.v !== undefined ? String(a.v) : a.__t;
+      try { return JSON.stringify(a); } catch (e) { return String(a); }
+    }).join(' '), MAX_AGENT_TEXT);
+  }
+
+  function agentRecord(entry) {
+    agentSeq += 1;
+    entry.seq = agentSeq;
+    agentLog.push(entry);
+    if (agentLog.length > MAX_AGENT_LOG) agentLog.shift();
+  }
+
+  function agentNote(message) {
+    try {
+      if (message.t === 'console') {
+        if (message.level === 'group' || message.level === 'groupEnd' || message.level === 'clear') return;
+        agentRecord({ kind: message.level, text: agentText(message.args), source: message.source || '', ts: message.ts });
+      } else if (message.t === 'error') {
+        agentRecord({
+          kind: message.kind === 'resource' ? 'failed load' : 'exception',
+          text: clip(message.message || '', MAX_AGENT_TEXT),
+          source: message.kind === 'resource' ? '' : message.source || '',
+          stack: clip(message.stack || '', MAX_AGENT_TEXT),
+          ts: message.ts,
+        });
+      } else if (message.t === 'net' && message.phase === 'start') {
+        agentRequests[message.id] = { method: message.method, url: message.url };
+        agentRequestIds.push(message.id);
+        if (agentRequestIds.length > MAX_AGENT_REQUESTS) delete agentRequests[agentRequestIds.shift()];
+      } else if (message.t === 'net' && (message.phase === 'end' || message.phase === 'error')) {
+        var request = agentRequests[message.id];
+        delete agentRequests[message.id];
+        if (!request || request.method === 'WS') return;
+        if (message.phase === 'error') {
+          agentRecord({ kind: 'network', text: request.method + ' ' + clip(request.url, MAX_AGENT_TEXT) + ' failed: ' + clip(message.error || '', 200), ts: now() });
+        } else if (message.status >= 400) {
+          agentRecord({ kind: 'network', text: request.method + ' ' + clip(request.url, MAX_AGENT_TEXT) + ' -> ' + message.status + ' ' + (message.statusText || ''), ts: now() });
+        }
+      }
+    } catch (e) {}
+  }
+
   function post(message) {
+    agentNote(message);
     if (!bridge) return;
     // The first message of a document goes at once, so the app resets its log before anything else.
     if (message.t === 'ready') {
@@ -651,6 +710,17 @@
   var evalSeq = 0;
 
   window.__andcodeDT = {
+    /**
+     * The agent log as JSON: entries after sequence number [after] (all when it is missing), the
+     * number to pass next time, and how many older entries were dropped to keep it short.
+     */
+    agentLog: function (after) {
+      var since = Number(after) || 0;
+      var entries = agentLog.filter(function (entry) { return entry.seq > since; });
+      var oldest = agentLog.length ? agentLog[0].seq : agentSeq + 1;
+      return JSON.stringify({ url: String(location.href), entries: entries, next: agentSeq, dropped: Math.max(0, oldest - since - 1) });
+    },
+
     /** Evaluates [code] in the page's global scope, as the console prompt does. */
     evaluate: function (code) {
       evalSeq += 1;
