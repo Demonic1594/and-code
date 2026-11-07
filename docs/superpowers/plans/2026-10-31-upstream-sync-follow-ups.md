@@ -1,6 +1,8 @@
 # Follow-ups from the Oct 31 upstream sync (PR #52)
 
-Status: **in progress**. Items 4 to 9 are fixed. The rest is not started.
+Status: **in progress**. Items 4 to 10 are done (10 as the processes screen, #93). Items 1 to 3
+are next, as row 6 of `2026-11-07-cursor-report-assessment.md`; item 3 is already narrowed (the
+master key is kept once any file has opened with it).
 Raised during review of the upstream sync and deferred so the sync could
 merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing them upstream.
 

@@ -1,8 +1,13 @@
 # Agent harness improvements (from a Cursor comparison)
 
-Status: **in progress**. Item 3 (shadow snapshots) is done (#58). Item 1 has shell-safe matching (#66),
-a hook answer Claude Code actually reads plus deny feedback (#73), and blocking rules with a settings
-screen; per-project scope is not started. The rest is not started.
+Status: **in progress**. Done: items 1 (with per-project rules, #87), 2 (#91), 3 (#58), 4, the
+section 8 items except the MCP and skills list, and in section 9 deny before ask, risk classes and
+deny feedback. Closed because the CLI already does it: item 5 for the model's side, and in section 9
+point-in-time context, compaction triggers and tool output caps (see
+`2026-11-07-cursor-report-assessment.md`). The rest is scheduled in that assessment's order: item 6
+as the context breakdown, item 7 as hook templates, and in section 9 the audit log, writes outside the
+workspace, section budgets, Stop ending the whole tree and self-contained final messages (done with
+the assessment).
 
 ## Goal
 
@@ -100,6 +105,8 @@ file is.
 
 - Benefit is mainly token cost. Users barely see it.
 - Needs each agent to be told where to look; verify per CLI.
+- **Closed for the model's side**: Claude Code already saves a large tool output to a file and gives
+  the model its path. On the phone, long output has the long-lines viewer (#75, #86).
 
 ### 6. Context meter and compact action for every agent
 
@@ -107,6 +114,9 @@ Unclear. The meter only works where the CLI reports usage. "Compact" only works 
 a command for it. Neither is verified for Claude Code, Codex or Antigravity.
 
 - Step one: check what each CLI reports and supports, then decide.
+- Checked: OpenCode has a summarize call (used at 90%); Claude Code compacts on its own and takes
+  `/compact`, and answers a `get_context_usage` request with a per-category split. What is left is
+  that split on the phone (row 3 of `2026-11-07-cursor-report-assessment.md`).
 
 ### 7. User hooks
 
@@ -165,21 +175,29 @@ item is an idea to check against AndCode, not a claim about how AndCode works to
   adjust rather than retry the same call, so agents do not loop on a refused command. Done (#73),
   for a rejection, a timeout and a blocking rule.
 - **Writes outside the workspace.** Refuse in the bridge a write whose path resolves outside the
-  workspace root (the guest also sees bound host paths; see the top of this doc).
+  workspace root (the guest also sees bound host paths; see the top of this doc). Claude Code 2.1.314
+  added `permissions.blockWritesOutsideWorkingDirectories`; an opt-in switch for it replaces a bridge
+  check (row 11 of the assessment).
 - **Audit log.** Record each phone approval and each remembered rule (tool, input summary, decision,
   time) so a user can see and revoke what was allowed.
 - **Section budgets for instructions.** Cap each section of the generated instruction files and MCP
-  tool listings instead of truncating the whole prompt, with a note when something was cut.
+  tool listings instead of truncating the whole prompt, with a note when something was cut. Claude
+  Code reports an oversized instruction file itself (`instruction_size_warning`); showing that warning
+  comes with row 1 of the assessment, and the context breakdown (row 3) shows each MCP server's cost.
 - **Point-in-time context.** Inject git status as a labelled snapshot ("as of the start of this
-  turn"), so an agent does not treat it as live.
+  turn"), so an agent does not treat it as live. **Closed**: Claude Code already injects git status
+  labelled as a snapshot that will not update. AndCode's instruction file must stay free of such
+  volatile facts, which would also break the CLI's prompt cache.
 - **Compaction triggers.** Where an agent supports compacting (item 6), trigger it from AndCode's usage
   figures with per-model thresholds, and also when the agent reports a context-exceeded error.
+  **Closed**: Claude Code compacts on its own, including ahead of time while idle; OpenCode's is
+  already triggered at 90%.
 - **Tool output caps.** Cap what is shown on the phone and what goes back to the model per tool,
-  keeping the head and tail (overlaps item 5).
+  keeping the head and tail (overlaps item 5). **Closed** with item 5.
 - **Stop ends the whole tree.** Stop should end the agent and every child process it started; check
   this against the supervisor and `ProcessTree`.
 - **Self-contained final messages.** Instruction-file line: the user reads results later on a phone,
-  so the last message of a run has to stand on its own.
+  so the last message of a run has to stand on its own. **Done** in `and-code-agent-context.md`.
 
 ## Not planned
 

@@ -35,6 +35,11 @@ class AgentContextAssetTest {
     }
 
     @Test
+    fun `a run ends with a message that can be read on its own`() {
+        assertTrue(text.contains("End a run with a message that stands on its own"))
+    }
+
+    @Test
     fun `the text stays within its length budget`() {
         // About 1,500 tokens at four characters a token; growing past this is a decision, not an accident.
         assertTrue("agent context is ${text.length} characters", text.length <= MAX_CHARACTERS)
