@@ -159,7 +159,7 @@ class ClaudeStreamJsonParser(
                         "rate_limit" -> RetryReason.RATE_LIMITED
                         "overloaded" -> RetryReason.OVERLOADED
                         "server_error" -> RetryReason.SERVER_ERROR
-                        "authentication_failed" -> RetryReason.AUTHENTICATION
+                        "authentication_failed", "cloud_credential_error" -> RetryReason.AUTHENTICATION
                         else -> null
                     }
             }

@@ -1906,5 +1906,5 @@
     <string name="chat_activity_compacting_title">Сжатие разговора</string>
     <string name="chat_activity_compacting_body">Контекст почти заполнен, поэтому старые сообщения сводятся в краткое изложение. Когда это закончится, выполнение продолжится само.</string>
     <string name="chat_activity_model_switched_title">Отвечает %1$s</string>
-    <string name="chat_activity_model_switched_body">%1$s не смогла ответить, поэтому Claude Code переключился на резервную модель для этого хода.</string>
+    <string name="chat_activity_model_switched_body">Не удалось получить ответ от %1$s, поэтому Claude Code переключился на резервную модель для этого хода.</string>
 </resources>

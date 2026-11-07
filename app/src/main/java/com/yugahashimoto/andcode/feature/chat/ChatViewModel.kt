@@ -675,7 +675,7 @@ data class ChatUiState(
     val retry: RunRetry? = null,
     /**
      * What the running turn is doing that is not output: compacting the conversation, or answering
-     * with a fallback model. Cleared at the end of the run; compacting also by the first output.
+     * with a fallback model. Cleared at the end of the run; compacting also when it ends or output starts.
      */
     val runActivity: RunActivity? = null,
     val error: String? = null,
@@ -3266,8 +3266,17 @@ class ChatViewModel(
             }
             is OpenCodeEvent.RunActivityChanged -> {
                 if (event.sessionId != activeSession) return
-                // Only while a turn runs: a late notice must not stick to an idle chat.
-                if (_uiState.value.isRunning) _uiState.update { it.copy(runActivity = event.activity) }
+                // Only while a turn runs: a late notice must not stick to an idle chat. The end of a
+                // step (null) only ends compacting: a model switch holds for the rest of the run. A
+                // new step also replaces a retry card left from before it, which only output clears.
+                if (_uiState.value.isRunning) {
+                    _uiState.update { state ->
+                        state.copy(
+                            runActivity = event.activity ?: state.runActivity.takeUnless { it == RunActivity.Compacting },
+                            retry = if (event.activity != null) null else state.retry,
+                        )
+                    }
+                }
             }
             is OpenCodeEvent.SessionIdle -> {
                 if (event.sessionId != activeSession) return

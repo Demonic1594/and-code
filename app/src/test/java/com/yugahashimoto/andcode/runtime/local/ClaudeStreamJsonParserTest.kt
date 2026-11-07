@@ -82,6 +82,10 @@ class ClaudeStreamJsonParserTest {
             RetryReason.OVERLOADED,
             retry("""{"type":"system","subtype":"api_retry","attempt":1,"error_status":529,"error":"overloaded"}""")?.reason,
         )
+        assertEquals(
+            RetryReason.AUTHENTICATION,
+            retry("""{"type":"system","subtype":"api_retry","attempt":1,"error_status":403,"error":"cloud_credential_error"}""")?.reason,
+        )
     }
 
     @Test
