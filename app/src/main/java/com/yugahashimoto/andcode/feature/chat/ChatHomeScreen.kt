@@ -748,6 +748,8 @@ fun ChatHomeScreen(
                                 // The runtime is waiting out a provider failure. Saying so beats a
                                 // "Processing" label that reads the same as a model that is just slow.
                                 item(key = "retry") { ChatRetryCard(retry = state.retry) }
+                            } else if (state.isRunning && state.runActivity != null) {
+                                item(key = "run-activity") { ChatRunActivityCard(activity = state.runActivity) }
                             } else if (state.isRunning && timelineEntries.isNotEmpty()) {
                                 item(key = "processing") {
                                     Text(
@@ -777,7 +779,7 @@ fun ChatHomeScreen(
                             // Not while a stall is up: a turn that has produced nothing never
                             // cleared this flag, so the warning would sit directly above a chip
                             // cheerfully reporting that the same turn is thinking.
-                            if (state.isThinking && state.stall == null && state.retry == null) {
+                            if (state.showsThinkingChip()) {
                                 item { StatusChip(text = stringResource(R.string.thinking), active = true) }
                             }
                             state.error?.let { error ->
@@ -1294,3 +1296,6 @@ private fun ChatHomeScreenCodexFastPreview() {
         )
     }
 }
+
+/** "Thinking" only while nothing more specific explains the wait: a stall, a retry, or a run activity. */
+private fun ChatUiState.showsThinkingChip(): Boolean = isThinking && stall == null && retry == null && runActivity == null

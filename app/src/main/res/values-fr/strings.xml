@@ -1884,4 +1884,14 @@
     <string name="cd_share_server_live">Le port %1$d est partagé</string>
     <string name="run_settings_ultracode">Ultracode</string>
     <string name="run_settings_ultracode_description">Claude planifie le travail et l\'exécute avec plusieurs agents. Plus rigoureux, mais plus lent, et vos limites s\'épuisent plus vite. S\'applique dès votre prochain message ; une commande slash ou une compétence envoyée ensuite garde l\'ancien réglage.</string>
+    <string name="chat_retry_attempt_of">Nouvelle tentative automatique · tentative %1$d sur %2$d</string>
+    <string name="chat_retry_reason_rate_limited">Le fournisseur du modèle limite le débit de ce compte.</string>
+    <string name="chat_retry_reason_overloaded">Le modèle est surchargé.</string>
+    <string name="chat_retry_reason_server_error">Le fournisseur du modèle a rencontré une erreur serveur.</string>
+    <string name="chat_retry_reason_authentication">Le fournisseur du modèle n’a pas accepté la connexion.</string>
+    <string name="chat_retry_reason_no_response">Le fournisseur du modèle n’a envoyé aucune réponse.</string>
+    <string name="chat_activity_compacting_title">Compactage de la conversation</string>
+    <string name="chat_activity_compacting_body">Le contexte est presque plein, les messages les plus anciens sont donc résumés. L’exécution reprend d’elle-même une fois terminé.</string>
+    <string name="chat_activity_model_switched_title">Réponse avec %1$s</string>
+    <string name="chat_activity_model_switched_body">%1$s n’a pas pu répondre, Claude Code est donc passé à son modèle de secours pour ce tour.</string>
 </resources>

@@ -130,7 +130,8 @@ class ClaudeAuthCoordinator(
     fun cancel() {
         readerJob?.cancel()
         readerJob = null
-        process?.takeIf(Process::isAlive)?.destroyForcibly()
+        // The whole sign-in tree: killing PRoot alone leaves the guest's login process running.
+        process?.takeIf(Process::isAlive)?.let(::endProcessTree)
         process = null
     }
 

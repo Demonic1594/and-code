@@ -1923,4 +1923,14 @@
     <string name="cd_share_server_live">المنفذ %1$d مُشارَك</string>
     <string name="run_settings_ultracode">Ultracode</string>
     <string name="run_settings_ultracode_description">يخطط Claude للعمل وينفذه بعدة وكلاء. أكثر دقة، لكنه أبطأ ويستنفد حدودك بشكل أسرع. يسري من رسالتك العادية التالية؛ أما أمر الشرطة المائلة أو المهارة التالية فيستخدم الإعداد السابق.</string>
+    <string name="chat_retry_attempt_of">إعادة المحاولة تلقائيًا · المحاولة %1$d من %2$d</string>
+    <string name="chat_retry_reason_rate_limited">يفرض مزوّد النموذج حدًا لمعدل الطلبات على هذا الحساب.</string>
+    <string name="chat_retry_reason_overloaded">النموذج محمَّل فوق طاقته.</string>
+    <string name="chat_retry_reason_server_error">حدث خطأ في خادم مزوّد النموذج.</string>
+    <string name="chat_retry_reason_authentication">لم يقبل مزوّد النموذج تسجيل الدخول.</string>
+    <string name="chat_retry_reason_no_response">لم يرسل مزوّد النموذج أي رد.</string>
+    <string name="chat_activity_compacting_title">جارٍ ضغط المحادثة</string>
+    <string name="chat_activity_compacting_body">السياق ممتلئ تقريبًا، لذا يجري تلخيص الرسائل الأقدم. يستمر التنفيذ تلقائيًا عند الانتهاء.</string>
+    <string name="chat_activity_model_switched_title">الرد باستخدام %1$s</string>
+    <string name="chat_activity_model_switched_body">تعذّر على %1$s الرد، لذا انتقل Claude Code إلى نموذجه الاحتياطي في هذه الجولة.</string>
 </resources>

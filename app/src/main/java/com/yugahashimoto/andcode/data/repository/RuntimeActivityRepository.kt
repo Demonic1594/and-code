@@ -705,6 +705,8 @@ class RuntimeActivityRepository(
                     target.id,
                 )
             }
+            // Compacting or a model switch happens inside a run, like streamed output.
+            is OpenCodeEvent.RunActivityChanged -> activateSession(target, event.sessionId)
             is OpenCodeEvent.Unknown -> appendLog(messages.eventUnknown, event.type)
         }
     }

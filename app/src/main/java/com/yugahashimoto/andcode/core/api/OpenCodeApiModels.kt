@@ -430,7 +430,32 @@ data class RunRetry(
     val attempt: Int,
     /** The provider's own words for the failure, when the runtime passed them on. */
     val message: String?,
+    /** How many attempts the runtime makes before it gives up, when it says. */
+    val maxAttempts: Int? = null,
+    /** Why the call failed, when the runtime names it; the chat words it in the user's language. */
+    val reason: RetryReason? = null,
 )
+
+/** The failures a runtime retries on its own that it can name (Claude Code's `api_retry`). */
+enum class RetryReason {
+    RATE_LIMITED,
+    OVERLOADED,
+    SERVER_ERROR,
+    AUTHENTICATION,
+    NO_RESPONSE,
+}
+
+/**
+ * Something the runtime is doing in the middle of a run that is not output: a run can sit on it for
+ * a while, and the user should know why.
+ */
+sealed interface RunActivity {
+    /** The runtime is summarizing older messages to make room in the context window. */
+    data object Compacting : RunActivity
+
+    /** The requested model could not answer this turn, so the runtime switched to its fallback. */
+    data class ModelSwitched(val from: String, val to: String) : RunActivity
+}
 
 sealed interface OpenCodeEvent {
     data object ServerConnected : OpenCodeEvent
@@ -478,6 +503,9 @@ sealed interface OpenCodeEvent {
         val retry: RunRetry? = null,
     ) : OpenCodeEvent
 
+    /** The run in [sessionId] started (or, with null, finished) an [activity]. */
+    data class RunActivityChanged(val sessionId: String, val activity: RunActivity?) : OpenCodeEvent
+
     /**
      * A run stopped on purpose — stop button, or interrupted by a replacement prompt — is a decision,
      * not a failure. The error that arrives here must never read as one.
@@ -507,6 +535,7 @@ fun OpenCodeEvent.sessionIdOrNull(): String? =
         is OpenCodeEvent.SessionCreated -> session.id
         is OpenCodeEvent.SessionUpdated -> session.id
         is OpenCodeEvent.SessionStatusChanged -> sessionId
+        is OpenCodeEvent.RunActivityChanged -> sessionId
         is OpenCodeEvent.SessionError -> sessionId
         OpenCodeEvent.ServerConnected -> null
         is OpenCodeEvent.Unknown -> null

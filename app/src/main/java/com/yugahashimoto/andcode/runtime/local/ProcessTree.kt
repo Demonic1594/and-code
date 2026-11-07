@@ -22,3 +22,13 @@ internal fun killProcessTree(process: Process) {
     processTreePostOrder(rootPid) { pid -> readDirectChildPids(pid) }
         .forEach { pid -> runCatching { android.os.Process.killProcess(pid.toInt()) } }
 }
+
+/**
+ * Ends [process] and every guest process under it: the tree walk first, while PRoot is still alive to
+ * find its tracees by, then the JVM's own kill of the root, which also settles the handle where the
+ * walk could not run.
+ */
+internal fun endProcessTree(process: Process) {
+    runCatching { killProcessTree(process) }
+    process.destroyForcibly()
+}

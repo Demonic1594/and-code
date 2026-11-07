@@ -19,6 +19,7 @@ import com.yugahashimoto.andcode.core.api.PromptRequest
 import com.yugahashimoto.andcode.core.api.PullRequestRef
 import com.yugahashimoto.andcode.core.api.QuestionPrompt
 import com.yugahashimoto.andcode.core.api.QuestionRequest
+import com.yugahashimoto.andcode.core.api.RunActivity
 import com.yugahashimoto.andcode.core.api.RunRetry
 import com.yugahashimoto.andcode.core.api.sessionIdOrNull
 import com.yugahashimoto.andcode.core.diagnostics.RunSignals
@@ -672,6 +673,11 @@ data class ChatUiState(
      * last, which has no upper bound.
      */
     val retry: RunRetry? = null,
+    /**
+     * What the running turn is doing that is not output: compacting the conversation, or answering
+     * with a fallback model. Cleared at the end of the run; compacting also by the first output.
+     */
+    val runActivity: RunActivity? = null,
     val error: String? = null,
     /**
      * Set by [ChatViewModel.editLastUserMessage] to the text of the message it just removed, so the
@@ -1053,8 +1059,8 @@ class ChatViewModel(
                     .collectLatest { running ->
                         if (!running) {
                             // Whatever the run was doing, it is not doing it any more.
-                            if (_uiState.value.stall != null || _uiState.value.retry != null) {
-                                _uiState.update { it.copy(stall = null, retry = null) }
+                            if (_uiState.value.stall != null || _uiState.value.retry != null || _uiState.value.runActivity != null) {
+                                _uiState.update { it.copy(stall = null, retry = null, runActivity = null) }
                             }
                             // Most replies stream for under the rate window; without this flush
                             // their chunks sat unpublished until some LATER turn's first delta.
@@ -2175,6 +2181,7 @@ class ChatViewModel(
                 isRunning = true,
                 isThinking = true,
                 retry = null,
+                runActivity = null,
                 partialText = "",
                 error = null,
             )
@@ -2442,6 +2449,7 @@ class ChatViewModel(
                 isRunning = true,
                 isThinking = true,
                 retry = null,
+                runActivity = null,
                 partialText = "",
                 error = null,
             )
@@ -3256,6 +3264,11 @@ class ChatViewModel(
                     }
                 }
             }
+            is OpenCodeEvent.RunActivityChanged -> {
+                if (event.sessionId != activeSession) return
+                // Only while a turn runs: a late notice must not stick to an idle chat.
+                if (_uiState.value.isRunning) _uiState.update { it.copy(runActivity = event.activity) }
+            }
             is OpenCodeEvent.SessionIdle -> {
                 if (event.sessionId != activeSession) return
                 handleSessionIdle(event.sessionId)
@@ -3383,7 +3396,13 @@ class ChatViewModel(
                                 isStreaming = !existing.isUser,
                             )
                     }
-                return@update state.copy(messages = updated, isRunning = true, isThinking = false, retry = null)
+                return@update state.copy(
+                    messages = updated,
+                    isRunning = true,
+                    isThinking = false,
+                    retry = null,
+                    runActivity = state.runActivity.takeUnless { it == RunActivity.Compacting },
+                )
             }
 
             val incomingText = parts.filterIsInstance<ChatPart.Text>().joinToString("") { it.text }
@@ -3408,6 +3427,7 @@ class ChatViewModel(
                 isRunning = true,
                 isThinking = false,
                 retry = null,
+                runActivity = state.runActivity.takeUnless { it == RunActivity.Compacting },
             )
         }
     }

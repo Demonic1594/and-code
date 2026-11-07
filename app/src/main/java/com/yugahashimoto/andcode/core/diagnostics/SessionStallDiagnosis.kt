@@ -190,6 +190,8 @@ fun OpenCodeEvent.provesRunProgress(): Boolean =
         is OpenCodeEvent.QuestionAsked,
         is OpenCodeEvent.SessionIdle,
         is OpenCodeEvent.SessionError,
+        // A concrete step the runtime reports (compacting, a model switch), not a repeated "busy".
+        is OpenCodeEvent.RunActivityChanged,
         -> true
         is OpenCodeEvent.SessionCreated,
         is OpenCodeEvent.SessionUpdated,
