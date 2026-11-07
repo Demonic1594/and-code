@@ -50,7 +50,8 @@ mode (the PermissionRequest hook only runs when Claude Code would ask, which the
 Bash), in any chained, piped or substituted part, flags in any order and other words allowed between,
 line continuations joined. Best effort, not a security boundary: a command that hides its words (a
 variable, `${IFS}`, brace expansion, a decoded script) is not caught. The same
-screen lists and removes always-allow rules. Per-project scope is still to do. Known limit: word
+screen lists and removes always-allow rules. Per-project scope is done (#87): a rule applies in
+the project it was approved in. Known limit: word
 rules cannot see dangerous arguments further along (`find . -exec ... +`, `git -c ...`), so tool risk
 classes (section 9) are still needed before "always allow" is offered broadly. Note: until #73 the
 hook answered in PreToolUse's format, which Claude Code drops for a PermissionRequest, so approvals
@@ -60,9 +61,8 @@ Feasible, easy. The approval sheet gets an "Always allow this command" action th
 pattern (for example `git status`, `npm test`) per project. Matching calls skip the prompt.
 Cursor's plain-English rules are not needed; prefix patterns cover most cases.
 
-- Storage: per-project settings, not global. `ClaudePermissionBridge` keeps `always-rules.json`
-  under its host root and `AlwaysRule` carries no project, so scope the bridge by project (or
-  persist the project in each rule and match on it) as a design step before reusing the rules.
+- Storage: per-project settings, not global. **Done (#87)**: each rule keeps the project it was
+  approved in, and the hook matches it only there.
 - Mobile fit: very good; directly removes repeated approval taps.
 - Test: pattern matching as a unit test, including prefix boundaries (`git status` must not
   match `git statusfoo`), and commands with `;`, `&&`, newlines, substitutions and alternate
