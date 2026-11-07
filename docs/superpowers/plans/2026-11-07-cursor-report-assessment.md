@@ -12,11 +12,11 @@ run them either). Every mechanism below was checked against AndCode's code on `m
 Claude Code, against the CLI itself (2.1.316 on the device, 2.1.319 here), before deciding.
 
 The deciding fact is where the agent loop lives. In Cursor the loop, the prompt and the model
-routing are Cursor's own (server side, or its local loop for users who bring their own API key). In AndCode the loop belongs to the
-CLI it hosts (Claude Code, Codex, Antigravity, OpenCode). So what AndCode can take is what lives
-around the loop: what the user sees on the phone, how approvals work, how processes are started and
-ended, what the browser tools give the agent, and how secrets are stored. Mechanisms inside the loop
-are either already done by the CLI or out of reach.
+routing are Cursor's own (server side, or its local loop for users who bring their own API key). In
+AndCode the loop belongs to the CLI it hosts (Claude Code, Codex, Antigravity, OpenCode). So what
+AndCode can take is what lives around the loop: what the user sees on the phone, how approvals work,
+how processes are started and ended, what the browser tools give the agent, and how secrets are
+stored. Mechanisms inside the loop are either already done by the CLI or out of reach.
 
 ## Adopt
 
