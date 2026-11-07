@@ -182,8 +182,8 @@ item is an idea to check against AndCode, not a claim about how AndCode works to
   time) so a user can see and revoke what was allowed.
 - **Section budgets for instructions.** Cap each section of the generated instruction files and MCP
   tool listings instead of truncating the whole prompt, with a note when something was cut. Claude
-  Code reports an oversized instruction file itself (`instruction_size_warning`); showing that warning
-  comes with row 1 of the assessment, and the context breakdown (row 3) shows each MCP server's cost.
+  Code measures oversized instruction files itself but sends that warning only to Claude Desktop; the
+  context breakdown (row 3 of the assessment) shows each instruction file's and MCP server's cost.
 - **Point-in-time context.** Inject git status as a labelled snapshot ("as of the start of this
   turn"), so an agent does not treat it as live. **Closed**: Claude Code already injects git status
   labelled as a snapshot that will not update. AndCode's instruction file must stay free of such
