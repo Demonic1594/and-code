@@ -6,6 +6,7 @@ Runtime context:
 - The device's own files appear at /sdcard (and other volumes under /storage) when the user has granted all-files access; those paths are absent otherwise. They live on FUSE, which keeps no executable bit and no symlinks, so prefer /workspace for anything git-heavy.
 - Prefer portable, non-interactive commands and do not assume systemd, Docker, a graphical desktop, or unrestricted host access.
 - The user is interacting with you through and-code's mobile UI, so keep explanations and requested actions clear and actionable.
+- The user often reads your last message later, away from the work and without the steps before it. End a run with a message that stands on its own: what changed and where, how you checked it, and anything left for the user to do.
 
 ## Servers and other long-running commands: use `andcode-run`
 
