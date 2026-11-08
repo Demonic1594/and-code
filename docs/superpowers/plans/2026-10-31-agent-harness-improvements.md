@@ -1,13 +1,14 @@
 # Agent harness improvements (from a Cursor comparison)
 
 Status: **in progress**. Done: items 1 (with per-project rules, #87), 2 (#91), 3 (#58), 4, the
-section 8 items except the MCP and skills list, and in section 9 deny before ask, risk classes and
-deny feedback. Closed because the CLI already does it: item 5 for the model's side, and in section 9
-point-in-time context, compaction triggers and tool output caps (see
+section 8 items except the MCP and skills list, and in section 9 deny before ask, risk classes
+(read-only calls skip the prompt once the user allows reading, #90; nothing is allowed by kind until
+then) and deny feedback. Closed because the CLI already does it: item 5 for the model's side, and in
+section 9 point-in-time context, compaction triggers and tool output caps (see
 `2026-11-07-cursor-report-assessment.md`). The rest is scheduled in that assessment's order: item 6
-as the context breakdown, item 7 as hook templates, and in section 9 the audit log, writes outside the
-workspace, section budgets, Stop ending the whole tree and self-contained final messages (done with
-the assessment).
+as the context breakdown, item 7 as hook templates, and in section 9 the audit log, writes outside
+the workspace and section budgets. Stop ending the whole tree is done (#111), and self-contained
+final messages with the assessment (#110).
 
 ## Goal
 
@@ -51,7 +52,8 @@ Bash), in any chained, piped or substituted part, flags in any order and other w
 line continuations joined. Best effort, not a security boundary: a command that hides its words (a
 variable, `${IFS}`, brace expansion, a decoded script) is not caught. The same
 screen lists and removes always-allow rules. Per-project scope is done (#87): a rule applies in
-the project it was approved in. Known limit: word
+the project it was approved in. Rules kept before #87, and approvals made without a usable directory,
+still apply everywhere. Known limit: word
 rules cannot see dangerous arguments further along (`find . -exec ... +`, `git -c ...`), so tool risk
 classes (section 9) are still needed before "always allow" is offered broadly. Note: until #73 the
 hook answered in PreToolUse's format, which Claude Code drops for a PermissionRequest, so approvals
@@ -62,7 +64,8 @@ pattern (for example `git status`, `npm test`) per project. Matching calls skip 
 Cursor's plain-English rules are not needed; prefix patterns cover most cases.
 
 - Storage: per-project settings, not global. **Done (#87)**: each rule keeps the project it was
-  approved in, and the hook matches it only there.
+  approved in, and the hook matches it only there. A rule from before #87, or one approved without a
+  usable directory, has no project and still applies everywhere.
 - Mobile fit: very good; directly removes repeated approval taps.
 - Test: pattern matching as a unit test, including prefix boundaries (`git status` must not
   match `git statusfoo`), and commands with `;`, `&&`, newlines, substitutions and alternate
@@ -115,8 +118,10 @@ a command for it. Neither is verified for Claude Code, Codex or Antigravity.
 
 - Step one: check what each CLI reports and supports, then decide.
 - Checked: OpenCode has a summarize call (used at 90%); Claude Code compacts on its own and takes
-  `/compact`, and answers a `get_context_usage` request with a per-category split. What is left is
-  that split on the phone (row 3 of `2026-11-07-cursor-report-assessment.md`).
+  `/compact`, and answers a `get_context_usage` request with a per-category split. Codex reports token
+  usage on its app-server and compacts on request, but AndCode reads neither yet. What is left is the
+  split on the phone for Claude Code (row 3 of `2026-11-07-cursor-report-assessment.md`) and Codex's
+  usage figure and compact action.
 
 ### 7. User hooks
 
@@ -195,7 +200,8 @@ item is an idea to check against AndCode, not a claim about how AndCode works to
 - **Tool output caps.** Cap what is shown on the phone and what goes back to the model per tool,
   keeping the head and tail (overlaps item 5). **Closed** with item 5.
 - **Stop ends the whole tree.** Stop should end the agent and every child process it started; check
-  this against the supervisor and `ProcessTree`.
+  this against the supervisor and `ProcessTree`. **Done** (#111): Claude Code's and Codex's stop paths
+  used to end only PRoot and now end the whole tree, as OpenCode's and Antigravity's already did.
 - **Self-contained final messages.** Instruction-file line: the user reads results later on a phone,
   so the last message of a run has to stand on its own. **Done** in `and-code-agent-context.md`.
 
