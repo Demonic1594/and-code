@@ -38,18 +38,25 @@ class EncryptedPreferencesRecoveryTest {
     }
 
     @Test
-    fun `an undecryptable keyset only costs the stored preferences, never the shared master key`() {
+    fun `a failure that passes on a second try deletes nothing`() {
         assertEquals("encrypted", recover(failuresBeforeSuccess = 1))
 
-        assertEquals(listOf("open", "discardPreferences", "open"), steps)
+        assertEquals(listOf("open", "open"), steps)
+    }
+
+    @Test
+    fun `an undecryptable keyset only costs the stored preferences, never the shared master key`() {
+        assertEquals("encrypted", recover(failuresBeforeSuccess = 2))
+
+        assertEquals(listOf("open", "open", "discardPreferences", "open"), steps)
     }
 
     @Test
     fun `an unusable master key is discarded only after a fresh preferences file still fails`() {
-        assertEquals("encrypted", recover(failuresBeforeSuccess = 2))
+        assertEquals("encrypted", recover(failuresBeforeSuccess = 3))
 
         assertEquals(
-            listOf("open", "discardPreferences", "open", "discardPreferences", "discardMasterKey", "open"),
+            listOf("open", "open", "discardPreferences", "open", "discardPreferences", "discardMasterKey", "open"),
             steps,
         )
     }
@@ -59,7 +66,7 @@ class EncryptedPreferencesRecoveryTest {
         assertEquals("in-memory", recover(failuresBeforeSuccess = Int.MAX_VALUE))
 
         assertEquals(
-            listOf("open", "discardPreferences", "open", "discardPreferences", "discardMasterKey", "open", "fallback"),
+            listOf("open", "open", "discardPreferences", "open", "discardPreferences", "discardMasterKey", "open", "fallback"),
             steps,
         )
     }
@@ -68,7 +75,7 @@ class EncryptedPreferencesRecoveryTest {
     fun `a failing discard does not stop the remaining recovery steps`() {
         val result =
             recover(
-                failuresBeforeSuccess = 2,
+                failuresBeforeSuccess = 3,
                 discardPreferences = {
                     steps += "discardPreferences"
                     throw java.io.IOException("cannot delete")
@@ -81,7 +88,7 @@ class EncryptedPreferencesRecoveryTest {
 
         assertEquals("encrypted", result)
         assertEquals(
-            listOf("open", "discardPreferences", "open", "discardPreferences", "discardMasterKey", "open"),
+            listOf("open", "open", "discardPreferences", "open", "discardPreferences", "discardMasterKey", "open"),
             steps,
         )
     }

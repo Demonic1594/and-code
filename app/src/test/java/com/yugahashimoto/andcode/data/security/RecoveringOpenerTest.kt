@@ -10,7 +10,8 @@ import java.security.GeneralSecurityException
 class RecoveringOpenerTest {
     private val steps = mutableListOf<String>()
     private var fallbacksCreated = 0
-    private val opener = RecoveringOpener { "in-memory-${++fallbacksCreated}" }
+    private var keyWorks = false
+    private val opener = RecoveringOpener(masterKeyWorks = { keyWorks }) { "in-memory-${++fallbacksCreated}" }
 
     private fun open(
         name: String,
@@ -76,5 +77,24 @@ class RecoveringOpenerTest {
 
         assertEquals("in-memory-1", schedules)
         assertFalse("discardMasterKey" in steps)
+    }
+
+    @Test
+    fun `a master key that still encrypts is kept even before any file has opened`() {
+        keyWorks = true
+
+        val secure = open("secure", broken = true)
+
+        assertEquals("in-memory-1", secure)
+        assertFalse("discardMasterKey" in steps)
+    }
+
+    @Test
+    fun `a master key that fails its test is replaced while no file has opened`() {
+        keyWorks = false
+
+        open("secure", broken = true)
+
+        assertTrue("discardMasterKey" in steps)
     }
 }

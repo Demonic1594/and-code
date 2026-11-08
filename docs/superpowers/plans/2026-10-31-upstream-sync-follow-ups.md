@@ -1,8 +1,8 @@
 # Follow-ups from the Oct 31 upstream sync (PR #52)
 
-Status: **in progress**. Items 4 to 10 are done (10 as the processes screen, #93). Items 1 to 3
-are next, as row 6 of `2026-11-07-cursor-report-assessment.md`; item 3 is already narrowed (the
-master key is kept once any file has opened with it).
+Status: **done**, except narrowing item 2's delete to one kind of failure, which waits for the
+exception types from a device. Items 1 to 3 are fixed as row 6 of
+`2026-11-07-cursor-report-assessment.md`, after items 4 to 10 (10 as the processes screen, #93).
 Raised during review of the upstream sync and deferred so the sync could
 merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing them upstream.
 
@@ -11,14 +11,23 @@ merge. Items 1-3 sit in code brought in from upstream unchanged; consider fixing
    change memory. After a restart the old copy reloads and its alarm is armed again. Fix: write a
    durable "revoked" marker, or do not auto-arm schedules restored from the legacy copy until the
    user confirms them.
+   **Done**: in fallback mode, deleting a schedule from the legacy copy, turning it off, or editing it
+   leaves a mark next to that copy (schedule ids only, nothing secret). After a restart a deleted one
+   stays gone and a turned-off or edited one comes back off, in its old form, for the user to check.
 2. **Recovery deletes the file on any failure.** `openWithRecovery` deletes the preferences file
    after the first failed open, whatever the exception. Narrow the delete to the keyset-decryption
    failure; for Keystore or I/O errors, retry without deleting, then fall back. Confirm the exact
    Tink / security-crypto exception types on a device first.
+   **Done** in part: a failed open is retried once before anything is deleted, so a Keystore that
+   fails once (busy just after boot) no longer resets the settings. Narrowing the delete to the
+   keyset-decryption failure still waits for the exception types from a device.
 3. **Recovery can delete the shared master key.** `EncryptedPreferences` discards the default
    master key when the first file to open fails twice, which makes every other encrypted file
    (schedules) unreadable. Coordinate key replacement across all encrypted stores, or give each
    store its own key alias.
+   **Done**: the key is kept once any file has opened with it, and before that it is replaced only
+   when it fails a test encryption, so a file that fails for another reason no longer costs the
+   others their key.
 4. **Runtime status race.** `LocalRuntimeManager.status()` reads the state, probes, then publishes
    without rechecking, so a probe can overwrite Starting/Installing and release the wake lock.
    Fix: publish with `compareAndSet` against the state read before probing. Add a unit test.

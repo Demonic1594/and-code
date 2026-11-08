@@ -8,6 +8,9 @@ package com.yugahashimoto.andcode.data.security
  * Crashlytics showed three distinct ways the Keystore got there, each needing a bigger repair than
  * the last:
  *
+ * 0. The open fails once and works on a second try. That try is immediate, so it covers only a
+ *    momentary failure, but it costs nothing, while deleting on the first failure would turn such a
+ *    hiccup into a reset of the user's settings; nothing is deleted until the same open failed twice.
  * 1. The stored keyset cannot be decrypted with the current master key (an OS update, or a backup
  *    restored without its device-bound key). Deleting the preferences file is enough.
  * 2. The master key itself is "permanently invalidated" or unusable. Only a freshly created preferences
@@ -26,15 +29,22 @@ internal fun <T> openWithRecovery(
     discardMasterKey: () -> Unit,
     fallback: () -> T,
 ): T {
-    tryOpen(open).onSuccess { return it }
-
-    ignoringFailure(discardStoredPreferences)
-    tryOpen(open).onSuccess { return it }
-
-    ignoringFailure(discardStoredPreferences)
-    ignoringFailure(discardMasterKey)
-    tryOpen(open).onSuccess { return it }
-
+    // Each repair runs before its open attempt, cheapest first; the first open that works wins.
+    val repairs: List<() -> Unit> =
+        listOf(
+            {},
+            // The second try deletes nothing (case 0).
+            {},
+            { ignoringFailure(discardStoredPreferences) },
+            {
+                ignoringFailure(discardStoredPreferences)
+                ignoringFailure(discardMasterKey)
+            },
+        )
+    for (repair in repairs) {
+        repair()
+        tryOpen(open).onSuccess { return it }
+    }
     return fallback()
 }
 
@@ -52,9 +62,14 @@ internal fun <T> openWithRecovery(
  *   problem. The key is shared by every encrypted file, and replacing it would destroy the files
  *   that are fine.
  *
+ * Before the first file has opened, [masterKeyWorks] is asked instead: a key that still encrypts and
+ * decrypts is not the problem either (a fresh file can fail to be written for other reasons), so it
+ * is kept.
+ *
  * Calls are serialized so concurrent callers cannot repair the same file twice.
  */
 internal class RecoveringOpener<T : Any>(
+    private val masterKeyWorks: () -> Boolean = { false },
     private val createFallback: (name: String) -> T,
 ) {
     private val fallbacks = HashMap<String, T>()
@@ -71,7 +86,7 @@ internal class RecoveringOpener<T : Any>(
         return openWithRecovery(
             open = { create().also { masterKeyProvenUsable = true } },
             discardStoredPreferences = discardStoredPreferences,
-            discardMasterKey = { if (!masterKeyProvenUsable) discardMasterKey() },
+            discardMasterKey = { if (!masterKeyProvenUsable && !masterKeyWorks()) discardMasterKey() },
             fallback = { createFallback(name).also { fallbacks[name] = it } },
         )
     }

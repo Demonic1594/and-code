@@ -28,6 +28,13 @@ class ScheduleRepository(context: Context) {
     // moving the plaintext legacy copy into them and deleting it would lose the schedules on exit.
     private val keepsLegacyCopy = preferences is InMemorySharedPreferences
 
+    // In that mode, what the user removes, turns off or edits is marked next to the legacy copy, so it
+    // does not come back armed after a restart. See LegacyScheduleMarkers.
+    private val legacyMarkers = LegacyScheduleMarkers(legacyPreferences)
+
+    /** Ids of the schedules the legacy copy holds, which are the ones the marks are needed for. */
+    private var legacyIds: Set<String> = emptySet()
+
     private val mutableSchedules = MutableStateFlow(loadSchedules())
     val schedules: StateFlow<List<Schedule>> = mutableSchedules.asStateFlow()
 
@@ -46,6 +53,7 @@ class ScheduleRepository(context: Context) {
                 .sortedByDescending { it.updatedAt }
         }
         persistSchedules()
+        if (keepsLegacyCopy && stored.id in legacyIds) legacyMarkers.markEdited(stored.id)
     }
 
     @Synchronized
@@ -54,6 +62,7 @@ class ScheduleRepository(context: Context) {
         mutableRuns.update { current -> current.filterNot { it.scheduleId == id } }
         persistSchedules()
         persistRuns()
+        if (keepsLegacyCopy && id in legacyIds) legacyMarkers.markDeleted(id)
     }
 
     @Synchronized
@@ -67,6 +76,9 @@ class ScheduleRepository(context: Context) {
             }
         }
         persistSchedules()
+        if (keepsLegacyCopy && id in legacyIds) {
+            if (enabled) legacyMarkers.markTurnedOn(id) else legacyMarkers.markTurnedOff(id)
+        }
     }
 
     /** Records that a run started and returns the persisted run for later updates. */
@@ -181,9 +193,13 @@ class ScheduleRepository(context: Context) {
         val stored = preferences.getString(KEY_SCHEDULES, null)
         if (stored != null) return ScheduleCodec.decodeSchedules(stored)
         return legacyPreferences.getString(KEY_SCHEDULES, null)?.let { encoded ->
-            val decoded = ScheduleCodec.decodeSchedules(encoded)
-            preferences.edit().putString(KEY_SCHEDULES, encoded).apply()
-            if (!keepsLegacyCopy) legacyPreferences.edit().remove(KEY_SCHEDULES).apply()
+            val decoded = legacyMarkers.applyTo(ScheduleCodec.decodeSchedules(encoded))
+            legacyIds = decoded.mapTo(HashSet()) { it.id }
+            preferences.edit().putString(KEY_SCHEDULES, ScheduleCodec.encodeSchedules(decoded)).apply()
+            if (!keepsLegacyCopy) {
+                legacyPreferences.edit().remove(KEY_SCHEDULES).apply()
+                legacyMarkers.clear()
+            }
             decoded
         }.orEmpty()
     }
