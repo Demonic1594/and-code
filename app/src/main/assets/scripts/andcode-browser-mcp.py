@@ -574,7 +574,7 @@ def parse_since(raw: object) -> tuple[str | None, int] | None:
         return None, int(raw)
     if isinstance(raw, str):
         page, _, position = raw.strip().rpartition(":")
-        if not position.isdigit():
+        if not (position.isascii() and position.isdigit()):
             return None
         return (page or None), int(position)
     return None
@@ -882,7 +882,8 @@ TOOLS = [
         "description": (
             "Read what the Guest Browser page logged: console messages, uncaught exceptions, files that "
             "failed to load, and requests that failed or answered 4xx/5xx, oldest first (at most the "
-            "last 100, from the top page only, not its iframes). Query values in URLs are hidden. The "
+            "last 100, from the top page only, not its iframes). Sign-in details, query values and "
+            "fragments of the page's and requests' URLs are hidden. The "
             "reply ends with next: <cursor>; pass since=<cursor> to read only what came after. After a "
             "navigation the old cursor reads the new page's whole log."
         ),

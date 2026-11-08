@@ -80,9 +80,14 @@
     }).join(' '), MAX_AGENT_TEXT);
   }
 
-  // Query values (tokens, signatures) are the model's business no more than they are the log's.
+  // Sign-in details, query values and fragments (tokens, signatures, an OAuth redirect's
+  // #access_token) are the model's business no more than they are the log's.
   function agentUrl(url) {
-    return clip(String(url || '').replace(/([?&][^=&#]*)=[^&#]*/g, '$1=…'), MAX_AGENT_TEXT);
+    var text = String(url || '')
+      .replace(/([a-z][a-z0-9+.-]*:\/\/)[^\/@\s]*@/gi, '$1')
+      .replace(/#[^\s]*/g, '#…')
+      .replace(/([?&][^=&#\s]*)=[^&#\s]*/g, '$1=…');
+    return clip(text, MAX_AGENT_TEXT);
   }
 
   function agentRecord(entry) {

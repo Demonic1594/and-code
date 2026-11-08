@@ -88,13 +88,14 @@ class BrowserAgentToolsTest {
     @Test
     fun `a cursor names its page and position, and a bad one is refused before the browser is reached`() {
         val parsed = run("""for since in (None, "", 7, "7", "k3x9:40", " k3x9:0 "): print(m.parse_since(since))""")
-        val refused = run("""for since in ("abc", "k3x9:", -1, 2.5, True, float("nan"), [1]): print(m.tool_console({"since": since}))""")
+        val refused =
+            run("""for since in ("abc", "k3x9:", "k3x9:²", -1, 2.5, True, float("nan"), [1]): print(m.tool_console({"since": since}))""")
 
         assertEquals(
             listOf("(None, 0)", "(None, 0)", "(None, 7)", "(None, 7)", "('k3x9', 40)", "('k3x9', 0)"),
             parsed.lines(),
         )
-        assertEquals(List(7) { "since must be the next value from an earlier browser_console reply" }, refused.lines())
+        assertEquals(List(8) { "since must be the next value from an earlier browser_console reply" }, refused.lines())
     }
 
     @Test
@@ -199,7 +200,7 @@ class BrowserAgentToolsTest {
                 page.console.log('hello');
                 page.listeners.error.forEach((fn) => fn({ target: page, message: 'TypeError: x is undefined',
                   filename: 'http://127.0.0.1:5173/app.js', lineno: 3, colno: 9 }));
-                page.listeners.error.forEach((fn) => fn({ target: { tagName: 'IMG', src: 'http://cdn/x.png?sig=abc&w=2' } }));
+                page.listeners.error.forEach((fn) => fn({ target: { tagName: 'IMG', src: 'http://me:pw@cdn/x.png?sig=abc&w=2#t=9' } }));
                 page.abortNext = true;
                 page.fetch('/api/cancelled').catch(() => {}).then(() => page.fetch('/api/users?token=secret')).then(() => {
                   const all = JSON.parse(page.__andcodeDT.agentLog());
@@ -222,7 +223,7 @@ class BrowserAgentToolsTest {
                 "1 error boom {\"a\":1}",
                 "2 log hello",
                 "3 exception TypeError: x is undefined",
-                "4 failed load Failed to load img: http://cdn/x.png?sig=…&w=…",
+                "4 failed load Failed to load img: http://cdn/x.png?sig=…&w=…#…",
                 "5 network GET http://127.0.0.1:5173/api/users?token=… -> 404 Not Found",
                 "next 5 reset false",
                 "4,5",
