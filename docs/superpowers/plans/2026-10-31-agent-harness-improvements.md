@@ -1,14 +1,14 @@
 # Agent harness improvements (from a Cursor comparison)
 
 Status: **in progress**. Done: items 1 (with per-project rules, #87), 2 (#91), 3 (#58), 4, the
-section 8 items except the MCP and skills list, and in section 9 deny before ask, risk classes
-(read-only calls skip the prompt once the user allows reading, #90; nothing is allowed by kind until
-then) and deny feedback. Closed because the CLI already does it: item 5 for the model's side, and in
-section 9 point-in-time context, compaction triggers and tool output caps (see
-`2026-11-07-cursor-report-assessment.md`). The rest is scheduled in that assessment's order: item 6
-as the context breakdown, item 7 as hook templates, and in section 9 the audit log, writes outside
-the workspace and section budgets. Stop ending the whole tree is done (#111), and self-contained
-final messages with the assessment (#110).
+section 8 items except the MCP and skills list, and in section 9 deny before ask, risk classes (#89;
+with #90 read-only calls skip the prompt once the user allows reading, and editing and web access
+each have their own switch, all off at first) and deny feedback. Closed because the CLI already does
+it: item 5 for the model's side, and in section 9 point-in-time context, compaction triggers and
+tool output caps (see `2026-11-07-cursor-report-assessment.md`). The rest is scheduled in that
+assessment's order: item 6 as the context breakdown, item 7 as hook templates, and in section 9 the
+audit log, writes outside the workspace and section budgets. Stop ending the whole tree is done
+(#111), and self-contained final messages with the assessment (#110).
 
 ## Goal
 
