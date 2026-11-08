@@ -682,6 +682,10 @@ def key_event(spec: object) -> dict | None:
     return event
 
 
+FOCUS_ANY_JS = "el.focus(); return document.activeElement === el ? 'ok' : 'not focusable';"
+NOT_FOCUSABLE = "that element cannot take keyboard focus; pass the handle of a link, button or field"
+
+
 def tool_press_key(args: dict) -> str:
     event = key_event(args.get("key"))
     if event is None:
@@ -689,9 +693,12 @@ def tool_press_key(args: dict) -> str:
     page = _session().open_page_session()
     try:
         if args.get("ref") is not None:
-            state = _evaluate(page, ref_expression(args["ref"], "el.focus(); return 'ok';"))
+            # Only an element that took focus gets the key; otherwise it would go to whatever had focus.
+            state = _evaluate(page, ref_expression(args["ref"], FOCUS_ANY_JS))
             if state == "stale":
                 return STALE_REF
+            if state != "ok":
+                return NOT_FOCUSABLE
         page.call("Input.dispatchKeyEvent", type="keyDown" if "text" in event else "rawKeyDown", **event)
         up = {name: value for name, value in event.items() if name != "text"}
         page.call("Input.dispatchKeyEvent", type="keyUp", **up)

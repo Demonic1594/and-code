@@ -135,6 +135,13 @@ class BrowserAgentToolsTest {
     }
 
     @Test
+    fun `a key goes to a handle only once it has focus`() {
+        val script = run("print(m.ref_expression(4, m.FOCUS_ANY_JS))")
+
+        assertTrue(script, script.contains("document.activeElement === el ? 'ok' : 'not focusable'"))
+    }
+
+    @Test
     fun `a key that is not one says which keys there are, before the browser is reached`() {
         val answer = run("""print(m.tool_press_key({"key": "F13"}))""")
 
