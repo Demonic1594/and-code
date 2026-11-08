@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
@@ -39,6 +40,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.api.RetryReason
+import com.yugahashimoto.andcode.core.api.RunActivity
 import com.yugahashimoto.andcode.core.api.RunRetry
 import com.yugahashimoto.andcode.core.diagnostics.StallDiagnosis
 import com.yugahashimoto.andcode.core.diagnostics.StallReason
@@ -301,10 +304,16 @@ internal fun ChatRetryCard(retry: RunRetry) {
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                text = stringResource(R.string.chat_retry_attempt, retry.attempt),
+                text =
+                    retry.maxAttempts?.let { stringResource(R.string.chat_retry_attempt_of, retry.attempt, it) }
+                        ?: stringResource(R.string.chat_retry_attempt, retry.attempt),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            retry.reason?.let { reason ->
+                Spacer(Modifier.height(6.dp))
+                Text(text = stringResource(reason.labelRes()))
+            }
             retry.message?.let { message ->
                 Spacer(Modifier.height(6.dp))
                 // The provider's own words, capped: some return a whole JSON error body.
@@ -313,6 +322,60 @@ internal fun ChatRetryCard(retry: RunRetry) {
             Spacer(Modifier.height(6.dp))
             Text(
                 text = stringResource(R.string.chat_retry_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private fun RetryReason.labelRes(): Int =
+    when (this) {
+        RetryReason.RATE_LIMITED -> R.string.chat_retry_reason_rate_limited
+        RetryReason.OVERLOADED -> R.string.chat_retry_reason_overloaded
+        RetryReason.SERVER_ERROR -> R.string.chat_retry_reason_server_error
+        RetryReason.AUTHENTICATION -> R.string.chat_retry_reason_authentication
+        RetryReason.NO_RESPONSE -> R.string.chat_retry_reason_no_response
+    }
+
+/**
+ * Tells the user what a running turn is busy with when it is not writing: compacting the
+ * conversation (which can take a minute and otherwise looks like a stalled run), or answering with
+ * a fallback model because the one they picked could not.
+ */
+@Composable
+internal fun ChatRunActivityCard(activity: RunActivity) {
+    val (title, body) =
+        when (activity) {
+            RunActivity.Compacting ->
+                stringResource(R.string.chat_activity_compacting_title) to
+                    stringResource(R.string.chat_activity_compacting_body)
+            is RunActivity.ModelSwitched ->
+                stringResource(R.string.chat_activity_model_switched_title, activity.to) to
+                    stringResource(R.string.chat_activity_model_switched_body, activity.from)
+        }
+    Surface(
+        modifier = Modifier.testTag("chat-run-activity-card"),
+        shape = AppShapes.lg,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(text = title, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = body,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

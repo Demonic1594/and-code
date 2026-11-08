@@ -8,6 +8,9 @@ import com.yugahashimoto.andcode.core.api.OpenCodePart
 import com.yugahashimoto.andcode.core.api.OpenCodeSessionTokens
 import com.yugahashimoto.andcode.core.api.OpenCodeTime
 import com.yugahashimoto.andcode.core.api.OpenCodeTodo
+import com.yugahashimoto.andcode.core.api.RetryReason
+import com.yugahashimoto.andcode.core.api.RunActivity
+import com.yugahashimoto.andcode.core.api.RunRetry
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -96,20 +99,78 @@ class ClaudeStreamJsonParser(
     fun parse(line: String): Parsed {
         val root = runCatching { json.parseToJsonElement(line).jsonObject }.getOrNull() ?: return Parsed()
         return when (root.string("type")) {
-            "system" ->
-                Parsed(
-                    claudeSessionId = root.string("session_id"),
-                    resolvedModel = root.string("model"),
-                    slashCommands = root.stringList("slash_commands"),
-                    skills = root.stringList("skills"),
-                    workflowsAvailable = root.stringList("tools")?.contains(WORKFLOW_TOOL),
-                )
+            "system" -> parseSystem(root)
             "assistant" -> parseModelMessage(root, role = "assistant")
             "user" -> parseModelMessage(root, role = "user")
             "stream_event" -> parsePartialDelta(root)
             "result" -> parseResult(root)
             else -> Parsed()
         }
+    }
+
+    /**
+     * A `system` line: the session start, or one of the notices Claude Code sends while a turn runs
+     * without output. The notices are what keep a waiting run from looking hung: `api_retry` while it
+     * waits out a failed API call, `status` while it compacts the conversation, `compact_boundary`
+     * when that is done, and `model_fallback` when the requested model could not answer.
+     */
+    private fun parseSystem(root: JsonObject): Parsed {
+        val event: OpenCodeEvent? =
+            when (root.string("subtype")) {
+                "api_retry" -> OpenCodeEvent.SessionStatusChanged(sessionId, "retry", apiRetry(root))
+                "status" ->
+                    OpenCodeEvent.RunActivityChanged(
+                        sessionId,
+                        RunActivity.Compacting.takeIf { root.string("status") == "compacting" },
+                    )
+                "compact_boundary" -> OpenCodeEvent.RunActivityChanged(sessionId, null)
+                "model_fallback" -> modelSwitch(root)?.let { OpenCodeEvent.RunActivityChanged(sessionId, it) }
+                else ->
+                    return Parsed(
+                        claudeSessionId = root.string("session_id"),
+                        resolvedModel = root.string("model"),
+                        slashCommands = root.stringList("slash_commands"),
+                        skills = root.stringList("skills"),
+                        workflowsAvailable = root.stringList("tools")?.contains(WORKFLOW_TOOL),
+                    )
+            }
+        return Parsed(events = listOfNotNull(event), claudeSessionId = root.string("session_id"))
+    }
+
+    /** The switch a `model_fallback` line reports; null when it does not name both models. */
+    private fun modelSwitch(root: JsonObject): RunActivity.ModelSwitched? {
+        val from = root.string("original_model") ?: return null
+        val to = root.string("fallback_model") ?: return null
+        return RunActivity.ModelSwitched(from = from, to = to)
+    }
+
+    /**
+     * `{"subtype":"api_retry","attempt":2,"max_retries":10,"retry_delay_ms":8000,"error_status":429,
+     * "error":"rate_limit"}`, plus `no_response` when the API sent nothing at all. The delay is not
+     * kept, for the reason [com.yugahashimoto.andcode.core.api.OpenCodeEventParser] gives: a countdown
+     * would sit stale between lines.
+     */
+    private fun apiRetry(root: JsonObject): RunRetry {
+        val reason =
+            when {
+                root["no_response"] is JsonObject -> RetryReason.NO_RESPONSE
+                else ->
+                    when (root.string("error")) {
+                        "rate_limit" -> RetryReason.RATE_LIMITED
+                        "overloaded" -> RetryReason.OVERLOADED
+                        "server_error" -> RetryReason.SERVER_ERROR
+                        "authentication_failed", "cloud_credential_error" -> RetryReason.AUTHENTICATION
+                        else -> null
+                    }
+            }
+        return RunRetry(
+            attempt = root.int("attempt")?.coerceAtLeast(1) ?: 1,
+            // Claude Code names the failure but sends no provider text; a bare status code is all
+            // there is to show when it cannot name it.
+            message = if (reason == null) root.int("error_status")?.let { "HTTP $it" } else null,
+            maxAttempts = root.int("max_retries")?.takeIf { it > 0 },
+            reason = reason,
+        )
     }
 
     private fun parseModelMessage(
@@ -447,6 +508,8 @@ class ClaudeStreamJsonParser(
         fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
 
         fun JsonObject.long(key: String): Long? = (this[key] as? JsonPrimitive)?.contentOrNull?.toLongOrNull()
+
+        fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
 
         fun JsonObject.double(key: String): Double? = (this[key] as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull()
 

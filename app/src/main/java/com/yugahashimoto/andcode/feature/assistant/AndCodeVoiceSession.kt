@@ -295,7 +295,7 @@ class AndCodeVoiceSession(context: Context) :
                             is OpenCodeEvent.MessageUpdated,
                             is OpenCodeEvent.SessionCreated,
                             is OpenCodeEvent.SessionUpdated,
-                            is OpenCodeEvent.SessionStatusChanged,
+                            is OpenCodeEvent.SessionStatusChanged, is OpenCodeEvent.RunActivityChanged,
                             is OpenCodeEvent.QuestionAsked,
                             is OpenCodeEvent.Unknown,
                             -> Unit

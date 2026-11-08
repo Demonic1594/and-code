@@ -1858,4 +1858,14 @@
     <string name="cd_share_server_live">端口 %1$d 已共享</string>
     <string name="run_settings_ultracode">Ultracode</string>
     <string name="run_settings_ultracode_description">Claude 会规划工作，并用多个智能体来执行。更周密，但速度更慢，也会更快用完你的额度。从你的下一条普通消息开始生效；接下来发送的斜杠命令或技能仍使用之前的设置。</string>
+    <string name="chat_retry_attempt_of">正在自动重试 · 第 %1$d 次（共 %2$d 次）</string>
+    <string name="chat_retry_reason_rate_limited">模型提供商正在对此账户限速。</string>
+    <string name="chat_retry_reason_overloaded">模型过载。</string>
+    <string name="chat_retry_reason_server_error">模型提供商出现服务器错误。</string>
+    <string name="chat_retry_reason_authentication">模型提供商未接受登录。</string>
+    <string name="chat_retry_reason_no_response">模型提供商没有响应。</string>
+    <string name="chat_activity_compacting_title">正在压缩对话</string>
+    <string name="chat_activity_compacting_body">上下文快满了，正在总结较早的消息。完成后运行会自动继续。</string>
+    <string name="chat_activity_model_switched_title">正在用 %1$s 回答</string>
+    <string name="chat_activity_model_switched_body">%1$s 无法回答，因此 Claude Code 在本轮切换到了备用模型。</string>
 </resources>

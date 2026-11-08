@@ -1901,4 +1901,14 @@
     <string name="cd_share_server_live">Port %1$d is shared</string>
     <string name="run_settings_ultracode">Ultracode</string>
     <string name="run_settings_ultracode_description">Claude plans the work and runs it with several agents. More thorough, but slower and uses your limits faster. Applies from your next message; a slash command or skill sent next still uses the previous setting.</string>
+    <string name="chat_retry_attempt_of">Retrying automatically · attempt %1$d of %2$d</string>
+    <string name="chat_retry_reason_rate_limited">The model provider is rate limiting this account.</string>
+    <string name="chat_retry_reason_overloaded">The model is overloaded.</string>
+    <string name="chat_retry_reason_server_error">The model provider had a server error.</string>
+    <string name="chat_retry_reason_authentication">The model provider did not accept the sign-in.</string>
+    <string name="chat_retry_reason_no_response">The model provider sent no response.</string>
+    <string name="chat_activity_compacting_title">Compacting the conversation</string>
+    <string name="chat_activity_compacting_body">The context is nearly full, so older messages are being summarized. The run goes on by itself when this is done.</string>
+    <string name="chat_activity_model_switched_title">Answering with %1$s</string>
+    <string name="chat_activity_model_switched_body">%1$s could not answer, so Claude Code switched to its fallback model for this turn.</string>
 </resources>

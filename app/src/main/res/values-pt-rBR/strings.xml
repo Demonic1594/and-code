@@ -1884,4 +1884,14 @@
     <string name="cd_share_server_live">A porta %1$d está compartilhada</string>
     <string name="run_settings_ultracode">Ultracode</string>
     <string name="run_settings_ultracode_description">O Claude planeja o trabalho e o executa com vários agentes. É mais minucioso, mas mais lento e esgota seus limites mais rápido. Vale a partir da sua próxima mensagem; um comando de barra ou uma habilidade enviados em seguida ainda usam a configuração anterior.</string>
+    <string name="chat_retry_attempt_of">Tentando de novo automaticamente · tentativa %1$d de %2$d</string>
+    <string name="chat_retry_reason_rate_limited">O provedor do modelo está limitando a taxa desta conta.</string>
+    <string name="chat_retry_reason_overloaded">O modelo está sobrecarregado.</string>
+    <string name="chat_retry_reason_server_error">O provedor do modelo teve um erro de servidor.</string>
+    <string name="chat_retry_reason_authentication">O provedor do modelo não aceitou o login.</string>
+    <string name="chat_retry_reason_no_response">O provedor do modelo não enviou resposta.</string>
+    <string name="chat_activity_compacting_title">Compactando a conversa</string>
+    <string name="chat_activity_compacting_body">O contexto está quase cheio, então as mensagens mais antigas estão sendo resumidas. A execução continua sozinha quando isso terminar.</string>
+    <string name="chat_activity_model_switched_title">Respondendo com %1$s</string>
+    <string name="chat_activity_model_switched_body">%1$s não conseguiu responder, então o Claude Code passou para o modelo reserva neste turno.</string>
 </resources>

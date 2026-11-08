@@ -1,6 +1,9 @@
 package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
+import com.yugahashimoto.andcode.core.api.RetryReason
+import com.yugahashimoto.andcode.core.api.RunActivity
+import com.yugahashimoto.andcode.core.api.RunRetry
 import com.yugahashimoto.andcode.feature.chat.toolFilePaths
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonPrimitive
@@ -42,6 +45,77 @@ class ClaudeStreamJsonParserTest {
         assertEquals(true, withWorkflows.workflowsAvailable)
         assertEquals(false, without.workflowsAvailable)
         assertNull(status.workflowsAvailable)
+    }
+
+    @Test
+    fun `an api retry becomes the retry status, with the failure named`() {
+        val parsed =
+            parser().parse(
+                """{"type":"system","subtype":"api_retry","attempt":2,"max_retries":10,"retry_delay_ms":8000,""" +
+                    """"error_status":429,"error":"rate_limit","session_id":"abc"}""",
+            )
+
+        val status = parsed.events.single() as OpenCodeEvent.SessionStatusChanged
+        assertEquals("session-1", status.sessionId)
+        assertEquals("retry", status.status)
+        assertEquals(RunRetry(attempt = 2, message = null, maxAttempts = 10, reason = RetryReason.RATE_LIMITED), status.retry)
+        assertEquals("abc", parsed.claudeSessionId)
+        assertNull("a notice is not a session start", parsed.slashCommands)
+    }
+
+    @Test
+    fun `a retry Claude Code cannot name keeps the status code, and no answer at all says so`() {
+        fun retry(line: String) = (parser().parse(line).events.single() as OpenCodeEvent.SessionStatusChanged).retry
+
+        assertEquals(
+            RunRetry(attempt = 1, message = "HTTP 500", maxAttempts = null, reason = null),
+            retry("""{"type":"system","subtype":"api_retry","attempt":0,"error_status":500,"error":"unknown"}"""),
+        )
+        assertEquals(
+            RetryReason.NO_RESPONSE,
+            retry(
+                """{"type":"system","subtype":"api_retry","attempt":3,"max_retries":10,"error_status":null,""" +
+                    """"error":"unknown","no_response":{"waited_ms":60000,"retry_wait_ms":2000}}""",
+            )?.reason,
+        )
+        assertEquals(
+            RetryReason.OVERLOADED,
+            retry("""{"type":"system","subtype":"api_retry","attempt":1,"error_status":529,"error":"overloaded"}""")?.reason,
+        )
+        assertEquals(
+            RetryReason.AUTHENTICATION,
+            retry("""{"type":"system","subtype":"api_retry","attempt":1,"error_status":403,"error":"cloud_credential_error"}""")?.reason,
+        )
+    }
+
+    @Test
+    fun `compacting is an activity of the run until its boundary`() {
+        val parser = parser()
+
+        fun activity(line: String) = (parser.parse(line).events.single() as OpenCodeEvent.RunActivityChanged).activity
+
+        assertEquals(RunActivity.Compacting, activity("""{"type":"system","subtype":"status","status":"compacting"}"""))
+        assertNull(activity("""{"type":"system","subtype":"status","status":"requesting"}"""))
+        assertNull(activity("""{"type":"system","subtype":"status","status":null}"""))
+        assertNull(
+            activity(
+                """{"type":"system","subtype":"compact_boundary","compact_metadata":{"trigger":"auto","pre_tokens":150000}}""",
+            ),
+        )
+    }
+
+    @Test
+    fun `a model fallback names both models, and one missing a name is ignored`() {
+        val parsed =
+            parser().parse(
+                """{"type":"system","subtype":"model_fallback","trigger":"overloaded","original_model":"claude-opus-5",""" +
+                    """"fallback_model":"claude-sonnet-5","content":"..."}""",
+            )
+
+        val activity = (parsed.events.single() as OpenCodeEvent.RunActivityChanged).activity
+        assertEquals(RunActivity.ModelSwitched(from = "claude-opus-5", to = "claude-sonnet-5"), activity)
+        assertNull("a turn-scoped switch is not the model the chat asked for", parsed.resolvedModel)
+        assertTrue(parser().parse("""{"type":"system","subtype":"model_fallback","original_model":"a"}""").events.isEmpty())
     }
 
     @Test

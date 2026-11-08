@@ -13,6 +13,7 @@ import com.yugahashimoto.andcode.core.api.OpenCodeTime
 import com.yugahashimoto.andcode.core.api.PermissionRequest
 import com.yugahashimoto.andcode.core.api.PromptRequest
 import com.yugahashimoto.andcode.core.api.ProviderCatalog
+import com.yugahashimoto.andcode.core.api.RunActivity
 import com.yugahashimoto.andcode.core.api.RunRetry
 import com.yugahashimoto.andcode.core.diagnostics.StallReason
 import com.yugahashimoto.andcode.runtime.BackendKind
@@ -463,6 +464,65 @@ class ChatViewModelStallTest {
             viewModel.sendMessage("Try again")
 
             assertNull(viewModel.uiState.value.retry)
+        }
+
+    @Test
+    fun `compacting shows until the reply streams, a model switch until the run ends`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = viewModel(backend)
+
+            viewModel.sendMessage("Hello")
+            backend.events.emit(OpenCodeEvent.RunActivityChanged("s1", RunActivity.Compacting))
+            advanceUntilIdle()
+            assertEquals(RunActivity.Compacting, viewModel.uiState.value.runActivity)
+
+            backend.events.emit(OpenCodeEvent.MessagePartDelta("s1", "m1", "p1", "text", "Here"))
+            advanceUntilIdle()
+            assertNull(viewModel.uiState.value.runActivity)
+
+            val switched = RunActivity.ModelSwitched(from = "claude-opus-5", to = "claude-sonnet-5")
+            backend.events.emit(OpenCodeEvent.RunActivityChanged("s1", switched))
+            backend.events.emit(OpenCodeEvent.MessagePartDelta("s1", "m1", "p1", "text", " you go"))
+            // The next API request ("requesting") ends a step, which a model switch outlives.
+            backend.events.emit(OpenCodeEvent.RunActivityChanged("s1", null))
+            advanceUntilIdle()
+            assertEquals(switched, viewModel.uiState.value.runActivity)
+
+            backend.events.emit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+            assertNull(viewModel.uiState.value.runActivity)
+        }
+
+    @Test
+    fun `compacting after a retry replaces the retry card`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = viewModel(backend)
+
+            viewModel.sendMessage("Hello")
+            backend.events.emit(retryStatus(attempt = 1, message = "Overloaded"))
+            backend.events.emit(OpenCodeEvent.RunActivityChanged("s1", RunActivity.Compacting))
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.retry)
+            assertEquals(RunActivity.Compacting, viewModel.uiState.value.runActivity)
+        }
+
+    @Test
+    fun `an activity for an idle chat or another session is not shown`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = viewModel(backend)
+
+            backend.events.emit(OpenCodeEvent.RunActivityChanged("s1", RunActivity.Compacting))
+            advanceUntilIdle()
+            assertNull(viewModel.uiState.value.runActivity)
+
+            viewModel.sendMessage("Hello")
+            backend.events.emit(OpenCodeEvent.RunActivityChanged("other", RunActivity.Compacting))
+            advanceUntilIdle()
+            assertNull(viewModel.uiState.value.runActivity)
         }
 
     @Test

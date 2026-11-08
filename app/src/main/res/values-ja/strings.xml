@@ -1878,4 +1878,14 @@
     <string name="cd_share_server_live">ポート %1$d を共有中</string>
     <string name="run_settings_ultracode">Ultracode</string>
     <string name="run_settings_ultracode_description">Claude が作業を計画し、複数のエージェントで実行します。より徹底的ですが、時間がかかり、利用上限を早く消費します。次の通常メッセージから有効になります。次に送るスラッシュコマンドやスキルは以前の設定のままです。</string>
+    <string name="chat_retry_attempt_of">自動で再試行中 · %2$d 回中 %1$d 回目</string>
+    <string name="chat_retry_reason_rate_limited">モデルプロバイダーがこのアカウントにレート制限をかけています。</string>
+    <string name="chat_retry_reason_overloaded">モデルが過負荷です。</string>
+    <string name="chat_retry_reason_server_error">モデルプロバイダーでサーバーエラーが発生しました。</string>
+    <string name="chat_retry_reason_authentication">モデルプロバイダーがサインインを受け付けませんでした。</string>
+    <string name="chat_retry_reason_no_response">モデルプロバイダーから応答がありませんでした。</string>
+    <string name="chat_activity_compacting_title">会話を圧縮中</string>
+    <string name="chat_activity_compacting_body">コンテキストがほぼいっぱいのため、古いメッセージを要約しています。終わると実行は自動で続きます。</string>
+    <string name="chat_activity_model_switched_title">%1$s で回答中</string>
+    <string name="chat_activity_model_switched_body">%1$s が回答できなかったため、Claude Code はこのターンをフォールバックモデルに切り替えました。</string>
 </resources>

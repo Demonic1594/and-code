@@ -476,7 +476,9 @@ class ClaudeCodeRuntime(
     fun stop(sessionId: String) {
         unregisterSession(sessionId)?.let { session ->
             session.readerJob.cancel()
-            if (session.process.isAlive) session.process.destroyForcibly()
+            // Not destroyForcibly alone: that ends only PRoot, and Claude Code with whatever it was
+            // running would carry on detached. See [killProcessTree].
+            if (session.process.isAlive) endProcessTree(session.process)
         }
         messageStore.flush()
     }
@@ -913,7 +915,7 @@ class ClaudeCodeRuntime(
             }.getOrNull() ?: return null
         val output = runCatching { process.inputStream.bufferedReader().readText() }.getOrNull()
         if (!process.waitFor(TITLE_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)) {
-            process.destroyForcibly()
+            endProcessTree(process)
             return null
         }
         if (process.exitValue() != 0) return null
@@ -969,7 +971,7 @@ class ClaudeCodeRuntime(
                         .start()
                 }.getOrNull() ?: return null
             if (!process.waitFor(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)) {
-                process.destroyForcibly()
+                endProcessTree(process)
                 return null
             }
             if (process.exitValue() != 0) null else outputFile.readText()

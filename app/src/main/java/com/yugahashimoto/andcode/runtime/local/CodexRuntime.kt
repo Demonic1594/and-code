@@ -191,7 +191,7 @@ class CodexRuntime(
                             .start()
                     process.outputStream.use { it.write((apiKey.trim() + "\n").toByteArray()) }
                     if (!process.waitFor(30, TimeUnit.SECONDS)) {
-                        process.destroyForcibly()
+                        endProcessTree(process)
                         error(messages.loginFailed)
                     }
                     if (process.exitValue() != 0) error("${messages.loginFailed}: ${outputFile.readText().trim()}")
@@ -208,7 +208,7 @@ class CodexRuntime(
             withContext(Dispatchers.IO) {
                 val process = buildCodexProcess(runtime, listOf("logout")).redirectErrorStream(true).start()
                 // A logout that never finishes must not leave its process running behind us.
-                if (!process.waitFor(15, TimeUnit.SECONDS)) process.destroyForcibly()
+                if (!process.waitFor(15, TimeUnit.SECONDS)) endProcessTree(process)
             }
         }
         stopServer()
@@ -448,7 +448,8 @@ class CodexRuntime(
     private fun stopServerLocked() {
         server?.let { current ->
             current.readerJob.cancel()
-            if (current.process.isAlive) current.process.destroyForcibly()
+            // The tree, not only PRoot: see [killProcessTree].
+            if (current.process.isAlive) endProcessTree(current.process)
             // Unlike onServerEnded's crash path, a deliberate stop skips launchCodexReaderLoop's
             // onEnded entirely (see its own doc comment), so nothing else fails a call left
             // suspended in CodexJsonRpcClient.pending - without this, a coroutine awaiting a reply
@@ -565,7 +566,7 @@ class CodexRuntime(
         scope.launch {
             serverLock.withLock {
                 val current = server ?: return@withLock
-                runCatching { current.process.destroyForcibly() }
+                runCatching { endProcessTree(current.process) }
             }
         }
     }
