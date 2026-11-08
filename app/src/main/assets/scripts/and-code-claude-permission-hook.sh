@@ -83,6 +83,18 @@ if [ -z "$TOOL_NAME" ]; then
   TOOL_NAME="Tool"
 fi
 
+# Adds a line to the history on the Command rules screen: allowed (true or false), how (rule, kind,
+# block, timeout) and the rule that decided. Only what is decided here without the phone; the app
+# writes the phone's answers to a file of its own (ApprovalLog). Never fails the hook.
+log_decision() {
+  printf '%s' "$TOOL_INPUT" | jq -c --arg tool "$TOOL_NAME" --arg how "$2" --arg rule "$3" --argjson allowed "$1" \
+    '{timeMs: (now * 1000 | floor), tool: $tool,
+      summary: ((if type == "object" then (.command // .file_path // .notebook_path // .path // .url // .pattern) else null end)
+        // tostring | tostring | .[0:200]),
+      allowed: $allowed, how: $how} + (if $rule == "" then {} else {rule: $rule} end)' \
+    >>"$BRIDGE/approvals-hook.jsonl" 2>/dev/null || true
+}
+
 # Refuse blocked commands first, before any always-allow rule and without waking the UI. Same rules
 # as ShellCommandRules.blocks on the app side, and deliberately broader than allowing: any chained,
 # piped or substituted part of the command that runs the rule's program (path ignored) with the
@@ -122,6 +134,7 @@ if [ -f "$BLOCKED" ]; then
     fi
   fi
   if [ -n "$REFUSAL" ]; then
+    log_decision false block "${BLOCKED_BY:-}"
     if [ "$MODE" = "--pre-tool-use" ]; then
       jq -cn --arg reason "$REFUSAL" \
         '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$reason}}'
@@ -173,6 +186,7 @@ if [ -f "$CLASSES" ]; then
   # Only one document with a list of kinds (all strings, as the app reads it) counts: a damaged
   # file allows nothing.
   if [ -n "$TOOL_KIND" ] && jq -s -e --arg k "$TOOL_KIND" '(length == 1) and (.[0] | (.allow | type == "array") and all(.allow[]; type == "string") and any(.allow[]; . == $k))' "$CLASSES" >/dev/null 2>&1; then
+    log_decision true kind "$TOOL_KIND"
     printf '%s\n' "$ALLOW"
     exit 0
   fi
@@ -200,16 +214,21 @@ if [ -f "$ALWAYS" ]; then
     (($c | words)[0] // "") as $first |
     .rules[]? | select(.toolName == $t) | select(inproject) |
     (.commandPrefix // "") as $p |
-    if $n == "yes" then (if $p == "" then "yes" else empty end)
+    if $n == "yes" then (if $p == "" then "yes:" else empty end)
     elif $unsafe or ($first | runsother) or ($p | words | length) == 0 then empty
     else ($p | words) as $r | ($c | words) as $w |
-      if ($w | length) >= ($r | length) and $w[0:($r | length)] == $r then "yes" else empty end
+      if ($w | length) >= ($r | length) and $w[0:($r | length)] == $r then "yes:" + ($r | join(" ")) else empty end
     end
   ' "$ALWAYS" 2>/dev/null | head -n1 || true)
-  if [ "$MATCH" = "yes" ]; then
-    printf '%s\n' "$ALLOW"
-    exit 0
-  fi
+  case "$MATCH" in
+    yes:*)
+      # The rule's words, or for a tool-wide rule the tool's name, as the app keeps them.
+      RULE_WORDS="${MATCH#yes:}"
+      log_decision true rule "${RULE_WORDS:-$TOOL_NAME}"
+      printf '%s\n' "$ALLOW"
+      exit 0
+      ;;
+  esac
 fi
 
 KIND="permission"
@@ -283,5 +302,8 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
 done
 
 rm -f "$REQUEST_FILE" 2>/dev/null || true
+if [ "$KIND" = "permission" ]; then
+  log_decision false timeout ""
+fi
 deny "$UNANSWERED"
 exit 0

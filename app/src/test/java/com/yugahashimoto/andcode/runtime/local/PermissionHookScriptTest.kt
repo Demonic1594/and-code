@@ -201,6 +201,44 @@ class PermissionHookScriptTest {
 
         assertEquals("deny", answer.behavior())
         assertTrue(answer.decision()["message"]?.jsonPrimitive?.content.orEmpty().contains("could not read"))
+        // In the history as a refusal with no rule to name, which the screen words as unreadable rules.
+        val logged = Json.parseToJsonElement(File(bridge, "approvals-hook.jsonl").readLines().single()).jsonObject
+        assertEquals("block", logged.getValue("how").jsonPrimitive.content)
+        assertNull(logged["rule"])
+    }
+
+    @Test
+    fun `what the hook decides without asking goes to its own history file`() {
+        File(bridge, "always-rules.json").writeText("""{"rules":[{"toolName":"Bash","commandPrefix":"git status"}]}""")
+        File(bridge, "class-rules.json").writeText("""{"allow":["read"]}""")
+        File(bridge, "block-rules.json").writeText("""{"rules":[{"toolName":"Bash","commandPrefix":"rm -rf"}]}""")
+
+        runHook(bashCall("git status --short"))
+        runHook(toolCall("Read", """{"file_path":"/root/shop/a.kt"}"""))
+        runHook(bashCall("rm -rf build"))
+        runHook(bashCall("make deploy"), env = mapOf("ANDCODE_PERMISSION_TIMEOUT_SEC" to "0"))
+        runHook(bashCall("npm publish"), response = declined)
+
+        val lines =
+            File(bridge, "approvals-hook.jsonl").readLines().map { Json.parseToJsonElement(it).jsonObject }
+        assertEquals(
+            listOf(
+                "true rule git status Bash git status --short",
+                "true kind read Read /root/shop/a.kt",
+                "false block rm -rf Bash rm -rf build",
+                "false timeout - Bash make deploy",
+            ),
+            lines.map { line ->
+                listOf(
+                    line.getValue("allowed").jsonPrimitive.content,
+                    line.getValue("how").jsonPrimitive.content,
+                    line["rule"]?.jsonPrimitive?.content ?: "-",
+                    line.getValue("tool").jsonPrimitive.content,
+                    line.getValue("summary").jsonPrimitive.content,
+                ).joinToString(" ")
+            },
+        )
+        assertTrue(lines.all { it.getValue("timeMs").jsonPrimitive.content.toLong() > 1_000_000_000_000 })
     }
 
     @Test

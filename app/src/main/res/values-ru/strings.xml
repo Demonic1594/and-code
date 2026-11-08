@@ -1912,4 +1912,17 @@
     <string name="queued_prompt_send_now">Отправить сейчас (останавливает текущий ход)</string>
     <string name="queued_prompt_edit">Изменить</string>
     <string name="queued_prompt_remove">Убрать</string>
+    <string name="command_rules_history">Последние решения</string>
+    <string name="command_rules_history_caption">Что Claude Code недавно разрешили или запретили, сначала новые. Хранится только на этом устройстве.</string>
+    <string name="command_rules_history_empty">Решений пока нет.</string>
+    <string name="command_rules_history_clear">Очистить</string>
+    <string name="command_rules_history_allowed">Разрешено</string>
+    <string name="command_rules_history_refused">Отклонено</string>
+    <string name="command_rules_how_phone">Ответ в AndCode</string>
+    <string name="command_rules_how_phone_remembered">Ответ в AndCode, сохранено как «%1$s»</string>
+    <string name="command_rules_how_rule">По правилу «всегда разрешать» «%1$s»</string>
+    <string name="command_rules_how_kind">Разрешённый вид: %1$s</string>
+    <string name="command_rules_how_block">По правилу блокировки «%1$s»</string>
+    <string name="command_rules_how_block_unreadable">Не удалось прочитать правила блокировки</string>
+    <string name="command_rules_how_timeout">Нет ответа вовремя</string>
 </resources>

@@ -1938,4 +1938,17 @@
     <string name="queued_prompt_send_now">إرسال الآن (يوقف الجولة الحالية)</string>
     <string name="queued_prompt_edit">تعديل</string>
     <string name="queued_prompt_remove">إزالة</string>
+    <string name="command_rules_history">القرارات الأخيرة</string>
+    <string name="command_rules_history_caption">ما سُمح به أو رُفض لـ Claude Code مؤخرًا، الأحدث أولًا. يُحفظ على هذا الجهاز فقط.</string>
+    <string name="command_rules_history_empty">لا قرارات بعد.</string>
+    <string name="command_rules_history_clear">مسح</string>
+    <string name="command_rules_history_allowed">مسموح</string>
+    <string name="command_rules_history_refused">مرفوض</string>
+    <string name="command_rules_how_phone">أُجيب في AndCode</string>
+    <string name="command_rules_how_phone_remembered">أُجيب في AndCode وحُفظ باسم «%1$s»</string>
+    <string name="command_rules_how_rule">بقاعدة السماح الدائم «%1$s»</string>
+    <string name="command_rules_how_kind">النوع المسموح: %1$s</string>
+    <string name="command_rules_how_block">بقاعدة الحظر «%1$s»</string>
+    <string name="command_rules_how_block_unreadable">تعذّرت قراءة قواعد الحظر</string>
+    <string name="command_rules_how_timeout">لم تصل إجابة في الوقت المحدد</string>
 </resources>

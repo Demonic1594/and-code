@@ -401,6 +401,9 @@ fun NavGraphBuilder.settingsNavGraph(
             onForget = claudeActions.onForgetCommandRule,
             onSetKindAllowed = claudeActions.onSetToolClassAllowed,
             onBack = { navController.popBackStack() },
+            history = claude().approvalHistory,
+            onRefreshHistory = claudeActions.onRefreshApprovalHistory,
+            onClearHistory = claudeActions.onClearApprovalHistory,
         )
     }
 
@@ -695,6 +698,9 @@ data class ClaudeSettingsActions(
     val onForgetCommandRule: (com.yugahashimoto.andcode.runtime.local.ClaudePermissionBridge.CommandRule) -> Unit,
     /** Lets a kind of call (reading, editing files) run without asking, or stops it. */
     val onSetToolClassAllowed: (com.yugahashimoto.andcode.runtime.local.ToolClassRules.Kind, Boolean) -> Unit,
+    /** Reads the allow/refuse history again, and clears it. */
+    val onRefreshApprovalHistory: () -> Unit = {},
+    val onClearApprovalHistory: () -> Unit = {},
     /** Opens the open project's CLAUDE.md in the editor, creating it when missing. */
     val onOpenProjectInstructions: () -> Unit,
 )

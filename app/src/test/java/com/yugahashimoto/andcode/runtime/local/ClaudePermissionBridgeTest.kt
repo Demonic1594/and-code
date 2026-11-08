@@ -166,6 +166,35 @@ class ClaudePermissionBridgeTest {
         assertTrue(bridge.respond(requestId, PermissionResponse.ALWAYS, remember = true))
         assertTrue(bridge.isAlwaysAllowed("Bash", """{"command":"git status"}"""))
         assertFalse(bridge.isAlwaysAllowed("Write", """{"file_path":"a"}"""))
+        // The answer is in the history, with the rule it left behind.
+        val entry = bridge.approvals.entries.value.single()
+        assertEquals(ApprovalLog.PHONE, entry.how)
+        assertTrue(entry.allowed)
+        assertEquals("git status", entry.summary)
+        assertEquals("git status", entry.rule)
+    }
+
+    @Test
+    fun `a refusal on the phone is in the history without a rule`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        val requestId = UUID.randomUUID().toString()
+        bridge.writeGuestRequest(
+            ClaudePermissionBridge.Request(
+                requestId = requestId,
+                androidSessionId = "session-1",
+                kind = ClaudePermissionBridge.Kind.PERMISSION,
+                toolName = "Write",
+                toolInputJson = """{"file_path":"/root/.bashrc","content":"x"}""",
+                permissionLabel = "Write",
+            ),
+        )
+        bridge.pollPending()
+        bridge.respond(requestId, PermissionResponse.REJECT, remember = false)
+
+        val entry = bridge.approvals.entries.value.single()
+        assertFalse(entry.allowed)
+        assertEquals("/root/.bashrc", entry.summary)
+        assertEquals(null, entry.rule)
     }
 
     @Test

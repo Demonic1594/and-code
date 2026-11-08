@@ -1916,4 +1916,17 @@
     <string name="queued_prompt_send_now">Send now (stops the current turn)</string>
     <string name="queued_prompt_edit">Edit</string>
     <string name="queued_prompt_remove">Remove</string>
+    <string name="command_rules_history">Recent decisions</string>
+    <string name="command_rules_history_caption">What Claude Code was allowed or refused lately, newest first. Kept only on this device.</string>
+    <string name="command_rules_history_empty">No decisions yet.</string>
+    <string name="command_rules_history_clear">Clear</string>
+    <string name="command_rules_history_allowed">Allowed</string>
+    <string name="command_rules_history_refused">Refused</string>
+    <string name="command_rules_how_phone">Answered in AndCode</string>
+    <string name="command_rules_how_phone_remembered">Answered in AndCode, and kept as “%1$s”</string>
+    <string name="command_rules_how_rule">By the always-allow rule “%1$s”</string>
+    <string name="command_rules_how_kind">Allowed kind: %1$s</string>
+    <string name="command_rules_how_block">By the blocking rule “%1$s”</string>
+    <string name="command_rules_how_block_unreadable">The blocking rules could not be read</string>
+    <string name="command_rules_how_timeout">No answer in time</string>
 </resources>

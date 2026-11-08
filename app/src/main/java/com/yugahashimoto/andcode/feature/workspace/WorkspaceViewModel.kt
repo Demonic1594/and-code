@@ -376,6 +376,10 @@ class WorkspaceViewModel(
 
     fun forgetClaudeCommandRule(rule: ClaudePermissionBridge.CommandRule) = claudeCode?.forgetCommandRule(rule) ?: Unit
 
+    fun refreshClaudeApprovalHistory() = claudeCode?.refreshApprovalHistory() ?: Unit
+
+    fun clearClaudeApprovalHistory() = claudeCode?.clearApprovalHistory() ?: Unit
+
     fun setClaudeToolClassAllowed(
         kind: com.yugahashimoto.andcode.runtime.local.ToolClassRules.Kind,
         allow: Boolean,

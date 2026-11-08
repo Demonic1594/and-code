@@ -123,6 +123,9 @@ class ClaudePermissionBridge(
 
     /** Kinds of calls (reading, editing files) the user allows without asking, in every project. */
     val toolClasses = ToolClassRules(root)
+
+    /** What was allowed or refused, and how, for the history on the Command rules screen. */
+    val approvals = ApprovalLog(root)
     private val mutableRules = MutableStateFlow(loadRules())
 
     /** Every remembered rule, blocking ones first. */
@@ -213,9 +216,8 @@ class ClaudePermissionBridge(
                 else -> "allow"
             }
         val rememberFlag = blocked == null && (remember || response == PermissionResponse.ALWAYS)
-        if (rememberFlag && storedRequest != null) {
-            rememberRule(storedRequest)
-        }
+        val remembered = if (rememberFlag && storedRequest != null) rememberRule(storedRequest) else null
+        approvals.recordAnswer(storedRequest, allowed = decision == "allow", blocked = blocked, remembered = remembered)
         writeResponse(
             requestId,
             StoredResponse(
@@ -378,12 +380,13 @@ class ClaudePermissionBridge(
     }
 
     @Synchronized
-    private fun rememberRule(stored: StoredRequest) {
+    /** Keeps an always-allow rule for [stored] and returns its words (the tool's name for a tool-wide one), or null when none is kept. */
+    private fun rememberRule(stored: StoredRequest): String? {
         val element = (stored.toolInput as? JsonObject)?.get("command")
         // A command that is not a string (an object, null) is approved once and never remembered:
         // reading it as text would throw before the answer is written, and leaving it out would
         // make a tool-wide rule.
-        if (element != null && (element !is JsonPrimitive || !element.isString)) return
+        if (element != null && (element !is JsonPrimitive || !element.isString)) return null
         val command = (element as? JsonPrimitive)?.content
         // A command that chains, pipes or redirects is approved once but never remembered: there is no
         // safe rule to keep for it, and a tool-wide rule would allow every command.
@@ -391,10 +394,10 @@ class ClaudePermissionBridge(
             if (command == null) {
                 null
             } else {
-                ShellCommandRules.ruleFor(command) ?: return
+                ShellCommandRules.ruleFor(command) ?: return null
             }
         // A blocked command is never allowed for good, even if it was let through once.
-        if (command != null && blockedByCommand(stored.toolName, command) != null) return
+        if (command != null && blockedByCommand(stored.toolName, command) != null) return null
         val existing = loadAlwaysRules().toMutableList()
         // Kept for the project it was approved in; a request without a directory keeps the old,
         // everywhere rule rather than none.
@@ -403,6 +406,7 @@ class ClaudePermissionBridge(
             existing += rule
             writeRules(alwaysFile, existing)
         }
+        return prefix ?: stored.toolName
     }
 
     /**
@@ -539,4 +543,21 @@ class ClaudePermissionBridge(
         const val DECLINED_MESSAGE =
             "The user declined this action. Do not retry the same call; adjust your approach or ask the user what they want."
     }
+}
+
+/** Puts the phone's answer in the history: blocked since it was asked, or answered, and any rule it left. */
+private fun ApprovalLog.recordAnswer(
+    request: ClaudePermissionBridge.StoredRequest?,
+    allowed: Boolean,
+    blocked: ClaudePermissionBridge.CommandRule?,
+    remembered: String?,
+) {
+    if (request == null) return
+    record(
+        tool = request.toolName,
+        summary = ApprovalLog.summaryOf(request.toolInput),
+        allowed = allowed,
+        how = if (blocked != null) ApprovalLog.BLOCK else ApprovalLog.PHONE,
+        rule = blocked?.words ?: remembered,
+    )
 }
