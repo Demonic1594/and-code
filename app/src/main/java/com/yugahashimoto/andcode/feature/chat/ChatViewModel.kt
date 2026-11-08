@@ -990,13 +990,8 @@ class ChatViewModel(
             // every chat this view model has shown.
             viewModelScope.launch {
                 combine(messageQueue, _uiState.map { it.sessionId }.distinctUntilChanged()) { queue, sessionId ->
-                    queue.filter { it.sessionId == sessionId }.map {
-                        QueuedPromptView(
-                            it.id,
-                            it.text,
-                            it.attachments.size + it.imagePreviews.size,
-                        )
-                    }
+                    // An image is in both lists (its preview pairs with it), so only attachments count.
+                    queue.filter { it.sessionId == sessionId }.map { QueuedPromptView(it.id, it.text, it.attachments.size) }
                 }.distinctUntilChanged().collect { held ->
                     val canInterrupt = (backend as? RuntimeTarget)?.capabilities?.forcesQueue != true
                     _uiState.update { it.copy(queuedPrompts = held, canSendQueuedNow = canInterrupt) }
@@ -2099,14 +2094,21 @@ class ChatViewModel(
         fromComposer: Boolean,
         /** Interrupts a running turn even where prompts otherwise queue; see [sendQueuedPromptNow]. */
         sendNow: Boolean = false,
+        /**
+         * A held prompt going out, with its own attachments. It never reads or clears the composer,
+         * where the user may be writing the next message.
+         */
+        held: QueuedPrompt? = null,
     ) {
         // A rewind or its undo in flight decides which messages the next one follows; the screen
         // holds the composer until it lands.
         if (_uiState.value.isRewinding || restoreInFlight) return
         val normalized = text.trim()
-        val pendingAttachments = if (fromComposer) _uiState.value.attachments else emptyList()
+        // Whether this send takes, and afterwards clears, what is in the composer.
+        val usesComposer = fromComposer && held == null
+        val pendingAttachments = held?.attachments ?: if (usesComposer) _uiState.value.attachments else emptyList()
         val messageIdsBeforeSend = _uiState.value.messages.map { it.id }.toSet()
-        val pendingPreviews = if (fromComposer) _uiState.value.imagePreviews else emptyList()
+        val pendingPreviews = held?.imagePreviews ?: if (usesComposer) _uiState.value.imagePreviews else emptyList()
         // The model identity is part of the prompt, exactly like its text: reading it from live
         // state after the createSession/summarize suspensions below sent turn 1 with whatever
         // model the user switched to mid-dispatch. Text and attachments were already captured
@@ -2178,8 +2180,8 @@ class ChatViewModel(
                     rewoundFrom = null,
                     offlineQueue = it.offlineQueue + outgoingText,
                     isOfflineQueued = true,
-                    attachments = if (fromComposer) emptyList() else it.attachments,
-                    imagePreviews = if (fromComposer) emptyList() else it.imagePreviews,
+                    attachments = if (usesComposer) emptyList() else it.attachments,
+                    imagePreviews = if (usesComposer) emptyList() else it.imagePreviews,
                 )
             }
             return
@@ -2201,7 +2203,7 @@ class ChatViewModel(
                         fromComposer,
                     )
             }
-            if (fromComposer) _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
+            if (usesComposer) _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
             return
         }
         val interrupting = _uiState.value.isRunning
@@ -2302,7 +2304,7 @@ class ChatViewModel(
                     .onSuccess { title ->
                         if (title.isNotBlank()) _uiState.update { it.copy(sessionTitle = title) }
                     }
-                if (fromComposer) {
+                if (usesComposer) {
                     _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
                     clearDraft(targetSessionId)
                 }
@@ -3638,22 +3640,9 @@ class ChatViewModel(
         queuedPrompt: QueuedPrompt,
         sendNow: Boolean = false,
     ) {
-        if (!queuedPrompt.fromComposer) {
-            send(queuedPrompt.text, fromComposer = false, sendNow = sendNow)
-            return
-        }
-        // The prompt goes out with its own attachments; what the user has attached to the message
-        // they are writing now stays in the composer. send reads the attachments before it returns.
-        val draftAttachments = _uiState.value.attachments
-        val draftPreviews = _uiState.value.imagePreviews
-        _uiState.update {
-            it.copy(
-                attachments = queuedPrompt.attachments,
-                imagePreviews = queuedPrompt.imagePreviews,
-            )
-        }
-        send(queuedPrompt.text, fromComposer = true, sendNow = sendNow)
-        _uiState.update { it.copy(attachments = draftAttachments, imagePreviews = draftPreviews) }
+        // With its own attachments: the composer, where the user may be writing the next message, is
+        // left alone.
+        send(queuedPrompt.text, fromComposer = queuedPrompt.fromComposer, sendNow = sendNow, held = queuedPrompt)
     }
 
     /**
@@ -3673,14 +3662,18 @@ class ChatViewModel(
 
     /**
      * Takes a held prompt back into the composer to change it, with its attachments; it joins what
-     * the user is typing rather than replacing it.
+     * the user is typing rather than replacing it. A review from the diff screen comes back as plain
+     * text and goes out again as an ordinary message. A file that could not go to the model is
+     * already a note in the text, so it comes back as that note, not as a chip.
      */
     fun editQueuedPrompt(id: String) {
         val prompt = messageQueue.value.firstOrNull { it.id == id } ?: return
         removeQueuedPrompt(id)
         _uiState.update {
+            // Two taken back before the composer picks the first up both arrive.
+            val pending = it.editDraft.takeIf { _ -> it.editDraftJoinsInput }
             it.copy(
-                editDraft = prompt.text,
+                editDraft = listOfNotNull(pending, prompt.text).joinToString("\n\n"),
                 editDraftJoinsInput = true,
                 attachments = it.attachments + prompt.attachments,
                 imagePreviews = it.imagePreviews + prompt.imagePreviews,

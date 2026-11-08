@@ -850,14 +850,14 @@ fun ChatHomeScreen(
 
             if (!runtimeNotReady) {
                 val fileMentions = LocalFileMentions.current
-                // Keyed to the chat, so one opened from elsewhere (a notification) starts with the
-                // composer's own state fresh: its full-screen editor closed.
                 QueuedPromptsBar(
                     prompts = state.queuedPrompts,
                     canSendNow = state.canSendQueuedNow,
                     actions = queueActions,
                     modifier = Modifier.padding(horizontal = 10.dp),
                 )
+                // Keyed to the chat, so one opened from elsewhere (a notification) starts with the
+                // composer's own state fresh: its full-screen editor closed.
                 key(state.sessionId) {
                     ChatComposer(
                         inputValue = inputValue,

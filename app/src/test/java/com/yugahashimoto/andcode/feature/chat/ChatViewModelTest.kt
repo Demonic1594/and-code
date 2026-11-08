@@ -1277,6 +1277,32 @@ class ChatViewModelTest {
         }
 
     @Test
+    fun `a held prompt goes out with its own attachment and leaves the composer's alone`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities())
+            val viewModel = ChatViewModel(backend)
+            viewModel.setSendBehavior("queue")
+            advanceUntilIdle()
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+            val held = PromptAttachment("held.txt", "text/plain", "data:text/plain;base64,aGVsZA==")
+            viewModel.addAttachment(held)
+            viewModel.sendMessage("second")
+            advanceUntilIdle()
+            assertEquals(1, viewModel.uiState.value.queuedPrompts.single().attachmentCount)
+            assertTrue("queueing took the attachment out of the composer", viewModel.uiState.value.attachments.isEmpty())
+
+            val drafting = PromptAttachment("next.txt", "text/plain", "data:text/plain;base64,bmV4dA==")
+            viewModel.addAttachment(drafting)
+            viewModel.sendQueuedPromptNow(viewModel.uiState.value.queuedPrompts.single().id)
+            advanceUntilIdle()
+
+            assertEquals(listOf("first", "second"), backend.sentPrompts.map { it.second.text })
+            assertEquals(listOf("held.txt"), backend.sentPrompts.last().second.attachments.map { it.filename })
+            assertEquals(listOf(drafting), viewModel.uiState.value.attachments)
+        }
+
+    @Test
     fun `a runtime that cannot interrupt offers no send now, and its held prompt keeps waiting`() =
         runTest(dispatcher) {
             val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(forcesQueue = true))
