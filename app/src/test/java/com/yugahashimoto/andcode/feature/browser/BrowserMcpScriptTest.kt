@@ -484,16 +484,18 @@ class BrowserMcpScriptTest {
             run(
                 """
                 print(m.format_console({
-                    "url": "http://127.0.0.1:5173/", "next": 9, "dropped": 3,
+                    "url": "http://127.0.0.1:5173/", "doc": "k3x9", "next": 9, "dropped": 3,
                     "entries": [
                         {"kind": "warn", "text": "slow render", "source": "http://127.0.0.1:5173/app.js:4"},
                         {"kind": "exception", "text": "TypeError: x is undefined", "source": "app.js:3:9",
                          "stack": "TypeError: x is undefined\n    at load (app.js:3:9)\n    at main (app.js:9:1)"},
-                        {"kind": "network", "text": "GET http://127.0.0.1:5173/api/users -> 404 Not Found"},
+                        {"kind": "network", "text": "GET http://127.0.0.1:5173/api/users?key=… -> 404 Not Found"},
                     ],
                 }, 0))
-                print(m.format_console({"url": "http://x/", "next": 9, "entries": []}, 9))
-                print(m.format_console({"url": "http://x/", "next": 3, "entries": [{"kind": "log", "text": str(i)} for i in range(3)]}, 0, 2))
+                print(m.format_console({"url": "http://x/", "doc": "k3x9", "next": 9, "entries": []}, 9))
+                print(m.format_console({"url": "http://x/", "doc": "a1", "next": 3, "entries": [{"kind": "log", "text": str(i)} for i in range(3)]}, 0, 2))
+                print(m.format_console({"url": "http://x/next", "doc": "b2", "reset": True, "next": 0, "entries": []}, 0))
+                print(m.format_console({"url": "http://x/", "doc": "c3", "next": 1, "entries": [{"kind": "log", "text": "y" * 500}]}, 0))
                 """.trimIndent(),
             )
 
@@ -505,26 +507,38 @@ class BrowserMcpScriptTest {
                 "[exception] TypeError: x is undefined (app.js:3:9)",
                 "    at load (app.js:3:9)",
                 "    at main (app.js:9:1)",
-                "[network] GET http://127.0.0.1:5173/api/users -> 404 Not Found",
-                "next: 9 (pass since=9 to read only what comes after this)",
+                "[network] GET http://127.0.0.1:5173/api/users?key=… -> 404 Not Found",
+                "next: k3x9:9 (pass since=k3x9:9 to read only what comes after this)",
                 "http://x/",
                 "no console messages, errors or failed requests since the last read",
-                "next: 9 (pass since=9 to read only what comes after this)",
+                "next: k3x9:9 (pass since=k3x9:9 to read only what comes after this)",
                 "http://x/",
-                "... 1 more entries before these are not shown",
+                "... 1 earlier entry is not shown",
                 "[log] 1",
                 "[log] 2",
-                "next: 3 (pass since=3 to read only what comes after this)",
+                "next: a1:3 (pass since=a1:3 to read only what comes after this)",
+                "http://x/next",
+                "the page changed since that cursor (a navigation or reload); this is the new page's log",
+                "no console messages, errors or failed requests",
+                "next: b2:0 (pass since=b2:0 to read only what comes after this)",
+                "http://x/",
+                "[log] " + "y".repeat(394) + "... (506 chars)",
+                "next: c3:1 (pass since=c3:1 to read only what comes after this)",
             ),
             log.lines(),
         )
     }
 
     @Test
-    fun `since must be a whole number, checked before the browser is reached`() {
-        val answers = run("""for since in ("3", -1, 2.5, True): print(m.tool_console({"since": since}))""")
+    fun `a cursor names its page and position, and a bad one is refused before the browser is reached`() {
+        val parsed = run("""for since in (None, "", 7, "7", "k3x9:40", " k3x9:0 "): print(m.parse_since(since))""")
+        val refused = run("""for since in ("abc", "k3x9:", -1, 2.5, True, float("nan"), [1]): print(m.tool_console({"since": since}))""")
 
-        assertEquals(List(4) { "since must be a whole number from an earlier browser_console reply" }, answers.lines())
+        assertEquals(
+            listOf("(None, 0)", "(None, 0)", "(None, 7)", "(None, 7)", "('k3x9', 40)", "('k3x9', 0)"),
+            parsed.lines(),
+        )
+        assertEquals(List(7) { "since must be the next value from an earlier browser_console reply" }, refused.lines())
     }
 
     @Test
@@ -569,7 +583,7 @@ class BrowserMcpScriptTest {
     }
 
     @Test
-    fun `a scroll says where it ended up, or that nothing moved`() {
+    fun `a scroll says where it ended up, or that nothing moved, and a bad request never reaches the browser`() {
         val answers =
             run(
                 """
@@ -578,7 +592,11 @@ class BrowserMcpScriptTest {
                 print(m.describe_scroll({"moved": True, "inner": True, "x": 0, "y": 300, "width": 390, "height": 900,
                                          "viewWidth": 390, "viewHeight": 500}))
                 print(m.describe_scroll({"moved": False}))
-                print(m.tool_scroll.__name__ and m.SCROLL_DIRECTIONS.get("sideways"))
+                print(m.tool_scroll({"direction": "sideways"}))
+                for amount in (0, -5, "abc", float("inf"), float("nan"), True):
+                    print(m.tool_scroll({"amount": amount}))
+                print(m.scroll_request({"direction": "Up", "amount": 300}))
+                print(m.scroll_request({}))
                 """.trimIndent(),
             )
 
@@ -587,14 +605,78 @@ class BrowserMcpScriptTest {
                 "scrolled the page to x=0, y=1200 of 390x4000 (view 390x800); call browser_read for what is now in view",
                 "scrolled a scrolling panel to x=0, y=300 of 390x900 (view 390x500); call browser_read for what is now in view",
                 "the page did not move: it is already at that end, or nothing here scrolls that way",
-                "None",
-            ),
+                "direction must be down, up, left or right",
+            ) + List(6) { "amount must be a positive number of CSS pixels" } +
+                listOf("((0, -1), 300.0)", "((0, 1), None)"),
             answers.lines(),
         )
     }
 
     @Test
+    fun `the scroll script is valid javascript and scrolls instantly`() {
+        val nodeStarts = runCatching { ProcessBuilder("node", "--version").start().waitFor(30, TimeUnit.SECONDS) }.getOrDefault(false)
+        assumeTrue("needs node", nodeStarts)
+        val body = run("print(m.SCROLL_JS % (0.0, 640.0))")
+        assertEquals(2, Regex("behavior: 'instant'").findAll(body).count())
+        val snippet = folder.newFile("scroll.js").apply { writeText(body) }
+        val check =
+            folder.newFile(
+                "check-scroll.js",
+            ).apply { writeText("new Function('return ' + require('fs').readFileSync(process.argv[2], 'utf8'));") }
+
+        val process = ProcessBuilder("node", check.absolutePath, snippet.absolutePath).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText()
+
+        assertTrue(output, process.waitFor(30, TimeUnit.SECONDS) && process.exitValue() == 0)
+    }
+
+    @Test
     fun `the page agent keeps a log of console lines, exceptions and failed requests for the tools`() {
+        val output =
+            runPageAgent(
+                """
+                const page = newPage(true);
+                page.console.debug('${AgentActivity.MARKER}');
+                page.console.error('boom', { a: 1 });
+                page.console.log('hello');
+                page.listeners.error.forEach((fn) => fn({ target: page, message: 'TypeError: x is undefined',
+                  filename: 'http://127.0.0.1:5173/app.js', lineno: 3, colno: 9 }));
+                page.listeners.error.forEach((fn) => fn({ target: { tagName: 'IMG', src: 'http://cdn/x.png?sig=abc&w=2' } }));
+                page.abortNext = true;
+                page.fetch('/api/cancelled').catch(() => {}).then(() => page.fetch('/api/users?token=secret')).then(() => {
+                  const all = JSON.parse(page.__andcodeDT.agentLog());
+                  console.log(all.entries.map((e) => e.seq + ' ' + e.kind + ' ' + e.text).join('\n'));
+                  console.log('next ' + all.next + ' reset ' + all.reset);
+                  console.log(JSON.parse(page.__andcodeDT.agentLog(3, all.doc)).entries.map((e) => e.seq).join(','));
+                  // A cursor from another document reads this page's whole log, saying so.
+                  const other = JSON.parse(page.__andcodeDT.agentLog(40, 'olddoc'));
+                  console.log('other ' + other.reset + ' ' + other.entries.length);
+                  // Without the bridge (an old WebView), console lines still reach the agent's log.
+                  const bare = newPage(false);
+                  bare.console.warn('no bridge');
+                  console.log(JSON.parse(bare.__andcodeDT.agentLog()).entries.map((e) => e.kind + ' ' + e.text).join(','));
+                });
+                """.trimIndent(),
+            )
+
+        assertEquals(
+            listOf(
+                "1 error boom {\"a\":1}",
+                "2 log hello",
+                "3 exception TypeError: x is undefined",
+                "4 failed load Failed to load img: http://cdn/x.png?sig=…&w=…",
+                "5 network GET http://127.0.0.1:5173/api/users?token=… -> 404 Not Found",
+                "next 5 reset false",
+                "4,5",
+                "other true 5",
+                "warn no bridge",
+            ),
+            output.lines(),
+        )
+    }
+
+    /** Runs [body] under node with the page agent loaded into stubbed pages made by `newPage(withBridge)`. */
+    private fun runPageAgent(body: String): String {
         val nodeStarts = runCatching { ProcessBuilder("node", "--version").start().waitFor(30, TimeUnit.SECONDS) }.getOrDefault(false)
         assumeTrue("needs node", nodeStarts)
         val agent =
@@ -607,54 +689,47 @@ class BrowserMcpScriptTest {
                 writeText(
                     """
                     const vm = require('vm');
-                    const listeners = {};
-                    const quiet = {};
-                    ['log', 'info', 'warn', 'error', 'debug', 'trace', 'table', 'dir', 'assert', 'count', 'time',
-                     'timeEnd', 'group', 'groupCollapsed', 'groupEnd', 'clear'].forEach((name) => { quiet[name] = () => {}; });
-                    const page = {
-                      console: quiet, location: { href: 'http://127.0.0.1:5173/' },
-                      document: { title: 'App', addEventListener() {} }, performance: { now: () => 1 },
-                      setTimeout: () => 0, Date, JSON, Math, String, Number, Array, Object, Error, Promise, Map, Set, RegExp, URL,
-                      addEventListener: (type, fn) => { (listeners[type] = listeners[type] || []).push(fn); },
-                      __andcodeDevtoolsBridge: { postMessage() {} },
-                      Request: function () {},
-                      fetch: (url) => Promise.resolve({ status: 404, statusText: 'Not Found', headers: { get: () => null, forEach() {} },
-                                                        type: 'basic', redirected: false, url: url }),
-                    };
-                    page.window = page;
-                    page.top = page;
-                    vm.createContext(page);
-                    vm.runInContext(require('fs').readFileSync(process.argv[2], 'utf8'), page);
-                    page.console.debug('${AgentActivity.MARKER}');
-                    page.console.error('boom', { a: 1 });
-                    page.console.log('hello');
-                    listeners.error.forEach((fn) => fn({ target: page, message: 'TypeError: x is undefined',
-                      filename: 'http://127.0.0.1:5173/app.js', lineno: 3, colno: 9 }));
-                    page.fetch('/api/users').then(() => {
-                      const all = JSON.parse(page.__andcodeDT.agentLog());
-                      console.log(all.entries.map((e) => e.seq + ' ' + e.kind + ' ' + e.text).join('\n'));
-                      console.log('next ' + all.next);
-                      console.log(JSON.parse(page.__andcodeDT.agentLog(3)).entries.map((e) => e.seq).join(','));
-                    });
-                    """.trimIndent(),
+                    const source = require('fs').readFileSync(process.argv[2], 'utf8');
+                    function newPage(withBridge) {
+                      const listeners = {};
+                      const quiet = {};
+                      ['log', 'info', 'warn', 'error', 'debug', 'trace', 'table', 'dir', 'assert', 'count', 'time',
+                       'timeEnd', 'group', 'groupCollapsed', 'groupEnd', 'clear'].forEach((name) => { quiet[name] = () => {}; });
+                      const page = {
+                        console: quiet, location: { href: 'http://127.0.0.1:5173/' }, listeners: listeners,
+                        document: { title: 'App', addEventListener() {} }, performance: { now: () => 1 },
+                        setTimeout: () => 0, Date, JSON, Math, String, Number, Array, Object, Error, Promise, Map, Set, RegExp, URL,
+                        addEventListener: (type, fn) => { (listeners[type] = listeners[type] || []).push(fn); },
+                        Request: function () {},
+                        abortNext: false,
+                      };
+                      page.fetch = (url) => {
+                        if (page.abortNext) {
+                          page.abortNext = false;
+                          const error = new Error('The user aborted a request.');
+                          error.name = 'AbortError';
+                          return Promise.reject(error);
+                        }
+                        return Promise.resolve({ status: 404, statusText: 'Not Found', headers: { get: () => null, forEach() {} },
+                                                 type: 'basic', redirected: false, url: url });
+                      };
+                      if (withBridge) page.__andcodeDevtoolsBridge = { postMessage() {} };
+                      page.window = page;
+                      page.top = page;
+                      vm.createContext(page);
+                      vm.runInContext(source, page);
+                      return page;
+                    }
+                    """.trimIndent()
+                        +
+                        "\n" + body,
                 )
             }
 
         val process = ProcessBuilder("node", probe.absolutePath, agent.absolutePath).redirectErrorStream(true).start()
         val output = process.inputStream.bufferedReader().readText()
         assertTrue(output, process.waitFor(30, TimeUnit.SECONDS) && process.exitValue() == 0)
-
-        assertEquals(
-            listOf(
-                "1 error boom {\"a\":1}",
-                "2 log hello",
-                "3 exception TypeError: x is undefined",
-                "4 network GET http://127.0.0.1:5173/api/users -> 404 Not Found",
-                "next 4",
-                "4",
-            ),
-            output.trim().lines(),
-        )
+        return output.trim()
     }
 
     @Test

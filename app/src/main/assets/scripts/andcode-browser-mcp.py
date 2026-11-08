@@ -16,6 +16,7 @@ it runs on the bare runtime rootfs python3.
 
 import base64
 import json
+import math
 import os
 import socket
 import struct
@@ -549,51 +550,80 @@ def tool_type(args: dict) -> str:
 
 
 # Reads the page agent's log (assets/devtools/andcode-devtools.js): console lines, uncaught errors,
-# failed loads and failed requests, after a sequence number.
-CONSOLE_JS = "(() => { const d = window.__andcodeDT; return d && d.agentLog ? d.agentLog(%d) : null; })()"
+# failed loads and failed requests, after a cursor. The page agent starts again after a navigation,
+# so a cursor names the page it came from as well as the position ("<page>:<position>").
+CONSOLE_JS = "(() => { const d = window.__andcodeDT; return d && d.agentLog ? d.agentLog(%d, %s) : null; })()"
 CONSOLE_LIMIT = 100
+CONSOLE_LINE_LIMIT = 400
 NO_AGENT_LOG = (
     "this page has no log to read: it is an error page or a file the browser shows itself (a PDF, "
     "an image), or it has not started loading"
 )
-BAD_SINCE = "since must be a whole number from an earlier browser_console reply"
+BAD_SINCE = "since must be the next value from an earlier browser_console reply"
+
+
+def parse_since(raw: object) -> tuple[str | None, int] | None:
+    """(page, position) from a cursor like "k3x9:40", or a bare position; None when it is neither."""
+    if raw is None or raw == "":
+        return None, 0
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        if not math.isfinite(raw) or raw != int(raw) or raw < 0:
+            return None
+        return None, int(raw)
+    if isinstance(raw, str):
+        page, _, position = raw.strip().rpartition(":")
+        if not position.isdigit():
+            return None
+        return (page or None), int(position)
+    return None
+
+
+def _clip_line(text: str) -> str:
+    return text if len(text) <= CONSOLE_LINE_LIMIT else text[:CONSOLE_LINE_LIMIT] + f"... ({len(text)} chars)"
 
 
 def format_console(data: dict, since: int, limit: int = CONSOLE_LIMIT) -> str:
-    """One line per entry, newest last, then the number to pass as since next time."""
+    """One line per entry, newest last, then the cursor to pass as since next time."""
     entries = data.get("entries") or []
     lines = [str(data.get("url", ""))]
+    if data.get("reset"):
+        lines.append("the page changed since that cursor (a navigation or reload); this is the new page's log")
     if data.get("dropped"):
         lines.append(f"... {data['dropped']} older entries were dropped to keep the log short")
-    if len(entries) > limit:
-        lines.append(f"... {len(entries) - limit} more entries before these are not shown")
+    hidden = len(entries) - limit
+    if hidden > 0:
+        lines.append(f"... {hidden} earlier {'entry is' if hidden == 1 else 'entries are'} not shown")
     for entry in entries[-limit:]:
         line = f"[{entry.get('kind', '')}] {entry.get('text', '')}"
         if entry.get("source"):
             line += f" ({entry['source']})"
-        lines.append(line)
+        lines.append(_clip_line(line))
         stack = [frame.strip() for frame in str(entry.get("stack") or "").splitlines()[1:4] if frame.strip()]
-        lines.extend(f"    {frame}" for frame in stack)
+        lines.extend(f"    {_clip_line(frame)}" for frame in stack)
     if not entries:
-        lines.append("no console messages, errors or failed requests" + (" since the last read" if since else ""))
-    following = data.get("next", since)
-    lines.append(f"next: {following} (pass since={following} to read only what comes after this)")
+        fresh = since and not data.get("reset")
+        lines.append("no console messages, errors or failed requests" + (" since the last read" if fresh else ""))
+    cursor = f"{data.get('doc', '')}:{data.get('next', since)}"
+    lines.append(f"next: {cursor} (pass since={cursor} to read only what comes after this)")
     return "\n".join(lines)
 
 
 def tool_console(args: dict) -> str:
-    raw = args.get("since") or 0
-    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or raw != int(raw) or raw < 0:
+    cursor = parse_since(args.get("since"))
+    if cursor is None:
         return BAD_SINCE
-    since = int(raw)
+    page_id, since = cursor
     page = _session().open_page_session()
     try:
-        value = _evaluate(page, CONSOLE_JS % since)
+        value = _evaluate(page, CONSOLE_JS % (since, json.dumps(page_id)))
     finally:
         page.close()
     if value is None:
         return NO_AGENT_LOG
-    return format_console(json.loads(str(value)), since)
+    data = json.loads(str(value))
+    return format_console(data, 0 if data.get("reset") else since)
 
 
 # Keys by the name the tool takes: (DOM key, DOM code, Windows virtual key code, text it types).
@@ -672,10 +702,12 @@ def tool_press_key(args: dict) -> str:
 
 # Scrolls the window by (dx, dy); when the window cannot move that way, the nearest element under
 # the middle of the screen that can (apps that scroll an inner panel). Reports where it ended up.
+# Instant, not smooth: a page styled to scroll smoothly would otherwise not have moved yet when the
+# position is read back.
 SCROLL_JS = r"""(() => {
   const dx = %f, dy = %f;
   const before = [scrollX, scrollY];
-  window.scrollBy(dx, dy);
+  window.scrollBy({ left: dx, top: dy, behavior: 'instant' });
   let box = null;
   if (scrollX === before[0] && scrollY === before[1]) {
     let el = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
@@ -685,7 +717,7 @@ SCROLL_JS = r"""(() => {
       const canX = dx !== 0 && /(auto|scroll)/.test(style.overflowX) && el.scrollWidth > el.clientWidth;
       if (canY || canX) {
         const start = [el.scrollLeft, el.scrollTop];
-        el.scrollBy(dx, dy);
+        el.scrollBy({ left: dx, top: dy, behavior: 'instant' });
         if (el.scrollLeft !== start[0] || el.scrollTop !== start[1]) { box = el; break; }
       }
       el = el.parentElement;
@@ -714,22 +746,37 @@ def describe_scroll(data: dict) -> str:
     )
 
 
+BAD_AMOUNT = "amount must be a positive number of CSS pixels"
+
+
+def scroll_request(args: dict) -> tuple[tuple[int, int], float | None] | str:
+    """The direction and amount asked for, or what is wrong with them; checked before the browser is reached."""
+    direction = SCROLL_DIRECTIONS.get(str(args.get("direction") or "down").lower())
+    if direction is None:
+        return BAD_DIRECTION
+    amount = args.get("amount")
+    if amount is None:
+        return direction, None
+    if isinstance(amount, bool) or not isinstance(amount, (int, float)) or not math.isfinite(amount) or amount <= 0:
+        return BAD_AMOUNT
+    return direction, float(amount)
+
+
 def tool_scroll(args: dict) -> str:
+    request = None if args.get("ref") is not None else scroll_request(args)
+    if isinstance(request, str):
+        return request
     page = _session().open_page_session()
     try:
-        if args.get("ref") is not None:
+        if request is None:
             state = _evaluate(page, ref_expression(args["ref"], "return 'ok';"))
             return STALE_REF if state == "stale" else "scrolled the element into view"
-        direction = SCROLL_DIRECTIONS.get(str(args.get("direction") or "down").lower())
-        if direction is None:
-            return BAD_DIRECTION
-        amount = args.get("amount")
+        direction, amount = request
         if amount is None:
             # Most of a screen, so a line or two stays in view across the jump.
-            size = _evaluate(page, "JSON.stringify([innerWidth, innerHeight])")
-            width, height = json.loads(str(size))
+            width, height = json.loads(str(_evaluate(page, "JSON.stringify([innerWidth, innerHeight])")))
             amount = (width if direction[0] else height) * 0.8
-        dx, dy = direction[0] * float(amount), direction[1] * float(amount)
+        dx, dy = direction[0] * amount, direction[1] * amount
         return describe_scroll(json.loads(str(_evaluate(page, SCROLL_JS % (dx, dy)))))
     finally:
         page.close()
@@ -835,12 +882,14 @@ TOOLS = [
         "description": (
             "Read what the Guest Browser page logged: console messages, uncaught exceptions, files that "
             "failed to load, and requests that failed or answered 4xx/5xx, oldest first (at most the "
-            "last 100). The reply ends with next: N; pass since=N to read only what came after."
+            "last 100, from the top page only, not its iframes). Query values in URLs are hidden. The "
+            "reply ends with next: <cursor>; pass since=<cursor> to read only what came after. After a "
+            "navigation the old cursor reads the new page's whole log."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
-                "since": {"type": "integer", "description": "The next number from an earlier reply; omit for everything kept."},
+                "since": {"type": "string", "description": "The next cursor from an earlier reply; omit for everything kept."},
             },
         },
     },
@@ -848,8 +897,8 @@ TOOLS = [
         "name": "browser_press_key",
         "description": (
             "Press a key in the Guest Browser page, e.g. Enter to submit, Tab, Escape, the arrows, or a "
-            "shortcut like ctrl+a. With a handle from browser_read the element gets focus first; "
-            "otherwise the key goes to the focused element."
+            "page shortcut like ctrl+a (not the phone's own shortcuts). With a handle from browser_read "
+            "the element gets focus first; otherwise the key goes to the focused element."
         ),
         "inputSchema": {
             "type": "object",
@@ -864,8 +913,8 @@ TOOLS = [
         "name": "browser_scroll",
         "description": (
             "Scroll the Guest Browser page (or, when the page itself does not scroll, the panel in the "
-            "middle of the screen) by most of a screen, or by amount CSS pixels, in a direction; or "
-            "bring the element with a handle from browser_read into view."
+            "middle of the screen; not inside iframes) by most of a screen, or by amount CSS pixels, in "
+            "a direction; or bring the element with a handle from browser_read into view."
         ),
         "inputSchema": {
             "type": "object",

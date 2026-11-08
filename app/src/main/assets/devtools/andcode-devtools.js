@@ -63,6 +63,9 @@
    */
   var agentLog = [];
   var agentSeq = 0;
+  // Names this document's log: the agent starts again at 0 after a navigation, so a cursor from the
+  // page before must not be read as one for this page.
+  var agentDoc = Math.random().toString(36).slice(2, 10);
   var agentRequests = {};
   var agentRequestIds = [];
   var MAX_AGENT_LOG = 300;
@@ -75,6 +78,11 @@
       if (a && a.__t) return a.v !== undefined ? String(a.v) : a.__t;
       try { return JSON.stringify(a); } catch (e) { return String(a); }
     }).join(' '), MAX_AGENT_TEXT);
+  }
+
+  // Query values (tokens, signatures) are the model's business no more than they are the log's.
+  function agentUrl(url) {
+    return clip(String(url || '').replace(/([?&][^=&#]*)=[^&#]*/g, '$1=…'), MAX_AGENT_TEXT);
   }
 
   function agentRecord(entry) {
@@ -92,7 +100,7 @@
       } else if (message.t === 'error') {
         agentRecord({
           kind: message.kind === 'resource' ? 'failed load' : 'exception',
-          text: clip(message.message || '', MAX_AGENT_TEXT),
+          text: message.kind === 'resource' ? agentUrl(message.message || '') : clip(message.message || '', MAX_AGENT_TEXT),
           source: message.kind === 'resource' ? '' : message.source || '',
           stack: clip(message.stack || '', MAX_AGENT_TEXT),
           ts: message.ts,
@@ -104,11 +112,12 @@
       } else if (message.t === 'net' && (message.phase === 'end' || message.phase === 'error')) {
         var request = agentRequests[message.id];
         delete agentRequests[message.id];
-        if (!request || request.method === 'WS') return;
+        // A request the page cancelled itself (a route change) is not a failure worth chasing.
+        if (!request || request.method === 'WS' || message.aborted) return;
         if (message.phase === 'error') {
-          agentRecord({ kind: 'network', text: request.method + ' ' + clip(request.url, MAX_AGENT_TEXT) + ' failed: ' + clip(message.error || '', 200), ts: now() });
+          agentRecord({ kind: 'network', text: request.method + ' ' + agentUrl(request.url) + ' failed: ' + clip(message.error || '', 200), ts: now() });
         } else if (message.status >= 400) {
-          agentRecord({ kind: 'network', text: request.method + ' ' + clip(request.url, MAX_AGENT_TEXT) + ' -> ' + message.status + ' ' + (message.statusText || ''), ts: now() });
+          agentRecord({ kind: 'network', text: request.method + ' ' + agentUrl(request.url) + ' -> ' + message.status + ' ' + (message.statusText || ''), ts: now() });
         }
       }
     } catch (e) {}
@@ -249,7 +258,7 @@
     if (typeof original !== 'function') return;
     console[method] = function () {
       var args = Array.prototype.slice.call(arguments);
-      if (!bridge) return original.apply(console, args);
+      // Without the bridge the panel gets nothing, but the agent's log (see agentLog) still does.
       if (method === 'debug' && args.length === 1 && args[0] === AGENT_ACTIVITY_MARKER) return original.apply(console, args);
       try {
         var level = method;
@@ -456,7 +465,7 @@
         return response;
       }, function (error) {
         try {
-          post({ t: 'net', phase: 'error', id: id, error: String(error && error.message || error), duration: performance.now() - started });
+          post({ t: 'net', phase: 'error', id: id, error: String(error && error.message || error), aborted: !!(error && error.name === 'AbortError'), duration: performance.now() - started });
         } catch (e) {}
         throw error;
       });
@@ -711,14 +720,24 @@
 
   window.__andcodeDT = {
     /**
-     * The agent log as JSON: entries after sequence number [after] (all when it is missing), the
-     * number to pass next time, and how many older entries were dropped to keep it short.
+     * The agent log as JSON: entries after sequence number [after] of document [doc] (all of them
+     * when [doc] is another document, as after a navigation, or missing), this document's id and the
+     * number to pass next time, whether the cursor belonged to another document, and how many older
+     * entries were dropped to keep the log short.
      */
-    agentLog: function (after) {
-      var since = Number(after) || 0;
+    agentLog: function (after, doc) {
+      var reset = !!doc && doc !== agentDoc;
+      var since = reset ? 0 : Number(after) || 0;
       var entries = agentLog.filter(function (entry) { return entry.seq > since; });
       var oldest = agentLog.length ? agentLog[0].seq : agentSeq + 1;
-      return JSON.stringify({ url: String(location.href), entries: entries, next: agentSeq, dropped: Math.max(0, oldest - since - 1) });
+      return JSON.stringify({
+        url: agentUrl(location.href),
+        doc: agentDoc,
+        reset: reset,
+        entries: entries,
+        next: agentSeq,
+        dropped: Math.max(0, oldest - since - 1),
+      });
     },
 
     /** Evaluates [code] in the page's global scope, as the console prompt does. */
