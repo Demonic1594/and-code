@@ -23,18 +23,21 @@ internal class LegacyScheduleMarkers(
 
     fun markTurnedOn(id: String) = update(KEY_TURNED_OFF) { it - id }
 
-    /** [schedules] as the user left them: deleted ones gone, turned-off ones off. */
+    /** Kept apart from turning off: turning an edited schedule back on must not bring back its old prompt armed. */
+    fun markEdited(id: String) = update(KEY_EDITED) { it + id }
+
+    /** [schedules] as the user left them: deleted ones gone, turned-off and edited ones off. */
     fun applyTo(schedules: List<Schedule>): List<Schedule> {
         val deleted = read(KEY_DELETED)
-        val turnedOff = read(KEY_TURNED_OFF)
+        val off = read(KEY_TURNED_OFF) + read(KEY_EDITED)
         return schedules
             .filterNot { it.id in deleted }
-            .map { if (it.id in turnedOff) it.copy(enabled = false) else it }
+            .map { if (it.id in off) it.copy(enabled = false) else it }
     }
 
     /** Forgets every mark, once the legacy copy they apply to is gone. */
     fun clear() {
-        preferences.edit().remove(KEY_DELETED).remove(KEY_TURNED_OFF).apply()
+        preferences.edit().remove(KEY_DELETED).remove(KEY_TURNED_OFF).remove(KEY_EDITED).apply()
     }
 
     // A copy: the set getStringSet returns must not be changed in place.
@@ -44,12 +47,14 @@ internal class LegacyScheduleMarkers(
         key: String,
         change: (Set<String>) -> Set<String>,
     ) {
-        // commit, not apply: the point is that the mark is on disk before the app can be killed.
+        // commit, not apply: the point is that the mark is on disk before the app can be killed. It
+        // blocks the caller briefly, but only in fallback mode, and only for a few ids.
         preferences.edit().putStringSet(key, change(read(key))).commit()
     }
 
     private companion object {
         const val KEY_DELETED = "fallback_deleted_schedule_ids"
         const val KEY_TURNED_OFF = "fallback_turned_off_schedule_ids"
+        const val KEY_EDITED = "fallback_edited_schedule_ids"
     }
 }

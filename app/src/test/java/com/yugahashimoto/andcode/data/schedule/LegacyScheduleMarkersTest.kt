@@ -29,7 +29,7 @@ class LegacyScheduleMarkersTest {
     }
 
     @Test
-    fun `a schedule turned off or edited in fallback mode comes back off`() {
+    fun `a schedule turned off in fallback mode comes back off, as it was`() {
         markers().markTurnedOff("weekly")
 
         val restored = markers().applyTo(schedules)
@@ -48,9 +48,19 @@ class LegacyScheduleMarkersTest {
     }
 
     @Test
+    fun `an edited schedule stays off after a restart even if it was turned back on`() {
+        markers().markEdited("nightly")
+        markers().markTurnedOff("nightly")
+        markers().markTurnedOn("nightly")
+
+        assertEquals(false, markers().applyTo(schedules).first { it.id == "nightly" }.enabled)
+    }
+
+    @Test
     fun `clearing forgets every mark`() {
         markers().markDeleted("nightly")
         markers().markTurnedOff("weekly")
+        markers().markEdited("paused")
 
         markers().clear()
 

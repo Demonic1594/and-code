@@ -53,7 +53,7 @@ class ScheduleRepository(context: Context) {
                 .sortedByDescending { it.updatedAt }
         }
         persistSchedules()
-        if (keepsLegacyCopy && stored.id in legacyIds) legacyMarkers.markTurnedOff(stored.id)
+        if (keepsLegacyCopy && stored.id in legacyIds) legacyMarkers.markEdited(stored.id)
     }
 
     @Synchronized

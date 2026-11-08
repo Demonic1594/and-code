@@ -88,4 +88,13 @@ class RecoveringOpenerTest {
         assertEquals("in-memory-1", secure)
         assertFalse("discardMasterKey" in steps)
     }
+
+    @Test
+    fun `a master key that fails its test is replaced while no file has opened`() {
+        keyWorks = false
+
+        open("secure", broken = true)
+
+        assertTrue("discardMasterKey" in steps)
+    }
 }

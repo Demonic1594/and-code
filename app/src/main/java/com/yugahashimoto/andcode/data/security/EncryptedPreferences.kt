@@ -8,6 +8,7 @@ import androidx.security.crypto.MasterKey
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 
 /**
  * Opens the app's encrypted preference files without ever failing the caller.
@@ -21,6 +22,8 @@ object EncryptedPreferences {
 
     /** The master key is an AES-GCM Keystore key; the Keystore picks the IV itself. */
     private const val KEY_TEST_TRANSFORMATION = "AES/GCM/NoPadding"
+    private const val GCM_TAG_BITS = 128
+    private const val KEY_TEST_BYTE: Byte = 0x2A
 
     private val opener =
         RecoveringOpener<SharedPreferences>(masterKeyWorks = ::masterKeyWorks) { name ->
@@ -60,19 +63,30 @@ object EncryptedPreferences {
         }
 
     /**
-     * Whether the stored master key still encrypts. Only a key that does not (permanently
-     * invalidated, or missing) is worth replacing; see [RecoveringOpener].
+     * Whether the stored master key still works: one byte encrypted and decrypted back. A key that
+     * fails either way (permanently invalidated, missing, or able to encrypt but not decrypt) is worth
+     * replacing; see [RecoveringOpener].
      */
     private fun masterKeyWorks(): Boolean =
         try {
             val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
             val key = keyStore.getKey(MasterKey.DEFAULT_MASTER_KEY_ALIAS, null) as? SecretKey
-            val cipher = key?.let { Cipher.getInstance(KEY_TEST_TRANSFORMATION).apply { init(Cipher.ENCRYPT_MODE, it) } }
-            cipher != null && cipher.doFinal(ByteArray(1)).isNotEmpty()
+            key != null && roundTrips(key)
         } catch (error: Exception) {
             Log.w(TAG, "The master key failed a test encryption", error)
             false
         }
+
+    private fun roundTrips(key: SecretKey): Boolean {
+        val probe = byteArrayOf(KEY_TEST_BYTE)
+        val encrypt = Cipher.getInstance(KEY_TEST_TRANSFORMATION).apply { init(Cipher.ENCRYPT_MODE, key) }
+        val sealed = encrypt.doFinal(probe)
+        val decrypt =
+            Cipher.getInstance(KEY_TEST_TRANSFORMATION).apply {
+                init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(GCM_TAG_BITS, encrypt.iv))
+            }
+        return decrypt.doFinal(sealed).contentEquals(probe)
+    }
 
     private fun deleteMasterKey() {
         Log.w(TAG, "Discarding the unusable master key so a new one can be created")
