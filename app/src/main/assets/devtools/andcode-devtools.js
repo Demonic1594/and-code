@@ -56,7 +56,80 @@
     setTimeout(flush, 50);
   }
 
+  /*
+   * A short log of what an agent needs to debug the page, kept in the page itself: console lines,
+   * uncaught errors, failed loads and failed or 4xx/5xx requests. The browser tools read it through
+   * `agentLog`; the app's own DevTools panel keeps getting everything through the bridge.
+   */
+  var agentLog = [];
+  var agentSeq = 0;
+  // Names this document's log: the agent starts again at 0 after a navigation, so a cursor from the
+  // page before must not be read as one for this page.
+  var agentDoc = Math.random().toString(36).slice(2, 10);
+  var agentRequests = {};
+  var agentRequestIds = [];
+  var MAX_AGENT_LOG = 300;
+  var MAX_AGENT_TEXT = 1000;
+  var MAX_AGENT_REQUESTS = 500;
+
+  function agentText(args) {
+    return clip((args || []).map(function (a) {
+      if (typeof a === 'string') return a;
+      if (a && a.__t) return a.v !== undefined ? String(a.v) : a.__t;
+      try { return JSON.stringify(a); } catch (e) { return String(a); }
+    }).join(' '), MAX_AGENT_TEXT);
+  }
+
+  // Sign-in details, query values and fragments (tokens, signatures, an OAuth redirect's
+  // #access_token) are the model's business no more than they are the log's.
+  function agentUrl(url) {
+    var text = String(url || '')
+      .replace(/([a-z][a-z0-9+.-]*:\/\/)[^\/@\s]*@/gi, '$1')
+      .replace(/#[^\s]*/g, '#…')
+      .replace(/([?&][^=&#\s]*)=[^&#\s]*/g, '$1=…');
+    return clip(text, MAX_AGENT_TEXT);
+  }
+
+  function agentRecord(entry) {
+    agentSeq += 1;
+    entry.seq = agentSeq;
+    agentLog.push(entry);
+    if (agentLog.length > MAX_AGENT_LOG) agentLog.shift();
+  }
+
+  function agentNote(message) {
+    try {
+      if (message.t === 'console') {
+        if (message.level === 'group' || message.level === 'groupEnd' || message.level === 'clear') return;
+        agentRecord({ kind: message.level, text: agentText(message.args), source: message.source || '', ts: message.ts });
+      } else if (message.t === 'error') {
+        agentRecord({
+          kind: message.kind === 'resource' ? 'failed load' : 'exception',
+          text: message.kind === 'resource' ? agentUrl(message.message || '') : clip(message.message || '', MAX_AGENT_TEXT),
+          source: message.kind === 'resource' ? '' : message.source || '',
+          stack: clip(message.stack || '', MAX_AGENT_TEXT),
+          ts: message.ts,
+        });
+      } else if (message.t === 'net' && message.phase === 'start') {
+        agentRequests[message.id] = { method: message.method, url: message.url };
+        agentRequestIds.push(message.id);
+        if (agentRequestIds.length > MAX_AGENT_REQUESTS) delete agentRequests[agentRequestIds.shift()];
+      } else if (message.t === 'net' && (message.phase === 'end' || message.phase === 'error')) {
+        var request = agentRequests[message.id];
+        delete agentRequests[message.id];
+        // A request the page cancelled itself (a route change) is not a failure worth chasing.
+        if (!request || request.method === 'WS' || message.aborted) return;
+        if (message.phase === 'error') {
+          agentRecord({ kind: 'network', text: request.method + ' ' + agentUrl(request.url) + ' failed: ' + clip(message.error || '', 200), ts: now() });
+        } else if (message.status >= 400) {
+          agentRecord({ kind: 'network', text: request.method + ' ' + agentUrl(request.url) + ' -> ' + message.status + ' ' + (message.statusText || ''), ts: now() });
+        }
+      }
+    } catch (e) {}
+  }
+
   function post(message) {
+    agentNote(message);
     if (!bridge) return;
     // The first message of a document goes at once, so the app resets its log before anything else.
     if (message.t === 'ready') {
@@ -190,7 +263,7 @@
     if (typeof original !== 'function') return;
     console[method] = function () {
       var args = Array.prototype.slice.call(arguments);
-      if (!bridge) return original.apply(console, args);
+      // Without the bridge the panel gets nothing, but the agent's log (see agentLog) still does.
       if (method === 'debug' && args.length === 1 && args[0] === AGENT_ACTIVITY_MARKER) return original.apply(console, args);
       try {
         var level = method;
@@ -397,7 +470,7 @@
         return response;
       }, function (error) {
         try {
-          post({ t: 'net', phase: 'error', id: id, error: String(error && error.message || error), duration: performance.now() - started });
+          post({ t: 'net', phase: 'error', id: id, error: String(error && error.message || error), aborted: !!(error && error.name === 'AbortError'), duration: performance.now() - started });
         } catch (e) {}
         throw error;
       });
@@ -651,6 +724,27 @@
   var evalSeq = 0;
 
   window.__andcodeDT = {
+    /**
+     * The agent log as JSON: entries after sequence number [after] of document [doc] (all of them
+     * when [doc] is another document, as after a navigation, or missing), this document's id and the
+     * number to pass next time, whether the cursor belonged to another document, and how many older
+     * entries were dropped to keep the log short.
+     */
+    agentLog: function (after, doc) {
+      var reset = !!doc && doc !== agentDoc;
+      var since = reset ? 0 : Number(after) || 0;
+      var entries = agentLog.filter(function (entry) { return entry.seq > since; });
+      var oldest = agentLog.length ? agentLog[0].seq : agentSeq + 1;
+      return JSON.stringify({
+        url: agentUrl(location.href),
+        doc: agentDoc,
+        reset: reset,
+        entries: entries,
+        next: agentSeq,
+        dropped: Math.max(0, oldest - since - 1),
+      });
+    },
+
     /** Evaluates [code] in the page's global scope, as the console prompt does. */
     evaluate: function (code) {
       evalSeq += 1;
