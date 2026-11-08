@@ -22,6 +22,7 @@ import com.yugahashimoto.andcode.feature.chat.ChatViewModel
 import com.yugahashimoto.andcode.feature.chat.FileMentionsUi
 import com.yugahashimoto.andcode.feature.chat.LocalFileMentions
 import com.yugahashimoto.andcode.feature.chat.LocalSupervisedProcesses
+import com.yugahashimoto.andcode.feature.chat.QueuedPromptActions
 import com.yugahashimoto.andcode.feature.chat.SubagentInfo
 import com.yugahashimoto.andcode.feature.git.GitClient
 import com.yugahashimoto.andcode.feature.git.gitHubRepositoryUrl
@@ -268,6 +269,12 @@ internal fun ChatRoute(
             onDismissFileRestore = chatViewModel::dismissFileRestore,
             onEditLastMessage = chatViewModel::editLastUserMessage,
             onEditDraftConsumed = chatViewModel::consumeEditDraft,
+            queueActions =
+                QueuedPromptActions(
+                    onSendNow = chatViewModel::sendQueuedPromptNow,
+                    onEdit = chatViewModel::editQueuedPrompt,
+                    onRemove = chatViewModel::removeQueuedPrompt,
+                ),
             onPermission = chatViewModel::respondToPermission,
             onAbort = chatViewModel::abort,
             onRecheckStall = chatViewModel::checkForStall,

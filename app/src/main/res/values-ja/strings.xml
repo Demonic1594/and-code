@@ -1888,4 +1888,9 @@
     <string name="chat_activity_compacting_body">コンテキストがほぼいっぱいのため、古いメッセージを要約しています。終わると実行は自動で続きます。</string>
     <string name="chat_activity_model_switched_title">%1$s で回答中</string>
     <string name="chat_activity_model_switched_body">%1$s が回答できなかったため、Claude Code はこのターンをフォールバックモデルに切り替えました。</string>
+    <string name="queued_prompts_title">このターンの終了待ち (%1$d)</string>
+    <string name="queued_prompt_attachments">添付ファイル %1$d 件</string>
+    <string name="queued_prompt_send_now">今すぐ送信 (実行中のターンを止めます)</string>
+    <string name="queued_prompt_edit">編集</string>
+    <string name="queued_prompt_remove">削除</string>
 </resources>

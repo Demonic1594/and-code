@@ -1202,6 +1202,99 @@ class ChatViewModelTest {
             assertEquals(listOf("first", "second"), backend.sentPrompts.map { it.second.text })
         }
 
+    @Test
+    fun `prompts held for the running turn are shown, and a removed one is never sent`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities())
+            val viewModel = ChatViewModel(backend)
+            viewModel.setSendBehavior("queue")
+            advanceUntilIdle()
+
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+            viewModel.sendMessage("second")
+            viewModel.sendMessage("third")
+            advanceUntilIdle()
+
+            assertEquals(listOf("second", "third"), viewModel.uiState.value.queuedPrompts.map { it.text })
+            assertTrue(viewModel.uiState.value.canSendQueuedNow)
+
+            viewModel.removeQueuedPrompt(viewModel.uiState.value.queuedPrompts.first().id)
+            advanceUntilIdle()
+            assertEquals(listOf("third"), viewModel.uiState.value.queuedPrompts.map { it.text })
+
+            backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+
+            assertEquals(listOf("first", "third"), backend.sentPrompts.map { it.second.text })
+            assertTrue(viewModel.uiState.value.queuedPrompts.isEmpty())
+        }
+
+    @Test
+    fun `editing a held prompt takes it back into the composer, joining what is typed`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities())
+            val viewModel = ChatViewModel(backend)
+            viewModel.setSendBehavior("queue")
+            advanceUntilIdle()
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+            viewModel.sendMessage("second")
+            advanceUntilIdle()
+
+            viewModel.editQueuedPrompt(viewModel.uiState.value.queuedPrompts.single().id)
+            advanceUntilIdle()
+
+            assertEquals("second", viewModel.uiState.value.editDraft)
+            assertTrue(viewModel.uiState.value.editDraftJoinsInput)
+            assertTrue(viewModel.uiState.value.queuedPrompts.isEmpty())
+            viewModel.consumeEditDraft()
+            assertFalse(viewModel.uiState.value.editDraftJoinsInput)
+
+            backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+            assertEquals(listOf("first"), backend.sentPrompts.map { it.second.text })
+        }
+
+    @Test
+    fun `sending a held prompt now stops the running turn and sends it`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities())
+            val viewModel = ChatViewModel(backend)
+            viewModel.setSendBehavior("queue")
+            advanceUntilIdle()
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+            viewModel.sendMessage("second")
+            advanceUntilIdle()
+
+            viewModel.sendQueuedPromptNow(viewModel.uiState.value.queuedPrompts.single().id)
+            advanceUntilIdle()
+
+            assertEquals(listOf("first", "second"), backend.sentPrompts.map { it.second.text })
+            assertTrue(viewModel.uiState.value.queuedPrompts.isEmpty())
+            assertTrue(viewModel.uiState.value.isRunning)
+        }
+
+    @Test
+    fun `a runtime that cannot interrupt offers no send now, and its held prompt keeps waiting`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(forcesQueue = true))
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+            viewModel.sendMessage("second")
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.canSendQueuedNow)
+            viewModel.sendQueuedPromptNow(viewModel.uiState.value.queuedPrompts.single().id)
+            advanceUntilIdle()
+
+            assertEquals(listOf("first"), backend.sentPrompts.map { it.second.text })
+            assertEquals(listOf("second"), viewModel.uiState.value.queuedPrompts.map { it.text })
+        }
+
     /**
      * A prompt written offline belongs to its chat too: a connection that comes back while another
      * chat is open leaves it held, and it goes out once its own chat finishes a turn.

@@ -1894,4 +1894,9 @@
     <string name="chat_activity_compacting_body">Le contexte est presque plein, les messages les plus anciens sont donc résumés. L’exécution reprend d’elle-même une fois terminé.</string>
     <string name="chat_activity_model_switched_title">Réponse avec %1$s</string>
     <string name="chat_activity_model_switched_body">%1$s n’a pas pu répondre, Claude Code est donc passé à son modèle de secours pour ce tour.</string>
+    <string name="queued_prompts_title">En attente de la fin de ce tour (%1$d)</string>
+    <string name="queued_prompt_attachments">%1$d pièces jointes</string>
+    <string name="queued_prompt_send_now">Envoyer maintenant (arrête le tour en cours)</string>
+    <string name="queued_prompt_edit">Modifier</string>
+    <string name="queued_prompt_remove">Retirer</string>
 </resources>
