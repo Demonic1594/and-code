@@ -43,7 +43,7 @@ class AntigravityMcpTest {
         val server = servers.single()
         assertEquals("chrome-devtools-mcp", server.name)
         assertEquals("local", server.type)
-        assertEquals("/Users/yu-ga/.hermes/node/bin/chrome-devtools-mcp", server.command)
+        assertEquals("/Users/yu-ga/.hermes/node/bin/chrome-devtools-mcp --browser-url=http://127.0.0.1:9222", server.command)
         assertNull(server.url)
     }
 
@@ -95,7 +95,11 @@ class AntigravityMcpTest {
             listOf("-y", "@modelcontextprotocol/server-sequential-thinking", "--note", "two words"),
             entry["args"]!!.jsonArray.map { it.jsonPrimitive.content },
         )
-        assertEquals("npx", AntigravityMcp.read(rootfs).single().command)
+        // Listed back as the line that was typed.
+        assertEquals(
+            "npx -y @modelcontextprotocol/server-sequential-thinking --note 'two words'",
+            AntigravityMcp.read(rootfs).single().command,
+        )
     }
 
     @Test
