@@ -66,7 +66,13 @@ if [ "$MODE" = "--check" ]; then
     exit 0
   fi
   STATUS=0
-  OUT=$(sh "$CHECK" 2>&1 </dev/null) || STATUS=$?
+  # Ended just before Claude Code's own limit for the hook (600 s), so a long build does not run on
+  # after the hook was given up on.
+  if command -v timeout >/dev/null 2>&1; then
+    OUT=$(timeout 590 sh "$CHECK" 2>&1 </dev/null) || STATUS=$?
+  else
+    OUT=$(sh "$CHECK" 2>&1 </dev/null) || STATUS=$?
+  fi
   [ "$STATUS" -eq 0 ] && exit 0
   {
     printf 'The check AndCode runs %s failed (exit %s). Fix what it reports, then carry on:\n' "$WHEN" "$STATUS"

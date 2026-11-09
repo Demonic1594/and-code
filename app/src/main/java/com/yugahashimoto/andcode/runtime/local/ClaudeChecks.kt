@@ -46,7 +46,13 @@ class ClaudeChecks(
                 file.delete()
             } else {
                 dir.mkdirs()
-                file.writeText(command.trim() + "\n")
+                // Written aside and renamed in, so the hook never runs half a command.
+                val written = File(dir, ".${kind.fileName}.tmp")
+                written.writeText(command.trim() + "\n")
+                if (!written.renameTo(file)) {
+                    file.writeText(command.trim() + "\n")
+                    written.delete()
+                }
             }
         }
         mutableCommands.value = read()
