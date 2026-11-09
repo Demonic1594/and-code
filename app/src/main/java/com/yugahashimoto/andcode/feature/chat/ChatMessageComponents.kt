@@ -156,11 +156,10 @@ fun MessageBubble(
                         )
                     }
                 }
+                // Rendered as Markdown like the agent's answers: what you send is read by the agent as
+                // Markdown, so lists, code and emphasis show as it will take them.
                 if (displayText.isNotBlank()) {
-                    LinkedText(
-                        text = displayText,
-                        linkColor = MaterialTheme.colorScheme.primary,
-                    )
+                    MarkdownText(displayText, onImageClick = onImageClick)
                 }
             }
         }
@@ -527,40 +526,6 @@ internal fun RowScope.TableCellText(
 }
 
 @Composable
-private fun LinkedText(
-    text: String,
-    linkColor: Color,
-) {
-    val style = LocalTextStyle.current
-    val inlines = remember(text) { MarkdownLite.parseInline(text) }
-    val annotated =
-        remember(inlines, linkColor) {
-            buildAnnotatedString {
-                // User text is shown plain (no emphasis styling), but a link nested inside emphasis
-                // is still walked so `**http://localhost:4200**` remains tappable.
-                fun appendPlain(nodes: List<MarkdownInline>) {
-                    nodes.forEach { inline ->
-                        when (inline) {
-                            is MarkdownInline.Link ->
-                                withLink(linkAnnotation(inline.url, linkColor)) { append(inline.text) }
-                            is MarkdownInline.Bold -> appendPlain(inline.inlines)
-                            is MarkdownInline.Italic -> appendPlain(inline.inlines)
-                            is MarkdownInline.Strikethrough -> appendPlain(inline.inlines)
-                            else -> append(inline.text)
-                        }
-                    }
-                }
-                appendPlain(inlines)
-            }
-        }
-    // Same file:// guard as InlineText above (issue #300).
-    ProvideSafeUriHandler {
-        // Content-based paragraph direction for mixed RTL/LTR input (issue #341).
-        Text(text = annotated, style = style.copy(textDirection = TextDirection.Content))
-    }
-}
-
-@Composable
 internal fun MarkdownText(
     text: String,
     onImageClick: (ChatImageSource) -> Unit = {},
@@ -856,7 +821,8 @@ private fun ChatImageThumbnail(
 /**
  * A [LinkAnnotation.Url] Compose's own text-link handling can dispatch without a competing
  * `pointerInput`, so it does not swallow gestures a long-press ancestor (e.g. the message bubble's
- * copy/edit action sheet) needs to see - see [LinkedText] for the bug this avoids.
+ * copy/edit action sheet) needs to see: a `pointerInput` link handler consumed the press, and the
+ * sheet never opened on a message holding a link.
  */
 private fun linkAnnotation(
     url: String,

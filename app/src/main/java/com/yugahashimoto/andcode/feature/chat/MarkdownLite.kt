@@ -72,17 +72,6 @@ sealed interface MarkdownBlock {
 }
 
 object MarkdownLite {
-    private val inlineRegex =
-        Regex(
-            "`([^`]+)`" +
-                "|\\*\\*([^*]+)\\*\\*" +
-                "|~~([^~]+)~~" +
-                "|!\\[([^\\]]*)\\]\\(([^)\\s]+)\\)" +
-                "|\\[([^\\]]+)\\]\\(([^)\\s]+)\\)" +
-                "|\\*([^*]+)\\*" +
-                "|(?<![\\w@])(https?://[A-Za-z0-9][A-Za-z0-9._~:/?#\\[\\]@!&'()*+,;=%-]*)",
-        )
-
     /**
      * The whole-document parser, for what an agent writes and for Markdown files: CommonMark with
      * GitHub's tables, strikethrough and task lists, and footnotes. Built once; a commonmark-java
@@ -106,9 +95,9 @@ object MarkdownLite {
     private val bareUrlRegex = Regex("(?<![\\w@])(https?://[A-Za-z0-9][A-Za-z0-9._~:/?#\\[\\]@!&'()*+,;=%-]*)")
 
     /**
-     * [text] with each bare http(s) URL in it as a link, trimmed of trailing punctuation the way
-     * [parseInline] trims it. Only ASCII URL characters count, so a URL ends where text in another
-     * script starts.
+     * [text] with each bare http(s) URL in it as a link, trimmed of trailing punctuation (a sentence's
+     * full stop, a closing bracket the URL did not open). Only ASCII URL characters count, so a URL
+     * ends where text in another script starts.
      */
     internal fun linkBareUrls(text: String): List<MarkdownInline> {
         val result = mutableListOf<MarkdownInline>()
@@ -132,53 +121,6 @@ object MarkdownLite {
             // rather than let the exception escape composition, in pieces a lazy list can lay out.
             source.lines().chunked(LAZY_CODE_LINES).map { MarkdownBlock.Paragraph(listOf(MarkdownInline.Plain(it.joinToString("\n")))) }
         }
-
-    /**
-     * Inline Markdown in a single run of text, without block syntax. The user's own messages go
-     * through this, not [parse], so their `-`, `#`, `>` and blank lines show exactly as typed; only
-     * links (and emphasis around them) are picked out.
-     */
-    internal fun parseInline(text: String): List<MarkdownInline> {
-        val result = mutableListOf<MarkdownInline>()
-        var lastIndex = 0
-        for (match in inlineRegex.findAll(text)) {
-            if (match.range.first > lastIndex) {
-                result += MarkdownInline.Plain(text.substring(lastIndex, match.range.first))
-            }
-            val code = match.groups[1]?.value
-            val bold = match.groups[2]?.value
-            val strike = match.groups[3]?.value
-            val imageAlt = match.groups[4]?.value
-            val imageUrl = match.groups[5]?.value
-            val linkText = match.groups[6]?.value
-            val linkUrl = match.groups[7]?.value
-            val italic = match.groups[8]?.value
-            val bareUrl = match.groups[9]?.value
-            when {
-                code != null -> result += MarkdownInline.Code(code)
-                bold != null -> result += MarkdownInline.Bold(parseInline(bold))
-                strike != null -> result += MarkdownInline.Strikethrough(parseInline(strike))
-                imageAlt != null && imageUrl != null -> result += MarkdownInline.Image(imageAlt, imageUrl)
-                linkText != null && linkUrl != null -> result += MarkdownInline.Link(linkText, linkUrl)
-                italic != null -> result += MarkdownInline.Italic(parseInline(italic))
-                bareUrl != null -> {
-                    val url = trimUrlTail(bareUrl)
-                    result += MarkdownInline.Link(url, url)
-                    if (url.length < bareUrl.length) {
-                        result += MarkdownInline.Plain(bareUrl.substring(url.length))
-                    }
-                }
-            }
-            lastIndex = match.range.last + 1
-        }
-        if (lastIndex < text.length) {
-            result += MarkdownInline.Plain(text.substring(lastIndex))
-        }
-        if (result.isEmpty()) {
-            result += MarkdownInline.Plain(text)
-        }
-        return result
-    }
 
     private fun trimUrlTail(raw: String): String {
         var s = raw
