@@ -549,7 +549,12 @@ class ClaudeCodeRuntime(
         ultracode: Boolean = false,
     ): SessionProcess {
         val existing = sessions[sessionId]
-        val settings = ClaudeModels.cliSettings(ultracode, keepEditsInProject = keepEditsInProject.value)
+        val settings =
+            ClaudeModels.cliSettings(
+                ultracode,
+                keepEditsInProject = keepEditsInProject.value,
+                checks = permissionBridge.checks.commands.value.keys,
+            )
         // Permission mode, working directory, model, system prompt and settings are read once at
         // startup, so a change to any of them means the process has to be replaced rather than reused.
         if (existing != null && existing.process.isAlive &&

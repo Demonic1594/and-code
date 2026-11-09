@@ -46,6 +46,36 @@ deny() {
   fi
 }
 
+# Run with --check after-edit or --check before-finish, it runs the check the user set in AndCode
+# (checks/<kind>.sh in the bridge) after Claude Code edits a file, or when it is about to end its
+# turn. Claude Code runs hooks in the project folder, so the check does too. A failing check's output
+# goes back to Claude Code (exit 2), which carries on to fix it. Before finishing, a turn the check
+# already sent back once is let end (stop_hook_active), so a check that cannot pass does not keep the
+# agent going round.
+if [ "$MODE" = "--check" ]; then
+  KIND="${2:-}"
+  case "$KIND" in
+    after-edit) WHEN="after a file edit" ;;
+    before-finish) WHEN="before the turn ends" ;;
+    *) cat >/dev/null; exit 0 ;;
+  esac
+  CHECK="$BRIDGE/checks/$KIND.sh"
+  INPUT=$(cat)
+  [ -s "$CHECK" ] || exit 0
+  if [ "$KIND" = "before-finish" ] && printf '%s' "$INPUT" | grep -q '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
+    exit 0
+  fi
+  STATUS=0
+  OUT=$(sh "$CHECK" 2>&1 </dev/null) || STATUS=$?
+  [ "$STATUS" -eq 0 ] && exit 0
+  {
+    printf 'The check AndCode runs %s failed (exit %s). Fix what it reports, then carry on:\n' "$WHEN" "$STATUS"
+    # The end of the output is where a build or a test run says what failed.
+    printf '%s\n' "$OUT" | tail -n 80
+  } >&2
+  exit 2
+fi
+
 # Before a tool call there is nothing to do without blocked commands: leave at once, as this runs
 # before every Bash call.
 if [ "$MODE" = "--pre-tool-use" ] && [ ! -f "$BLOCKED" ]; then
