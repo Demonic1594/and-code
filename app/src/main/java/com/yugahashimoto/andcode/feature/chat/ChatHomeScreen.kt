@@ -856,7 +856,8 @@ fun ChatHomeScreen(
                     ?.takeIf { it.id != state.dismissedTodoBarId }
                     ?.todos
                     ?.takeIf { list -> list.any { it.status != "completed" } }
-            if (activeTodos != null && latestTodoEntry != null) {
+            // Active todos come from the latest entry, so there is one to dismiss whenever they show.
+            if (activeTodos != null) {
                 StickyTodoBar(
                     todos = activeTodos,
                     onDismiss = { onDismissTodoBar(latestTodoEntry.id) },

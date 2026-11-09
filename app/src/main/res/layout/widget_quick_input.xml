@@ -43,7 +43,7 @@
         android:layout_height="36dp"
         android:src="@android:drawable/ic_menu_send"
         android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Send"
+        android:contentDescription="@string/cd_send"
         android:scaleType="centerInside" />
 
     <ImageButton
@@ -53,7 +53,7 @@
         android:layout_marginStart="4dp"
         android:src="@android:drawable/ic_btn_speak_now"
         android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Voice input"
+        android:contentDescription="@string/cd_microphone"
         android:scaleType="centerInside" />
 
 </LinearLayout>

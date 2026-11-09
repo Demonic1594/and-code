@@ -287,6 +287,8 @@ dependencies {
     "githubImplementation"("com.google.firebase:firebase-analytics")
     "githubImplementation"("com.google.firebase:firebase-crashlytics")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    // LocalLifecycleOwner moved here from compose-ui, which only re-exports it now (deprecated).
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-process:2.8.7")
     implementation("androidx.biometric:biometric:1.1.0")
