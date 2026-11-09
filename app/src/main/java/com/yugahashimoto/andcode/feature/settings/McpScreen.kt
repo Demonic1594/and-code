@@ -123,7 +123,7 @@ fun McpScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (state.servers.isEmpty()) {
-                    item(key = "no-servers") {
+                    item(key = "section:no-servers") {
                         Text(
                             stringResource(R.string.mcp_no_servers),
                             style = MaterialTheme.typography.bodyLarge,
@@ -133,7 +133,7 @@ fun McpScreen(
                         )
                     }
                 }
-                items(state.servers, key = { it.name }) { server ->
+                items(state.servers, key = { "server:${it.name}" }) { server ->
                     McpServerCard(
                         server = server,
                         onConnect = { viewModel.connect(server.name) },
@@ -146,8 +146,8 @@ fun McpScreen(
                     )
                 }
                 if (suggestions.isNotEmpty()) {
-                    item(key = "suggestions-header") { McpSuggestionsHeader() }
-                    items(suggestions, key = { "suggestion-${it.name}" }) { suggestion ->
+                    item(key = "section:suggestions") { McpSuggestionsHeader() }
+                    items(suggestions, key = { "suggestion:${it.name}" }) { suggestion ->
                         McpSuggestionCard(suggestion, onAdd = { viewModel.showAddDialog(suggestion) })
                     }
                 }
@@ -372,7 +372,12 @@ private fun McpSuggestionCard(
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth().testTag("mcp-suggestion-${suggestion.name}"),
+        // Read as one item, so a screen reader names the server before its Add button.
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics(mergeDescendants = true) {}
+                .testTag("mcp-suggestion-${suggestion.name}"),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),

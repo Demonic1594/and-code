@@ -1,6 +1,10 @@
 package com.yugahashimoto.andcode.runtime.local
 
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -68,6 +72,30 @@ class AntigravityMcpTest {
         assertEquals("my-tool", added.name)
         assertEquals("local", added.type)
         assertEquals(listOf("my-tool"), AntigravityMcp.read(rootfs).map { it.name })
+    }
+
+    @Test
+    fun `a typed command line is stored as a program and its arguments`() {
+        val rootfs = tmp.newFolder("rootfs")
+        AntigravityMcp.add(
+            rootfs,
+            buildJsonObject {
+                put("name", "sequential-thinking")
+                put("command", "npx -y @modelcontextprotocol/server-sequential-thinking --note 'two words'")
+            },
+        )
+
+        val entry =
+            Json.parseToJsonElement(configFile(rootfs).readText())
+                .jsonObject["mcpServers"]!!
+                .jsonObject["sequential-thinking"]!!
+                .jsonObject
+        assertEquals("npx", entry["command"]!!.jsonPrimitive.content)
+        assertEquals(
+            listOf("-y", "@modelcontextprotocol/server-sequential-thinking", "--note", "two words"),
+            entry["args"]!!.jsonArray.map { it.jsonPrimitive.content },
+        )
+        assertEquals("npx", AntigravityMcp.read(rootfs).single().command)
     }
 
     @Test
