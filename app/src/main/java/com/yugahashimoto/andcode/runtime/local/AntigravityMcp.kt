@@ -2,8 +2,10 @@ package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.core.api.McpServer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -28,9 +30,21 @@ object AntigravityMcp {
     fun read(rootfs: File): List<McpServer> =
         readServers(rootfs).map { (name, entry) ->
             val url = entry[URL_KEY]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
-            val command = entry[COMMAND_KEY]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
+            val command = entry[COMMAND_KEY]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)?.let { commandLine(it, entry) }
             McpServer(name = name, type = if (url != null) "remote" else "local", command = command, url = url)
         }
+
+    /**
+     * [program] with the entry's `args`, as one line to show, quoted so that typing it back in (to
+     * replace the server) gives the same program and arguments.
+     */
+    private fun commandLine(
+        program: String,
+        entry: JsonObject,
+    ): String {
+        val args = (entry[ARGS_KEY] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.orEmpty()
+        return joinCommandLine(listOf(program) + args)
+    }
 
     /** @param body `{"name", "url"}` for a remote server or `{"name", "command"}` for a local one. */
     fun add(
@@ -44,13 +58,26 @@ object AntigravityMcp {
         val entry =
             when {
                 url != null -> buildJsonObject { put(URL_KEY, url) }
-                command != null -> buildJsonObject { put(COMMAND_KEY, command) }
+                command != null -> localEntry(command)
                 else -> error("An MCP server needs either a command or a URL")
             }
         val servers = readServers(rootfs).toMutableMap()
         servers[name] = entry
         writeServers(rootfs, servers)
         return McpServer(name = name, type = if (url != null) "remote" else "local", command = command, url = url)
+    }
+
+    /**
+     * `mcp_config.json` takes the program and its arguments apart (`command` and `args`, as in a real
+     * file), so a typed command line is split; kept whole in `command`, it named no program to start.
+     */
+    private fun localEntry(commandLine: String): JsonObject {
+        val words = splitCommandLine(commandLine)
+        val program = words.firstOrNull() ?: error("An MCP server needs either a command or a URL")
+        return buildJsonObject {
+            put(COMMAND_KEY, program)
+            if (words.size > 1) put(ARGS_KEY, JsonArray(words.drop(1).map(::JsonPrimitive)))
+        }
     }
 
     fun remove(
@@ -86,4 +113,5 @@ object AntigravityMcp {
 
     private const val URL_KEY = "serverUrl"
     private const val COMMAND_KEY = "command"
+    private const val ARGS_KEY = "args"
 }

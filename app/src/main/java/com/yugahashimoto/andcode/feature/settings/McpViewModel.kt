@@ -8,6 +8,7 @@ import com.yugahashimoto.andcode.runtime.OpenCodeBackend
 import com.yugahashimoto.andcode.runtime.RuntimeRegistry
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import com.yugahashimoto.andcode.runtime.local.ClaudeCodeTarget
+import com.yugahashimoto.andcode.runtime.local.splitCommandLine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -200,8 +201,16 @@ class McpViewModel(
         _state.update { it.copy(oauthServerName = null, oauthCode = "") }
     }
 
-    fun showAddDialog() {
-        _state.update { it.copy(showAddDialog = true, addName = "", addCommand = "", addUrl = "") }
+    /** Opens the add-server form, empty or filled in from [suggestion]. */
+    fun showAddDialog(suggestion: McpSuggestion? = null) {
+        _state.update {
+            it.copy(
+                showAddDialog = true,
+                addName = suggestion?.name.orEmpty(),
+                addCommand = suggestion?.command.orEmpty(),
+                addUrl = suggestion?.url.orEmpty(),
+            )
+        }
     }
 
     fun dismissAddDialog() {
@@ -233,7 +242,7 @@ class McpViewModel(
                         put("url", current.addUrl.trim())
                     } else if (current.addCommand.isNotBlank()) {
                         put("type", "local")
-                        put("command", buildJsonArray { commandParts(current.addCommand).forEach(::add) })
+                        put("command", buildJsonArray { splitCommandLine(current.addCommand).forEach(::add) })
                     }
                 }
             val body =
@@ -267,36 +276,5 @@ class McpViewModel(
 
     fun clearError() {
         _state.update { it.copy(error = null) }
-    }
-
-    private fun commandParts(command: String): List<String> {
-        val parts = mutableListOf<String>()
-        val current = StringBuilder()
-        var quote: Char? = null
-        var escaped = false
-
-        fun finishPart() {
-            if (current.isNotEmpty()) {
-                parts += current.toString()
-                current.clear()
-            }
-        }
-
-        command.trim().forEach { character ->
-            when {
-                escaped -> {
-                    current.append(character)
-                    escaped = false
-                }
-                character == '\\' && quote != '\'' -> escaped = true
-                quote != null && character == quote -> quote = null
-                quote == null && (character == '\'' || character == '"') -> quote = character
-                quote == null && character.isWhitespace() -> finishPart()
-                else -> current.append(character)
-            }
-        }
-        if (escaped) current.append('\\')
-        finishPart()
-        return parts
     }
 }

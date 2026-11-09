@@ -38,8 +38,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -91,7 +96,7 @@ fun McpScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = viewModel::showAddDialog) {
+            FloatingActionButton(onClick = { viewModel.showAddDialog() }) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(R.string.mcp_add_server))
             }
         },
@@ -104,19 +109,8 @@ fun McpScreen(
             ) {
                 CircularProgressIndicator()
             }
-        } else if (state.servers.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    stringResource(R.string.mcp_no_servers),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         } else {
+            val suggestions = pendingSuggestions(state.servers)
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding =
@@ -128,7 +122,18 @@ fun McpScreen(
                     ),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                items(state.servers, key = { it.name }) { server ->
+                if (state.servers.isEmpty()) {
+                    item(key = "section:no-servers") {
+                        Text(
+                            stringResource(R.string.mcp_no_servers),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+                items(state.servers, key = { "server:${it.name}" }) { server ->
                     McpServerCard(
                         server = server,
                         onConnect = { viewModel.connect(server.name) },
@@ -139,6 +144,12 @@ fun McpScreen(
                         supportsOAuth = state.supportsOAuth,
                         isAuthenticating = state.isAuthenticating,
                     )
+                }
+                if (suggestions.isNotEmpty()) {
+                    item(key = "section:suggestions") { McpSuggestionsHeader() }
+                    items(suggestions, key = { "suggestion:${it.name}" }) { suggestion ->
+                        McpSuggestionCard(suggestion, onAdd = { viewModel.showAddDialog(suggestion) })
+                    }
                 }
             }
         }
@@ -333,6 +344,65 @@ private fun McpAuthCodeDialog(
             }
         },
     )
+}
+
+@Composable
+private fun McpSuggestionsHeader() {
+    Column(modifier = Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            stringResource(R.string.mcp_suggestions_title),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.semantics { heading() },
+        )
+        Text(
+            stringResource(R.string.mcp_suggestions_caption),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** A suggested server: what it is for and where it runs, with Add opening the form filled in. */
+@Composable
+private fun McpSuggestionCard(
+    suggestion: McpSuggestion,
+    onAdd: () -> Unit,
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        // Read as one item, so a screen reader names the server before its Add button.
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics(mergeDescendants = true) {}
+                .testTag("mcp-suggestion-${suggestion.name}"),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(suggestion.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    stringResource(suggestion.description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    suggestion.url ?: suggestion.command.orEmpty(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            OutlinedButton(onClick = onAdd) { Text(stringResource(R.string.mcp_suggestion_add)) }
+        }
+    }
 }
 
 @Composable

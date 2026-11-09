@@ -85,6 +85,52 @@ class McpViewModelTest {
         }
 
     @Test
+    fun `a suggested server fills the form, and Add sends its address`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = McpViewModel({ backend }, LocalAgent.CLAUDE_CODE)
+            advanceUntilIdle()
+            val context7 = mcpSuggestions.first { it.name == "context7" }
+
+            viewModel.showAddDialog(context7)
+            val state = viewModel.state.value
+            assertTrue(state.showAddDialog)
+            assertEquals("context7", state.addName)
+            assertEquals("https://mcp.context7.com/mcp", state.addUrl)
+            assertEquals("", state.addCommand)
+
+            viewModel.addServer()
+            advanceUntilIdle()
+            val body = requireNotNull(backend.addBody)
+            assertEquals("remote", body["type"]!!.jsonPrimitive.content)
+            assertEquals("https://mcp.context7.com/mcp", body["url"]!!.jsonPrimitive.content)
+
+            // The plain Add button still opens an empty form.
+            viewModel.showAddDialog()
+            assertEquals("", viewModel.state.value.addName)
+            assertEquals("", viewModel.state.value.addUrl)
+        }
+
+    @Test
+    fun `a suggested local server fills the command, and Add sends it as a local server`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = McpViewModel({ backend }, LocalAgent.CLAUDE_CODE)
+            advanceUntilIdle()
+
+            viewModel.showAddDialog(mcpSuggestions.first { it.name == "sequential-thinking" })
+            assertEquals("npx -y @modelcontextprotocol/server-sequential-thinking", viewModel.state.value.addCommand)
+            assertEquals("", viewModel.state.value.addUrl)
+
+            viewModel.addServer()
+            advanceUntilIdle()
+            val body = requireNotNull(backend.addBody)
+            assertEquals("local", body["type"]!!.jsonPrimitive.content)
+            assertEquals("npx -y @modelcontextprotocol/server-sequential-thinking", body["command"]!!.jsonPrimitive.content)
+            assertNull(body["url"])
+        }
+
+    @Test
     fun `OpenCode add payload nests config and sends local command as arguments`() =
         runTest(dispatcher) {
             val backend = FakeBackend()
