@@ -132,7 +132,8 @@ into the agent when it stops), but a raw hook editor is not usable on a phone.
 - Ship as templates instead, for example "run tests after an edit" or "block `rm -rf`".
 - Start with Claude Code only, which has its own hook system.
 - **Done** (#118) as two checks for Claude Code, set under Settings, Claude Code, Checks: a command
-  run after each file edit and one run before the turn ends. A failing check's output goes back to
+  run after each edit through Write, Edit, MultiEdit or NotebookEdit (not after a file changed by a
+  shell command or an MCP tool), and one run before the turn ends. A failing check's output goes back to
   the agent; the finishing check sends a turn back once at most. Blocking `rm -rf` is covered by
   section 9's blocking rules.
 
