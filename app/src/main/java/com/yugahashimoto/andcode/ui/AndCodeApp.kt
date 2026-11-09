@@ -347,7 +347,7 @@ fun AndCodeApp(
     val speechManager = remember { SpeechRecognizerManager(context.applicationContext) }
     val voiceScope = rememberCoroutineScope()
 
-    // Says what a delete, archive or restore could not do, and why, instead of letting the chat
+    // Says what a delete, archive, restore or rename could not do, and why, instead of letting the chat
     // quietly stay or come back. Successes are announced where they start (with Undo); a restore
     // has no other confirmation, so it gets one here.
     LaunchedEffect(snackbarHostState) {
@@ -665,9 +665,8 @@ fun AndCodeApp(
     // reloads through the lifecycle's change callback; the open chat's header is told here, since an
     // on-device runtime sends no event for a rename. A failure is said by the reports collector.
     val renameChat: (String, String?, String) -> Unit = { sessionId, runtimeId, title ->
-        val owner = runtimeId ?: allSessions.firstOrNull { it.session.id == sessionId }?.runtimeId
         voiceScope.launch {
-            if (sessionId in app.chatLifecycle.rename(sessionId, owner, title).succeeded) {
+            if (sessionId in app.chatLifecycle.rename(sessionId, runtimeId, title).succeeded) {
                 chatViewModel.showRenamedTitle(sessionId, title.trim())
             }
         }

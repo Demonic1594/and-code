@@ -62,6 +62,21 @@ class AntigravitySessionTitleTest {
             assertEquals("Login crash", target.listSessions(null).single().title)
         }
 
+    /** A turn's end is written over the record as it is then, not as the turn found it. */
+    @Test
+    fun `a finished turn keeps a name given while it ran`() {
+        val atStart = AntigravitySessionRecord("s1", conversationId = null, workspace = "/workspace", title = "Fix the login…")
+        val renamedMidTurn = atStart.copy(title = "Login bug")
+
+        val after = renamedMidTurn.afterTurn(discoveredConversationId = "conv-1", now = 42)
+
+        assertEquals("Login bug", after.title)
+        assertEquals("conv-1", after.conversationId)
+        assertEquals(1L, after.lastStep)
+        assertEquals(42L, after.updatedAt)
+        assertEquals("conv-1", after.afterTurn(discoveredConversationId = null, now = 43).conversationId)
+    }
+
     /** A title survives a restart, so a reopened chat is not renamed back to the tool. */
     @Test
     fun `a title is persisted across runtime instances`() {

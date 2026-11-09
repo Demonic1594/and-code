@@ -72,7 +72,7 @@ class ChatLifecycleRepository(
 
     private val mutableReports = MutableSharedFlow<ChatActionReport>(extraBufferCapacity = 16)
 
-    /** The outcome of every delete, archive and restore, for the snackbar. */
+    /** The outcome of every delete, archive, restore and rename, for the snackbar. */
     val reports: SharedFlow<ChatActionReport> = mutableReports.asSharedFlow()
 
     private val pendingJobs = mutableMapOf<Set<String>, Job>()

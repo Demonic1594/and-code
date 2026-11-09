@@ -145,7 +145,7 @@ internal fun ChatRoute(
         ChatHomeScreen(
             repositoryUrl = repositoryUrl,
             // The open chat always belongs to the selected runtime: opening one switches to it.
-            onRenameChat = { title -> chatState.sessionId?.let { id -> actions.onRenameChat(id, selectedRuntime?.id, title) } },
+            onRenameChat = { id, title -> actions.onRenameChat(id, selectedRuntime?.id, title) },
             findRequest = waiting.findRequest,
             onFindRequestConsumed = waiting.clearFindRequest,
             state = chatState,

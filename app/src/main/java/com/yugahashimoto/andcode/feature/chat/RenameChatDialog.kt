@@ -48,11 +48,13 @@ internal fun RenameChatDialog(
     }
     val newTitle = renamedChatTitle(field.text, currentTitle)
     val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.chat_rename_title)) },
         text = {
+            // In the dialog's own window, where the field is composed; guarded, as elsewhere, since
+            // a request that lands before the field is attached throws.
+            LaunchedEffect(Unit) { runCatching { focusRequester.requestFocus() } }
             OutlinedTextField(
                 value = field,
                 onValueChange = { field = it },

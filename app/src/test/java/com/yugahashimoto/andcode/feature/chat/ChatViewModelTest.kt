@@ -2227,6 +2227,21 @@ class ChatViewModelTest {
         }
 
     @Test
+    fun `a rename shows in the header only for the chat that is open`() =
+        runTest(dispatcher) {
+            val viewModel = ChatViewModel(FakeBackend())
+            advanceUntilIdle()
+            viewModel.openSession("s1", "Fix the login crash")
+            advanceUntilIdle()
+
+            viewModel.showRenamedTitle("other", "Unrelated")
+            assertEquals("Fix the login crash", viewModel.uiState.value.sessionTitle)
+
+            viewModel.showRenamedTitle("s1", "Login bug")
+            assertEquals("Login bug", viewModel.uiState.value.sessionTitle)
+        }
+
+    @Test
     fun `opening a subagent session remembers the session to return to`() =
         runTest(dispatcher) {
             val backend = FakeBackend()

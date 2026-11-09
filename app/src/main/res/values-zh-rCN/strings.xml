@@ -1580,7 +1580,7 @@
     <string name="chat_archive_failed_snackbar">未归档 (%1$d)：%2$s</string>
     <string name="chat_restore_failed_snackbar">未恢复 (%1$d)：%2$s</string>
     <string name="chat_rename_failed_snackbar">未重命名：%1$s</string>
-    <string name="chat_rename_title">重命名对话</string>
+    <string name="chat_rename_title">重命名聊天</string>
     <string name="chat_rename_label">名称</string>
     <string name="chat_action_reason_unsupported">该代理或服务器版本不支持此操作</string>
     <string name="chat_action_reason_not_found">在其代理上找不到该聊天</string>
