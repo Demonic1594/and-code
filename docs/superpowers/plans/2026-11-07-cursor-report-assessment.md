@@ -90,9 +90,9 @@ stored. Mechanisms inside the loop are either already done by the CLI or out of 
 - **Side question** (Cursor's side chats; Claude Code's `side_question` control request behind
   `/btw`): ask something without derailing the running turn.
 - **Subagent files**: Claude Code reads `.claude/agents/*.md` itself; a list and editor in the app,
-  like the rules shortcut, is left for later (the suggested MCP servers, #MCPPR, cover servers only).
+  like the rules shortcut, is left for later (the suggested MCP servers, #125, cover servers only).
 - **One-tap MCP install** (Cursor's `mcp/install` deep link): only with a confirmation screen, as
-  part of the harness plan's "one place to add MCP servers and skills". Built (#MCPPR) as suggested
+  part of the harness plan's "one place to add MCP servers and skills". Built (#125) as suggested
   servers whose Add fills the add form for the user to confirm; no deep link is handled.
 
 ## Order

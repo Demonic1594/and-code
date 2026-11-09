@@ -3,7 +3,7 @@
 Status: **done**, except one point: deny rules do not match network targets (section 9). Done:
 items 1 (with per-project rules, #87), 2 (#91), 3 (#58), 4, 6 for Claude Code (the context
 breakdown, #116) and Codex (the meter and Compact now, #123), 7 (checks for Claude Code, #118),
-section 8 (the MCP list as suggested servers, #MCPPR; skills are left to the agents), and in section
+section 8 (the MCP list as suggested servers, #125; skills are left to the agents), and in section
 9 deny before ask, risk classes (#89; with #90 read-only calls skip the prompt once the user allows
 reading, and editing and web access each have their own switch, all off at first), deny feedback,
 the audit log (#115), writes outside the workspace (an opt-in switch, #117), Stop ending the whole
@@ -11,7 +11,7 @@ tree (#111) and self-contained final messages (#110). Closed: item 5 for the mod
 section 9 point-in-time context, compaction triggers and tool output caps, because the CLI already
 does them (see `2026-11-07-cursor-report-assessment.md`), and section budgets, which AndCode's own
 fixed instructions do not need; the warning they were for, on oversized instruction files, is in
-the context sheet (#MCPPR).
+the context sheet (#125).
 
 ## Goal
 
@@ -174,7 +174,7 @@ copied without a licence review (LGPL-3.0, while AndCode is MIT); record any not
   `npx` or `uvx` inside the existing Linux environment. Medium effort; what MCP management exists
   today is not yet checked.
   - Checked: every agent's MCP screen already has an add form (a command or a URL), so the list
-    feeds that form. **Done** for MCP servers (#MCPPR): a Suggested servers section lists Context7,
+    feeds that form. **Done** for MCP servers (#125): a Suggested servers section lists Context7,
     DeepWiki and Microsoft Learn (remote, nothing to install) and Sequential Thinking (`npx`), and
     Add opens the form filled in, for the user to confirm. One already added, by name or address,
     is not offered again.
@@ -215,7 +215,7 @@ item is an idea to check against AndCode, not a claim about how AndCode works to
   agents load the user's instruction files and MCP tool listings themselves (Claude Code defers MCP
   tools until they are used). The warning is the part worth having: the context sheet marks an
   instruction file past Claude Code's own limit (the larger of 40,000 characters and 5% of the
-  window, per file, in 2.1.319) as large (#MCPPR).
+  window, per file, in 2.1.319) as large (#125).
 - **Point-in-time context.** Inject git status as a labelled snapshot ("as of the start of this
   turn"), so an agent does not treat it as live. **Closed**: Claude Code already injects git status
   labelled as a snapshot that will not update. AndCode's instruction file must stay free of such
@@ -254,7 +254,7 @@ item is an idea to check against AndCode, not a claim about how AndCode works to
 6. Long tool output to file.
 7. Hook templates for Claude Code (done as checks, #118).
 8. Operit-derived items (section 8): the intent trigger with a token, MCP failure reasons,
-   Ollama and LM Studio presets, then the MCP and skills list (done; the MCP list, #MCPPR).
+   Ollama and LM Studio presets, then the MCP and skills list (done; the MCP list, #125).
 9. Audit-derived items (section 9): deny before ask and deny feedback with the allowlist, then
    risk classes, the approval audit log and the workspace write check (done, #89, #115 and #117).
 
