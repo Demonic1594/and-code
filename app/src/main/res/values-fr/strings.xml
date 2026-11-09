@@ -1918,4 +1918,15 @@
     <string name="claude_keep_edits_in_project_caption">Claude Code refuse d’écrire ou de modifier des fichiers hors du dossier du chat, quel que soit le mode d’autorisation. Les commandes shell, les outils MCP et les programmes lancés par les hooks peuvent toujours écrire n’importe où : cela évite les erreurs, ce n’est pas une limite de sécurité. S’applique à partir du prochain message de chaque chat.</string>
     <string name="permission_always_allow_server">Toujours autoriser tous les outils de %1$s</string>
     <string name="command_rules_whole_server">Tous les outils du serveur MCP %1$s</string>
+    <string name="claude_checks_settings_row">Vérifications</string>
+    <string name="claude_checks_title">Vérifications</string>
+    <string name="claude_checks_caption">Commandes que Claude Code exécute dans le dossier du chat à des moments précis. Si l’une échoue, sa sortie est renvoyée à Claude Code, qui continue pour corriger ce qu’elle signale. Elles s’exécutent dans l’environnement Linux.</string>
+    <string name="claude_checks_after_edit">Après chaque modification de fichier</string>
+    <string name="claude_checks_after_edit_caption">S’exécute après chaque fichier que Claude Code écrit ou modifie : gardez-la rapide, comme un linter ou une vérification de types.</string>
+    <string name="claude_checks_before_finish">Avant la fin d’un tour</string>
+    <string name="claude_checks_before_finish_caption">S’exécute quand Claude Code s’apprête à s’arrêter. En cas d’échec, le tour continue une fois pour corriger ; ensuite il se termine quand même, pour qu’une vérification impossible à réussir ne le prolonge pas sans fin.</string>
+    <string name="claude_checks_command_label">Commande</string>
+    <string name="claude_checks_save">Enregistrer</string>
+    <string name="claude_checks_remove">Retirer</string>
+    <string name="claude_checks_applies">Ajouter une vérification s’applique dès le prochain message de chaque chat. La modifier ou la retirer s’applique tout de suite ; une vérification déjà en cours va quand même jusqu’au bout.</string>
 </resources>
