@@ -385,10 +385,20 @@ fun NavGraphBuilder.settingsNavGraph(
             onOpenSystemPrompt = { navController.navigate(ROUTE_SETTINGS_SYSTEM_PROMPT) },
             onOpenMcp = { navController.navigate(ROUTE_SETTINGS_MCP_CLAUDE) },
             onOpenCommandRules = { navController.navigate(ROUTE_SETTINGS_COMMAND_RULES) },
+            onOpenChecks = { navController.navigate(ROUTE_SETTINGS_CLAUDE_CHECKS) },
             onOpenProjectInstructions = claudeActions.onOpenProjectInstructions,
+            onSetKeepEditsInProject = claudeActions.onSetKeepEditsInProject,
             onOpenUrl = { url ->
                 UrlLauncher.openUrl(context, url)
             },
+            onBack = { navController.popBackStack() },
+        )
+    }
+
+    composable(ROUTE_SETTINGS_CLAUDE_CHECKS) {
+        com.yugahashimoto.andcode.feature.settings.ClaudeChecksScreen(
+            checks = claude().checks,
+            onSet = claudeActions.onSetCheck,
             onBack = { navController.popBackStack() },
         )
     }
@@ -701,6 +711,10 @@ data class ClaudeSettingsActions(
     /** Reads the allow/refuse history again, and clears it. */
     val onRefreshApprovalHistory: () -> Unit = {},
     val onClearApprovalHistory: () -> Unit = {},
+    /** Turns on or off Claude Code refusing file writes outside the chat's folder. */
+    val onSetKeepEditsInProject: (Boolean) -> Unit = {},
+    /** Sets or removes (blank) the command Claude Code runs after an edit or before ending a turn. */
+    val onSetCheck: (com.yugahashimoto.andcode.runtime.local.ClaudeChecks.Kind, String) -> Unit = { _, _ -> },
     /** Opens the open project's CLAUDE.md in the editor, creating it when missing. */
     val onOpenProjectInstructions: () -> Unit,
 )

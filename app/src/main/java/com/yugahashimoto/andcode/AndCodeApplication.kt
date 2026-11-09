@@ -441,6 +441,10 @@ class AndCodeApplication : Application() {
                 markerFile = File(runtimeDirectory, "opencode-db-maintenance"),
             )
         val claudeMessages = AndroidClaudeMessages(this)
+        // Read once: the asset cannot change while the app runs.
+        val claudePermissionHookScript by lazy {
+            runCatching { assets.open("scripts/and-code-claude-permission-hook.sh").bufferedReader().use { it.readText() } }.getOrNull()
+        }
         claudeCodeRuntime =
             ClaudeCodeRuntime(
                 runtimeDirectory,
@@ -448,6 +452,7 @@ class AndCodeApplication : Application() {
                 accessCoordinator,
                 claudeMessages,
                 githubToken = { settings.githubToken },
+                permissionHookScript = { claudePermissionHookScript },
             )
         // One store for every agent that can carry a preset, so a prompt the user wrote for Claude
         // Code is the same one OpenCode offers. Claude Code passes it per session on the command

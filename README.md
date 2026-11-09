@@ -11,7 +11,9 @@
 
 AndCode is a native Android GUI app that brings AI coding agents to your phone. Chat with [OpenCode](https://github.com/sst/opencode), [Claude Code](https://github.com/anthropics/claude-code), [Google Antigravity](https://github.com/google-antigravity/antigravity-cli), and [OpenAI Codex](https://github.com/openai/codex) through a touch-first interface — no terminal, no SSH, no PC required for on-device use. It wraps agent runtimes via PRoot (on-device) or connects remotely to your existing OpenCode server on PC/Mac/Linux.
 
-[Upstream releases](https://github.com/yuga-hashimoto/and-code/releases/latest) · [Fork features](docs/FEATURES.md) · [Fork notes](docs/FORK.md) · [日本語のREADME](README.ja.md)
+[Upstream releases](https://github.com/yuga-hashimoto/and-code/releases/latest) · [Fork features](docs/FEATURES.md) · [Fork notes](docs/FORK.md)
+
+[English](README.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [Français](README.fr.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [العربية](README.ar.md) (the translations other than Japanese are upstream's and do not cover this fork's additions)
 
 ## About this fork
 

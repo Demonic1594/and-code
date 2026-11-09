@@ -930,6 +930,8 @@
     <string name="chat_error_zen_free_tier_title">نماذج OpenCode المجانية تحتاج إلى تسجيل الدخول إلى Zen</string>
     <string name="chat_error_zen_free_tier_body">يقيّد OpenCode نماذجه المجانية على سطح المكتب وواجهة الأوامر الرسمية ما لم تسجّل الدخول إلى OpenCode Zen. وصّل OpenCode من الإعدادات ← الموفرون، أو استخدم موفرًا آخر.</string>
     <string name="chat_error_zen_free_tier_action">فتح الموفرين</string>
+    <string name="chat_copy_code">نسخ الكود</string>
+    <string name="chat_code_copied">تم نسخ الكود</string>
 
     <!-- Connection dialog -->
     <string name="connection_test_success">OpenCode %1$s</string>
@@ -1951,4 +1953,19 @@
     <string name="command_rules_how_block">بقاعدة الحظر «%1$s»</string>
     <string name="command_rules_how_block_unreadable">تعذّرت قراءة قواعد الحظر</string>
     <string name="command_rules_how_timeout">لم تصل إجابة في الوقت المحدد</string>
+    <string name="claude_keep_edits_in_project">إبقاء تعديلات الملفات داخل المشروع</string>
+    <string name="claude_keep_edits_in_project_caption">يرفض Claude Code كتابة الملفات أو تعديلها خارج مجلد الدردشة، في كل أوضاع الأذونات. لا تزال أوامر الطرفية وأدوات MCP والبرامج التي تشغّلها الخطافات قادرة على الكتابة في أي مكان، لذا يمنع هذا الأخطاء ولا يُعدّ حدًّا أمنيًا. يسري من الرسالة التالية في كل دردشة.</string>
+    <string name="permission_always_allow_server">السماح دائمًا بكل أدوات %1$s</string>
+    <string name="command_rules_whole_server">كل أدوات خادم MCP %1$s</string>
+    <string name="claude_checks_settings_row">الفحوصات</string>
+    <string name="claude_checks_title">الفحوصات</string>
+    <string name="claude_checks_caption">أوامر يشغّلها Claude Code في مجلد الدردشة في أوقات محددة. عندما يفشل أحدها، تعود مخرجاته إلى Claude Code الذي يواصل العمل لإصلاح ما يشير إليه. تعمل في بيئة Linux.</string>
+    <string name="claude_checks_after_edit">بعد كل تعديل لملف</string>
+    <string name="claude_checks_after_edit_caption">يعمل بعد كل ملف يكتبه Claude Code أو يعدّله، لذا اجعله سريعًا: أداة فحص للشيفرة أو فحص للأنواع.</string>
+    <string name="claude_checks_before_finish">قبل إنهاء الدور</string>
+    <string name="claude_checks_before_finish_caption">يعمل عندما يكون Claude Code على وشك التوقف. إذا فشل، يستمر الدور مرة واحدة لإصلاحه؛ وبعد ذلك ينتهي الدور على أي حال، فلا يُبقيه فحصٌ لا يمكن اجتيازه قيد العمل.</string>
+    <string name="claude_checks_command_label">الأمر</string>
+    <string name="claude_checks_save">حفظ</string>
+    <string name="claude_checks_remove">إزالة</string>
+    <string name="claude_checks_applies">تُطبَّق إضافة فحص من الرسالة التالية في كل دردشة. أما تعديله أو إزالته فيُطبَّق فورًا، ويكتمل الفحص الجاري بالفعل.</string>
 </resources>
