@@ -1,7 +1,10 @@
 package com.yugahashimoto.andcode.feature.settings
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -50,7 +53,7 @@ class ProjectInstructionsTest {
         assertEquals(0, run(ProjectInstructions.ensureExistsCommand(project.path, ProjectInstructions.AGENTS_FILE)))
 
         assertEquals("", File(project, "AGENTS.md").readText())
-        assertTrue(!File(project, ProjectInstructions.CLAUDE_FILE).exists())
+        assertFalse(File(project, ProjectInstructions.CLAUDE_FILE).exists())
     }
 
     @Test
@@ -62,6 +65,17 @@ class ProjectInstructionsTest {
         assertEquals(0, run(ProjectInstructions.ensureExistsCommand(project.path, ProjectInstructions.AGENTS_FILE)))
 
         assertEquals("Agent rules.\n", File(project, "AGENTS.md").readText())
+    }
+
+    @Test
+    fun `a CLAUDE md that cannot be read fails the AGENTS md copy and leaves no empty file behind`() {
+        val project = folder.newFolder("project")
+        val claude = File(project, ProjectInstructions.CLAUDE_FILE).apply { writeText("Claude rules.\n") }
+        assumeTrue(claude.setReadable(false, false) && !claude.canRead())
+
+        assertNotEquals(0, run(ProjectInstructions.ensureExistsCommand(project.path, ProjectInstructions.AGENTS_FILE)))
+
+        assertFalse(File(project, "AGENTS.md").exists())
     }
 
     private fun run(command: String): Int = ProcessBuilder("sh", "-c", command).start().waitFor()

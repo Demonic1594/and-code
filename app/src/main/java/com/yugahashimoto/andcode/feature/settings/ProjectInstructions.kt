@@ -18,7 +18,8 @@ internal object ProjectInstructions {
 
     /**
      * A shell command that creates [file] in [workspace] when it is missing (from [CLAUDE_FILE] for
-     * [AGENTS_FILE], as the class says) and leaves it alone otherwise.
+     * [AGENTS_FILE], as the class says) and leaves it alone otherwise. A copy that fails is removed,
+     * so the next try copies again instead of opening an empty file.
      */
     fun ensureExistsCommand(
         workspace: String,
@@ -28,7 +29,7 @@ internal object ProjectInstructions {
         val create =
             if (file == AGENTS_FILE) {
                 val claude = WorkspaceShell.quote(CLAUDE_FILE)
-                "if [ -f $claude ]; then cp $claude $quoted; else : > $quoted; fi"
+                "if [ -f $claude ]; then cp $claude $quoted || { rm -f $quoted; false; }; else : > $quoted; fi"
             } else {
                 ": > $quoted"
             }
