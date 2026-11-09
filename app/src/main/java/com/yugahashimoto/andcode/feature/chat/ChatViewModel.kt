@@ -2767,6 +2767,10 @@ class ChatViewModel(
         return answeredThisPrompt && newest.time.completed != null
     }
 
+    /**
+     * Measured against the model's listed limit only, never [ChatUiState.contextWindow]: an agent that
+     * reports its own window (Codex) compacts on its own, and is compacted on request from the sheet.
+     */
     private fun shouldSummarizeBeforePrompt(): Boolean =
         contextLimit > 0L &&
             _uiState.value.contextTokensUsed.toDouble() / contextLimit.toDouble() >= 0.9
