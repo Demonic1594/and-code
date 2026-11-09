@@ -4,6 +4,7 @@
   <a href="https://github.com/Demonic1594/and-code/actions/workflows/android.yml"><img src="https://github.com/Demonic1594/and-code/actions/workflows/android.yml/badge.svg" alt="CI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Demonic1594/and-code" alt="License: MIT" /></a>
   <a href="https://github.com/yuga-hashimoto/and-code"><img src="https://img.shields.io/badge/fork%20of-yuga--hashimoto%2Fand--code-blue" alt="Fork of yuga-hashimoto/and-code" /></a>
+  <a href="https://github.com/Demonic1594/and-code/releases/latest"><img src="https://img.shields.io/github/v/release/Demonic1594/and-code?label=AndCode%20LH" alt="Fork release" /></a>
   <a href="https://github.com/yuga-hashimoto/and-code/releases/latest"><img src="https://img.shields.io/github/v/release/yuga-hashimoto/and-code?label=upstream%20release" alt="Upstream release" /></a>
 </p>
 
@@ -11,7 +12,7 @@
 
 AndCode is a native Android GUI app that brings AI coding agents to your phone. Chat with [OpenCode](https://github.com/sst/opencode), [Claude Code](https://github.com/anthropics/claude-code), [Google Antigravity](https://github.com/google-antigravity/antigravity-cli), and [OpenAI Codex](https://github.com/openai/codex) through a touch-first interface — no terminal, no SSH, no PC required for on-device use. It wraps agent runtimes via PRoot (on-device) or connects remotely to your existing OpenCode server on PC/Mac/Linux.
 
-[Upstream releases](https://github.com/yuga-hashimoto/and-code/releases/latest) · [Fork features](docs/FEATURES.md) · [Fork notes](docs/FORK.md)
+[Fork releases](https://github.com/Demonic1594/and-code/releases/latest) · [Upstream releases](https://github.com/yuga-hashimoto/and-code/releases/latest) · [Fork features](docs/FEATURES.md) · [Fork notes](docs/FORK.md)
 
 [English](README.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [Français](README.fr.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [العربية](README.ar.md) (the translations other than Japanese are upstream's and do not cover this fork's additions)
 
@@ -26,10 +27,14 @@ This repository is a fork of [yuga-hashimoto/and-code](https://github.com/yuga-h
 - **Usage page** — tokens and cost across every chat, by day, model and agent
 - **Changes review, Inbox and Rewind** — review what an answer changed with line comments, handle approvals and finished chats in one list, and rewind a chat to any of your messages, files included
 - **Artifacts** — preview the pages, drawings, documents and pictures the agent made, with a desktop layout and zoom
+- **Approvals you can tune** — the risk of each call on its card for every agent that asks, and for Claude Code always-allow rules per project or for a whole MCP server, blocked commands, allowing reading, web or editing by kind, and a history of what was allowed or refused
+- **Claude Code controls** — checks it runs after each edit or before it ends a turn, a switch keeping its Write, Edit and NotebookEdit tools inside the project (shell commands, MCP tools and hooks can still write elsewhere), Ultracode, and a view of what fills its context window
+- **Servers that stay up** — dev servers the agent starts keep running after the turn, with a Processes screen; servers started in the terminal can be shared by link
 - **A new look** — one design language across the app, Material You colours, JetBrains Mono for code, haptics, and a Run settings sheet
-- **Chat quality of life** — search inside messages, find in chat, pinned chats, saved prompts with arguments, a real delete and an Archive, full Markdown in answers and your own messages (nested lists, task boxes, tables, footnotes), share as Markdown, paste images, and live-run notifications you can reply from
+- **Privacy and automation** — an app lock behind the phone's fingerprint, face or screen lock, and schedules that Tasker or other apps can run
+- **Chat quality of life** — search inside messages, find in chat, pinned and renamed chats, `@` file mentions, prompts held while a reply runs (with Send behavior set to Queue), saved prompts with arguments, restore files to any message, a real delete and an Archive, full Markdown in answers and your own messages (nested lists, task boxes, tables, footnotes), share as Markdown, paste images, and live-run notifications you can reply from
 
-The debug build installs as **AndCode LH** beside an upstream install and has its own local runtime port, so the two never collide. This fork has no releases of its own yet: build it (see [Building from Source](#building-from-source)), or add the `build-apk` label to a pull request, or run the **PR APK Build** workflow from the Actions tab, to get an installable APK.
+The fork's build installs as **AndCode LH** (`com.yugahashimoto.andcode.heap`) beside an upstream install, with its own data and local runtime port, so the two never collide. Download it from this repository's [Releases](https://github.com/Demonic1594/and-code/releases/latest), build it yourself (see [Building from Source](#building-from-source)), or get one for a pull request with the `build-apk` label or the **PR APK Build** workflow. Features merged since the latest release arrive with the next one. [docs/FORK.md](docs/FORK.md) explains the builds and how releases are made.
 
 > [!IMPORTANT]
 > AndCode is an independent, local-first graphical interface that installs or launches supported third-party command-line tools on the user's own Android device. AndCode itself does not provide or resell the underlying AI services, subscriptions, model access, or account entitlements. Authentication, model access, inference, and provider communication are handled by the applicable official CLI or user-configured provider. AndCode is not affiliated with, endorsed by, sponsored by, or officially supported by OpenCode, Anthropic, Google, or OpenAI. See [Legal & Third-Party Software](#legal--third-party-software) below.
@@ -70,9 +75,6 @@ The debug build installs as **AndCode LH** beside an upstream install and has it
 
 </div>
 
-> [!IMPORTANT]
-> AndCode is an independent open-source project. It is **not** affiliated with OpenCode, Anthropic, Google, or OpenAI.
-
 ---
 
 ## Table of Contents
@@ -112,11 +114,11 @@ On-device agents run inside a Linux environment via PRoot. OpenCode, Claude Code
 - **On-device runtime** — Alpine Linux, Git, bash, curl, ripgrep, and coding agents auto-installed on your Android device via PRoot
 - **Repository & workspace** — Open git repositories on-device, browse the file tree, and view files with syntax highlighting
 - **Device files** — Grant all-files access and the whole phone (`/sdcard`, SD cards, USB drives) becomes browsable in the folder picker and reachable by the agent, opened in place instead of copied into the app
-- **Git support** — Browse status and review diffs from the GUI; use the embedded runtime terminal for other Git operations
+- **Git support** — Browse status and review diffs from the GUI (this fork adds a full Git panel, below)
 - **Diff viewer** — Review code changes inline before accepting
 - **Embedded terminal** — An interactive shell (real PTY) inside the on-device runtime: streamed output, stdin, Ctrl+C, colours, and it opens in the workspace you came from. Dev servers started in it (Vite, `python -m http.server`, …) show up as chips that open the page in the in-app browser. Full-screen programs such as `vim` are not supported yet
 - **Pull request badges** — Pull requests opened in a chat stay pinned above the composer with their diff size and state (draft, open, conflict, merged, closed); tap to open them on GitHub
-- **Tool approvals** — Approve or reject dangerous tool operations
+- **Tool approvals** — Approve or reject dangerous tool operations (this fork adds risk labels, rules and history, below)
 - **Session management** — Create, resume, rename, and delete sessions
 - **Scheduled tasks** — Run prompts automatically on a one-time or recurring (cron) schedule, with run history
 - **Dynamic models** — Models, providers, and agents fetched live from your connected agent instance
@@ -138,14 +140,22 @@ On-device agents run inside a Linux environment via PRoot. OpenCode, Claude Code
 - **Usage** — Tokens and cost across every chat, with a day-by-day chart and breakdowns by model and agent
 - **Changes card and review** — See which files an answer edited and leave line comments that go back to the agent as one message
 - **Inbox** — Approvals, running chats and unread chats from every agent in one list, with Allow / Reject, Stop and Reply
-- **Rewind** — Put an OpenCode chat and the files the agent changed back to how they were at any of your messages (not available for the other agents)
+- **Rewind** — Put an OpenCode chat and the files the agent changed back to how they were at any of your messages
+- **Restore files to a message** — For on-device agents without their own checkpoints (Claude Code, Codex, Antigravity, OpenCode on the new API): put the project's files back to how they were before any of your messages, from snapshots the app keeps outside the folder (dependency and build folders, gitignored files and nested Git repositories are not snapshotted and stay as they are)
 - **Artifacts** — Full-screen preview of what the agent made, and a list of the local servers it started
+- **Servers that stay up** — `andcode-run` keeps the dev servers agents start alive after the turn, restarts a crash, and lists them under Settings → Processes. A server started in the terminal can be shared by link through a Cloudflare quick tunnel
+- **Approvals** — A risk chip on each approval, for every agent that asks. For Claude Code: always-allow rules kept per project (or for every tool of one MCP server), blocked commands refused in every mode, reading, web or editing allowed by kind, and a history of decisions
+- **Claude Code checks and guards** — A command it runs after each file edit or before finishing a turn, with failures sent back to fix; a switch keeping its Write, Edit and NotebookEdit tools inside the project (shell commands, MCP tools and hooks can still write elsewhere); a context window breakdown from the meter; retries, compaction and model fallback shown in the chat
 - **Stays live** — After you have been away for a few seconds, the chat reconnects as soon as you come back and catches up on anything it missed, so you no longer need to reopen the session to see a reply
 - **Markdown in messages** — Answers and your own messages render CommonMark with GitHub tables, task lists, strikethrough and footnotes: nested lists, quotes holding lists and code, aligned table columns, reference links
-- **Search and organise** — Search inside every chat's messages, find in a chat, pin chats, archive and really delete them
+- **Search and organise** — Search inside every chat's messages, find in a chat, pin and rename chats, archive and really delete them
+- **Composer** — `@` to mention a project file, a full-screen editor for long messages, and, with Send behavior set to Queue, prompts sent during a reply held with Send now, Edit and Remove
 - **Saved prompts** — `/name` commands with `$ARGUMENTS` and `$1`, `$2` placeholders
 - **Live run notification** — One ongoing notification with the current step and **Stop**, and **Reply** from the shade
 - **Run settings sheet** — Agent or permission mode, thinking level, fast mode and system prompt preset in one place
+- **App lock** — Ask for the phone's fingerprint, face or screen lock to open the app, and optionally before each message
+- **Run schedules from other apps** — Tasker and other apps can run a schedule with a token you create
+- **Usage estimates** — List-price estimates for turns a plan reports as free, from an auto-updating price catalog
 - **GitHub token sign-in** — Use a personal access token when the build has no OAuth client ID
 
 ## Antigravity
@@ -194,7 +204,7 @@ In addition to on-device agents, AndCode can connect to OpenCode running on your
 
 ### Option A: On-Device (no PC needed)
 
-1. Install the APK: this fork's build from the **PR APK Build** workflow (Actions tab) or from source, or upstream's from its [releases](https://github.com/yuga-hashimoto/and-code/releases/latest)
+1. Install the APK: this fork's from its [Releases](https://github.com/Demonic1594/and-code/releases/latest), or upstream's from [its releases](https://github.com/yuga-hashimoto/and-code/releases/latest)
 2. Open the app → tap **Workspaces** → **This Android device** → **Set up on this device**
 3. Wait for the runtime to download and install (~2 min on a good connection)
 4. Select your coding agent and start chatting
@@ -251,7 +261,7 @@ The setup process (triggered from Workspaces):
 4. Validates SHA-256 checksums for both
 5. Extracts to a private app directory
 6. Installs Git, bash, curl, ripgrep, and CA certificates inside Alpine
-7. Starts the agent server on `127.0.0.1:4097`
+7. Starts the agent server on `127.0.0.1:4097` (`4098` in AndCode LH, so it does not collide with an upstream install)
 8. Switches the app to the local runtime
 
 Pinned versions (updatable via app releases without agent changes; see [`local-runtime-manifest.json`](app/src/main/assets/local-runtime-manifest.json)):
@@ -307,6 +317,7 @@ adb install -r app/build/outputs/apk/github/debug/app-github-debug.apk
 - [On-Device Runtime Design](docs/LOCAL_RUNTIME.md)
 - [Antigravity Local Runtime](docs/ANTIGRAVITY.md)
 - [Antigravity Agent Parity Design](docs/superpowers/specs/2026-07-27-antigravity-agent-parity-design.md)
+- [Claude Code Local Runtime](docs/CLAUDE_CODE.md)
 - [Codex Local Runtime](docs/CODEX.md)
 - [CI Guide](docs/CI.md)
 - [Release Guide](docs/RELEASE.md)
@@ -314,6 +325,7 @@ adb install -r app/build/outputs/apk/github/debug/app-github-debug.apk
 - [Device Validation Matrix](docs/device-matrix.md)
 - [Fork Notes (debug build, upstream sync)](docs/FORK.md)
 - [Fork Features (what this fork adds, and where to find it)](docs/FEATURES.md)
+- [Fork Roadmap (planned work, in order)](docs/ROADMAP.md)
 - [Token Efficiency](docs/TOKEN_EFFICIENCY.md)
 - [Agentic Coding Landscape (25 tools surveyed)](docs/AGENTIC_CODING_LANDSCAPE.md)
 
