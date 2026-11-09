@@ -1943,5 +1943,5 @@
     <string name="claude_checks_command_label">Command</string>
     <string name="claude_checks_save">Save</string>
     <string name="claude_checks_remove">Remove</string>
-    <string name="claude_checks_applies">Adding or removing a check applies from each chat\'s next message; editing one applies at once.</string>
+    <string name="claude_checks_applies">Adding a check applies from each chat\'s next message. Editing or removing one applies at once; a check already running still finishes.</string>
 </resources>

@@ -1939,5 +1939,5 @@
     <string name="claude_checks_command_label">Команда</string>
     <string name="claude_checks_save">Сохранить</string>
     <string name="claude_checks_remove">Удалить</string>
-    <string name="claude_checks_applies">Добавление или удаление проверки действует со следующего сообщения в каждом чате; изменение действует сразу.</string>
+    <string name="claude_checks_applies">Добавление проверки действует со следующего сообщения в каждом чате. Изменение или удаление действует сразу; уже запущенная проверка всё равно завершится.</string>
 </resources>

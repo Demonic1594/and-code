@@ -1926,5 +1926,5 @@
     <string name="claude_checks_command_label">Commande</string>
     <string name="claude_checks_save">Enregistrer</string>
     <string name="claude_checks_remove">Retirer</string>
-    <string name="claude_checks_applies">Ajouter ou retirer une vérification s’applique dès le prochain message de chaque chat ; la modifier s’applique tout de suite.</string>
+    <string name="claude_checks_applies">Ajouter une vérification s’applique dès le prochain message de chaque chat. La modifier ou la retirer s’applique tout de suite ; une vérification déjà en cours va quand même jusqu’au bout.</string>
 </resources>

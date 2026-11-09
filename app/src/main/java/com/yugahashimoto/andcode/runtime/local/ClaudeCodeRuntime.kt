@@ -52,6 +52,8 @@ class ClaudeCodeRuntime(
      * reported no logged-in host inside the same sandbox where OpenCode was authenticated.
      */
     private val githubToken: () -> String? = { null },
+    /** The hook script this app version ships, to bring the guest's copy up to date; see [ClaudePermissionHooks.refreshScript]. */
+    private val permissionHookScript: () -> String? = { null },
 ) {
     private val json =
         Json {
@@ -540,6 +542,22 @@ class ClaudeCodeRuntime(
         }
     }
 
+    /**
+     * The `--settings` a process starts with. The guest's hook script is brought up to date first:
+     * the checks call its check mode, which a script left from an older app version does not have,
+     * so they are registered only once the script has it.
+     */
+    private fun processSettings(ultracode: Boolean): String? {
+        val rootfs = File(runtimeDirectory, ACTIVE_ROOTFS)
+        permissionHookScript()?.let { ClaudePermissionHooks.refreshScript(rootfs, it) }
+        val checks = permissionBridge.checks.commands.value.keys
+        return ClaudeModels.cliSettings(
+            ultracode,
+            keepEditsInProject = keepEditsInProject.value,
+            checks = if (checks.isNotEmpty() && ClaudePermissionHooks.supportsChecks(rootfs)) checks else emptySet(),
+        )
+    }
+
     private fun ensureProcess(
         sessionId: String,
         directory: String,
@@ -550,12 +568,7 @@ class ClaudeCodeRuntime(
         ultracode: Boolean = false,
     ): SessionProcess {
         val existing = sessions[sessionId]
-        val settings =
-            ClaudeModels.cliSettings(
-                ultracode,
-                keepEditsInProject = keepEditsInProject.value,
-                checks = permissionBridge.checks.commands.value.keys,
-            )
+        val settings = processSettings(ultracode)
         // Permission mode, working directory, model, system prompt and settings are read once at
         // startup, so a change to any of them means the process has to be replaced rather than reused.
         if (existing != null && existing.process.isAlive &&

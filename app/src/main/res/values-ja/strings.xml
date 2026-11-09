@@ -1920,5 +1920,5 @@
     <string name="claude_checks_command_label">コマンド</string>
     <string name="claude_checks_save">保存</string>
     <string name="claude_checks_remove">削除</string>
-    <string name="claude_checks_applies">チェックの追加・削除は各チャットの次のメッセージから反映されます。編集はすぐに反映されます。</string>
+    <string name="claude_checks_applies">チェックの追加は各チャットの次のメッセージから反映されます。編集と削除はすぐに反映されますが、実行中のチェックは最後まで実行されます。</string>
 </resources>

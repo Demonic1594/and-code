@@ -39,6 +39,32 @@ class ClaudeChecksTest {
         assertFalse(File(folder.root, "checks/before-finish.sh").exists())
     }
 
+    /** After an app update the guest still holds the old script, which has no check mode. */
+    @Test
+    fun `a stale hook script is brought up to date and only then takes checks`() {
+        val rootfs = folder.newFolder("rootfs")
+        val guestScript = File(rootfs, "usr/local/bin/and-code-claude-permission-hook.sh").apply { parentFile?.mkdirs() }
+        guestScript.writeText("#!/bin/sh\n# an older hook without the check mode\n")
+        assertFalse(ClaudePermissionHooks.supportsChecks(rootfs))
+
+        val shipped = script.readText()
+        ClaudePermissionHooks.refreshScript(rootfs, shipped)
+
+        assertEquals(shipped, guestScript.readText())
+        assertTrue(guestScript.canExecute())
+        assertTrue(ClaudePermissionHooks.supportsChecks(rootfs))
+        assertFalse(File(guestScript.parentFile, ".${guestScript.name}.tmp").exists())
+    }
+
+    @Test
+    fun `no hook script is created where none was installed`() {
+        val rootfs = folder.newFolder("rootfs")
+        ClaudePermissionHooks.refreshScript(rootfs, script.readText())
+
+        assertFalse(File(rootfs, "usr/local/bin/and-code-claude-permission-hook.sh").exists())
+        assertFalse(ClaudePermissionHooks.supportsChecks(rootfs))
+    }
+
     @Test
     fun `the hooks run the check after the editing tools and before the turn ends`() {
         assertNull(ClaudeChecks.hooks(emptySet()))

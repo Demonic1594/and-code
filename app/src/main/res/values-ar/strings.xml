@@ -1965,5 +1965,5 @@
     <string name="claude_checks_command_label">الأمر</string>
     <string name="claude_checks_save">حفظ</string>
     <string name="claude_checks_remove">إزالة</string>
-    <string name="claude_checks_applies">تُطبَّق إضافة فحص أو إزالته من الرسالة التالية في كل دردشة؛ أما تعديله فيُطبَّق فورًا.</string>
+    <string name="claude_checks_applies">تُطبَّق إضافة فحص من الرسالة التالية في كل دردشة. أما تعديله أو إزالته فيُطبَّق فورًا، ويكتمل الفحص الجاري بالفعل.</string>
 </resources>
