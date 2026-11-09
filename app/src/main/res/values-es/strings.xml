@@ -1954,6 +1954,14 @@
     <string name="claude_checks_save">Guardar</string>
     <string name="claude_checks_remove">Quitar</string>
     <string name="claude_checks_applies">Añadir una comprobación se aplica desde el siguiente mensaje de cada chat. Editarla o quitarla se aplica al momento; una comprobación que ya está en marcha termina igualmente.</string>
+    <string name="mcp_suggestions_title">Servidores sugeridos</string>
+    <string name="mcp_suggestions_caption">Servidores conocidos. Añadir rellena el formulario, que luego confirmas. Comprueba qué hace un servidor antes de añadirlo.</string>
+    <string name="mcp_suggestion_add">Añadir</string>
+    <string name="mcp_suggestion_context7">Documentación actualizada y ejemplos de código para bibliotecas y frameworks.</string>
+    <string name="mcp_suggestion_deepwiki">Responde preguntas sobre repositorios públicos de GitHub.</string>
+    <string name="mcp_suggestion_microsoft_learn">Documentación oficial de Microsoft: Azure, .NET, Windows y más.</string>
+    <string name="mcp_suggestion_sequential_thinking">Ayuda al agente a resolver un problema paso a paso. Se ejecuta localmente y necesita Node.js.</string>
+    <string name="context_breakdown_memory_large">Grande: probablemente supera el tamaño a partir del cual Claude Code advierte que un archivo lo ralentiza.</string>
     <string name="context_breakdown_compact">Compactar ahora</string>
     <string name="context_breakdown_compact_caption">Sustituye los mensajes más antiguos por un resumen para que el chat tenga espacio para continuar. Se ejecuta como un turno.</string>
     <string name="context_category_in_use">Instrucciones, herramientas y mensajes</string>

@@ -1971,6 +1971,14 @@
     <string name="claude_checks_save">Save</string>
     <string name="claude_checks_remove">Remove</string>
     <string name="claude_checks_applies">Adding a check applies from each chat\'s next message. Editing or removing one applies at once; a check already running still finishes.</string>
+    <string name="mcp_suggestions_title">Suggested servers</string>
+    <string name="mcp_suggestions_caption">Well-known servers. Add fills in the form, which you then confirm. Check what a server does before you add it.</string>
+    <string name="mcp_suggestion_add">Add</string>
+    <string name="mcp_suggestion_context7">Current documentation and code examples for libraries and frameworks.</string>
+    <string name="mcp_suggestion_deepwiki">Answers questions about public GitHub repositories.</string>
+    <string name="mcp_suggestion_microsoft_learn">Microsoft\'s official documentation: Azure, .NET, Windows and more.</string>
+    <string name="mcp_suggestion_sequential_thinking">Helps the agent work through a problem step by step. Runs locally and needs Node.js.</string>
+    <string name="context_breakdown_memory_large">Large: probably past the size at which Claude Code warns that a file slows it down.</string>
     <string name="context_breakdown_compact">Compact now</string>
     <string name="context_breakdown_compact_caption">Replaces the older messages with a summary, so the chat has room to keep going. It runs like a turn.</string>
     <string name="context_category_in_use">Instructions, tools and messages</string>
