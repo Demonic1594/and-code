@@ -73,6 +73,8 @@ data class ClaudeCodeUiState(
     val allowedToolClasses: Set<ToolClassRules.Kind> = emptySet(),
     /** What was allowed or refused lately, and how, newest first. */
     val approvalHistory: List<ApprovalLog.Entry> = emptyList(),
+    /** Whether Claude Code refuses file writes outside the chat's folder; see [ClaudeCodeRuntime.keepEditsInProject]. */
+    val keepEditsInProject: Boolean = false,
 ) {
     /**
      * The preset [sessionId]'s next turn will actually carry, by the same rule the runtime applies.
@@ -129,6 +131,7 @@ class ClaudeCodeController(
         }.combine(runtime.permissionBridge.rules) { state, rules -> state.copy(commandRules = rules) }
             .combine(runtime.permissionBridge.toolClasses.allowed) { state, kinds -> state.copy(allowedToolClasses = kinds) }
             .combine(runtime.permissionBridge.approvals.entries) { state, history -> state.copy(approvalHistory = history) }
+            .combine(runtime.keepEditsInProject) { state, keep -> state.copy(keepEditsInProject = keep) }
             .stateIn(scope, SharingStarted.Eagerly, ClaudeCodeUiState())
 
     private var installJob: Job? = null
@@ -219,6 +222,8 @@ class ClaudeCodeController(
         mode: ClaudePermissionMode,
         sessionId: String? = null,
     ) = target.setPermissionMode(mode, sessionId)
+
+    fun setKeepEditsInProject(on: Boolean) = runtime.setKeepEditsInProject(on)
 
     fun selectSystemPrompt(
         presetId: String?,

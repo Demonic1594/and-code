@@ -79,6 +79,11 @@ git merge --no-ff upstream/main
 After the merge, check that the three debug-variant files above are still present and that
 `AndroidManifest.xml` declares `largeHeap` exactly once.
 
+The fork maintains only `README.md` and `README.ja.md`. The other translations come from upstream
+and follow it, so the "update every translation" rule in [`docs/TRANSLATION.md`](TRANSLATION.md)
+does not apply to fork-only README changes. The note after the language links in the two READMEs
+says this on purpose; keep it when a sync touches that line.
+
 ## Fork-only features
 
 Features developed in this fork first are documented in [`docs/FEATURES.md`](FEATURES.md), and

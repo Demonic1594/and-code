@@ -216,6 +216,16 @@ interface OpenCodeBackend {
         remember: Boolean,
     ): Boolean
 
+    /**
+     * Allows [permissionId] and every later call of a tool from the same MCP server
+     * ([com.yugahashimoto.andcode.core.api.PermissionRequest.mcpServer]). Runtimes without server
+     * rules keep the one tool, as "Always allow" does.
+     */
+    suspend fun allowMcpServer(
+        sessionId: String,
+        permissionId: String,
+    ): Boolean = respondToPermission(sessionId, permissionId, PermissionResponse.ALWAYS, remember = true)
+
     suspend fun answerQuestion(
         requestId: String,
         answers: List<List<String>>,

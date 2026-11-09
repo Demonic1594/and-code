@@ -921,6 +921,8 @@
     <string name="chat_error_zen_free_tier_title">Les modèles gratuits OpenCode nécessitent une connexion Zen</string>
     <string name="chat_error_zen_free_tier_body">OpenCode réserve ses modèles gratuits au bureau et à la CLI officiels, sauf si vous vous connectez à OpenCode Zen. Connectez OpenCode dans Paramètres → Fournisseurs, ou utilisez un autre fournisseur.</string>
     <string name="chat_error_zen_free_tier_action">Ouvrir les fournisseurs</string>
+    <string name="chat_copy_code">Copier le code</string>
+    <string name="chat_code_copied">Code copié</string>
 
     <!-- Connection dialog -->
     <string name="connection_test_success">OpenCode %1$s</string>
@@ -1934,4 +1936,8 @@
     <string name="context_category_messages">Messages</string>
     <string name="context_category_compact_buffer">Réservé au compactage</string>
     <string name="context_category_free_space">Espace libre</string>
+    <string name="claude_keep_edits_in_project">Garder les modifications de fichiers dans le projet</string>
+    <string name="claude_keep_edits_in_project_caption">Claude Code refuse d’écrire ou de modifier des fichiers hors du dossier du chat, quel que soit le mode d’autorisation. Les commandes shell, les outils MCP et les programmes lancés par les hooks peuvent toujours écrire n’importe où : cela évite les erreurs, ce n’est pas une limite de sécurité. S’applique à partir du prochain message de chaque chat.</string>
+    <string name="permission_always_allow_server">Toujours autoriser tous les outils de %1$s</string>
+    <string name="command_rules_whole_server">Tous les outils du serveur MCP %1$s</string>
 </resources>

@@ -386,6 +386,7 @@ fun NavGraphBuilder.settingsNavGraph(
             onOpenMcp = { navController.navigate(ROUTE_SETTINGS_MCP_CLAUDE) },
             onOpenCommandRules = { navController.navigate(ROUTE_SETTINGS_COMMAND_RULES) },
             onOpenProjectInstructions = claudeActions.onOpenProjectInstructions,
+            onSetKeepEditsInProject = claudeActions.onSetKeepEditsInProject,
             onOpenUrl = { url ->
                 UrlLauncher.openUrl(context, url)
             },
@@ -701,6 +702,8 @@ data class ClaudeSettingsActions(
     /** Reads the allow/refuse history again, and clears it. */
     val onRefreshApprovalHistory: () -> Unit = {},
     val onClearApprovalHistory: () -> Unit = {},
+    /** Turns on or off Claude Code refusing file writes outside the chat's folder. */
+    val onSetKeepEditsInProject: (Boolean) -> Unit = {},
     /** Opens the open project's CLAUDE.md in the editor, creating it when missing. */
     val onOpenProjectInstructions: () -> Unit,
 )

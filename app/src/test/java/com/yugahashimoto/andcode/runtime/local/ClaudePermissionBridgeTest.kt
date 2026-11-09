@@ -175,6 +175,49 @@ class ClaudePermissionBridgeTest {
     }
 
     @Test
+    fun `allowing a whole MCP server covers its other tools and no other server's`() {
+        val bridge = ClaudePermissionBridge(folder.root)
+        val requestId = UUID.randomUUID().toString()
+        bridge.writeGuestRequest(
+            ClaudePermissionBridge.Request(
+                requestId = requestId,
+                androidSessionId = "session-1",
+                kind = ClaudePermissionBridge.Kind.PERMISSION,
+                toolName = "mcp__browser__browser_read",
+                toolInputJson = """{"ref":"e1"}""",
+                permissionLabel = "mcp__browser__browser_read",
+                cwd = "/root/shop",
+            ),
+        )
+        val request = bridge.pollPending().single()
+        assertEquals("browser", bridge.toPermissionRequest(request).mcpServer)
+        assertNull(bridge.toPermissionRequest(request.copy(toolName = "Bash")).mcpServer)
+
+        assertTrue(bridge.respond(requestId, PermissionResponse.ALWAYS, remember = true, wholeServer = true))
+
+        assertTrue(bridge.isAlwaysAllowed("mcp__browser__browser_click", """{"ref":"e2"}""", cwd = "/root/shop"))
+        // Whatever the input: a server's tool taking a "command" is still that server's.
+        assertTrue(bridge.isAlwaysAllowed("mcp__browser__browser_eval", """{"command":"x; y"}""", cwd = "/root/shop"))
+        assertFalse(bridge.isAlwaysAllowed("mcp__docs__query", "{}", cwd = "/root/shop"))
+        assertFalse(bridge.isAlwaysAllowed("mcp__browser__browser_click", "{}", cwd = "/root/blog"))
+        val rule = bridge.rules.value.single()
+        assertEquals("mcp__browser__*", rule.toolName)
+        assertEquals("browser", ClaudePermissionBridge.serverOfRule(rule.toolName))
+        assertEquals("mcp__browser__*", bridge.approvals.entries.value.single().rule)
+    }
+
+    @Test
+    fun `only MCP tools name a server`() {
+        assertEquals("browser", ClaudePermissionBridge.mcpServerOf("mcp__browser__browser_read"))
+        assertNull(ClaudePermissionBridge.mcpServerOf("Bash"))
+        assertNull(ClaudePermissionBridge.mcpServerOf("mcp__browser"))
+        assertNull(ClaudePermissionBridge.serverOfRule("mcp__browser__browser_read"))
+        // A deeper name written by hand is not read as a rule for server "a".
+        assertNull(ClaudePermissionBridge.serverOfRule("mcp__a__b__*"))
+        assertFalse(ClaudePermissionBridge.coversServer("mcp__browser__*", "mcp__browserx__read"))
+    }
+
+    @Test
     fun `a refusal on the phone is in the history without a rule`() {
         val bridge = ClaudePermissionBridge(folder.root)
         val requestId = UUID.randomUUID().toString()

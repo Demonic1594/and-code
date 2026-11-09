@@ -247,6 +247,8 @@ fun ChatHomeScreen(
     onFindRequestConsumed: () -> Unit = {},
     /** Send now, edit and remove for the prompts held for the running turn ([ChatUiState.queuedPrompts]). */
     queueActions: QueuedPromptActions = QueuedPromptActions(),
+    /** Allows a call and every later one from the same MCP server; offered on an MCP tool's approval. */
+    onAllowMcpServer: (String) -> Unit = {},
     /** Open, close and "manage MCP servers" for the context window sheet the meter opens. */
     contextActions: ContextBreakdownActions = ContextBreakdownActions(),
 ) {
@@ -764,7 +766,13 @@ fun ChatHomeScreen(
                                 }
                             }
                             items(state.permissions, key = { "permission-${it.id}" }) { permission ->
-                                PermissionCard(permission) { id, response, always ->
+                                PermissionCard(
+                                    permission,
+                                    onAllowServer = { id ->
+                                        haptics.perform(HapticEvent.CONFIRM)
+                                        onAllowMcpServer(id)
+                                    },
+                                ) { id, response, always ->
                                     haptics.perform(
                                         if (response == PermissionResponse.REJECT) HapticEvent.REJECT else HapticEvent.CONFIRM,
                                     )

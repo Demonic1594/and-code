@@ -930,6 +930,8 @@
     <string name="chat_error_zen_free_tier_title">نماذج OpenCode المجانية تحتاج إلى تسجيل الدخول إلى Zen</string>
     <string name="chat_error_zen_free_tier_body">يقيّد OpenCode نماذجه المجانية على سطح المكتب وواجهة الأوامر الرسمية ما لم تسجّل الدخول إلى OpenCode Zen. وصّل OpenCode من الإعدادات ← الموفرون، أو استخدم موفرًا آخر.</string>
     <string name="chat_error_zen_free_tier_action">فتح الموفرين</string>
+    <string name="chat_copy_code">نسخ الكود</string>
+    <string name="chat_code_copied">تم نسخ الكود</string>
 
     <!-- Connection dialog -->
     <string name="connection_test_success">OpenCode %1$s</string>
@@ -1973,4 +1975,8 @@
     <string name="context_category_messages">الرسائل</string>
     <string name="context_category_compact_buffer">محجوز للضغط</string>
     <string name="context_category_free_space">مساحة فارغة</string>
+    <string name="claude_keep_edits_in_project">إبقاء تعديلات الملفات داخل المشروع</string>
+    <string name="claude_keep_edits_in_project_caption">يرفض Claude Code كتابة الملفات أو تعديلها خارج مجلد الدردشة، في كل أوضاع الأذونات. لا تزال أوامر الطرفية وأدوات MCP والبرامج التي تشغّلها الخطافات قادرة على الكتابة في أي مكان، لذا يمنع هذا الأخطاء ولا يُعدّ حدًّا أمنيًا. يسري من الرسالة التالية في كل دردشة.</string>
+    <string name="permission_always_allow_server">السماح دائمًا بكل أدوات %1$s</string>
+    <string name="command_rules_whole_server">كل أدوات خادم MCP %1$s</string>
 </resources>

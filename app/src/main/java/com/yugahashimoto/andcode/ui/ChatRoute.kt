@@ -287,6 +287,7 @@ internal fun ChatRoute(
                     },
                 ),
             onPermission = chatViewModel::respondToPermission,
+            onAllowMcpServer = chatViewModel::allowMcpServer,
             onAbort = chatViewModel::abort,
             onRecheckStall = chatViewModel::checkForStall,
             onMic = actions.onMic,

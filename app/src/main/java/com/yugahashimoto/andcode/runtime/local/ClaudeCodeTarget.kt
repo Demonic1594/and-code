@@ -494,6 +494,14 @@ class ClaudeCodeTarget(
         remember: Boolean,
     ): Boolean = withContext(Dispatchers.IO) { runtime.respondToPermission(permissionId, response, remember) }
 
+    override suspend fun allowMcpServer(
+        sessionId: String,
+        permissionId: String,
+    ): Boolean =
+        withContext(Dispatchers.IO) {
+            runtime.permissionBridge.respond(permissionId, PermissionResponse.ALWAYS, remember = true, wholeServer = true)
+        }
+
     override suspend fun answerQuestion(
         requestId: String,
         answers: List<List<String>>,

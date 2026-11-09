@@ -2732,18 +2732,22 @@ class ChatViewModel(
         permissionId: String,
         response: PermissionResponse,
         remember: Boolean,
+    ) = answerPermission(permissionId) { target, request ->
+        target.respondToPermission(request.sessionId, request.id, response, remember)
+    }
+
+    /** Allows [permissionId] and every later call of a tool from the same MCP server. */
+    fun allowMcpServer(permissionId: String) =
+        answerPermission(permissionId) { target, request -> target.allowMcpServer(request.sessionId, request.id) }
+
+    private fun answerPermission(
+        permissionId: String,
+        answer: suspend (OpenCodeBackend, PermissionRequest) -> Boolean,
     ) {
         val currentBackend = backend ?: return
         val permission = _uiState.value.permissions.firstOrNull { it.id == permissionId } ?: return
         viewModelScope.launch {
-            runCatching {
-                currentBackend.respondToPermission(
-                    permission.sessionId,
-                    permission.id,
-                    response,
-                    remember,
-                )
-            }.onSuccess { accepted ->
+            runCatching { answer(currentBackend, permission) }.onSuccess { accepted ->
                 if (accepted) {
                     _uiState.update { state ->
                         state.copy(permissions = state.permissions.filterNot { it.id == permissionId })

@@ -387,6 +387,11 @@ data class PermissionRequest(
      * than tapped for no effect.
      */
     val canAlwaysAllow: Boolean = true,
+    /**
+     * Claude Code only: the MCP server this call's tool belongs to, so the approval can offer to
+     * allow every tool from it; null for any other tool.
+     */
+    val mcpServer: String? = null,
 )
 
 @Serializable

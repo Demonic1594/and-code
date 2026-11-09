@@ -915,6 +915,8 @@
     <string name="chat_error_zen_free_tier_title">OpenCode 免费模型需要登录 Zen</string>
     <string name="chat_error_zen_free_tier_body">除非登录 OpenCode Zen，否则 OpenCode 仅允许在官方桌面端和 CLI 中使用免费模型。请在设置 → 提供方中连接 OpenCode，或使用其他提供方。</string>
     <string name="chat_error_zen_free_tier_action">打开提供方</string>
+    <string name="chat_copy_code">复制代码</string>
+    <string name="chat_code_copied">代码已复制</string>
 
     <!-- Connection dialog -->
     <string name="connection_test_success">OpenCode %1$s</string>
@@ -1908,4 +1910,8 @@
     <string name="context_category_messages">消息</string>
     <string name="context_category_compact_buffer">为压缩预留</string>
     <string name="context_category_free_space">剩余空间</string>
+    <string name="claude_keep_edits_in_project">仅在项目内编辑文件</string>
+    <string name="claude_keep_edits_in_project_caption">在任何权限模式下，Claude Code 都会拒绝写入或编辑聊天文件夹以外的文件。Shell 命令、MCP 工具和钩子运行的程序仍可写入任何位置，因此这只是防止误操作，并非安全边界。从每个对话的下一条消息起生效。</string>
+    <string name="permission_always_allow_server">始终允许 %1$s 的所有工具</string>
+    <string name="command_rules_whole_server">MCP 服务器 %1$s 的所有工具</string>
 </resources>

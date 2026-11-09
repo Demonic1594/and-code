@@ -3,6 +3,7 @@ package com.yugahashimoto.andcode.runtime.local
 import com.yugahashimoto.andcode.core.api.OpenCodeModel
 import com.yugahashimoto.andcode.core.api.OpenCodeProvider
 import com.yugahashimoto.andcode.core.api.ProviderCatalog
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
@@ -57,10 +58,24 @@ object ClaudeModels {
     }
 
     /**
-     * `--settings` for a session in ultracode, or null for none. Claude Code reads ultracode as a
-     * session setting; the CLI ignores it on an account or model without workflows.
+     * `--settings` for a session, or null for none. Claude Code reads ultracode as a session setting
+     * (the CLI ignores it on an account or model without workflows), and [keepEditsInProject] as
+     * `permissions.blockWritesOutsideWorkingDirectories`: Write, Edit and NotebookEdit then refuse
+     * paths outside the working directories in every permission mode (Claude Code 2.1.314 and later).
      */
-    fun cliSettings(ultracode: Boolean): String? = if (ultracode) "{\"ultracode\":true}" else null
+    fun cliSettings(
+        ultracode: Boolean,
+        keepEditsInProject: Boolean = false,
+    ): String? {
+        val settings =
+            buildMap {
+                if (ultracode) put("ultracode", JsonPrimitive(true))
+                if (keepEditsInProject) {
+                    put("permissions", JsonObject(mapOf("blockWritesOutsideWorkingDirectories" to JsonPrimitive(true))))
+                }
+            }
+        return settings.takeIf { it.isNotEmpty() }?.let { JsonObject(it).toString() }
+    }
 
     private val DATE_SUFFIX = Regex("-\\d{8}$")
 

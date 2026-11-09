@@ -924,6 +924,8 @@
     <string name="chat_error_zen_free_tier_title">Бесплатные модели OpenCode требуют входа в Zen</string>
     <string name="chat_error_zen_free_tier_body">OpenCode ограничивает бесплатные модели официальным рабочим столом и CLI, если вы не войдёте в OpenCode Zen. Подключите OpenCode в Настройки → Провайдеры или используйте другого провайдера.</string>
     <string name="chat_error_zen_free_tier_action">Открыть провайдеры</string>
+    <string name="chat_copy_code">Скопировать код</string>
+    <string name="chat_code_copied">Код скопирован</string>
 
     <!-- Connection dialog -->
     <string name="connection_test_success">OpenCode %1$s</string>
@@ -1947,4 +1949,8 @@
     <string name="context_category_messages">Сообщения</string>
     <string name="context_category_compact_buffer">Резерв для сжатия</string>
     <string name="context_category_free_space">Свободно</string>
+    <string name="claude_keep_edits_in_project">Изменять файлы только внутри проекта</string>
+    <string name="claude_keep_edits_in_project_caption">Claude Code отказывается записывать и изменять файлы вне папки чата в любом режиме прав. Команды оболочки, инструменты MCP и программы, запускаемые хуками, по-прежнему могут писать куда угодно, поэтому это защита от ошибок, а не граница безопасности. Действует со следующего сообщения в каждом чате.</string>
+    <string name="permission_always_allow_server">Всегда разрешать все инструменты %1$s</string>
+    <string name="command_rules_whole_server">Все инструменты сервера MCP %1$s</string>
 </resources>

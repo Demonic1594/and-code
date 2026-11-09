@@ -86,7 +86,8 @@ class ClaudeCodeRuntime(
         val model: String?,
         val effort: String?,
         val systemPrompt: String?,
-        val ultracode: Boolean,
+        /** What was passed with `--settings` (ultracode, keeping edits in the project), or null. */
+        val settings: String?,
     ) {
         /** Whether this process was started with these settings; each is read only at startup. */
         fun startedWith(
@@ -95,18 +96,41 @@ class ClaudeCodeRuntime(
             model: String?,
             effort: String?,
             systemPrompt: String?,
-            ultracode: Boolean,
+            settings: String?,
         ): Boolean =
             this.permissionMode == permissionMode &&
                 this.directory == directory &&
                 this.model == model &&
                 this.effort == effort &&
                 this.systemPrompt == systemPrompt &&
-                this.ultracode == ultracode
+                this.settings == settings
     }
 
     /** Mutate only through [registerSession] and [unregisterSession], which keep [hasLiveSessions] in step. */
     private val sessions = linkedMapOf<String, SessionProcess>()
+
+    /**
+     * Whether Claude Code is told to refuse writes outside the chat's folder
+     * (`permissions.blockWritesOutsideWorkingDirectories`). Kept as a marker file; off by default,
+     * because agents write scratch files to `/tmp` and config under the home folder.
+     */
+    private val keepEditsInProjectFile = File(runtimeDirectory, "claude-keep-edits-in-project")
+    private val mutableKeepEditsInProject = MutableStateFlow(keepEditsInProjectFile.isFile)
+    val keepEditsInProject: StateFlow<Boolean> = mutableKeepEditsInProject.asStateFlow()
+
+    /** Turns [keepEditsInProject] on or off; each chat's next message starts its process with it. */
+    fun setKeepEditsInProject(on: Boolean) {
+        runCatching {
+            if (on) {
+                keepEditsInProjectFile.parentFile?.mkdirs()
+                keepEditsInProjectFile.writeText("on")
+            } else {
+                keepEditsInProjectFile.delete()
+            }
+        }
+        // The marker file is what each launch reads, so the switch shows the file, not the request.
+        mutableKeepEditsInProject.value = keepEditsInProjectFile.isFile
+    }
 
     /**
      * Claude Code's own session ids, so a relaunched process resumes rather than starts over.
@@ -549,7 +573,8 @@ class ClaudeCodeRuntime(
         ultracode: Boolean = false,
     ): SessionProcess {
         val existing = sessions[sessionId]
-        // Permission mode, working directory, model, system prompt and ultracode are read once at
+        val settings = ClaudeModels.cliSettings(ultracode, keepEditsInProject = keepEditsInProject.value)
+        // Permission mode, working directory, model, system prompt and settings are read once at
         // startup, so a change to any of them means the process has to be replaced rather than reused.
         if (existing != null && existing.process.isAlive &&
             existing.startedWith(
@@ -558,7 +583,7 @@ class ClaudeCodeRuntime(
                 model,
                 effort,
                 systemPrompt,
-                ultracode,
+                settings,
             )
         ) {
             return existing
@@ -584,7 +609,7 @@ class ClaudeCodeRuntime(
                     runtime = runtime,
                     workspaceHostDir = File(runtimeDirectory, "workspace").apply { mkdirs() },
                     workingDirectory = directory,
-                    arguments = processArguments(sessionId, effectiveMode, model, effort, systemPrompt, ultracode),
+                    arguments = processArguments(sessionId, effectiveMode, model, effort, systemPrompt, settings),
                     pty = false,
                 ),
             ).directory(runtimeDirectory)
@@ -629,7 +654,7 @@ class ClaudeCodeRuntime(
                 }
             }
 
-        return SessionProcess(process, readerJob, parser, permissionMode, directory, model, effort, systemPrompt, ultracode)
+        return SessionProcess(process, readerJob, parser, permissionMode, directory, model, effort, systemPrompt, settings)
             .also { registerSession(sessionId, it) }
     }
 
@@ -639,7 +664,7 @@ class ClaudeCodeRuntime(
         model: String?,
         effort: String?,
         systemPrompt: String? = null,
-        ultracode: Boolean = false,
+        settings: String? = null,
     ): List<String> =
         buildList {
             add("--print")
@@ -663,7 +688,7 @@ class ClaudeCodeRuntime(
                 add("--effort")
                 add(it)
             }
-            ClaudeModels.cliSettings(ultracode)?.let {
+            settings?.let {
                 add("--settings")
                 add(it)
             }
