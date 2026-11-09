@@ -1083,7 +1083,9 @@
     <string name="risk_warning_full_access_body">この設定を有効にすると、公式CLIが個別確認なしでファイルを変更したり、コマンドを実行したりする可能性があります。\n\nPRootは互換実行環境であり、完全なセキュリティサンドボックスではありません。重要なファイルをバックアップし、信頼できるリポジトリ、プロンプト、MCPサーバーだけを使用してください。</string>
     <string name="risk_warning_all_files_title">すべての端末ファイルへのアクセスを許可しますか？</string>
     <string name="risk_warning_all_files_body">許可すると、実行中のエージェントがAndCode自身の保存領域だけでなく、フォルダ選択画面から到達できるこの端末上のあらゆるファイルを読み書きできるようになります。\n\n信頼できるエージェント、プロンプト、MCPサーバーとの組み合わせでのみ許可してください。</string>
+    <string name="risk_warning_mcp_server_title">第三者のMCPサーバーを追加します</string>
     <string name="risk_warning_mcp_server_body">MCPサーバーはプロンプトやファイル、ツールの出力を読み取ることができ、代理で操作を実行できるものもあります。信頼できるサーバーのみを追加してください。</string>
+    <string name="risk_warning_schedule_title">スケジュール実行・バックグラウンド実行について</string>
     <string name="risk_warning_schedule_body">スケジュールされたプロンプトは、その時点でエージェントに設定されている権限モードのまま無人で実行されます。定期実行を有効にする前に、プロンプトと権限モードを確認してください。</string>
     <string name="risk_warning_understood">理解しました。続行します</string>
 

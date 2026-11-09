@@ -732,79 +732,79 @@
     <string name="subagent_return_to_parent">Retour à l’agent principal : %1$s</string>
     <string name="subagent_parent_untitled">Session principale</string>
     <!-- Content descriptions -->
-    <string name="cd_folder">Folder</string>
-    <string name="cd_expand_dropdown">Expand dropdown</string>
-    <string name="cd_expand_collapse">Expand or collapse</string>
-    <string name="cd_search">Search</string>
+    <string name="cd_folder">Dossier</string>
+    <string name="cd_expand_dropdown">Ouvrir le menu déroulant</string>
+    <string name="cd_expand_collapse">Développer ou réduire</string>
+    <string name="cd_search">Rechercher</string>
     <string name="cd_app_logo">AndCode</string>
-    <string name="cd_permission">Permission</string>
-    <string name="cd_runtime_type">Runtime type</string>
-    <string name="cd_server_url">Server URL</string>
-    <string name="cd_password">Password</string>
-    <string name="cd_test_connection">Test connection</string>
-    <string name="cd_scan_qr">Scan QR code</string>
-    <string name="cd_lan_discovery">Discover on LAN</string>
-    <string name="cd_clear_search">Clear search</string>
-    <string name="cd_repair">Repair</string>
-    <string name="cd_attachment">Attachment</string>
-    <string name="cd_image_preview">Image preview</string>
+    <string name="cd_permission">Autorisation</string>
+    <string name="cd_runtime_type">Type d\'environnement d\'exécution</string>
+    <string name="cd_server_url">URL du serveur</string>
+    <string name="cd_password">Mot de passe</string>
+    <string name="cd_test_connection">Tester la connexion</string>
+    <string name="cd_scan_qr">Scanner le code QR</string>
+    <string name="cd_lan_discovery">Découvrir sur le LAN</string>
+    <string name="cd_clear_search">Effacer la recherche</string>
+    <string name="cd_repair">Réparer</string>
+    <string name="cd_attachment">Pièce jointe</string>
+    <string name="cd_image_preview">Aperçu de l\'image</string>
     <string name="cd_close_image">Fermer l\'image</string>
     <string name="cd_download_image">Telecharger l\'image</string>
     <string name="image_loading">Chargement de l\'image...</string>
     <string name="image_load_failed">Impossible de charger l\'image</string>
     <string name="image_saved">Image enregistree dans Pictures/AndCode</string>
     <string name="image_save_failed">Impossible d\'enregistrer l\'image</string>
-    <string name="cd_reasoning">Reasoning</string>
-    <string name="cd_tool">Tool</string>
-    <string name="cd_file_changes">File changes</string>
-    <string name="cd_stop">Stop</string>
-    <string name="cd_connection_error">Connection error</string>
-    <string name="cd_scroll_to_bottom">Scroll to bottom</string>
-    <string name="cd_attached_image">Attached image</string>
-    <string name="cd_remove_image">Remove image</string>
-    <string name="cd_attach_file">Attach file</string>
-    <string name="cd_camera">Camera</string>
-    <string name="cd_gallery">Gallery</string>
-    <string name="cd_thinking">Thinking</string>
+    <string name="cd_reasoning">Raisonnement</string>
+    <string name="cd_tool">Outil</string>
+    <string name="cd_file_changes">Modifications de fichiers</string>
+    <string name="cd_stop">Arrêter</string>
+    <string name="cd_connection_error">Erreur de connexion</string>
+    <string name="cd_scroll_to_bottom">Faire défiler jusqu\'en bas</string>
+    <string name="cd_attached_image">Image jointe</string>
+    <string name="cd_remove_image">Retirer l\'image</string>
+    <string name="cd_attach_file">Joindre un fichier</string>
+    <string name="cd_camera">Appareil photo</string>
+    <string name="cd_gallery">Galerie</string>
+    <string name="cd_thinking">Réflexion en cours</string>
     <string name="cd_fast_mode">Mode rapide</string>
     <string name="cd_system_prompt">Invite système</string>
-    <string name="cd_updating">Updating</string>
-    <string name="cd_operation_result">Operation result</string>
-    <string name="cd_check_update">Check for update</string>
-    <string name="cd_up_to_date">Up to date</string>
-    <string name="cd_update">Update</string>
-    <string name="cd_rollback">Rollback</string>
-    <string name="cd_tool_status">Tool status</string>
-    <string name="cd_delete_runtime">Delete runtime</string>
-    <string name="cd_navigate">Navigate</string>
-    <string name="cd_cancel">Cancel</string>
-    <string name="cd_accept">Accept</string>
+    <string name="cd_updating">Mise à jour</string>
+    <string name="cd_operation_result">Résultat de l\'opération</string>
+    <string name="cd_check_update">Rechercher des mises à jour</string>
+    <string name="cd_up_to_date">À jour</string>
+    <string name="cd_update">Mettre à jour</string>
+    <string name="cd_rollback">Restaurer</string>
+    <string name="cd_tool_status">État de l\'outil</string>
+    <string name="cd_delete_runtime">Supprimer l\'environnement d\'exécution</string>
+    <string name="cd_navigate">Naviguer</string>
+    <string name="cd_cancel">Annuler</string>
+    <string name="cd_accept">Accepter</string>
     <string name="cd_send">Send</string>
-    <string name="cd_task_status">Task status</string>
-    <string name="cd_disconnect">Disconnect</string>
-    <string name="cd_connect">Connect</string>
-    <string name="cd_favorite">Toggle favorite</string>
+    <string name="cd_task_status">État de la tâche</string>
+    <string name="cd_disconnect">Déconnecter</string>
+    <string name="cd_connect">Connecter</string>
+    <string name="cd_favorite">Ajouter aux favoris ou les retirer</string>
     <string name="cd_microphone">Microphone</string>
-    <string name="cd_file_type">File</string>
-    <string name="cd_repository">Repository</string>
-    <string name="cd_settings_section">Settings section</string>
-    <string name="cd_subagent_status">Subagent status</string>
-    <string name="cd_toggle_password">Toggle password visibility</string>
-    <string name="cd_info">Info</string>
-    <string name="cd_file">File</string>
-    <string name="cd_code_match">Code match</string>
+    <string name="cd_file_type">Fichier</string>
+    <string name="cd_repository">Dépôt</string>
+    <string name="cd_settings_section">Section des paramètres</string>
+    <string name="cd_subagent_status">État du sous-agent</string>
+    <string name="cd_toggle_password">Afficher ou masquer le mot de passe</string>
+    <string name="cd_info">Infos</string>
+    <string name="cd_file">Fichier</string>
+    <string name="cd_code_match">Correspondance dans le code</string>
     <string name="cd_git">Git</string>
-    <string name="cd_current_branch">Current branch</string>
-    <string name="cd_new_branch">New branch</string>
-    <string name="cd_step_completed">Step completed</string>
-    <string name="cd_error">Error</string>
-    <string name="cd_runtime_ready">Runtime ready</string>
-    <string name="cd_add_tab">Add tab</string>
-    <string name="cd_back">Back</string>
-    <string name="cd_next_match">Next match</string>
-    <string name="cd_clear_terminal">Clear terminal</string>
-    <string name="cd_send_command">Send command</string>
-    <string name="cd_delete">Delete</string>
+    <string name="cd_current_branch">Branche actuelle</string>
+    <string name="cd_new_branch">Nouvelle branche</string>
+    <string name="cd_step_completed">Étape terminée</string>
+    <string name="cd_error">Erreur</string>
+    <string name="cd_runtime_ready">Environnement d\'exécution prêt</string>
+    <string name="cd_add_tab">Ajouter un onglet</string>
+    <string name="cd_back">Retour</string>
+    <string name="cd_next_match">Résultat suivant</string>
+    <string name="cd_clear_terminal">Effacer le terminal</string>
+    <string name="cd_send_command">Envoyer la commande</string>
+    <string name="cd_delete">Supprimer</string>
 
     <!-- Command palette & search -->
     <!-- Terminal -->
@@ -827,13 +827,13 @@
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">Agent</string>
     <string name="tab_type_terminal">Terminal</string>
-    <string name="tab_close">Close</string>
-    <string name="tab_close_others">Close Others</string>
-    <string name="tab_content_placeholder">Tab content</string>
+    <string name="tab_close">Fermer</string>
+    <string name="tab_close_others">Fermer les autres</string>
+    <string name="tab_content_placeholder">Contenu de l\'onglet</string>
     <string name="git_label">Git</string>
 
     <!-- Code viewer -->
-    <string name="code_no_matches">No matches</string>
+    <string name="code_no_matches">Aucun résultat</string>
     <string name="code_match_counter">%1$d / %2$d</string>
 
     <!-- Chat screen -->
@@ -848,74 +848,74 @@
 
     <!-- Connection dialog -->
     <string name="connection_test_success">OpenCode %1$s</string>
-    <string name="connection_test_failed">Connection failed</string>
+    <string name="connection_test_failed">Échec de la connexion</string>
 
     <!-- Slash commands -->
-    <string name="slash_desc_new">Start a new session</string>
-    <string name="slash_desc_clear">Clear current conversation</string>
-    <string name="slash_desc_model">Switch model</string>
-    <string name="slash_desc_agent">Switch agent</string>
-    <string name="slash_desc_attach">Attach a file</string>
-    <string name="slash_desc_help">Show help</string>
+    <string name="slash_desc_new">Démarrer une nouvelle session</string>
+    <string name="slash_desc_clear">Effacer la conversation en cours</string>
+    <string name="slash_desc_model">Changer de modèle</string>
+    <string name="slash_desc_agent">Changer d\'agent</string>
+    <string name="slash_desc_attach">Joindre un fichier</string>
+    <string name="slash_desc_help">Afficher l\'aide</string>
 
     <!-- Chat home -->
-    <string name="side_panel_files_title">Files</string>
-    <string name="side_panel_files_desc">File explorer</string>
-    <string name="action_copy">Copy</string>
-    <string name="action_copy_markdown">Copy as Markdown</string>
-    <string name="action_edit_message">Edit &amp; resend</string>
-    <string name="attach_file">File</string>
-    <string name="attach_camera">Camera</string>
-    <string name="attach_gallery">Gallery</string>
-    <string name="attachment_load_failed">Could not attach file</string>
-    <string name="error_video_not_supported">Video files cannot be sent directly. Remove the video and attach images instead.</string>
-    <string name="status_queued">Queued</string>
+    <string name="side_panel_files_title">Fichiers</string>
+    <string name="side_panel_files_desc">Explorateur de fichiers</string>
+    <string name="action_copy">Copier</string>
+    <string name="action_copy_markdown">Copier en Markdown</string>
+    <string name="action_edit_message">Modifier et renvoyer</string>
+    <string name="attach_file">Fichier</string>
+    <string name="attach_camera">Appareil photo</string>
+    <string name="attach_gallery">Galerie</string>
+    <string name="attachment_load_failed">Impossible de joindre le fichier</string>
+    <string name="error_video_not_supported">Les vidéos ne peuvent pas être envoyées directement. Retirez la vidéo et joignez des images à la place.</string>
+    <string name="status_queued">En attente</string>
 
     <!-- Resume command -->
 
     <!-- Voice -->
-    <string name="voice_listening_placeholder">Listening…</string>
+    <string name="voice_listening_placeholder">Écoute…</string>
 
     <!-- Drawer grouping -->
 
     <!-- Quick input widget -->
-    <string name="toast_permission_granted">Permission granted. Tap mic again.</string>
-    <string name="toast_mic_permission_required">Microphone permission required</string>
-    <string name="widget_no_runtime">No runtime connected</string>
-    <string name="widget_sending">Sending…</string>
-    <string name="widget_session_title">Widget: %1$s</string>
-    <string name="widget_sent">Sent!</string>
-    <string name="widget_error">Error: %1$s</string>
-    <string name="widget_listening">Listening…</string>
-    <string name="widget_processing">Processing…</string>
-    <string name="widget_voice_error">Voice error</string>
-    <string name="widget_no_speech">No speech detected</string>
+    <string name="toast_permission_granted">Autorisation accordée. Appuyez de nouveau sur le micro.</string>
+    <string name="toast_mic_permission_required">Autorisation d\'accès au micro requise</string>
+    <string name="widget_no_runtime">Aucun environnement d\'exécution connecté</string>
+    <string name="widget_sending">Envoi…</string>
+    <string name="widget_session_title">Widget : %1$s</string>
+    <string name="widget_sent">Envoyé !</string>
+    <string name="widget_error">Erreur : %1$s</string>
+    <string name="widget_listening">Écoute…</string>
+    <string name="widget_processing">Traitement…</string>
+    <string name="widget_voice_error">Erreur vocale</string>
+    <string name="widget_no_speech">Aucune parole détectée</string>
 
     <!-- Diagnostics sheet -->
     <string name="diagnostics_title">Diagnostics</string>
-    <string name="diagnostics_section_app">App</string>
+    <string name="diagnostics_section_app">Application</string>
     <string name="diagnostics_version">Version</string>
-    <string name="diagnostics_build_type">Build type</string>
-    <string name="diagnostics_section_connection">Connection</string>
-    <string name="diagnostics_status">Status</string>
-    <string name="diagnostics_runtime">Runtime</string>
-    <string name="diagnostics_section_memory">Memory</string>
+    <string name="diagnostics_build_type">Type de build</string>
+    <string name="diagnostics_section_connection">Connexion</string>
+    <string name="diagnostics_status">État</string>
+    <string name="diagnostics_runtime">Environnement d\'exécution</string>
+    <string name="diagnostics_section_memory">Mémoire</string>
     <string name="diagnostics_total">Total</string>
-    <string name="diagnostics_free">Free</string>
-    <string name="diagnostics_max">Max</string>
-    <string name="diagnostics_section_storage">Storage</string>
-    <string name="diagnostics_available">Available</string>
-    <string name="diagnostics_copy_button">Copy Diagnostics</string>
+    <string name="diagnostics_free">Libre</string>
+    <string name="diagnostics_max">Maximum</string>
+    <string name="diagnostics_section_storage">Stockage</string>
+    <string name="diagnostics_available">Disponible</string>
+    <string name="diagnostics_copy_button">Copier les diagnostics</string>
 
     <!-- Session detail -->
 
-    <string name="runtime_diagnostics_failed">Failed to diagnose the local runtime</string>
-    <string name="runtime_update_check_failed">Failed to check for OpenCode updates</string>
-    <string name="runtime_repair_start_failed">Cannot start local runtime repair</string>
-    <string name="runtime_update_start_failed">Cannot start OpenCode update</string>
-    <string name="runtime_rollback_start_failed">Cannot start OpenCode rollback</string>
-    <string name="runtime_delete_failed">Cannot delete the local runtime</string>
-    <string name="runtime_delete_timeout">Runtime deletion timed out</string>
+    <string name="runtime_diagnostics_failed">Échec du diagnostic de l\'environnement d\'exécution local</string>
+    <string name="runtime_update_check_failed">Impossible de rechercher les mises à jour d\'OpenCode</string>
+    <string name="runtime_repair_start_failed">Impossible de lancer la réparation de l\'environnement d\'exécution local</string>
+    <string name="runtime_update_start_failed">Impossible de lancer la mise à jour d\'OpenCode</string>
+    <string name="runtime_rollback_start_failed">Impossible de lancer la restauration d\'OpenCode</string>
+    <string name="runtime_delete_failed">Impossible de supprimer l\'environnement d\'exécution local</string>
+    <string name="runtime_delete_timeout">Délai dépassé lors de la suppression de l\'environnement d\'exécution</string>
 
     <!-- Claude Code agent and agent selection -->
     <string name="agent_opencode_name">OpenCode</string>
@@ -1061,7 +1061,9 @@
     <string name="risk_warning_full_access_body">Activer ce réglage permet à la CLI officielle de modifier des fichiers ou d\'exécuter des commandes sans vous demander votre accord au préalable.\n\nPRoot est un environnement de compatibilité, pas un sandbox de sécurité complet. Sauvegardez tout ce qui est important et n\'utilisez que des dépôts, prompts et serveurs MCP de confiance.</string>
     <string name="risk_warning_all_files_title">Autoriser l\'accès à tous les fichiers de l\'appareil ?</string>
     <string name="risk_warning_all_files_body">Accorder ceci permet aux agents que vous exécutez de lire et modifier tout fichier accessible depuis le sélecteur de dossiers sur cet appareil, pas seulement le stockage propre d\'AndCode.\n\nN\'accordez ceci que si vous faites confiance aux agents, prompts et serveurs MCP que vous utilisez avec eux.</string>
+    <string name="risk_warning_mcp_server_title">Ajout d\'un serveur MCP tiers</string>
     <string name="risk_warning_mcp_server_body">Les serveurs MCP peuvent lire les prompts, fichiers et sorties d\'outils, et certains peuvent effectuer des actions en votre nom. N\'ajoutez que des serveurs de confiance.</string>
+    <string name="risk_warning_schedule_title">Exécutions planifiées et en arrière-plan</string>
     <string name="risk_warning_schedule_body">Les prompts planifiés s\'exécutent sans surveillance, avec le mode de permission défini pour l\'agent à ce moment-là. Vérifiez le prompt et le mode de permission avant d\'activer une planification récurrente.</string>
     <string name="risk_warning_understood">Compris, continuer</string>
     <string name="chat_response_duration">%1$d min</string>

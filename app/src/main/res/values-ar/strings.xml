@@ -777,79 +777,79 @@
     <string name="subagent_return_to_parent">العودة إلى الوكيل الرئيسي: %1$s</string>
     <string name="subagent_parent_untitled">الجلسة الرئيسية</string>
     <!-- Content descriptions -->
-    <string name="cd_folder">Folder</string>
-    <string name="cd_expand_dropdown">Expand dropdown</string>
-    <string name="cd_expand_collapse">Expand or collapse</string>
-    <string name="cd_search">Search</string>
+    <string name="cd_folder">مجلد</string>
+    <string name="cd_expand_dropdown">توسيع القائمة المنسدلة</string>
+    <string name="cd_expand_collapse">توسيع أو طي</string>
+    <string name="cd_search">بحث</string>
     <string name="cd_app_logo">AndCode</string>
-    <string name="cd_permission">Permission</string>
-    <string name="cd_runtime_type">Runtime type</string>
-    <string name="cd_server_url">Server URL</string>
-    <string name="cd_password">Password</string>
-    <string name="cd_test_connection">Test connection</string>
-    <string name="cd_scan_qr">Scan QR code</string>
-    <string name="cd_lan_discovery">Discover on LAN</string>
-    <string name="cd_clear_search">Clear search</string>
-    <string name="cd_repair">Repair</string>
-    <string name="cd_attachment">Attachment</string>
-    <string name="cd_image_preview">Image preview</string>
-    <string name="cd_close_image">Close image</string>
-    <string name="cd_download_image">Download image</string>
+    <string name="cd_permission">الإذن</string>
+    <string name="cd_runtime_type">نوع بيئة التشغيل</string>
+    <string name="cd_server_url">عنوان URL للخادم</string>
+    <string name="cd_password">كلمة المرور</string>
+    <string name="cd_test_connection">اختبار الاتصال</string>
+    <string name="cd_scan_qr">مسح رمز QR</string>
+    <string name="cd_lan_discovery">اكتشاف على LAN</string>
+    <string name="cd_clear_search">مسح البحث</string>
+    <string name="cd_repair">إصلاح</string>
+    <string name="cd_attachment">مرفق</string>
+    <string name="cd_image_preview">معاينة الصورة</string>
+    <string name="cd_close_image">إغلاق الصورة</string>
+    <string name="cd_download_image">تنزيل الصورة</string>
     <string name="image_loading">Loading image...</string>
-    <string name="image_load_failed">Could not load image</string>
-    <string name="image_saved">Image saved to Pictures/AndCode</string>
-    <string name="image_save_failed">Could not save image</string>
-    <string name="cd_reasoning">Reasoning</string>
-    <string name="cd_tool">Tool</string>
-    <string name="cd_file_changes">File changes</string>
-    <string name="cd_stop">Stop</string>
-    <string name="cd_connection_error">Connection error</string>
-    <string name="cd_scroll_to_bottom">Scroll to bottom</string>
-    <string name="cd_attached_image">Attached image</string>
-    <string name="cd_remove_image">Remove image</string>
-    <string name="cd_attach_file">Attach file</string>
-    <string name="cd_camera">Camera</string>
-    <string name="cd_gallery">Gallery</string>
-    <string name="cd_thinking">Thinking</string>
+    <string name="image_load_failed">تعذّر تحميل الصورة</string>
+    <string name="image_saved">تم حفظ الصورة في Pictures/AndCode</string>
+    <string name="image_save_failed">تعذّر حفظ الصورة</string>
+    <string name="cd_reasoning">الاستدلال</string>
+    <string name="cd_tool">أداة</string>
+    <string name="cd_file_changes">تغييرات الملفات</string>
+    <string name="cd_stop">إيقاف</string>
+    <string name="cd_connection_error">خطأ في الاتصال</string>
+    <string name="cd_scroll_to_bottom">التمرير إلى الأسفل</string>
+    <string name="cd_attached_image">صورة مرفقة</string>
+    <string name="cd_remove_image">إزالة الصورة</string>
+    <string name="cd_attach_file">إرفاق ملف</string>
+    <string name="cd_camera">الكاميرا</string>
+    <string name="cd_gallery">المعرض</string>
+    <string name="cd_thinking">جارٍ التفكير</string>
     <string name="cd_fast_mode">الوضع السريع</string>
     <string name="cd_system_prompt">موجّه النظام</string>
-    <string name="cd_updating">Updating</string>
-    <string name="cd_operation_result">Operation result</string>
-    <string name="cd_check_update">Check for update</string>
-    <string name="cd_up_to_date">Up to date</string>
-    <string name="cd_update">Update</string>
-    <string name="cd_rollback">Rollback</string>
-    <string name="cd_tool_status">Tool status</string>
-    <string name="cd_delete_runtime">Delete runtime</string>
-    <string name="cd_navigate">Navigate</string>
-    <string name="cd_cancel">Cancel</string>
-    <string name="cd_accept">Accept</string>
+    <string name="cd_updating">جارٍ التحديث</string>
+    <string name="cd_operation_result">نتيجة العملية</string>
+    <string name="cd_check_update">التحقق من وجود تحديث</string>
+    <string name="cd_up_to_date">محدَّث</string>
+    <string name="cd_update">تحديث</string>
+    <string name="cd_rollback">التراجع عن التحديث</string>
+    <string name="cd_tool_status">حالة الأداة</string>
+    <string name="cd_delete_runtime">حذف بيئة التشغيل</string>
+    <string name="cd_navigate">تنقّل</string>
+    <string name="cd_cancel">إلغاء</string>
+    <string name="cd_accept">قبول</string>
     <string name="cd_send">Send</string>
-    <string name="cd_task_status">Task status</string>
-    <string name="cd_disconnect">Disconnect</string>
-    <string name="cd_connect">Connect</string>
-    <string name="cd_favorite">Toggle favorite</string>
+    <string name="cd_task_status">حالة المهمة</string>
+    <string name="cd_disconnect">قطع الاتصال</string>
+    <string name="cd_connect">اتصال</string>
+    <string name="cd_favorite">تبديل المفضلة</string>
     <string name="cd_microphone">Microphone</string>
-    <string name="cd_file_type">File</string>
-    <string name="cd_repository">Repository</string>
-    <string name="cd_settings_section">Settings section</string>
-    <string name="cd_subagent_status">Subagent status</string>
-    <string name="cd_toggle_password">Toggle password visibility</string>
-    <string name="cd_info">Info</string>
-    <string name="cd_file">File</string>
-    <string name="cd_code_match">Code match</string>
+    <string name="cd_file_type">ملف</string>
+    <string name="cd_repository">المستودع</string>
+    <string name="cd_settings_section">قسم الإعدادات</string>
+    <string name="cd_subagent_status">حالة الوكيل الفرعي</string>
+    <string name="cd_toggle_password">إظهار كلمة المرور أو إخفاؤها</string>
+    <string name="cd_info">معلومات</string>
+    <string name="cd_file">ملف</string>
+    <string name="cd_code_match">تطابق في الكود</string>
     <string name="cd_git">Git</string>
-    <string name="cd_current_branch">Current branch</string>
-    <string name="cd_new_branch">New branch</string>
-    <string name="cd_step_completed">Step completed</string>
-    <string name="cd_error">Error</string>
-    <string name="cd_runtime_ready">Runtime ready</string>
-    <string name="cd_add_tab">Add tab</string>
-    <string name="cd_back">Back</string>
-    <string name="cd_next_match">Next match</string>
-    <string name="cd_clear_terminal">Clear terminal</string>
-    <string name="cd_send_command">Send command</string>
-    <string name="cd_delete">Delete</string>
+    <string name="cd_current_branch">الفرع الحالي</string>
+    <string name="cd_new_branch">فرع جديد</string>
+    <string name="cd_step_completed">اكتملت الخطوة</string>
+    <string name="cd_error">خطأ</string>
+    <string name="cd_runtime_ready">بيئة التشغيل جاهزة</string>
+    <string name="cd_add_tab">إضافة علامة تبويب</string>
+    <string name="cd_back">رجوع</string>
+    <string name="cd_next_match">التطابق التالي</string>
+    <string name="cd_clear_terminal">مسح الطرفية</string>
+    <string name="cd_send_command">إرسال الأمر</string>
+    <string name="cd_delete">حذف</string>
 
     <!-- Command palette & search -->
     <!-- Terminal -->
@@ -870,15 +870,15 @@
     <string name="cd_terminal_server_stopped">المنفذ %1$d متوقف</string>
 
     <!-- Workspace explorer tabs -->
-    <string name="tab_type_agent">Agent</string>
-    <string name="tab_type_terminal">Terminal</string>
-    <string name="tab_close">Close</string>
-    <string name="tab_close_others">Close Others</string>
-    <string name="tab_content_placeholder">Tab content</string>
+    <string name="tab_type_agent">الوكيل</string>
+    <string name="tab_type_terminal">الطرفية</string>
+    <string name="tab_close">إغلاق</string>
+    <string name="tab_close_others">إغلاق علامات التبويب الأخرى</string>
+    <string name="tab_content_placeholder">محتوى علامة التبويب</string>
     <string name="git_label">Git</string>
 
     <!-- Code viewer -->
-    <string name="code_no_matches">No matches</string>
+    <string name="code_no_matches">لا توجد نتائج</string>
     <string name="code_match_counter">%1$d / %2$d</string>
 
     <!-- Chat screen -->
@@ -893,74 +893,74 @@
 
     <!-- Connection dialog -->
     <string name="connection_test_success">OpenCode %1$s</string>
-    <string name="connection_test_failed">Connection failed</string>
+    <string name="connection_test_failed">فشل الاتصال</string>
 
     <!-- Slash commands -->
-    <string name="slash_desc_new">Start a new session</string>
-    <string name="slash_desc_clear">Clear current conversation</string>
-    <string name="slash_desc_model">Switch model</string>
-    <string name="slash_desc_agent">Switch agent</string>
-    <string name="slash_desc_attach">Attach a file</string>
-    <string name="slash_desc_help">Show help</string>
+    <string name="slash_desc_new">بدء جلسة جديدة</string>
+    <string name="slash_desc_clear">مسح المحادثة الحالية</string>
+    <string name="slash_desc_model">تبديل النموذج</string>
+    <string name="slash_desc_agent">تبديل الوكيل</string>
+    <string name="slash_desc_attach">إرفاق ملف</string>
+    <string name="slash_desc_help">عرض المساعدة</string>
 
     <!-- Chat home -->
-    <string name="side_panel_files_title">Files</string>
-    <string name="side_panel_files_desc">File explorer</string>
-    <string name="action_copy">Copy</string>
-    <string name="action_copy_markdown">Copy as Markdown</string>
-    <string name="action_edit_message">Edit &amp; resend</string>
-    <string name="attach_file">File</string>
-    <string name="attach_camera">Camera</string>
-    <string name="attach_gallery">Gallery</string>
-    <string name="attachment_load_failed">Could not attach file</string>
-    <string name="error_video_not_supported">Video files cannot be sent directly. Remove the video and attach images instead.</string>
-    <string name="status_queued">Queued</string>
+    <string name="side_panel_files_title">الملفات</string>
+    <string name="side_panel_files_desc">مستكشف الملفات</string>
+    <string name="action_copy">نسخ</string>
+    <string name="action_copy_markdown">نسخ بتنسيق Markdown</string>
+    <string name="action_edit_message">تعديل وإعادة إرسال</string>
+    <string name="attach_file">ملف</string>
+    <string name="attach_camera">الكاميرا</string>
+    <string name="attach_gallery">المعرض</string>
+    <string name="attachment_load_failed">تعذّر إرفاق الملف</string>
+    <string name="error_video_not_supported">لا يمكن إرسال ملفات الفيديو مباشرةً. أزِل الفيديو وأرفق صورًا بدلًا منه.</string>
+    <string name="status_queued">في قائمة الانتظار</string>
 
     <!-- Resume command -->
 
     <!-- Voice -->
-    <string name="voice_listening_placeholder">Listening…</string>
+    <string name="voice_listening_placeholder">جارٍ الاستماع…</string>
 
     <!-- Drawer grouping -->
 
     <!-- Quick input widget -->
-    <string name="toast_permission_granted">Permission granted. Tap mic again.</string>
-    <string name="toast_mic_permission_required">Microphone permission required</string>
-    <string name="widget_no_runtime">No runtime connected</string>
-    <string name="widget_sending">Sending…</string>
-    <string name="widget_session_title">Widget: %1$s</string>
-    <string name="widget_sent">Sent!</string>
-    <string name="widget_error">Error: %1$s</string>
-    <string name="widget_listening">Listening…</string>
-    <string name="widget_processing">Processing…</string>
-    <string name="widget_voice_error">Voice error</string>
-    <string name="widget_no_speech">No speech detected</string>
+    <string name="toast_permission_granted">تم منح الإذن. اضغط على الميكروفون مرة أخرى.</string>
+    <string name="toast_mic_permission_required">يلزم إذن الميكروفون</string>
+    <string name="widget_no_runtime">لا توجد بيئة تشغيل متصلة</string>
+    <string name="widget_sending">جارٍ الإرسال…</string>
+    <string name="widget_session_title">تطبيق مصغّر: %1$s</string>
+    <string name="widget_sent">تم الإرسال!</string>
+    <string name="widget_error">خطأ: %1$s</string>
+    <string name="widget_listening">جارٍ الاستماع…</string>
+    <string name="widget_processing">جارٍ المعالجة…</string>
+    <string name="widget_voice_error">خطأ في الصوت</string>
+    <string name="widget_no_speech">لم يُرصد أي كلام</string>
 
     <!-- Diagnostics sheet -->
-    <string name="diagnostics_title">Diagnostics</string>
-    <string name="diagnostics_section_app">App</string>
-    <string name="diagnostics_version">Version</string>
-    <string name="diagnostics_build_type">Build type</string>
-    <string name="diagnostics_section_connection">Connection</string>
-    <string name="diagnostics_status">Status</string>
-    <string name="diagnostics_runtime">Runtime</string>
-    <string name="diagnostics_section_memory">Memory</string>
-    <string name="diagnostics_total">Total</string>
-    <string name="diagnostics_free">Free</string>
-    <string name="diagnostics_max">Max</string>
-    <string name="diagnostics_section_storage">Storage</string>
-    <string name="diagnostics_available">Available</string>
-    <string name="diagnostics_copy_button">Copy Diagnostics</string>
+    <string name="diagnostics_title">التشخيص</string>
+    <string name="diagnostics_section_app">التطبيق</string>
+    <string name="diagnostics_version">الإصدار</string>
+    <string name="diagnostics_build_type">نوع البناء</string>
+    <string name="diagnostics_section_connection">الاتصال</string>
+    <string name="diagnostics_status">الحالة</string>
+    <string name="diagnostics_runtime">بيئة التشغيل</string>
+    <string name="diagnostics_section_memory">الذاكرة</string>
+    <string name="diagnostics_total">الإجمالي</string>
+    <string name="diagnostics_free">غير مستخدمة</string>
+    <string name="diagnostics_max">الحد الأقصى</string>
+    <string name="diagnostics_section_storage">التخزين</string>
+    <string name="diagnostics_available">متاح</string>
+    <string name="diagnostics_copy_button">نسخ التشخيص</string>
 
     <!-- Session detail -->
 
-    <string name="runtime_diagnostics_failed">Failed to diagnose the local runtime</string>
-    <string name="runtime_update_check_failed">Failed to check for OpenCode updates</string>
-    <string name="runtime_repair_start_failed">Cannot start local runtime repair</string>
-    <string name="runtime_update_start_failed">Cannot start OpenCode update</string>
-    <string name="runtime_rollback_start_failed">Cannot start OpenCode rollback</string>
-    <string name="runtime_delete_failed">Cannot delete the local runtime</string>
-    <string name="runtime_delete_timeout">Runtime deletion timed out</string>
+    <string name="runtime_diagnostics_failed">تعذّر تشخيص بيئة التشغيل المحلية</string>
+    <string name="runtime_update_check_failed">تعذّر التحقق من تحديثات OpenCode</string>
+    <string name="runtime_repair_start_failed">يتعذّر بدء إصلاح بيئة التشغيل المحلية</string>
+    <string name="runtime_update_start_failed">يتعذّر بدء تحديث OpenCode</string>
+    <string name="runtime_rollback_start_failed">يتعذّر بدء التراجع عن تحديث OpenCode</string>
+    <string name="runtime_delete_failed">يتعذّر حذف بيئة التشغيل المحلية</string>
+    <string name="runtime_delete_timeout">انتهت مهلة حذف بيئة التشغيل</string>
 
     <!-- Claude Code agent and agent selection -->
     <string name="agent_opencode_name">OpenCode</string>
@@ -1106,11 +1106,13 @@
     <string name="risk_warning_full_access_body">يسمح تفعيل هذا الخيار لواجهة CLI الرسمية بتغيير الملفات أو تنفيذ الأوامر دون سؤالك أولاً.\n\nPRoot بيئة توافق وليست عزلاً أمنياً كاملاً. احتفظ بنسخة احتياطية من الملفات المهمة، واستخدم فقط مستودعات وموجهات وخوادم MCP موثوقة.</string>
     <string name="risk_warning_all_files_title">السماح بالوصول إلى جميع ملفات الجهاز؟</string>
     <string name="risk_warning_all_files_body">يتيح منح هذا الإذن للوكلاء التي تشغّلها قراءة وتعديل أي ملف يمكن الوصول إليه على هذا الجهاز، وليس فقط تخزين AndCode الخاص.\n\nامنح هذا الإذن فقط إذا كنت تثق بالوكلاء والموجهات وخوادم MCP التي تستخدمها معها.</string>
+    <string name="risk_warning_mcp_server_title">إضافة خادم MCP تابع لجهة خارجية</string>
     <string name="risk_warning_mcp_server_body">يمكن لخوادم MCP قراءة الموجهات والملفات ومخرجات الأدوات، وبعضها يمكنه تنفيذ إجراءات نيابةً عنك. أضف فقط الخوادم التي تثق بها.</string>
+    <string name="risk_warning_schedule_title">التشغيل المجدول والتشغيل في الخلفية</string>
     <string name="risk_warning_schedule_body">تعمل المطالبات المجدولة دون إشراف، باستخدام وضع الأذونات المحدد للوكيل في ذلك الوقت. راجع المطالبة ووضع الأذونات قبل تفعيل جدولة متكررة.</string>
     <string name="risk_warning_understood">فهمت، متابعة</string>
-    <string name="chat_response_duration">%1$d min</string>
-    <string name="chat_response_duration_under_minute">&lt;1 min</string>
+    <string name="chat_response_duration">%1$d د</string>
+    <string name="chat_response_duration_under_minute">أقل من دقيقة</string>
     <string name="nav_schedules">الجداول</string>
     <string name="schedule_new">جدول جديد</string>
     <string name="schedule_automation_menu">التشغيل من تطبيقات أخرى</string>

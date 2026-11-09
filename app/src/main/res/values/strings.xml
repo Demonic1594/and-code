@@ -1087,7 +1087,9 @@
     <string name="risk_warning_full_access_body">Turning this on lets the official CLI change files or run commands without asking you first.\n\nPRoot is a compatibility runtime, not a full security sandbox. Back up anything important, and only use trusted repositories, prompts, and MCP servers.</string>
     <string name="risk_warning_all_files_title">Allow access to all device files?</string>
     <string name="risk_warning_all_files_body">Granting this lets agents you run read and modify any file the folder picker can reach on this device, not just AndCode\'s own storage.\n\nOnly grant this if you trust the agents, prompts, and MCP servers you use with them.</string>
+    <string name="risk_warning_mcp_server_title">Adding a third-party MCP server</string>
     <string name="risk_warning_mcp_server_body">MCP servers can read prompts, files, and tool output, and some can take actions on your behalf. Only add servers you trust.</string>
+    <string name="risk_warning_schedule_title">Scheduled and background runs</string>
     <string name="risk_warning_schedule_body">Scheduled prompts run unattended, using whatever permission mode the agent is set to at the time. Review the prompt and permission mode before enabling a recurring schedule.</string>
     <string name="risk_warning_understood">I understand, continue</string>
 
