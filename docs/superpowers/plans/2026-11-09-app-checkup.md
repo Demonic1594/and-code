@@ -26,7 +26,7 @@ each fix that changes what the user sees lists a device check in its PR.
   value set on the line before. No `GlobalScope`. The one `runBlocking` (Codex's JSON-RPC reader)
   and the `Thread.sleep` calls run on background threads, as their comments say.
 - Startup reads nothing heavy on the main thread: the pricing snapshot is read lazily, off it.
-- Every icon button has a content description.
+- Every standalone icon button has a content description (icons inside a labelled button rightly have none).
 - The lint warnings about WebView features (`RequiresFeature`), haptic constants and API 30/33
   constants (`InlinedApi`) are already guarded by feature or SDK checks.
 - The exported `ScheduleTriggerReceiver` refuses any intent without the user's token.
@@ -52,8 +52,9 @@ each fix that changes what the user sees lists a device check in its PR.
 
 ## Left on purpose
 
-- **Kotlin language version 2.0.** The compiler warns it is deprecated, but it is pinned because this
-  Android Gradle plugin's lint and R8 cannot read newer metadata (`app/build.gradle.kts`).
+- **Kotlin language and API version 2.0** (the compiler is 2.4). The compiler warns 2.0 is deprecated,
+  but it is pinned because this Android Gradle plugin's lint and R8 cannot read newer metadata
+  (`app/build.gradle.kts`).
 - **`window.statusBarColor`.** Deprecated, and Android 15 ignores it now that the app targets SDK
   35, but older Android versions still use it. Calling `enableEdgeToEdge()` everywhere would draw
   content under the bars on screens that do not pad for them yet; that needs a device to check.
