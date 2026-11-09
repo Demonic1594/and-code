@@ -847,7 +847,7 @@
     <string name="cd_navigate">Navigate</string>
     <string name="cd_cancel">Cancel</string>
     <string name="cd_accept">Accept</string>
-    <string name="cd_send">Send</string>
+    <string name="cd_send">Envoyer</string>
     <string name="cd_task_status">Task status</string>
     <string name="cd_disconnect">Disconnect</string>
     <string name="cd_connect">Connect</string>

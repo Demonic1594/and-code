@@ -44,11 +44,12 @@ each fix that changes what the user sees lists a device check in its PR.
 |---|---|---|
 | 1 | Six icons that point a direction (Send, Open in new, Chat, Receipt, Article, File) used the old, non-mirrored versions, so they point the wrong way in the Arabic UI. | The `AutoMirrored` versions (this PR). |
 | 2 | `LocalLifecycleOwner` from `compose-ui` is deprecated (4 screens); `ArArchiveInputStream.nextArEntry` is deprecated; two conditions were always true; one `Json` was built on every call. | Moved to `lifecycle-runtime-compose`, `nextEntry`, the dead conditions removed, one shared `Json` (this PR). |
-| 3 | The home screen widget's Send and microphone buttons had English labels in every language. | The app's existing translated strings (this PR). |
+| 3 | The home screen widget's Send and microphone buttons had English labels in every language. | The app's `cd_send` and `cd_microphone` strings, translated in the 6 languages where they were still English (this PR). |
 | 4 | detekt's top-level constant pattern rejected Kotlin's own convention (`SCREAMING_SNAKE_CASE`), so 172 constants sat in the baseline and every new one had to be added there by hand. | The pattern accepts it; the 172 entries are gone (this PR). |
-| 5 | Count strings were not plurals: "1 minutes ago", "Ran 1 command(s)", "1 chats deleted", and their Russian and Arabic forms were wrong for most numbers. | Plurals in all 8 locales (follow-up PR). |
-| 6 | 151 resources (mostly strings, each translated 8 times) are no longer used. | Removed (follow-up PR). |
-| 7 | Only Claude Code had a shortcut to its project instructions file; Codex and OpenCode, which read `AGENTS.md`, had none (`docs/FEATURES.md`, "Not done yet"). | The same shortcut for both (follow-up PR). |
+| 5 | Count strings were not plurals: "1 minutes ago", "Ran 1 command(s)", "1 chats deleted", and their Russian and Arabic forms were wrong for most numbers. | **Pending**: plurals in all 8 locales (follow-up PR). |
+| 6 | 151 resources (mostly strings, each translated 8 times) are no longer used. | **Pending**: removed (follow-up PR). |
+| 7 | Only Claude Code had a shortcut to its project instructions file; Codex and OpenCode, which read `AGENTS.md`, had none (`docs/FEATURES.md`, "Not done yet"). | **Pending**: the same shortcut for both (follow-up PR). |
+| 8 | Spanish, French, Brazilian Portuguese, Russian, Chinese and Arabic still show English for strings added since they were last translated: 184 to 230 per language match the English text, about 165 of them after names and terms that stay the same (GitHub, MCP, Claude Code). Japanese is up to date. | **Pending**: translated (follow-up PR). |
 
 ## Left on purpose
 
