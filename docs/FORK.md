@@ -66,8 +66,9 @@ The signed build needs four repository secrets; without all four only the debug 
 - `RELEASE_KEY_PASSWORD`: not checked up front; a wrong key password only fails later, in Gradle.
 
 The log never shows any part of a secret. Set them before the first run for a tag: the release
-notes are written once, when the release is created. Keep the keystore and its password backed up
-outside the repository: a signed install only accepts updates signed with the same key. Android does
+notes are written once, when the release is created. Back up the keystore, `RELEASE_KEYSTORE_PASSWORD`,
+`RELEASE_KEY_PASSWORD` and `RELEASE_KEY_ALIAS` outside the repository: a signed install only accepts
+updates signed with the same key. Android does
 not let a debug-signed install update to the signed one (or back), so moving between them means
 uninstalling first, which removes that install's data.
 
@@ -91,7 +92,9 @@ upstream has merged into its `main`; an open upstream PR waits until it lands th
 
 When resolving conflicts, keep the fork's version of `.release-version`, `versionCode` and
 `versionName` in `app/build.gradle.kts`, `ReleaseMetadataTest` and the fastlane changelogs: the
-fork numbers its own releases. After the merge, check that the three debug-variant files above are
+fork numbers its own releases. Check those files after every sync, not only when they conflict:
+where the fork has not touched one since the last sync, git takes upstream's version silently. After
+the merge, also check that the three debug-variant files above are
 still present and that `AndroidManifest.xml` declares `largeHeap` exactly once.
 
 The fork maintains only `README.md` and `README.ja.md`. The other translations come from upstream
