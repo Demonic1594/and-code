@@ -27,7 +27,7 @@ This repository is a fork of [yuga-hashimoto/and-code](https://github.com/yuga-h
 - **Changes review, Inbox and Rewind** — review what an answer changed with line comments, handle approvals and finished chats in one list, and rewind a chat to any of your messages, files included
 - **Artifacts** — preview the pages, drawings, documents and pictures the agent made, with a desktop layout and zoom
 - **A new look** — one design language across the app, Material You colours, JetBrains Mono for code, haptics, and a Run settings sheet
-- **Chat quality of life** — search inside messages, find in chat, pinned chats, saved prompts with arguments, a real delete and an Archive, full Markdown in answers (nested lists, task boxes, tables, footnotes), share as Markdown, paste images, and live-run notifications you can reply from
+- **Chat quality of life** — search inside messages, find in chat, pinned chats, saved prompts with arguments, a real delete and an Archive, full Markdown in answers and your own messages (nested lists, task boxes, tables, footnotes), share as Markdown, paste images, and live-run notifications you can reply from
 
 The debug build installs as **AndCode LH** beside an upstream install and has its own local runtime port, so the two never collide. This fork has no releases of its own yet: build it (see [Building from Source](#building-from-source)), or add the `build-apk` label to a pull request, or run the **PR APK Build** workflow from the Actions tab, to get an installable APK.
 
@@ -141,7 +141,7 @@ On-device agents run inside a Linux environment via PRoot. OpenCode, Claude Code
 - **Rewind** — Put an OpenCode chat and the files the agent changed back to how they were at any of your messages (not available for the other agents)
 - **Artifacts** — Full-screen preview of what the agent made, and a list of the local servers it started
 - **Stays live** — After you have been away for a few seconds, the chat reconnects as soon as you come back and catches up on anything it missed, so you no longer need to reopen the session to see a reply
-- **Markdown in answers** — Answers render CommonMark with GitHub tables, task lists, strikethrough and footnotes: nested lists, quotes holding lists and code, aligned table columns, reference links. Your own messages show exactly as typed
+- **Markdown in messages** — Answers and your own messages render CommonMark with GitHub tables, task lists, strikethrough and footnotes: nested lists, quotes holding lists and code, aligned table columns, reference links
 - **Search and organise** — Search inside every chat's messages, find in a chat, pin chats, archive and really delete them
 - **Saved prompts** — `/name` commands with `$ARGUMENTS` and `$1`, `$2` placeholders
 - **Live run notification** — One ongoing notification with the current step and **Stop**, and **Reply** from the shade

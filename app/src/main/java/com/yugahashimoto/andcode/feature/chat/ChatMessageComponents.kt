@@ -852,8 +852,8 @@ private fun ChatImageThumbnail(
 /**
  * A [LinkAnnotation.Url] Compose's own text-link handling can dispatch without a competing
  * `pointerInput`, so it does not swallow gestures a long-press ancestor (e.g. the message bubble's
- * copy/edit action sheet) needs to see: a `pointerInput` link handler consumed the press, and the
- * sheet never opened on a message holding a link.
+ * copy/edit action sheet) needs to see: a `pointerInput` tap handler on the text consumed the press,
+ * and the sheet never opened from the message text.
  */
 private fun linkAnnotation(
     url: String,

@@ -24,5 +24,7 @@ class ChatUserMarkdownInstrumentedTest {
         composeRule.onNodeWithText("Please check the build:").assertExists()
         composeRule.onNodeWithText("run npm test").assertExists()
         composeRule.onNodeWithText("npm run lint").assertExists()
+        // The markers are read, not shown.
+        composeRule.onNodeWithText("**", substring = true).assertDoesNotExist()
     }
 }
