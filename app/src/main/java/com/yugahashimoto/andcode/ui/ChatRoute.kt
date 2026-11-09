@@ -144,6 +144,8 @@ internal fun ChatRoute(
     ) {
         ChatHomeScreen(
             repositoryUrl = repositoryUrl,
+            // The open chat always belongs to the selected runtime: opening one switches to it.
+            onRenameChat = { title -> chatState.sessionId?.let { id -> actions.onRenameChat(id, selectedRuntime?.id, title) } },
             findRequest = waiting.findRequest,
             onFindRequestConsumed = waiting.clearFindRequest,
             state = chatState,
@@ -374,6 +376,8 @@ internal class ChatRouteActions(
     val onOpenDrawer: () -> Unit,
     /** Outlives the route, so an image being imported is not dropped when the chat is left. */
     val importScope: CoroutineScope,
+    /** Session id, the runtime that owns it, and the new name. */
+    val onRenameChat: (String, String?, String) -> Unit = { _, _, _ -> },
 )
 
 private object ChatRouteTiming {

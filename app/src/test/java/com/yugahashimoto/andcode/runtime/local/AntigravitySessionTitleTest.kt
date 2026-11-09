@@ -45,6 +45,23 @@ class AntigravitySessionTitleTest {
             assertEquals("Fix the login crash", target.listSessions(null).single().title)
         }
 
+    /** The summarised name arrives after the send; a name the user gave meanwhile must win. */
+    @Test
+    fun `a background title replaces only the name it expected`() =
+        runBlocking {
+            val runtime = AntigravityRuntime(folder.root, { null })
+            val target = AntigravityTarget(runtime)
+            val session = target.createSession(null, "/workspace")
+            runtime.setSessionTitle(session.id, "Fix the login…")
+
+            target.renameSession(session.id, "Login bug")
+            runtime.replaceSessionTitle(session.id, expected = "Fix the login…", title = "Fix login crash on Android 14")
+            assertEquals("Login bug", target.listSessions(null).single().title)
+
+            runtime.replaceSessionTitle(session.id, expected = "Login bug", title = "Login crash")
+            assertEquals("Login crash", target.listSessions(null).single().title)
+        }
+
     /** A title survives a restart, so a reopened chat is not renamed back to the tool. */
     @Test
     fun `a title is persisted across runtime instances`() {

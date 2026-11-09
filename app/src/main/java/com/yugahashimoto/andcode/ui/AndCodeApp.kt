@@ -660,6 +660,18 @@ fun AndCodeApp(
 
     // Every runtime's chats; see drawerRecentSessions.
     val allSessions by app.catalogRepository.allSessions.collectAsState()
+
+    // One path for both places a chat is renamed (the drawer and the chat's ⋮ menu). The drawer
+    // reloads through the lifecycle's change callback; the open chat's header is told here, since an
+    // on-device runtime sends no event for a rename. A failure is said by the reports collector.
+    val renameChat: (String, String?, String) -> Unit = { sessionId, runtimeId, title ->
+        val owner = runtimeId ?: allSessions.firstOrNull { it.session.id == sessionId }?.runtimeId
+        voiceScope.launch {
+            if (sessionId in app.chatLifecycle.rename(sessionId, owner, title).succeeded) {
+                chatViewModel.showRenamedTitle(sessionId, title.trim())
+            }
+        }
+    }
     val pendingDeletion by app.chatLifecycle.pendingDeletion.collectAsState()
     val recentSessions =
         remember(allSessions, activityState.activeSessionIds, activityState.completedSessionIds, pendingDeletion) {
@@ -849,6 +861,7 @@ fun AndCodeApp(
                             onSetPinned = { sessionIds, pinned ->
                                 sessionIds.forEach { app.preferences.setSessionPinned(it, pinned) }
                             },
+                            onRenameChat = renameChat,
                             collapsedSections = collapsedSections,
                             onToggleSection = { section -> collapsedSections = toggledSection(collapsedSections, section) },
                         )
@@ -1009,6 +1022,7 @@ fun AndCodeApp(
                                         onMic = requestVoiceInput,
                                         onOpenDrawer = { openDrawer() },
                                         importScope = voiceScope,
+                                        onRenameChat = renameChat,
                                     ),
                             )
                         }

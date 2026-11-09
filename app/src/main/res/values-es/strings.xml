@@ -1589,6 +1589,9 @@
     <string name="chat_delete_failed_snackbar">No eliminados (%1$d): %2$s</string>
     <string name="chat_archive_failed_snackbar">No archivados (%1$d): %2$s</string>
     <string name="chat_restore_failed_snackbar">No restaurados (%1$d): %2$s</string>
+    <string name="chat_rename_failed_snackbar">No se renombró: %1$s</string>
+    <string name="chat_rename_title">Renombrar chat</string>
+    <string name="chat_rename_label">Nombre</string>
     <string name="chat_action_reason_unsupported">esta versión del agente o del servidor no lo permite</string>
     <string name="chat_action_reason_not_found">no se encontró el chat en su agente</string>
     <string name="chat_find_open">Buscar en el chat</string>

@@ -249,6 +249,8 @@ fun ChatHomeScreen(
     queueActions: QueuedPromptActions = QueuedPromptActions(),
     /** Allows a call and every later one from the same MCP server; offered on an MCP tool's approval. */
     onAllowMcpServer: (String) -> Unit = {},
+    /** Gives the open chat a new name, from the ⋮ menu. */
+    onRenameChat: (String) -> Unit = {},
 ) {
     // Saved state, not plain remember: the Activity is recreated on rotation and other
     // configuration changes, and a remembered field would come back empty. The TextFieldValue
@@ -298,6 +300,7 @@ fun ChatHomeScreen(
     var showSlashCommands by remember { mutableStateOf(false) }
     var showSidePanel by remember { mutableStateOf(false) }
     var showChatMenu by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
     // Scanned only while the menu or the sheet is open, not on every streamed token.
     val supervised = LocalSupervisedProcesses.current
     val artifacts =
@@ -595,6 +598,13 @@ fun ChatHomeScreen(
                                         showChatMenu = false
                                         showArtifacts = true
                                     },
+                                    onRename =
+                                        state.sessionId?.let {
+                                            {
+                                                showChatMenu = false
+                                                showRenameDialog = true
+                                            }
+                                        },
                                     onShare = {
                                         showChatMenu = false
                                         val title = state.sessionTitle.ifBlank { context.getString(R.string.chat_home_title) }
@@ -1110,6 +1120,17 @@ fun ChatHomeScreen(
 
     state.artifactPreview?.let { preview ->
         ArtifactPreviewDialog(state = preview, onDismiss = onDismissArtifact)
+    }
+
+    if (showRenameDialog) {
+        RenameChatDialog(
+            currentTitle = state.sessionTitle,
+            onDismiss = { showRenameDialog = false },
+            onRename = { title ->
+                showRenameDialog = false
+                onRenameChat(title)
+            },
+        )
     }
 
     restoreTarget?.let { target ->

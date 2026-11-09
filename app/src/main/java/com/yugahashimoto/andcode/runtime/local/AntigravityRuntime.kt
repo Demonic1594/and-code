@@ -447,6 +447,21 @@ class AntigravityRuntime(
     }
 
     /**
+     * Sets [title] only while the chat's title is still [expected] (null: never named), so a name
+     * worked out in the background never replaces one the user gave in the meantime.
+     */
+    fun replaceSessionTitle(
+        sessionId: String,
+        expected: String?,
+        title: String,
+    ) {
+        val record = records[sessionId] ?: return
+        if (record.title != expected) return
+        records[sessionId] = record.copy(title = title, updatedAt = System.currentTimeMillis())
+        persistRecords()
+    }
+
+    /**
      * Asks the model for a short name for a new chat, or null if it could not be produced.
      *
      * Mirrors [ClaudeCodeRuntime.summarizeTitle], with two differences the guest CLI forces. It runs

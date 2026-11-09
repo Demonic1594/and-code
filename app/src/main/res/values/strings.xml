@@ -1614,6 +1614,9 @@
     <string name="chat_delete_failed_snackbar">Not deleted (%1$d): %2$s</string>
     <string name="chat_archive_failed_snackbar">Not archived (%1$d): %2$s</string>
     <string name="chat_restore_failed_snackbar">Not restored (%1$d): %2$s</string>
+    <string name="chat_rename_failed_snackbar">Not renamed: %1$s</string>
+    <string name="chat_rename_title">Rename chat</string>
+    <string name="chat_rename_label">Name</string>
     <string name="chat_action_reason_unsupported">this agent or server version can\'t do that</string>
     <string name="chat_action_reason_not_found">the chat wasn\'t found on its agent</string>
     <string name="chat_find_open">Find in chat</string>

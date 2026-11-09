@@ -35,7 +35,7 @@ data class ChatActionResult(
 )
 
 /** Which action a [ChatActionResult] reports, for the message shown afterwards. */
-enum class ChatAction { DELETE, ARCHIVE, RESTORE }
+enum class ChatAction { DELETE, ARCHIVE, RESTORE, RENAME }
 
 data class ChatActionReport(
     val action: ChatAction,
@@ -43,7 +43,7 @@ data class ChatActionReport(
 )
 
 /**
- * The one place chats are deleted, archived and restored.
+ * The one place chats are deleted, archived, restored and renamed.
  *
  * Each call goes to the runtime that owns the chat (from [ownerOf], or every runtime when that is
  * unknown), reports per chat whether it worked, and on a delete also clears what the app itself
@@ -130,6 +130,22 @@ class ChatLifecycleRepository(
         val result = runOnOwners(chats) { target, id -> target.unarchiveSession(id) }
         result.succeeded.forEach(onRestored)
         return report(ChatAction.RESTORE, result)
+    }
+
+    /**
+     * Gives a chat the name the user typed, on the runtime that owns it ([runtimeId], or a lookup via
+     * [ownerOf] when null). A blank name changes nothing: no runtime takes an empty title back as
+     * "name it for me", so it is refused here rather than saved as an empty row in the drawer.
+     */
+    suspend fun rename(
+        sessionId: String,
+        runtimeId: String?,
+        title: String,
+    ): ChatActionResult {
+        val name = title.trim()
+        if (name.isEmpty()) return ChatActionResult()
+        val result = runOnOwners(mapOf(sessionId to runtimeId)) { target, id -> target.renameSession(id, name) }
+        return report(ChatAction.RENAME, result)
     }
 
     /** Every runtime's archived chats, newest first. A runtime that cannot be reached adds none. */
