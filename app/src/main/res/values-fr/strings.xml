@@ -1912,4 +1912,26 @@
     <string name="command_rules_how_block">Par la règle de blocage « %1$s »</string>
     <string name="command_rules_how_block_unreadable">Les règles de blocage n’ont pas pu être lues</string>
     <string name="command_rules_how_timeout">Pas de réponse à temps</string>
+    <string name="context_breakdown_title">Fenêtre de contexte</string>
+    <string name="context_breakdown_total">%1$s jetons sur %2$s (%3$d %%)</string>
+    <string name="context_breakdown_auto_compact">Claude Code compacte la conversation de lui-même à %1$s jetons.</string>
+    <string name="context_breakdown_loading">Interrogation de Claude Code…</string>
+    <string name="context_breakdown_unavailable">Claude Code ne tourne pas dans ce chat pour le moment. Envoyez un message, puis rouvrez ceci.</string>
+    <string name="context_breakdown_mcp_title">Serveurs MCP</string>
+    <string name="context_breakdown_mcp_tools">Outils : %1$d</string>
+    <string name="context_breakdown_manage_mcp">Gérer les serveurs MCP</string>
+    <string name="context_breakdown_memory_title">Fichiers de mémoire</string>
+    <string name="context_breakdown_open">Afficher ce qui remplit la fenêtre de contexte</string>
+    <string name="context_category_system_prompt">Invite système</string>
+    <string name="context_category_system_tools">Outils intégrés</string>
+    <string name="context_category_system_tools_deferred">Outils intégrés, chargés à l’usage</string>
+    <string name="context_category_mcp_tools">Outils MCP</string>
+    <string name="context_category_mcp_tools_deferred">Outils MCP, chargés à l’usage</string>
+    <string name="context_category_mcp_instructions">Instructions des serveurs MCP</string>
+    <string name="context_category_custom_agents">Agents personnalisés</string>
+    <string name="context_category_memory_files">Fichiers de mémoire</string>
+    <string name="context_category_skills">Compétences</string>
+    <string name="context_category_messages">Messages</string>
+    <string name="context_category_compact_buffer">Réservé au compactage</string>
+    <string name="context_category_free_space">Espace libre</string>
 </resources>

@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.runtime.local
 
+import com.yugahashimoto.andcode.core.api.ContextBreakdown
 import com.yugahashimoto.andcode.core.api.McpServer
 import com.yugahashimoto.andcode.core.api.OpenCodeAgent
 import com.yugahashimoto.andcode.core.api.OpenCodeCommand
@@ -90,6 +91,7 @@ class ClaudeCodeTarget(
                 resume = true,
                 diffCapable = true,
                 fileEditing = true,
+                contextBreakdown = true,
             )
         }
 
@@ -410,6 +412,9 @@ class ClaudeCodeTarget(
             ).getOrThrow()
         }
     }
+
+    override suspend fun contextBreakdown(sessionId: String): ContextBreakdown? =
+        withContext(Dispatchers.IO) { runtime.contextBreakdown(sessionId) }
 
     override suspend fun abortSession(sessionId: String): Boolean {
         withContext(Dispatchers.IO) { runtime.interrupt(sessionId) }

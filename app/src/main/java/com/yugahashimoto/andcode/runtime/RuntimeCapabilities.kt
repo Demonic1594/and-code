@@ -95,4 +95,10 @@ data class RuntimeCapabilities(
      * viewer stays read-only rather than offering an edit that could only fail.
      */
     val fileEditing: Boolean = false,
+    /**
+     * True when [com.yugahashimoto.andcode.runtime.OpenCodeBackend.contextBreakdown] can say how the
+     * context window is split, so tapping the context meter opens that split. Only Claude Code
+     * reports one; the other agents give a total, which the meter already shows.
+     */
+    val contextBreakdown: Boolean = false,
 )

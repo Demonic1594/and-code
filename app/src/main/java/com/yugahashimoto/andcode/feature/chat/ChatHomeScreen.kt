@@ -247,7 +247,10 @@ fun ChatHomeScreen(
     onFindRequestConsumed: () -> Unit = {},
     /** Send now, edit and remove for the prompts held for the running turn ([ChatUiState.queuedPrompts]). */
     queueActions: QueuedPromptActions = QueuedPromptActions(),
+    /** Open, close and "manage MCP servers" for the context window sheet the meter opens. */
+    contextActions: ContextBreakdownActions = ContextBreakdownActions(),
 ) {
+    ContextBreakdownSheet(state.contextBreakdown, contextActions)
     // Saved state, not plain remember: the Activity is recreated on rotation and other
     // configuration changes, and a remembered field would come back empty. The TextFieldValue
     // saver also keeps the cursor and selection, not just the string (issue #355).
@@ -942,6 +945,7 @@ fun ChatHomeScreen(
                                 ?.models?.get(selectedModelId)
                                 ?.limit?.context ?: 0L,
                         tokensPerSecond = state.connectionQuality?.tokensPerSecond ?: 0.0,
+                        onOpenContextBreakdown = contextActions.onOpen.takeIf { state.contextBreakdownAvailable },
                         showSlashCommands = showSlashCommands,
                         slashCommands = state.slashCommands,
                         slashSkills = state.slashSkills,

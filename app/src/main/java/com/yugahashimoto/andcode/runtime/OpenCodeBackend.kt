@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.runtime
 
 import com.yugahashimoto.andcode.core.api.ConfiguredProvider
+import com.yugahashimoto.andcode.core.api.ContextBreakdown
 import com.yugahashimoto.andcode.core.api.McpAuthRemoval
 import com.yugahashimoto.andcode.core.api.McpAuthStart
 import com.yugahashimoto.andcode.core.api.McpAuthStatus
@@ -242,6 +243,12 @@ interface OpenCodeBackend {
      * a clear), so the Archive screen can offer "delete forever" alone.
      */
     suspend fun unarchiveSession(sessionId: String): OpenCodeSession = unsupported("session unarchive")
+
+    /**
+     * How the context window of [sessionId] is split, when the agent reports it (see
+     * [RuntimeCapabilities.contextBreakdown]); null otherwise, or when it cannot be asked right now.
+     */
+    suspend fun contextBreakdown(sessionId: String): ContextBreakdown? = null
 
     suspend fun mcpServers(): List<McpServer> = unsupported("MCP servers")
 

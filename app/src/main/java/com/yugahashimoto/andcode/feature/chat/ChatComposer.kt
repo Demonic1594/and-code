@@ -146,6 +146,8 @@ internal fun ChatComposer(
     contextTokensUsed: Long,
     contextLimit: Long,
     tokensPerSecond: Double,
+    /** Opens the context window sheet from the meter; null when the agent does not report what fills it. */
+    onOpenContextBreakdown: (() -> Unit)? = null,
     showSlashCommands: Boolean,
     slashCommands: List<OpenCodeCommand>,
     slashSkills: List<OpenCodeSkill>,
@@ -623,6 +625,7 @@ internal fun ChatComposer(
                 CompactContextMeter(
                     tokensUsed = contextTokensUsed,
                     contextLimit = contextLimit,
+                    onClick = onOpenContextBreakdown,
                 )
             }
             if (isRunning && tokensPerSecond >= 0.05) {

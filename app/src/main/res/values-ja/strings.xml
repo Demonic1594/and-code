@@ -1906,4 +1906,26 @@
     <string name="command_rules_how_block">ブロックするルール「%1$s」による</string>
     <string name="command_rules_how_block_unreadable">ブロックするルールを読み込めませんでした</string>
     <string name="command_rules_how_timeout">時間内に回答がありませんでした</string>
+    <string name="context_breakdown_title">コンテキストウィンドウ</string>
+    <string name="context_breakdown_total">%2$s トークン中 %1$s（%3$d%%）</string>
+    <string name="context_breakdown_auto_compact">Claude Code は %1$s トークンに達すると自動で会話を圧縮します。</string>
+    <string name="context_breakdown_loading">Claude Code に問い合わせ中…</string>
+    <string name="context_breakdown_unavailable">このチャットでは今 Claude Code が動いていません。メッセージを送ってから、もう一度開いてください。</string>
+    <string name="context_breakdown_mcp_title">MCP サーバー</string>
+    <string name="context_breakdown_mcp_tools">ツール: %1$d</string>
+    <string name="context_breakdown_manage_mcp">MCP サーバーを管理</string>
+    <string name="context_breakdown_memory_title">メモリファイル</string>
+    <string name="context_breakdown_open">コンテキストウィンドウの内訳を表示</string>
+    <string name="context_category_system_prompt">システムプロンプト</string>
+    <string name="context_category_system_tools">組み込みツール</string>
+    <string name="context_category_system_tools_deferred">組み込みツール（使用時に読み込み）</string>
+    <string name="context_category_mcp_tools">MCP ツール</string>
+    <string name="context_category_mcp_tools_deferred">MCP ツール（使用時に読み込み）</string>
+    <string name="context_category_mcp_instructions">MCP サーバーの指示</string>
+    <string name="context_category_custom_agents">カスタムエージェント</string>
+    <string name="context_category_memory_files">メモリファイル</string>
+    <string name="context_category_skills">スキル</string>
+    <string name="context_category_messages">メッセージ</string>
+    <string name="context_category_compact_buffer">圧縮用に確保</string>
+    <string name="context_category_free_space">空き</string>
 </resources>
