@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.runtime.local
 
+import com.yugahashimoto.andcode.core.api.ContextBreakdown
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
 import com.yugahashimoto.andcode.core.api.OpenCodeMessageInfo
@@ -66,6 +67,7 @@ class ClaudeCodeRuntime(
     private val messageStore = ClaudeMessageStore(File(runtimeDirectory, "claude-messages.json"), json)
     internal val permissionBridge =
         ClaudePermissionBridge(File(runtimeDirectory, ClaudePermissionBridge.HOST_DIR_NAME))
+    private val controlRequests = ClaudeControlRequests(json)
     private var bridgeWatchJob: Job? = null
 
     /**
@@ -488,6 +490,27 @@ class ClaudeCodeRuntime(
         synchronized(this) { if (sessions[sessionId] === session) stop(sessionId) }
     }
 
+    /**
+     * How the context window of [sessionId]'s running CLI is split, asked with Claude Code's
+     * `get_context_usage` control request, which it answers between turns as well as during one.
+     * Null when no process runs for the chat (the next prompt starts one) or no answer comes in time.
+     */
+    suspend fun contextBreakdown(sessionId: String): ContextBreakdown? {
+        val session = synchronized(this) { sessions[sessionId] }?.takeIf { it.process.isAlive } ?: return null
+        val answer =
+            controlRequests.ask(ClaudeControlRequests.CONTEXT_USAGE, CONTROL_TIMEOUT_MILLIS) { line ->
+                synchronized(this) {
+                    runCatching {
+                        session.process.outputStream.apply {
+                            write((line + "\n").toByteArray())
+                            flush()
+                        }
+                    }.isSuccess
+                }
+            }
+        return answer?.let(ClaudeControlRequests::contextBreakdown)
+    }
+
     private fun interruptRequest(): JsonObject =
         JsonObject(
             mapOf(
@@ -785,6 +808,8 @@ class ClaudeCodeRuntime(
         requestedModel: String?,
     ) {
         if (line.isBlank()) return
+        // Answers to the app's own control requests are not part of the turn.
+        if (controlRequests.answer(line)) return
         val parsed = parser.parse(line)
         parsed.claudeSessionId?.let { claudeSessionId ->
             synchronized(this) {
@@ -1051,6 +1076,7 @@ class ClaudeCodeRuntime(
         private const val TITLE_SYSTEM_PROMPT = "You name chats. Answer with the title only."
         private const val INTERRUPT_GRACE_MILLIS = 3_000L
         private const val INTERRUPT_POLL_MILLIS = 50L
+        private const val CONTROL_TIMEOUT_MILLIS = 10_000L
         const val TITLE_MAX_LENGTH = 60
         const val TITLE_TIMEOUT_SECONDS = 45L
         const val WORKSPACE_COMMAND_TIMEOUT_SECONDS = 60L

@@ -19,6 +19,7 @@ import com.yugahashimoto.andcode.feature.activity.ActivityUiState
 import com.yugahashimoto.andcode.feature.chat.ChatHomeScreen
 import com.yugahashimoto.andcode.feature.chat.ChatUiState
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
+import com.yugahashimoto.andcode.feature.chat.ContextBreakdownActions
 import com.yugahashimoto.andcode.feature.chat.FileMentionsUi
 import com.yugahashimoto.andcode.feature.chat.LocalFileMentions
 import com.yugahashimoto.andcode.feature.chat.LocalSupervisedProcesses
@@ -36,6 +37,7 @@ import com.yugahashimoto.andcode.ui.lock.LocalSendGate
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ANDROID_SETUP
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_REMOTE_CONNECTION
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_AGENT_CODEX
+import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_MCP_CLAUDE
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_PROVIDERS
 import com.yugahashimoto.andcode.ui.navigation.guestBrowserRoute
 import kotlinx.coroutines.CancellationException
@@ -274,6 +276,15 @@ internal fun ChatRoute(
                     onSendNow = chatViewModel::sendQueuedPromptNow,
                     onEdit = chatViewModel::editQueuedPrompt,
                     onRemove = chatViewModel::removeQueuedPrompt,
+                ),
+            contextActions =
+                ContextBreakdownActions(
+                    onOpen = chatViewModel::showContextBreakdown,
+                    onDismiss = chatViewModel::hideContextBreakdown,
+                    onManageMcp = {
+                        chatViewModel.hideContextBreakdown()
+                        navController.navigate(ROUTE_SETTINGS_MCP_CLAUDE)
+                    },
                 ),
             onPermission = chatViewModel::respondToPermission,
             onAllowMcpServer = chatViewModel::allowMcpServer,

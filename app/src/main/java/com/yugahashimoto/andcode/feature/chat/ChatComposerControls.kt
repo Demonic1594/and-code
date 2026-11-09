@@ -22,6 +22,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -31,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -177,6 +179,8 @@ internal fun CompactContextButton(
 internal fun CompactContextMeter(
     tokensUsed: Long,
     contextLimit: Long,
+    /** Opens what fills the window; null when the agent does not report that, and the meter is not tappable. */
+    onClick: (() -> Unit)? = null,
 ) {
     // Session token totals can exceed the model window; the meter represents window usage.
     val displayedTokens = tokensUsed.coerceIn(0L, contextLimit)
@@ -187,10 +191,23 @@ internal fun CompactContextMeter(
             fraction >= 0.7f -> MaterialTheme.colorScheme.tertiary
             else -> MaterialTheme.colorScheme.primary
         }
+    val openLabel = stringResource(R.string.context_breakdown_open)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.hairline),
-        modifier = Modifier.padding(horizontal = Spacing.hairline),
+        modifier =
+            Modifier
+                .then(
+                    if (onClick != null) {
+                        Modifier
+                            .minimumInteractiveComponentSize()
+                            .clip(RoundedCornerShape(Spacing.xs))
+                            .clickable(onClickLabel = openLabel, role = Role.Button, onClick = onClick)
+                            .padding(vertical = Spacing.xs)
+                    } else {
+                        Modifier
+                    },
+                ).padding(horizontal = Spacing.hairline),
     ) {
         LinearProgressIndicator(
             progress = { fraction },
@@ -216,7 +233,7 @@ internal fun CompactContextMeter(
     }
 }
 
-private fun formatTokenCount(tokens: Long): String =
+internal fun formatTokenCount(tokens: Long): String =
     when {
         tokens >= 1_000_000 -> "%.1fM".format(tokens / 1_000_000.0)
         tokens >= 1_000 -> "%.0fk".format(tokens / 1_000.0)
