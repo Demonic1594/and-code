@@ -141,7 +141,7 @@ On-device agents run inside a Linux environment via PRoot. OpenCode, Claude Code
 - **Changes card and review** — See which files an answer edited and leave line comments that go back to the agent as one message
 - **Inbox** — Approvals, running chats and unread chats from every agent in one list, with Allow / Reject, Stop and Reply
 - **Rewind** — Put an OpenCode chat and the files the agent changed back to how they were at any of your messages
-- **Restore files to a message** — For on-device agents without their own checkpoints (Claude Code, Codex, Antigravity, OpenCode on the new API): put the project's files back to how they were before any of your messages, from snapshots the app keeps outside the folder
+- **Restore files to a message** — For on-device agents without their own checkpoints (Claude Code, Codex, Antigravity, OpenCode on the new API): put the project's files back to how they were before any of your messages, from snapshots the app keeps outside the folder (dependency and build folders, gitignored files and nested Git repositories are not snapshotted and stay as they are)
 - **Artifacts** — Full-screen preview of what the agent made, and a list of the local servers it started
 - **Servers that stay up** — `andcode-run` keeps the dev servers agents start alive after the turn, restarts a crash, and lists them under Settings → Processes. A server started in the terminal can be shared by link through a Cloudflare quick tunnel
 - **Approvals** — A risk chip on each approval, for every agent that asks. For Claude Code: always-allow rules kept per project (or for every tool of one MCP server), blocked commands refused in every mode, reading, web or editing allowed by kind, and a history of decisions

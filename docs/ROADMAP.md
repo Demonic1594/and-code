@@ -17,9 +17,10 @@ Update this file in the same PR that starts, finishes or drops an item.
    copy button, which came in with the #119 sync.
 
 2. **Sync upstream once its open PRs land** (Planned, waiting on upstream).
-   Upstream #421 (inline live preview for local dev servers) and #422 (handing the Guest Browser to
-   the user and back) overlap the fork's Artifacts server list and agent-control indicator. Sync
-   them through the usual merge once upstream merges them, not before.
+   Upstream #422 (handing the Guest Browser to the user and back) also carries #421's inline live
+   preview for local dev servers; #421 itself was closed into it. Both overlap the fork's Artifacts
+   server list and agent-control indicator. Sync through the usual merge once upstream merges #422,
+   not before.
 
 ## Before the next release
 
