@@ -1895,7 +1895,7 @@
     <string name="chat_activity_model_switched_title">Respondendo com %1$s</string>
     <string name="chat_activity_model_switched_body">%1$s não conseguiu responder, então o Claude Code passou para o modelo reserva neste turno.</string>
     <string name="queued_prompts_title">Esperando este turno terminar (%1$d)</string>
-    <string name="queued_prompt_attachments">%1$d anexos</string>
+    <string name="queued_prompt_attachments">Anexos: %1$d</string>
     <string name="queued_prompt_send_now">Enviar agora (interrompe o turno atual)</string>
     <string name="queued_prompt_edit">Editar</string>
     <string name="queued_prompt_remove">Remover</string>

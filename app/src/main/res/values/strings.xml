@@ -1912,7 +1912,7 @@
     <string name="chat_activity_model_switched_title">Answering with %1$s</string>
     <string name="chat_activity_model_switched_body">%1$s could not answer, so Claude Code switched to its fallback model for this turn.</string>
     <string name="queued_prompts_title">Waiting for this turn to end (%1$d)</string>
-    <string name="queued_prompt_attachments">%1$d attachments</string>
+    <string name="queued_prompt_attachments">Attachments: %1$d</string>
     <string name="queued_prompt_send_now">Send now (stops the current turn)</string>
     <string name="queued_prompt_edit">Edit</string>
     <string name="queued_prompt_remove">Remove</string>
