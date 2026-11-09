@@ -27,12 +27,12 @@ This repository is a fork of [yuga-hashimoto/and-code](https://github.com/yuga-h
 - **Usage page** — tokens and cost across every chat, by day, model and agent
 - **Changes review, Inbox and Rewind** — review what an answer changed with line comments, handle approvals and finished chats in one list, and rewind a chat to any of your messages, files included
 - **Artifacts** — preview the pages, drawings, documents and pictures the agent made, with a desktop layout and zoom
-- **Approvals you can tune** — the risk of each call on its card, always-allow rules per project or for a whole MCP server, blocked commands, allowing reading, web or editing by kind, and a history of what was allowed or refused
+- **Approvals you can tune** — the risk of each call on its card for every agent, and for Claude Code always-allow rules per project or for a whole MCP server, blocked commands, allowing reading, web or editing by kind, and a history of what was allowed or refused
 - **Claude Code controls** — checks it runs after each edit or before it ends a turn, a switch keeping its file edits in the project, Ultracode, and a view of what fills its context window
-- **Servers that stay up** — dev servers the agent starts keep running after the turn, with a Processes screen, and can be shared by link
+- **Servers that stay up** — dev servers the agent starts keep running after the turn, with a Processes screen; servers started in the terminal can be shared by link
 - **A new look** — one design language across the app, Material You colours, JetBrains Mono for code, haptics, and a Run settings sheet
 - **Privacy and automation** — an app lock behind the phone's fingerprint, face or screen lock, and schedules that Tasker or other apps can run
-- **Chat quality of life** — search inside messages, find in chat, pinned and renamed chats, `@` file mentions, prompts queued while a reply runs, saved prompts with arguments, restore files to any message, a real delete and an Archive, full Markdown in answers and your own messages (nested lists, task boxes, tables, footnotes), share as Markdown, paste images, and live-run notifications you can reply from
+- **Chat quality of life** — search inside messages, find in chat, pinned and renamed chats, `@` file mentions, prompts held while a reply runs (with Send behavior set to Queue), saved prompts with arguments, restore files to any message, a real delete and an Archive, full Markdown in answers and your own messages (nested lists, task boxes, tables, footnotes), share as Markdown, paste images, and live-run notifications you can reply from
 
 The fork's build installs as **AndCode LH** (`com.yugahashimoto.andcode.heap`) beside an upstream install, with its own data and local runtime port, so the two never collide. Download it from this repository's [Releases](https://github.com/Demonic1594/and-code/releases/latest), build it yourself (see [Building from Source](#building-from-source)), or get one for a pull request with the `build-apk` label or the **PR APK Build** workflow. [docs/FORK.md](docs/FORK.md) explains the builds and how releases are made.
 
@@ -141,15 +141,15 @@ On-device agents run inside a Linux environment via PRoot. OpenCode, Claude Code
 - **Changes card and review** — See which files an answer edited and leave line comments that go back to the agent as one message
 - **Inbox** — Approvals, running chats and unread chats from every agent in one list, with Allow / Reject, Stop and Reply
 - **Rewind** — Put an OpenCode chat and the files the agent changed back to how they were at any of your messages
-- **Restore files to a message** — For Claude Code, Codex and Antigravity: put the project's files back to how they were before any of your messages, from snapshots the app keeps outside the folder
+- **Restore files to a message** — For on-device agents without their own checkpoints (Claude Code, Codex, Antigravity, OpenCode on the new API): put the project's files back to how they were before any of your messages, from snapshots the app keeps outside the folder
 - **Artifacts** — Full-screen preview of what the agent made, and a list of the local servers it started
-- **Servers that stay up** — `andcode-run` keeps the dev servers agents start alive after the turn, restarts a crash, and lists them under Settings → Processes; a running server can be shared by link through a Cloudflare quick tunnel
-- **Approvals** — A risk chip on each approval, always-allow rules kept per project (or for every tool of one MCP server), blocked commands refused in every mode, reading, web or editing allowed by kind, and a history of decisions
+- **Servers that stay up** — `andcode-run` keeps the dev servers agents start alive after the turn, restarts a crash, and lists them under Settings → Processes. A server started in the terminal can be shared by link through a Cloudflare quick tunnel
+- **Approvals** — A risk chip on each approval, for every agent. For Claude Code: always-allow rules kept per project (or for every tool of one MCP server), blocked commands refused in every mode, reading, web or editing allowed by kind, and a history of decisions
 - **Claude Code checks and guards** — A command it runs after each file edit or before finishing a turn, with failures sent back to fix; a switch keeping its file edits inside the project; a context window breakdown from the meter; retries, compaction and model fallback shown in the chat
 - **Stays live** — After you have been away for a few seconds, the chat reconnects as soon as you come back and catches up on anything it missed, so you no longer need to reopen the session to see a reply
 - **Markdown in messages** — Answers and your own messages render CommonMark with GitHub tables, task lists, strikethrough and footnotes: nested lists, quotes holding lists and code, aligned table columns, reference links
 - **Search and organise** — Search inside every chat's messages, find in a chat, pin and rename chats, archive and really delete them
-- **Composer** — `@` to mention a project file, a full-screen editor for long messages, and prompts sent during a reply held with Send now, Edit and Remove
+- **Composer** — `@` to mention a project file, a full-screen editor for long messages, and, with Send behavior set to Queue, prompts sent during a reply held with Send now, Edit and Remove
 - **Saved prompts** — `/name` commands with `$ARGUMENTS` and `$1`, `$2` placeholders
 - **Live run notification** — One ongoing notification with the current step and **Stop**, and **Reply** from the shade
 - **Run settings sheet** — Agent or permission mode, thinking level, fast mode and system prompt preset in one place
