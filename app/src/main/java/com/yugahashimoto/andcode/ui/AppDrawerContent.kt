@@ -44,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.feature.chat.RenameChatDialog
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
 import com.yugahashimoto.andcode.ui.components.HapticEvent
@@ -125,10 +126,13 @@ fun AppDrawerContent(
     pinnedSessionIds: Set<String> = emptySet(),
     /** Pins every given chat when `true`, unpins them when `false`. */
     onSetPinned: (Set<String>, Boolean) -> Unit = { _, _ -> },
+    /** Session id, the runtime that owns it, and the new name. */
+    onRenameChat: (String, String?, String) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     var selectedSessionIds by remember { mutableStateOf(setOf<String>()) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf<DrawerRecentSession?>(null) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var projectSearchOpen by rememberSaveable { mutableStateOf(false) }
     var projectQuery by rememberSaveable { mutableStateOf("") }
@@ -339,6 +343,10 @@ fun AppDrawerContent(
                                             showDeleteConfirm = true
                                         }
                                     },
+                                    onRename =
+                                        selectedSessionIds.singleOrNull()
+                                            ?.let { id -> recentSessions.firstOrNull { it.id == id } }
+                                            ?.let { session -> { renaming = session } },
                                 )
                             }
                             val pinned = recentSessions.filter { it.id in pinnedSessionIds }
@@ -380,6 +388,17 @@ fun AppDrawerContent(
         }
     }
 
+    renaming?.let { session ->
+        RenameChatDialog(
+            currentTitle = session.title,
+            onDismiss = { renaming = null },
+            onRename = { title ->
+                onRenameChat(session.id, session.runtimeId, title)
+                renaming = null
+                selectedSessionIds = emptySet()
+            },
+        )
+    }
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },

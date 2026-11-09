@@ -29,13 +29,14 @@ internal fun chatActionMessage(
                 ChatLifecycleRepository.NOT_FOUND -> context.getString(R.string.chat_action_reason_not_found)
                 else -> raw
             }
-        val format =
-            when (action) {
-                ChatAction.DELETE -> R.string.chat_delete_failed_snackbar
-                ChatAction.ARCHIVE -> R.string.chat_archive_failed_snackbar
-                ChatAction.RESTORE -> R.string.chat_restore_failed_snackbar
-            }
-        return context.getString(format, result.failed.size, reason)
+        val count = result.failed.size
+        return when (action) {
+            ChatAction.DELETE -> context.getString(R.string.chat_delete_failed_snackbar, count, reason)
+            ChatAction.ARCHIVE -> context.getString(R.string.chat_archive_failed_snackbar, count, reason)
+            ChatAction.RESTORE -> context.getString(R.string.chat_restore_failed_snackbar, count, reason)
+            // A rename is always one chat, so its message has no count.
+            ChatAction.RENAME -> context.getString(R.string.chat_rename_failed_snackbar, reason)
+        }
     }
     if (action != ChatAction.RESTORE || result.succeeded.isEmpty()) return null
     return if (result.succeeded.size == 1) {

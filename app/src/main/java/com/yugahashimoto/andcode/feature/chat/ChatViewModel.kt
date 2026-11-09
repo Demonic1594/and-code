@@ -1398,6 +1398,18 @@ class ChatViewModel(
     }
 
     /**
+     * Shows a chat's new name in the header when that chat is the one open. Renames come from outside
+     * (the drawer or the ⋮ menu, through the chat lifecycle), and an on-device runtime sends no event
+     * for them, so the header would otherwise keep the old name until the chat is reopened.
+     */
+    fun showRenamedTitle(
+        sessionId: String,
+        title: String,
+    ) {
+        _uiState.update { state -> if (state.sessionId == sessionId) state.copy(sessionTitle = title) else state }
+    }
+
+    /**
      * @param parent the session this one was spawned from when the caller already knows it
      * (subagent drill-in). When null the parent is resolved from the backend so a subagent session
      * opened from anywhere else still offers a way back to the main agent.

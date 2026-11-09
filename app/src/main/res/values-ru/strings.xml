@@ -1596,6 +1596,9 @@
     <string name="chat_delete_failed_snackbar">Не удалено (%1$d): %2$s</string>
     <string name="chat_archive_failed_snackbar">Не заархивировано (%1$d): %2$s</string>
     <string name="chat_restore_failed_snackbar">Не восстановлено (%1$d): %2$s</string>
+    <string name="chat_rename_failed_snackbar">Не переименовано: %1$s</string>
+    <string name="chat_rename_title">Переименовать чат</string>
+    <string name="chat_rename_label">Название</string>
     <string name="chat_action_reason_unsupported">эта версия агента или сервера этого не поддерживает</string>
     <string name="chat_action_reason_not_found">чат не найден у его агента</string>
     <string name="chat_find_open">Найти в чате</string>

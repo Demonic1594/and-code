@@ -43,6 +43,22 @@ data class AntigravitySessionRecord(
     val archivedAt: Long? = null,
 )
 
+/**
+ * The record once a turn has finished: one step further, updated now, and with the conversation id
+ * the stream reported. Never an invented conversation id: `--conversation` must only be used with an
+ * id emitted by the official CLI, otherwise a cold resume can attach to an unrelated conversation.
+ * The id comes straight from the stream's top-level conversation_id, not scraped out of the prose.
+ */
+internal fun AntigravitySessionRecord.afterTurn(
+    discoveredConversationId: String?,
+    now: Long,
+): AntigravitySessionRecord =
+    copy(
+        conversationId = discoveredConversationId ?: conversationId,
+        updatedAt = now,
+        lastStep = lastStep + 1,
+    )
+
 class AntigravityRuntime(
     internal val runtimeDirectory: File,
     private val installedRuntimeProvider: () -> LocalRuntimeInstaller.InstalledRuntime?,
@@ -311,16 +327,10 @@ class AntigravityRuntime(
                     // would make an unrelated later crash on this same session silently swallowed as
                     // "clean idle" instead of surfacing as an error.
                     val wasKilledIntentionally = abortTracker.consumeIntentional(sessionId)
+                    // From the record as it is now, not as the turn found it: a name, model or mode
+                    // the user changed while the turn ran must not be put back.
                     records[sessionId] =
-                        record0.copy(
-                            // Never invent a conversation id: --conversation must only be used with
-                            // an id emitted by the official CLI, otherwise a cold resume can attach
-                            // to an unrelated conversation. The id now comes straight from the stream's
-                            // top-level conversation_id rather than being scraped out of the prose.
-                            conversationId = discoveredConversationId ?: record0.conversationId,
-                            updatedAt = System.currentTimeMillis(),
-                            lastStep = record0.lastStep + 1,
-                        )
+                        (records[sessionId] ?: record0).afterTurn(discoveredConversationId, System.currentTimeMillis())
                     persistRecords()
                     if (turnFinished) {
                         // On a failed result the parser already emitted SessionError then SessionIdle;
@@ -442,6 +452,21 @@ class AntigravityRuntime(
         title: String,
     ) {
         val record = records[sessionId] ?: return
+        records[sessionId] = record.copy(title = title, updatedAt = System.currentTimeMillis())
+        persistRecords()
+    }
+
+    /**
+     * Sets [title] only while the chat's title is still [expected] (null: never named), so a name
+     * worked out in the background never replaces one the user gave in the meantime.
+     */
+    fun replaceSessionTitle(
+        sessionId: String,
+        expected: String?,
+        title: String,
+    ) {
+        val record = records[sessionId] ?: return
+        if (record.title != expected) return
         records[sessionId] = record.copy(title = title, updatedAt = System.currentTimeMillis())
         persistRecords()
     }

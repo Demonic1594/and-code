@@ -385,7 +385,15 @@ class ClaudeCodeTarget(
             titleScope.launch {
                 if (!needsSummarizedTitle(request.text)) return@launch
                 val summary = withContext(Dispatchers.IO) { runtime.summarizeTitle(request.text) }
-                if (summary != null && records[sessionId] != null) renameSession(sessionId, summary)
+                // Only over the stand-in: a name the user gave while the summary was being made wins.
+                // Checked and set on the main thread, where renames from the app run, so the two
+                // cannot interleave.
+                val standIn = provisional ?: DEFAULT_TITLE
+                if (summary != null) {
+                    withContext(Dispatchers.Main) {
+                        if (records[sessionId]?.session?.title == standIn) renameSession(sessionId, summary)
+                    }
+                }
             }
         }
         val model = request.modelId ?: record.model

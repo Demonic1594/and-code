@@ -146,6 +146,9 @@ internal fun ChatRoute(
     ) {
         ChatHomeScreen(
             repositoryUrl = repositoryUrl,
+            // No runtime given: the lifecycle looks the chat's owner up, so a runtime switched while
+            // the dialog was open cannot pair this chat with another agent.
+            onRenameChat = { id, title -> actions.onRenameChat(id, null, title) },
             findRequest = waiting.findRequest,
             onFindRequestConsumed = waiting.clearFindRequest,
             state = chatState,
@@ -385,6 +388,8 @@ internal class ChatRouteActions(
     val onOpenDrawer: () -> Unit,
     /** Outlives the route, so an image being imported is not dropped when the chat is left. */
     val importScope: CoroutineScope,
+    /** Session id, the runtime that owns it, and the new name. */
+    val onRenameChat: (String, String?, String) -> Unit = { _, _, _ -> },
 )
 
 private object ChatRouteTiming {

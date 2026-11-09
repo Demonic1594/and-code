@@ -1606,6 +1606,9 @@
     <string name="chat_delete_failed_snackbar">لم يُحذف (%1$d): %2$s</string>
     <string name="chat_archive_failed_snackbar">لم يُؤرشف (%1$d): %2$s</string>
     <string name="chat_restore_failed_snackbar">لم يُستعد (%1$d): %2$s</string>
+    <string name="chat_rename_failed_snackbar">لم تُعَد التسمية: %1$s</string>
+    <string name="chat_rename_title">إعادة تسمية المحادثة</string>
+    <string name="chat_rename_label">الاسم</string>
     <string name="chat_action_reason_unsupported">لا يدعم هذا الوكيل أو إصدار الخادم ذلك</string>
     <string name="chat_action_reason_not_found">لم يتم العثور على المحادثة لدى وكيلها</string>
     <string name="chat_find_open">البحث في المحادثة</string>

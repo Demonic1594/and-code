@@ -1601,6 +1601,9 @@
     <string name="chat_delete_failed_snackbar">削除できませんでした (%1$d): %2$s</string>
     <string name="chat_archive_failed_snackbar">アーカイブできませんでした (%1$d): %2$s</string>
     <string name="chat_restore_failed_snackbar">復元できませんでした (%1$d): %2$s</string>
+    <string name="chat_rename_failed_snackbar">名前を変更できませんでした: %1$s</string>
+    <string name="chat_rename_title">チャット名を変更</string>
+    <string name="chat_rename_label">名前</string>
     <string name="chat_action_reason_unsupported">このエージェントまたはサーバーのバージョンでは実行できません</string>
     <string name="chat_action_reason_not_found">エージェント側でチャットが見つかりませんでした</string>
     <string name="chat_find_open">チャット内を検索</string>

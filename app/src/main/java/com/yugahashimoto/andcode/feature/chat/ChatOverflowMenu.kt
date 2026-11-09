@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DataUsage
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Public
@@ -33,6 +34,8 @@ internal fun ChatOverflowMenu(
     repositoryUrl: String? = null,
     onOpenRepository: (String) -> Unit = {},
     onCopy: () -> Unit,
+    /** Null until the chat exists on its runtime; a new chat has nothing to rename yet. */
+    onRename: (() -> Unit)? = null,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         usage?.let {
@@ -93,6 +96,14 @@ internal fun ChatOverflowMenu(
                 leadingIcon = { Icon(Icons.Outlined.Public, contentDescription = null) },
                 onClick = { onOpenRepository(url) },
                 modifier = Modifier.testTag("chat-menu-open-github"),
+            )
+        }
+        onRename?.let { rename ->
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.rename_session)) },
+                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                onClick = rename,
+                modifier = Modifier.testTag("chat-menu-rename"),
             )
         }
         DropdownMenuItem(
