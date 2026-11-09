@@ -1894,4 +1894,9 @@
     <string name="chat_activity_compacting_body">El contexto está casi lleno, así que se están resumiendo los mensajes más antiguos. La ejecución sigue sola cuando termine.</string>
     <string name="chat_activity_model_switched_title">Respondiendo con %1$s</string>
     <string name="chat_activity_model_switched_body">%1$s no pudo responder, así que Claude Code cambió a su modelo de reserva para este turno.</string>
+    <string name="queued_prompts_title">Esperando a que termine este turno (%1$d)</string>
+    <string name="queued_prompt_attachments">Archivos adjuntos: %1$d</string>
+    <string name="queued_prompt_send_now">Enviar ahora (detiene el turno actual)</string>
+    <string name="queued_prompt_edit">Editar</string>
+    <string name="queued_prompt_remove">Quitar</string>
 </resources>

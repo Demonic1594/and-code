@@ -376,6 +376,22 @@ private data class QueuedPrompt(
     val chatGeneration: Long,
     /** False for a review from the diff screen, which must not touch the composer when it goes out. */
     val fromComposer: Boolean = true,
+    /** Names it for the actions on the queue above the composer. */
+    val id: String = UUID.randomUUID().toString(),
+)
+
+/** A prompt waiting for the running turn, as the queue above the composer shows it. */
+data class QueuedPromptView(
+    val id: String,
+    val text: String,
+    val attachmentCount: Int,
+)
+
+/** What the user can do with a prompt waiting for the running turn; see [ChatViewModel.sendQueuedPromptNow]. */
+data class QueuedPromptActions(
+    val onSendNow: (String) -> Unit = {},
+    val onEdit: (String) -> Unit = {},
+    val onRemove: (String) -> Unit = {},
 )
 
 internal fun OpenCodePart.toChatPart(messageId: String): ChatPart? {
@@ -686,6 +702,18 @@ data class ChatUiState(
      * same handoff [partialText] uses for dictation.
      */
     val editDraft: String? = null,
+    /**
+     * True when [editDraft] is a held prompt taken back from the queue: it joins what the user is
+     * typing instead of replacing it.
+     */
+    val editDraftJoinsInput: Boolean = false,
+    /**
+     * Prompts sent while a turn runs and held until it ends (send behaviour "queue", and always for a
+     * runtime that cannot interrupt), for this chat only, oldest first.
+     */
+    val queuedPrompts: List<QueuedPromptView> = emptyList(),
+    /** False where the running turn cannot be interrupted (Antigravity), so "Send now" is not offered. */
+    val canSendQueuedNow: Boolean = true,
     /** The diff dialog open on a tapped [ChatPart.Patch] card, or null when none is open. */
     val patchDiff: PatchDiffState? = null,
     /** The artifact open in the preview, or null when none is. */
@@ -958,6 +986,17 @@ class ChatViewModel(
             }
         }
         if (backend != null) {
+            // The open chat's held prompts, for the queue above the composer: the queue itself is shared by
+            // every chat this view model has shown.
+            viewModelScope.launch {
+                combine(messageQueue, _uiState.map { it.sessionId }.distinctUntilChanged()) { queue, sessionId ->
+                    // An image is in both lists (its preview pairs with it), so only attachments count.
+                    queue.filter { it.sessionId == sessionId }.map { QueuedPromptView(it.id, it.text, it.attachments.size) }
+                }.distinctUntilChanged().collect { held ->
+                    val canInterrupt = (backend as? RuntimeTarget)?.capabilities?.forcesQueue != true
+                    _uiState.update { it.copy(queuedPrompts = held, canSendQueuedNow = canInterrupt) }
+                }
+            }
             viewModelScope.launch {
                 // Only real transitions are reported, so merely opening an idle chat is not
                 // mistaken for a run that just ended.
@@ -2021,7 +2060,7 @@ class ChatViewModel(
 
     /** Clears [ChatUiState.editDraft] once the composer has copied it into its own input state. */
     fun consumeEditDraft() {
-        _uiState.update { it.copy(editDraft = null) }
+        _uiState.update { it.copy(editDraft = null, editDraftJoinsInput = false) }
     }
 
     /**
@@ -2053,14 +2092,23 @@ class ChatViewModel(
     private fun send(
         text: String,
         fromComposer: Boolean,
+        /** Interrupts a running turn even where prompts otherwise queue; see [sendQueuedPromptNow]. */
+        sendNow: Boolean = false,
+        /**
+         * A held prompt going out, with its own attachments. It never reads or clears the composer,
+         * where the user may be writing the next message.
+         */
+        held: QueuedPrompt? = null,
     ) {
         // A rewind or its undo in flight decides which messages the next one follows; the screen
         // holds the composer until it lands.
         if (_uiState.value.isRewinding || restoreInFlight) return
         val normalized = text.trim()
-        val pendingAttachments = if (fromComposer) _uiState.value.attachments else emptyList()
+        // Whether this send takes, and afterwards clears, what is in the composer.
+        val usesComposer = fromComposer && held == null
+        val pendingAttachments = held?.attachments ?: if (usesComposer) _uiState.value.attachments else emptyList()
         val messageIdsBeforeSend = _uiState.value.messages.map { it.id }.toSet()
-        val pendingPreviews = if (fromComposer) _uiState.value.imagePreviews else emptyList()
+        val pendingPreviews = held?.imagePreviews ?: if (usesComposer) _uiState.value.imagePreviews else emptyList()
         // The model identity is part of the prompt, exactly like its text: reading it from live
         // state after the createSession/summarize suspensions below sent turn 1 with whatever
         // model the user switched to mid-dispatch. Text and attachments were already captured
@@ -2102,7 +2150,7 @@ class ChatViewModel(
         // (OpenCode expands the template server-side) rather than sent as a plain prompt.
         val slashCommand = if (fromComposer) matchSlashCommand(normalized) else null
         if (slashCommand != null) {
-            sendSlashCommand(slashCommand.first, slashCommand.second)
+            sendSlashCommand(slashCommand.first, slashCommand.second, sendNow)
             return
         }
 
@@ -2132,8 +2180,8 @@ class ChatViewModel(
                     rewoundFrom = null,
                     offlineQueue = it.offlineQueue + outgoingText,
                     isOfflineQueued = true,
-                    attachments = if (fromComposer) emptyList() else it.attachments,
-                    imagePreviews = if (fromComposer) emptyList() else it.imagePreviews,
+                    attachments = if (usesComposer) emptyList() else it.attachments,
+                    imagePreviews = if (usesComposer) emptyList() else it.imagePreviews,
                 )
             }
             return
@@ -2143,7 +2191,7 @@ class ChatViewModel(
         // it - interrupting there kills the in-flight one-shot process instead of cancelling a
         // request, which surfaced as a crash. See RuntimeCapabilities.forcesQueue.
         val mustQueue = (currentBackend as? RuntimeTarget)?.capabilities?.forcesQueue == true
-        if ((_sendBehavior.value == "queue" || mustQueue || !fromComposer) && _uiState.value.isRunning) {
+        if (holdsForRunningTurn(queues = mustQueue || !fromComposer, sendNow = sendNow)) {
             messageQueue.update {
                 it +
                     QueuedPrompt(
@@ -2155,7 +2203,7 @@ class ChatViewModel(
                         fromComposer,
                     )
             }
-            if (fromComposer) _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
+            if (usesComposer) _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
             return
         }
         val interrupting = _uiState.value.isRunning
@@ -2256,7 +2304,7 @@ class ChatViewModel(
                     .onSuccess { title ->
                         if (title.isNotBlank()) _uiState.update { it.copy(sessionTitle = title) }
                     }
-                if (fromComposer) {
+                if (usesComposer) {
                     _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
                     clearDraft(targetSessionId)
                 }
@@ -2384,6 +2432,7 @@ class ChatViewModel(
     fun sendSlashCommand(
         command: String,
         arguments: String,
+        sendNow: Boolean = false,
     ) {
         if (_uiState.value.isRewinding || restoreInFlight) return
         val currentBackend = backend
@@ -2417,7 +2466,7 @@ class ChatViewModel(
         }
 
         val mustQueue = (currentBackend as? RuntimeTarget)?.capabilities?.forcesQueue == true
-        if ((_sendBehavior.value == "queue" || mustQueue) && _uiState.value.isRunning) {
+        if (holdsForRunningTurn(queues = mustQueue, sendNow = sendNow)) {
             messageQueue.update {
                 it +
                     QueuedPrompt(
@@ -3587,18 +3636,61 @@ class ChatViewModel(
      * marks the chat as running, so every prompt after it would now abort the turn the one before it
      * just started and take its place. See [interruptRunningTurn].
      */
-    private fun sendQueued(queuedPrompt: QueuedPrompt) {
-        if (!queuedPrompt.fromComposer) {
-            send(queuedPrompt.text, fromComposer = false)
-            return
-        }
+    private fun sendQueued(
+        queuedPrompt: QueuedPrompt,
+        sendNow: Boolean = false,
+    ) {
+        // With its own attachments: the composer, where the user may be writing the next message, is
+        // left alone.
+        send(queuedPrompt.text, fromComposer = queuedPrompt.fromComposer, sendNow = sendNow, held = queuedPrompt)
+    }
+
+    /**
+     * Whether a prompt sent now waits for the running turn: with send behaviour "queue", or when
+     * [queues] says this prompt always waits (a runtime that cannot interrupt, a review); never for
+     * a prompt the user chose to send now.
+     */
+    private fun holdsForRunningTurn(
+        queues: Boolean,
+        sendNow: Boolean,
+    ): Boolean = !sendNow && _uiState.value.isRunning && (_sendBehavior.value == "queue" || queues)
+
+    /** Drops a held prompt; it is not sent. */
+    fun removeQueuedPrompt(id: String) {
+        messageQueue.update { queue -> queue.filterNot { it.id == id } }
+    }
+
+    /**
+     * Takes a held prompt back into the composer to change it, with its attachments; it joins what
+     * the user is typing rather than replacing it. A review from the diff screen comes back as plain
+     * text and goes out again as an ordinary message. A file that could not go to the model is
+     * already a note in the text, so it comes back as that note, not as a chip.
+     */
+    fun editQueuedPrompt(id: String) {
+        val prompt = messageQueue.value.firstOrNull { it.id == id } ?: return
+        removeQueuedPrompt(id)
         _uiState.update {
+            // Two taken back before the composer picks the first up both arrive.
+            val pending = it.editDraft.takeIf { _ -> it.editDraftJoinsInput }
             it.copy(
-                attachments = queuedPrompt.attachments,
-                imagePreviews = queuedPrompt.imagePreviews,
+                editDraft = listOfNotNull(pending, prompt.text).joinToString("\n\n"),
+                editDraftJoinsInput = true,
+                attachments = it.attachments + prompt.attachments,
+                imagePreviews = it.imagePreviews + prompt.imagePreviews,
             )
         }
-        sendMessage(queuedPrompt.text)
+    }
+
+    /**
+     * Sends a held prompt at once, stopping the running turn as the "interrupt" send behaviour does.
+     * Not for a runtime that cannot interrupt a turn, whose prompts always wait.
+     */
+    fun sendQueuedPromptNow(id: String) {
+        if (!_uiState.value.canSendQueuedNow) return
+        val prompt = messageQueue.value.firstOrNull { it.id == id } ?: return
+        if (_uiState.value.isRewinding || restoreInFlight) return
+        removeQueuedPrompt(id)
+        sendQueued(prompt, sendNow = true)
     }
 
     /**

@@ -1868,4 +1868,9 @@
     <string name="chat_activity_compacting_body">上下文快满了，正在总结较早的消息。完成后运行会自动继续。</string>
     <string name="chat_activity_model_switched_title">正在用 %1$s 回答</string>
     <string name="chat_activity_model_switched_body">%1$s 无法回答，因此 Claude Code 在本轮切换到了备用模型。</string>
+    <string name="queued_prompts_title">等待本轮结束 (%1$d)</string>
+    <string name="queued_prompt_attachments">%1$d 个附件</string>
+    <string name="queued_prompt_send_now">立即发送（停止当前这一轮）</string>
+    <string name="queued_prompt_edit">编辑</string>
+    <string name="queued_prompt_remove">移除</string>
 </resources>

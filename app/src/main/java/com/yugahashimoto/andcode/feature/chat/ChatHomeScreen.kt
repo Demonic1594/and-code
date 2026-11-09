@@ -245,6 +245,8 @@ fun ChatHomeScreen(
      */
     findRequest: Pair<String, String>? = null,
     onFindRequestConsumed: () -> Unit = {},
+    /** Send now, edit and remove for the prompts held for the running turn ([ChatUiState.queuedPrompts]). */
+    queueActions: QueuedPromptActions = QueuedPromptActions(),
 ) {
     // Saved state, not plain remember: the Activity is recreated on rotation and other
     // configuration changes, and a remembered field would come back empty. The TextFieldValue
@@ -453,9 +455,8 @@ fun ChatHomeScreen(
         state.editDraft?.let { draft ->
             // A rewind hands its message back as a convenience; it must not overwrite something
             // the user was already typing. An edit always fills it: its message is gone otherwise.
-            if (state.rewoundFrom == null || inputValue.text.isBlank()) {
-                inputValue = TextFieldValue(draft, TextRange(draft.length))
-            }
+            // A held prompt taken back from the queue joins what is being typed.
+            inputValue = editedInput(inputValue, draft, joins = state.editDraftJoinsInput, rewound = state.rewoundFrom != null)
             onEditDraftConsumed()
         }
     }
@@ -849,6 +850,12 @@ fun ChatHomeScreen(
 
             if (!runtimeNotReady) {
                 val fileMentions = LocalFileMentions.current
+                QueuedPromptsBar(
+                    prompts = state.queuedPrompts,
+                    canSendNow = state.canSendQueuedNow,
+                    actions = queueActions,
+                    modifier = Modifier.padding(horizontal = 10.dp),
+                )
                 // Keyed to the chat, so one opened from elsewhere (a notification) starts with the
                 // composer's own state fresh: its full-screen editor closed.
                 key(state.sessionId) {
@@ -1299,3 +1306,20 @@ private fun ChatHomeScreenCodexFastPreview() {
 
 /** "Thinking" only while nothing more specific explains the wait: a stall, a retry, or a run activity. */
 private fun ChatUiState.showsThinkingChip(): Boolean = isThinking && stall == null && retry == null && runActivity == null
+
+/** The composer's text once an edit draft is handed back; see the editDraft effect in [ChatHomeScreen]. */
+internal fun editedInput(
+    input: TextFieldValue,
+    draft: String,
+    joins: Boolean,
+    rewound: Boolean,
+): TextFieldValue {
+    val text =
+        when {
+            input.text.isBlank() -> draft
+            joins -> input.text.trimEnd() + "\n\n" + draft
+            rewound -> return input
+            else -> draft
+        }
+    return TextFieldValue(text, TextRange(text.length))
+}

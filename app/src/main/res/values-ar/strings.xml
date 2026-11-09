@@ -1933,4 +1933,9 @@
     <string name="chat_activity_compacting_body">السياق ممتلئ تقريبًا، لذا يجري تلخيص الرسائل الأقدم. يستمر التنفيذ تلقائيًا عند الانتهاء.</string>
     <string name="chat_activity_model_switched_title">الرد باستخدام %1$s</string>
     <string name="chat_activity_model_switched_body">تعذّر على %1$s الرد، لذا انتقل Claude Code إلى نموذجه الاحتياطي في هذه الجولة.</string>
+    <string name="queued_prompts_title">بانتظار انتهاء هذه الجولة (%1$d)</string>
+    <string name="queued_prompt_attachments">المرفقات: %1$d</string>
+    <string name="queued_prompt_send_now">إرسال الآن (يوقف الجولة الحالية)</string>
+    <string name="queued_prompt_edit">تعديل</string>
+    <string name="queued_prompt_remove">إزالة</string>
 </resources>
