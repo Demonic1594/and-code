@@ -52,6 +52,22 @@ class PermissionHookScriptTest {
     }
 
     @Test
+    fun `a rule for a whole MCP server allows its tools and asks for another server's`() {
+        // A malformed entry and a deeper name written by hand are skipped, not fatal to the match.
+        File(bridge, "always-rules.json").writeText(
+            """{"rules":[{"project":"x"},{"toolName":"mcp__docs__q__*"},{"toolName":"mcp__browser__*","project":"/root/shop"}]}""",
+        )
+
+        fun mcpCall(tool: String) =
+            """{"hook_event_name":"PermissionRequest","session_id":"s1","tool_name":"$tool","cwd":"/root/shop",""" +
+                """"tool_input":{"ref":"e1"}}"""
+
+        assertEquals("allow", runHook(mcpCall("mcp__browser__browser_click")).behavior())
+        assertEquals("deny", runHook(mcpCall("mcp__browserx__read"), response = """{"decision":"deny"}""").behavior())
+        assertEquals("deny", runHook(mcpCall("mcp__docs__query"), response = """{"decision":"deny"}""").behavior())
+    }
+
+    @Test
     fun `a rule kept for a project allows only there, and the request carries the directory`() {
         File(bridge, "always-rules.json").writeText(
             """{"rules":[{"toolName":"Bash","commandPrefix":"npm test","project":"/root/shop"}]}""",

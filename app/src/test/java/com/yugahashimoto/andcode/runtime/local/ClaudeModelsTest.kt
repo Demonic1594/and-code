@@ -46,4 +46,16 @@ class ClaudeModelsTest {
         assertEquals("{\"ultracode\":true}", ClaudeModels.cliSettings(true))
         assertNull(ClaudeModels.cliSettings(false))
     }
+
+    @Test
+    fun `keeping edits in the project asks Claude Code to refuse writes outside the working directories`() {
+        assertEquals(
+            "{\"permissions\":{\"blockWritesOutsideWorkingDirectories\":true}}",
+            ClaudeModels.cliSettings(ultracode = false, keepEditsInProject = true),
+        )
+        assertEquals(
+            "{\"ultracode\":true,\"permissions\":{\"blockWritesOutsideWorkingDirectories\":true}}",
+            ClaudeModels.cliSettings(ultracode = true, keepEditsInProject = true),
+        )
+    }
 }

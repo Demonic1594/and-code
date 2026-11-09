@@ -198,6 +198,8 @@ class ClaudePermissionBridge(
         response: PermissionResponse,
         remember: Boolean,
         message: String? = null,
+        /** Remembers the answer for every tool of the call's MCP server rather than this one tool. */
+        wholeServer: Boolean = false,
     ): Boolean {
         val pending = File(pendingDir, "$requestId.json")
         if (!pending.isFile && !File(responsesDir, "$requestId.json").isFile) {
@@ -216,7 +218,8 @@ class ClaudePermissionBridge(
                 else -> "allow"
             }
         val rememberFlag = blocked == null && (remember || response == PermissionResponse.ALWAYS)
-        val remembered = if (rememberFlag && storedRequest != null) rememberRule(storedRequest) else null
+        val remembered =
+            storedRequest?.takeIf { rememberFlag }?.let { if (wholeServer) rememberServerRule(it) else rememberRule(it) }
         approvals.recordAnswer(storedRequest, allowed = decision == "allow", blocked = blocked, remembered = remembered)
         writeResponse(
             requestId,
@@ -301,10 +304,10 @@ class ClaudePermissionBridge(
             }.getOrNull()
         // A tool-wide rule covers calls without a command; a call with one needs a rule naming its
         // first words, matched by ShellCommandRules so `git status; rm -rf ~` is not `git status`.
+        // A rule for a whole MCP server covers every call of its tools, whatever the input.
         return rules.any { rule ->
-            val prefix = rule.commandPrefix
-            rule.toolName == toolName && appliesIn(rule.project, cwd) &&
-                if (command == null) prefix.isNullOrBlank() else !prefix.isNullOrBlank() && ShellCommandRules.matches(prefix, command)
+            appliesIn(rule.project, cwd) &&
+                (coversServer(rule.toolName, toolName) || rule.toolName == toolName && coversCommand(rule.commandPrefix, command))
         }
     }
 
@@ -332,6 +335,7 @@ class ClaudePermissionBridge(
                                     ShellCommandRules.ruleFor(element.content) != null
                         }
                     },
+            mcpServer = mcpServerOf(request.toolName),
             metadata =
                 mapOf(
                     "toolName" to JsonPrimitive(request.toolName),
@@ -410,6 +414,19 @@ class ClaudePermissionBridge(
     }
 
     /**
+     * Keeps an always-allow rule for every tool of [stored]'s MCP server (`mcp__browser__*`), in the
+     * project it was approved in, and returns the rule's name; null when the call is not an MCP tool.
+     */
+    @Synchronized
+    private fun rememberServerRule(stored: StoredRequest): String? {
+        val server = mcpServerOf(stored.toolName) ?: return null
+        val rule = AlwaysRule(toolName = "$MCP_PREFIX$server$SERVER_WILDCARD", commandPrefix = null, project = projectOf(stored.cwd))
+        val existing = loadAlwaysRules()
+        if (existing.none { it.toolName == rule.toolName && it.project == rule.project }) writeRules(alwaysFile, existing + rule)
+        return rule.toolName
+    }
+
+    /**
      * Blocks shell commands containing the words of [text] (`rm -rf`, `git push --force`). Returns
      * false when [text] names no single command, or when the rules file exists but cannot be read
      * (it is left as it is rather than replaced).
@@ -453,7 +470,7 @@ class ClaudePermissionBridge(
         toolName: String,
         command: String,
     ): CommandRule? =
-        loadBlockRules()
+        readRules(blockFile)
             .firstOrNull { rule ->
                 rule.toolName == toolName && !rule.commandPrefix.isNullOrBlank() && ShellCommandRules.blocks(rule.commandPrefix, command)
             }?.let { CommandRule(it.toolName, it.commandPrefix, blocks = true) }
@@ -479,12 +496,10 @@ class ClaudePermissionBridge(
     }
 
     private fun loadRules(): List<CommandRule> =
-        loadBlockRules().map { CommandRule(it.toolName, it.commandPrefix, blocks = true) } +
+        readRules(blockFile).map { CommandRule(it.toolName, it.commandPrefix, blocks = true) } +
             loadAlwaysRules().map { CommandRule(it.toolName, it.commandPrefix, blocks = false, project = it.project) }
 
     private fun loadAlwaysRules(): List<AlwaysRule> = readRules(alwaysFile)
-
-    private fun loadBlockRules(): List<AlwaysRule> = readRules(blockFile)
 
     /** The rules in [file], or null when it exists but cannot be read, so it is never overwritten. */
     private fun readRulesStrictly(file: File): List<AlwaysRule>? {
@@ -507,6 +522,40 @@ class ClaudePermissionBridge(
 
         /** The tool whose calls carry a shell command, the only kind a blocking rule names. */
         const val SHELL_TOOL = "Bash"
+
+        private const val MCP_PREFIX = "mcp__"
+        private const val SERVER_WILDCARD = "__*"
+
+        /**
+         * The MCP server an MCP tool (`mcp__browser__read`) or a server rule (`mcp__browser__*`)
+         * names; null for anything else. Claude Code names MCP tools `mcp__<server>__<tool>`.
+         */
+        fun mcpServerOf(toolName: String): String? =
+            toolName
+                .takeIf { it.startsWith(MCP_PREFIX) }
+                ?.removePrefix(MCP_PREFIX)
+                ?.takeIf { it.contains("__") }
+                ?.substringBefore("__")
+                ?.takeIf { it.isNotEmpty() }
+
+        /**
+         * Whether a rule naming [prefix] covers a call with [command]: a call without one needs a
+         * tool-wide rule; a command needs a rule naming its first words, matched by ShellCommandRules
+         * so `git status; rm -rf ~` is not `git status`.
+         */
+        private fun coversCommand(
+            prefix: String?,
+            command: String?,
+        ): Boolean = if (command == null) prefix.isNullOrBlank() else !prefix.isNullOrBlank() && ShellCommandRules.matches(prefix, command)
+
+        /** The server a rule for a whole MCP server (`mcp__browser__*`) names; null for any other rule. */
+        fun serverOfRule(ruleTool: String): String? = mcpServerOf(ruleTool)?.takeIf { ruleTool == "$MCP_PREFIX$it$SERVER_WILDCARD" }
+
+        /** Whether [ruleTool] is a rule for a whole MCP server and [toolName] one of its tools. The hook matches the same way. */
+        fun coversServer(
+            ruleTool: String,
+            toolName: String,
+        ): Boolean = serverOfRule(ruleTool)?.let { mcpServerOf(toolName) == it } == true
 
         /**
          * The project directory a rule approved in [cwd] is kept for, trailing slash dropped; null

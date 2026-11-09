@@ -895,7 +895,7 @@ internal fun SettingsRow(
 }
 
 @Composable
-private fun SettingsToggleRow(
+internal fun SettingsToggleRow(
     icon: ImageVector,
     title: String,
     checked: Boolean,

@@ -1912,4 +1912,8 @@
     <string name="command_rules_how_block">Por la regla de bloqueo «%1$s»</string>
     <string name="command_rules_how_block_unreadable">No se pudieron leer las reglas de bloqueo</string>
     <string name="command_rules_how_timeout">Sin respuesta a tiempo</string>
+    <string name="claude_keep_edits_in_project">Mantener las ediciones de archivos dentro del proyecto</string>
+    <string name="claude_keep_edits_in_project_caption">Claude Code se niega a escribir o editar archivos fuera de la carpeta del chat, en cualquier modo de permisos. Los comandos de shell, las herramientas MCP y los programas que ejecutan los hooks aún pueden escribir en cualquier lugar, así que esto evita errores; no es un límite de seguridad. Se aplica desde el siguiente mensaje de cada chat.</string>
+    <string name="permission_always_allow_server">Permitir siempre todas las herramientas de %1$s</string>
+    <string name="command_rules_whole_server">Todas las herramientas del servidor MCP %1$s</string>
 </resources>
