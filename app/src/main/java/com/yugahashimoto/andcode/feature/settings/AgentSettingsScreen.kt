@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
@@ -242,6 +243,8 @@ fun ClaudeCodeAgentSettingsScreen(
     onBack: () -> Unit,
     /** Turns on or off Claude Code refusing file writes outside the chat's folder. */
     onSetKeepEditsInProject: (Boolean) -> Unit = {},
+    /** Opens the checks Claude Code runs after an edit or before ending a turn. */
+    onOpenChecks: () -> Unit = {},
 ) {
     AgentSettingsScaffold(title = stringResource(LocalAgent.CLAUDE_CODE.displayNameRes), onBack = onBack) {
         AgentCardSection {
@@ -289,6 +292,13 @@ fun ClaudeCodeAgentSettingsScreen(
                 title = stringResource(R.string.command_rules_settings_row),
                 value = claude.commandRules.size.takeIf { it > 0 }?.toString(),
                 onClick = onOpenCommandRules,
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = Icons.AutoMirrored.Filled.FactCheck,
+                title = stringResource(R.string.claude_checks_settings_row),
+                value = claude.checks.size.takeIf { it > 0 }?.toString(),
+                onClick = onOpenChecks,
             )
             SettingsDivider()
             // Off by default: agents write scratch files to /tmp and config under the home folder,

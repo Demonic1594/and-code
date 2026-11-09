@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.feature.chat
 
+import com.yugahashimoto.andcode.core.api.ContextBreakdown
 import com.yugahashimoto.andcode.core.api.OpenCodeAgent
 import com.yugahashimoto.andcode.core.api.OpenCodeApiException
 import com.yugahashimoto.andcode.core.api.OpenCodeCommand
@@ -1200,6 +1201,82 @@ class ChatViewModelTest {
             advanceUntilIdle()
 
             assertEquals(listOf("first", "second"), backend.sentPrompts.map { it.second.text })
+        }
+
+    @Test
+    fun `the context meter opens what fills the window, or says it cannot be asked now`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(contextBreakdown = true))
+            val breakdown =
+                ContextBreakdown(
+                    usedTokens = 27_000,
+                    maxTokens = 200_000,
+                    categories = listOf(ContextBreakdown.Category("system_prompt", "System prompt", 2_000, ContextBreakdown.Kind.USED)),
+                    mcpServers = emptyList(),
+                    memoryFiles = emptyList(),
+                    autoCompactAt = null,
+                )
+            backend.breakdown = breakdown
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.contextBreakdownAvailable)
+
+            // No chat yet: nothing to ask about.
+            viewModel.showContextBreakdown()
+            advanceUntilIdle()
+            assertEquals(ContextBreakdownState.Unavailable, viewModel.uiState.value.contextBreakdown)
+            assertTrue(backend.breakdownAskedFor.isEmpty())
+
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+            viewModel.showContextBreakdown()
+            advanceUntilIdle()
+            assertEquals(ContextBreakdownState.Shown(breakdown), viewModel.uiState.value.contextBreakdown)
+            assertEquals(listOf("s1"), backend.breakdownAskedFor)
+
+            backend.breakdown = null
+            viewModel.showContextBreakdown()
+            advanceUntilIdle()
+            assertEquals(ContextBreakdownState.Unavailable, viewModel.uiState.value.contextBreakdown)
+
+            viewModel.hideContextBreakdown()
+            assertEquals(ContextBreakdownState.Hidden, viewModel.uiState.value.contextBreakdown)
+        }
+
+    @Test
+    fun `a context answer that arrives after the sheet closed or the chat changed is dropped`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(contextBreakdown = true))
+            backend.breakdown = ContextBreakdown(1, 100, emptyList(), emptyList(), emptyList(), null)
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+
+            backend.breakdownGate = CompletableDeferred()
+            viewModel.showContextBreakdown()
+            advanceUntilIdle()
+            viewModel.hideContextBreakdown()
+            backend.breakdownGate?.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(ContextBreakdownState.Hidden, viewModel.uiState.value.contextBreakdown)
+
+            backend.breakdownGate = CompletableDeferred()
+            viewModel.showContextBreakdown()
+            advanceUntilIdle()
+            viewModel.newSession()
+            backend.breakdownGate?.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(ContextBreakdownState.Hidden, viewModel.uiState.value.contextBreakdown)
+        }
+
+    @Test
+    fun `the context meter is a plain total where the runtime reports no split`() =
+        runTest(dispatcher) {
+            val viewModel = ChatViewModel(FakeRuntimeTargetBackend(RuntimeCapabilities()))
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.contextBreakdownAvailable)
         }
 
     @Test
@@ -2760,6 +2837,19 @@ class ChatViewModelTest {
 
         /** What the transcript endpoint reports; defaults to nothing being persisted. */
         var transcript: List<OpenCodeMessage> = emptyList()
+
+        /** What the context breakdown reports, and the chats it was asked for. */
+        var breakdown: ContextBreakdown? = null
+        val breakdownAskedFor = mutableListOf<String>()
+
+        /** When set, the breakdown is answered only once this completes. */
+        var breakdownGate: CompletableDeferred<Unit>? = null
+
+        override suspend fun contextBreakdown(sessionId: String): ContextBreakdown? {
+            breakdownAskedFor += sessionId
+            breakdownGate?.await()
+            return breakdown
+        }
 
         override suspend fun connect(): Result<OpenCodeHealth> = Result.success(OpenCodeHealth(true, "test"))
 

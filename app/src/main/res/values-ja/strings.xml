@@ -927,6 +927,8 @@
     <string name="chat_error_zen_free_tier_title">OpenCodeの無料モデルはZenへのログインが必要です</string>
     <string name="chat_error_zen_free_tier_body">OpenCodeの無料モデルは、公式のデスクトップ/CLI以外ではZenにサインインしないと使えません。設定 → プロバイダでOpenCodeに接続するか、別のプロバイダを使ってください。</string>
     <string name="chat_error_zen_free_tier_action">プロバイダを開く</string>
+    <string name="chat_copy_code">コードをコピー</string>
+    <string name="chat_code_copied">コードをコピーしました</string>
 
     <!-- Connection dialog -->
     <string name="connection_test_success">OpenCode %1$s</string>
@@ -1909,8 +1911,41 @@
     <string name="command_rules_how_block">ブロックするルール「%1$s」による</string>
     <string name="command_rules_how_block_unreadable">ブロックするルールを読み込めませんでした</string>
     <string name="command_rules_how_timeout">時間内に回答がありませんでした</string>
+    <string name="context_breakdown_title">コンテキストウィンドウ</string>
+    <string name="context_breakdown_total">%2$s トークン中 %1$s（%3$d%%）</string>
+    <string name="context_breakdown_auto_compact">Claude Code は %1$s トークンに達すると自動で会話を圧縮します。</string>
+    <string name="context_breakdown_loading">Claude Code に問い合わせ中…</string>
+    <string name="context_breakdown_unavailable">このチャットでは今 Claude Code が動いていません。メッセージを送ってから、もう一度開いてください。</string>
+    <string name="context_breakdown_mcp_title">MCP サーバー</string>
+    <string name="context_breakdown_mcp_tools">ツール: %1$d</string>
+    <string name="context_breakdown_manage_mcp">MCP サーバーを管理</string>
+    <string name="context_breakdown_memory_title">メモリファイル</string>
+    <string name="context_breakdown_open">コンテキストウィンドウの内訳を表示</string>
+    <string name="context_category_system_prompt">システムプロンプト</string>
+    <string name="context_category_system_tools">組み込みツール</string>
+    <string name="context_category_system_tools_deferred">組み込みツール（使用時に読み込み）</string>
+    <string name="context_category_mcp_tools">MCP ツール</string>
+    <string name="context_category_mcp_tools_deferred">MCP ツール（使用時に読み込み）</string>
+    <string name="context_category_mcp_instructions">MCP サーバーの指示</string>
+    <string name="context_category_custom_agents">カスタムエージェント</string>
+    <string name="context_category_memory_files">メモリファイル</string>
+    <string name="context_category_skills">スキル</string>
+    <string name="context_category_messages">メッセージ</string>
+    <string name="context_category_compact_buffer">圧縮用に確保</string>
+    <string name="context_category_free_space">空き</string>
     <string name="claude_keep_edits_in_project">ファイルの編集をプロジェクト内に限る</string>
     <string name="claude_keep_edits_in_project_caption">どの権限モードでも、Claude Code はチャットのフォルダ外のファイルを書き込み・編集しません。シェルコマンド、MCP ツール、フックが実行するプログラムはどこにでも書き込めるため、これはミスを防ぐためのもので、境界ではありません。各チャットの次のメッセージから適用されます。</string>
     <string name="permission_always_allow_server">%1$s のツールをすべて常に許可</string>
     <string name="command_rules_whole_server">MCP サーバー %1$s のすべてのツール</string>
+    <string name="claude_checks_settings_row">チェック</string>
+    <string name="claude_checks_title">チェック</string>
+    <string name="claude_checks_caption">Claude Code が決まったタイミングでチャットのフォルダ内で実行するコマンドです。失敗すると、その出力が Claude Code に返され、Claude Code は報告された問題を直してから続けます。Linux 環境で実行されます。</string>
+    <string name="claude_checks_after_edit">ファイル編集のたびに</string>
+    <string name="claude_checks_after_edit_caption">Claude Code がファイルを書き込む・編集するたびに実行されるので、リンターや型チェックなど短時間で終わるものにしてください。</string>
+    <string name="claude_checks_before_finish">ターンを終える前に</string>
+    <string name="claude_checks_before_finish_caption">Claude Code が止まろうとするときに実行されます。失敗すると、修正のためにターンが一度だけ続きます。その後は失敗してもターンは終わるので、通らないチェックで止まらなくなることはありません。</string>
+    <string name="claude_checks_command_label">コマンド</string>
+    <string name="claude_checks_save">保存</string>
+    <string name="claude_checks_remove">削除</string>
+    <string name="claude_checks_applies">チェックの追加は各チャットの次のメッセージから反映されます。編集と削除はすぐに反映されますが、実行中のチェックは最後まで実行されます。</string>
 </resources>

@@ -380,6 +380,11 @@ class WorkspaceViewModel(
 
     fun setClaudeKeepEditsInProject(on: Boolean) = claudeCode?.setKeepEditsInProject(on) ?: Unit
 
+    fun setClaudeCheck(
+        kind: com.yugahashimoto.andcode.runtime.local.ClaudeChecks.Kind,
+        command: String,
+    ) = claudeCode?.setCheck(kind, command) ?: Unit
+
     fun clearClaudeApprovalHistory() = claudeCode?.clearApprovalHistory() ?: Unit
 
     fun setClaudeToolClassAllowed(

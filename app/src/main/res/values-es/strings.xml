@@ -921,6 +921,8 @@
     <string name="chat_error_zen_free_tier_title">Los modelos gratis de OpenCode necesitan inicio de sesión en Zen</string>
     <string name="chat_error_zen_free_tier_body">OpenCode limita sus modelos gratis al escritorio y la CLI oficiales a menos que inicies sesión en OpenCode Zen. Conecta OpenCode en Ajustes → Proveedores, o usa otro proveedor.</string>
     <string name="chat_error_zen_free_tier_action">Abrir proveedores</string>
+    <string name="chat_copy_code">Copiar código</string>
+    <string name="chat_code_copied">Código copiado</string>
 
     <!-- Connection dialog -->
     <string name="connection_test_success">OpenCode %1$s</string>
@@ -1915,8 +1917,41 @@
     <string name="command_rules_how_block">Por la regla de bloqueo «%1$s»</string>
     <string name="command_rules_how_block_unreadable">No se pudieron leer las reglas de bloqueo</string>
     <string name="command_rules_how_timeout">Sin respuesta a tiempo</string>
+    <string name="context_breakdown_title">Ventana de contexto</string>
+    <string name="context_breakdown_total">%1$s de %2$s tokens (%3$d%%)</string>
+    <string name="context_breakdown_auto_compact">Claude Code compacta la conversación por sí solo al llegar a %1$s tokens.</string>
+    <string name="context_breakdown_loading">Consultando a Claude Code…</string>
+    <string name="context_breakdown_unavailable">Claude Code no se está ejecutando ahora en este chat. Envía un mensaje y vuelve a abrir esto.</string>
+    <string name="context_breakdown_mcp_title">Servidores MCP</string>
+    <string name="context_breakdown_mcp_tools">Herramientas: %1$d</string>
+    <string name="context_breakdown_manage_mcp">Gestionar servidores MCP</string>
+    <string name="context_breakdown_memory_title">Archivos de memoria</string>
+    <string name="context_breakdown_open">Mostrar qué ocupa la ventana de contexto</string>
+    <string name="context_category_system_prompt">Prompt del sistema</string>
+    <string name="context_category_system_tools">Herramientas integradas</string>
+    <string name="context_category_system_tools_deferred">Herramientas integradas, cargadas al usarlas</string>
+    <string name="context_category_mcp_tools">Herramientas MCP</string>
+    <string name="context_category_mcp_tools_deferred">Herramientas MCP, cargadas al usarlas</string>
+    <string name="context_category_mcp_instructions">Instrucciones de servidores MCP</string>
+    <string name="context_category_custom_agents">Agentes personalizados</string>
+    <string name="context_category_memory_files">Archivos de memoria</string>
+    <string name="context_category_skills">Habilidades</string>
+    <string name="context_category_messages">Mensajes</string>
+    <string name="context_category_compact_buffer">Reservado para compactar</string>
+    <string name="context_category_free_space">Espacio libre</string>
     <string name="claude_keep_edits_in_project">Mantener las ediciones de archivos dentro del proyecto</string>
     <string name="claude_keep_edits_in_project_caption">Claude Code se niega a escribir o editar archivos fuera de la carpeta del chat, en cualquier modo de permisos. Los comandos de shell, las herramientas MCP y los programas que ejecutan los hooks aún pueden escribir en cualquier lugar, así que esto evita errores; no es un límite de seguridad. Se aplica desde el siguiente mensaje de cada chat.</string>
     <string name="permission_always_allow_server">Permitir siempre todas las herramientas de %1$s</string>
     <string name="command_rules_whole_server">Todas las herramientas del servidor MCP %1$s</string>
+    <string name="claude_checks_settings_row">Comprobaciones</string>
+    <string name="claude_checks_title">Comprobaciones</string>
+    <string name="claude_checks_caption">Comandos que Claude Code ejecuta en la carpeta del chat en momentos fijos. Si uno falla, su salida vuelve a Claude Code, que sigue trabajando para corregir lo que indica. Se ejecutan en el entorno Linux.</string>
+    <string name="claude_checks_after_edit">Tras cada edición de archivo</string>
+    <string name="claude_checks_after_edit_caption">Se ejecuta cada vez que Claude Code escribe o edita un archivo, así que debe ser rápido: un linter o una comprobación de tipos.</string>
+    <string name="claude_checks_before_finish">Antes de terminar un turno</string>
+    <string name="claude_checks_before_finish_caption">Se ejecuta cuando Claude Code va a detenerse. Si falla, el turno continúa una vez para corregirlo; después el turno termina igualmente, así que una comprobación que no puede pasar no lo mantiene en marcha.</string>
+    <string name="claude_checks_command_label">Comando</string>
+    <string name="claude_checks_save">Guardar</string>
+    <string name="claude_checks_remove">Quitar</string>
+    <string name="claude_checks_applies">Añadir una comprobación se aplica desde el siguiente mensaje de cada chat. Editarla o quitarla se aplica al momento; una comprobación que ya está en marcha termina igualmente.</string>
 </resources>
