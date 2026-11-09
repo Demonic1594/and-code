@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
@@ -182,6 +183,8 @@ internal fun SelectionActionBar(
     onTogglePin: () -> Unit,
     onArchive: () -> Unit,
     onDelete: () -> Unit,
+    /** Offered only while one chat is selected; a name is given to one chat at a time. */
+    onRename: (() -> Unit)? = null,
 ) {
     Row(
         modifier =
@@ -200,6 +203,16 @@ internal fun SelectionActionBar(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
+        onRename?.let { rename ->
+            IconButton(onClick = rename, modifier = Modifier.testTag("drawer-rename-chat")) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = stringResource(R.string.rename_session),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
         IconButton(onClick = onTogglePin) {
             Icon(
                 if (allPinned) Icons.Outlined.PushPin else Icons.Default.PushPin,

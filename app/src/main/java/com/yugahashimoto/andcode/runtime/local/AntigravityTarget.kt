@@ -158,10 +158,9 @@ class AntigravityTarget(internal val runtime: AntigravityRuntime) : RuntimeTarge
         // "Antigravity" - the same gap ClaudeCodeTarget fills, filled the same way. The prompt stands
         // in at once so the drawer is never left showing the tool's name.
         val needsTitle = record.title == null
-        if (needsTitle) {
-            titleFromPrompt(request.text)?.let { title ->
-                withContext(kotlinx.coroutines.Dispatchers.IO) { runtime.setSessionTitle(sessionId, title) }
-            }
+        val provisional = if (needsTitle) titleFromPrompt(request.text) else null
+        provisional?.let { title ->
+            withContext(kotlinx.coroutines.Dispatchers.IO) { runtime.setSessionTitle(sessionId, title) }
         }
         val model = request.modelId ?: record.model
         val variant = request.variant ?: record.variant
@@ -188,7 +187,8 @@ class AntigravityTarget(internal val runtime: AntigravityRuntime) : RuntimeTarge
         if (needsTitle && needsSummarizedTitle(request.text)) {
             titleScope.launch {
                 val summary = withContext(kotlinx.coroutines.Dispatchers.IO) { runtime.summarizeTitle(request.text) }
-                if (summary != null) runtime.setSessionTitle(sessionId, summary)
+                // The send can take minutes; a name the user gave meanwhile is kept, not overwritten.
+                if (summary != null) runtime.replaceSessionTitle(sessionId, expected = provisional, title = summary)
             }
         }
     }

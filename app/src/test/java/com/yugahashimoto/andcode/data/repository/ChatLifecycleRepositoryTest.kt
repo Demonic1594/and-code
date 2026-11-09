@@ -139,6 +139,55 @@ class ChatLifecycleRepositoryTest {
             assertEquals(listOf("codex", "claude"), chats.map { it.runtimeId })
         }
 
+    @Test
+    fun `rename goes to the owning runtime with the name trimmed`() =
+        runTest {
+            val owner = FakeTarget("claude", active = mutableListOf(session("a")))
+            val other = FakeTarget("codex", active = mutableListOf(session("a")))
+            val lifecycle = lifecycle(this, listOf(owner, other))
+
+            val result = lifecycle.rename("a", "claude", "  Login bug  ")
+
+            assertEquals(setOf("a"), result.succeeded)
+            assertEquals("Login bug", owner.active.single().title)
+            assertEquals("a", other.active.single().title)
+        }
+
+    @Test
+    fun `a blank name renames nothing and reports nothing`() =
+        runTest {
+            val target = FakeTarget("claude", active = mutableListOf(session("a")))
+            val lifecycle = lifecycle(this, listOf(target))
+            val reports = mutableListOf<ChatActionReport>()
+            val collector = launch { lifecycle.reports.collect { reports += it } }
+            runCurrent()
+
+            val result = lifecycle.rename("a", "claude", "   ")
+
+            assertEquals(ChatActionResult(), result)
+            assertEquals("a", target.active.single().title)
+            runCurrent()
+            assertTrue(reports.isEmpty())
+            collector.cancel()
+        }
+
+    @Test
+    fun `a rename the runtime cannot do is reported as unsupported`() =
+        runTest {
+            val target = FakeTarget("remote", active = mutableListOf(session("a"))).apply { canRename = false }
+            val lifecycle = lifecycle(this, listOf(target))
+            val reports = mutableListOf<ChatActionReport>()
+            val collector = launch { lifecycle.reports.collect { reports += it } }
+            runCurrent()
+
+            val result = lifecycle.rename("a", "remote", "Login bug")
+
+            assertEquals(mapOf("a" to ChatLifecycleRepository.UNSUPPORTED), result.failed)
+            runCurrent()
+            assertEquals(ChatAction.RENAME, reports.single().action)
+            collector.cancel()
+        }
+
     private fun lifecycle(
         scope: TestScope,
         targets: List<RuntimeTarget>,
@@ -172,6 +221,7 @@ class ChatLifecycleRepositoryTest {
         val archivedIds = mutableListOf<String>()
         var deleteError: String? = null
         var canRestore = true
+        var canRename = true
         var listError = false
 
         override suspend fun connect(): Result<OpenCodeHealth> = Result.success(OpenCodeHealth(true, "1.0"))
@@ -208,6 +258,16 @@ class ChatLifecycleRepositoryTest {
             archived.remove(session)
             active += session
             return session
+        }
+
+        override suspend fun renameSession(
+            sessionId: String,
+            title: String,
+        ): OpenCodeSession {
+            if (!canRename) throw UnsupportedOperationException("no rename")
+            val index = active.indexOfFirst { it.id == sessionId }
+            if (index < 0) error("not found")
+            return active[index].copy(title = title).also { active[index] = it }
         }
 
         override suspend fun createSession(

@@ -1,14 +1,15 @@
 # Agent harness improvements (from a Cursor comparison)
 
-Status: **in progress**. Done: items 1 (with per-project rules, #87), 2 (#91), 3 (#58), 4, the
-section 8 items except the MCP and skills list, and in section 9 deny before ask, risk classes (#89;
-with #90 read-only calls skip the prompt once the user allows reading, and editing and web access
-each have their own switch, all off at first) and deny feedback. Closed because the CLI already does
-it: item 5 for the model's side, and in section 9 point-in-time context, compaction triggers and
-tool output caps (see `2026-11-07-cursor-report-assessment.md`). The rest is scheduled in that
-assessment's order: item 6 as the context breakdown, item 7 as hook templates, and in section 9 the
-audit log, writes outside the workspace and section budgets. Stop ending the whole tree is done
-(#111), and self-contained final messages with the assessment (#110).
+Status: **in progress**. Done: items 1 (with per-project rules, #87), 2 (#91), 3 (#58), 4, 6 for
+Claude Code (the context breakdown, #116), 7 (checks for Claude Code, #118), the section 8 items
+except the MCP and skills list, and in section 9 deny before ask, risk classes (#89; with #90
+read-only calls skip the prompt once the user allows reading, and editing and web access each have
+their own switch, all off at first), deny feedback, the audit log (#115), writes outside the
+workspace (an opt-in switch, #117), Stop ending the whole tree (#111) and self-contained final
+messages (#110). Closed because the CLI already does it: item 5 for the model's side, and in
+section 9 point-in-time context, compaction triggers and tool output caps (see
+`2026-11-07-cursor-report-assessment.md`). Left: item 6 for Codex (its usage figure and compact
+action) and section 9's section budgets, whose cost the context breakdown now shows.
 
 ## Goal
 
@@ -119,9 +120,9 @@ a command for it. Neither is verified for Claude Code, Codex or Antigravity.
 - Step one: check what each CLI reports and supports, then decide.
 - Checked: OpenCode has a summarize call (used at 90%); Claude Code compacts on its own and takes
   `/compact`, and answers a `get_context_usage` request with a per-category split. Codex reports token
-  usage on its app-server and compacts on request, but AndCode reads neither yet. What is left is the
-  split on the phone for Claude Code (row 3 of `2026-11-07-cursor-report-assessment.md`) and Codex's
-  usage figure and compact action.
+  usage on its app-server and compacts on request, but AndCode reads neither yet.
+- **Done** for Claude Code (#116): tapping the context meter opens the split. Codex's usage figure and
+  compact action are still to do.
 
 ### 7. User hooks
 
@@ -130,6 +131,11 @@ into the agent when it stops), but a raw hook editor is not usable on a phone.
 
 - Ship as templates instead, for example "run tests after an edit" or "block `rm -rf`".
 - Start with Claude Code only, which has its own hook system.
+- **Done** (#118) as two checks for Claude Code, set under Settings, Claude Code, Checks: a command
+  run after each edit through Write, Edit, MultiEdit or NotebookEdit (not after a file changed by a
+  shell command or an MCP tool), and one run before the turn ends. A failing check's output goes back to
+  the agent; the finishing check sends a turn back once at most. Blocking `rm -rf` is covered by
+  section 9's blocking rules.
 
 ### 8. Additions from reading Operit (Android agent app, LGPL-3.0)
 
@@ -182,9 +188,11 @@ item is an idea to check against AndCode, not a claim about how AndCode works to
 - **Writes outside the workspace.** Refuse in the bridge a write whose path resolves outside the
   workspace root (the guest also sees bound host paths; see the top of this doc). Claude Code 2.1.314
   added `permissions.blockWritesOutsideWorkingDirectories`; an opt-in switch for it replaces a bridge
-  check (row 11 of the assessment).
+  check (row 11 of the assessment). **Done** (#117): "Keep file edits inside the project" on the
+  Claude Code settings screen, off by default.
 - **Audit log.** Record each phone approval and each remembered rule (tool, input summary, decision,
-  time) so a user can see and revoke what was allowed.
+  time) so a user can see and revoke what was allowed. **Done** (#115): a History section on the
+  Command rules screen, with what the hook decided on its own too.
 - **Section budgets for instructions.** Cap each section of the generated instruction files and MCP
   tool listings instead of truncating the whole prompt, with a note when something was cut. Claude
   Code measures oversized instruction files itself but sends that warning only to Claude Desktop; the
@@ -222,13 +230,14 @@ item is an idea to check against AndCode, not a claim about how AndCode works to
 2. `@` mentions.
 3. Shadow snapshots (done, #58).
 4. Rules shortcut.
-5. Verify the context meter and compact support per CLI (item 6), then decide.
+5. Verify the context meter and compact support per CLI (item 6), then decide (done; the split
+   for Claude Code is #116).
 6. Long tool output to file.
-7. Hook templates for Claude Code.
+7. Hook templates for Claude Code (done as checks, #118).
 8. Operit-derived items (section 8): the intent trigger with a token, MCP failure reasons,
    Ollama and LM Studio presets, then the MCP and skills list.
 9. Audit-derived items (section 9): deny before ask and deny feedback with the allowlist, then
-   risk classes, the approval audit log and the workspace write check.
+   risk classes, the approval audit log and the workspace write check (done, #89, #115 and #117).
 
 ## Open questions
 

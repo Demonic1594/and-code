@@ -249,7 +249,12 @@ fun ChatHomeScreen(
     queueActions: QueuedPromptActions = QueuedPromptActions(),
     /** Allows a call and every later one from the same MCP server; offered on an MCP tool's approval. */
     onAllowMcpServer: (String) -> Unit = {},
+    /** Open, close and "manage MCP servers" for the context window sheet the meter opens. */
+    contextActions: ContextBreakdownActions = ContextBreakdownActions(),
+    /** Gives a chat a new name, from the ⋮ menu: session id, then the name. */
+    onRenameChat: (String, String) -> Unit = { _, _ -> },
 ) {
+    ContextBreakdownSheet(state.contextBreakdown, contextActions)
     // Saved state, not plain remember: the Activity is recreated on rotation and other
     // configuration changes, and a remembered field would come back empty. The TextFieldValue
     // saver also keeps the cursor and selection, not just the string (issue #355).
@@ -298,6 +303,9 @@ fun ChatHomeScreen(
     var showSlashCommands by remember { mutableStateOf(false) }
     var showSidePanel by remember { mutableStateOf(false) }
     var showChatMenu by remember { mutableStateOf(false) }
+    // The chat and name the dialog opened on, held so a chat switched or renamed meanwhile is not
+    // the one the typed name lands on.
+    var renaming by remember { mutableStateOf<Pair<String, String>?>(null) }
     // Scanned only while the menu or the sheet is open, not on every streamed token.
     val supervised = LocalSupervisedProcesses.current
     val artifacts =
@@ -595,6 +603,13 @@ fun ChatHomeScreen(
                                         showChatMenu = false
                                         showArtifacts = true
                                     },
+                                    onRename =
+                                        state.sessionId?.let { id ->
+                                            {
+                                                showChatMenu = false
+                                                renaming = id to state.sessionTitle
+                                            }
+                                        },
                                     onShare = {
                                         showChatMenu = false
                                         val title = state.sessionTitle.ifBlank { context.getString(R.string.chat_home_title) }
@@ -950,6 +965,7 @@ fun ChatHomeScreen(
                                 ?.models?.get(selectedModelId)
                                 ?.limit?.context ?: 0L,
                         tokensPerSecond = state.connectionQuality?.tokensPerSecond ?: 0.0,
+                        onOpenContextBreakdown = contextActions.onOpen.takeIf { state.contextBreakdownAvailable },
                         showSlashCommands = showSlashCommands,
                         slashCommands = state.slashCommands,
                         slashSkills = state.slashSkills,
@@ -1110,6 +1126,17 @@ fun ChatHomeScreen(
 
     state.artifactPreview?.let { preview ->
         ArtifactPreviewDialog(state = preview, onDismiss = onDismissArtifact)
+    }
+
+    renaming?.let { (sessionId, title) ->
+        RenameChatDialog(
+            currentTitle = title,
+            onDismiss = { renaming = null },
+            onRename = { newTitle ->
+                renaming = null
+                onRenameChat(sessionId, newTitle)
+            },
+        )
     }
 
     restoreTarget?.let { target ->

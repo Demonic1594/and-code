@@ -62,10 +62,12 @@ object ClaudeModels {
      * (the CLI ignores it on an account or model without workflows), and [keepEditsInProject] as
      * `permissions.blockWritesOutsideWorkingDirectories`: Write, Edit and NotebookEdit then refuse
      * paths outside the working directories in every permission mode (Claude Code 2.1.314 and later).
+     * [checks] adds the hooks that run the user's checks ([ClaudeChecks.hooks]).
      */
     fun cliSettings(
         ultracode: Boolean,
         keepEditsInProject: Boolean = false,
+        checks: Set<ClaudeChecks.Kind> = emptySet(),
     ): String? {
         val settings =
             buildMap {
@@ -73,6 +75,7 @@ object ClaudeModels {
                 if (keepEditsInProject) {
                     put("permissions", JsonObject(mapOf("blockWritesOutsideWorkingDirectories" to JsonPrimitive(true))))
                 }
+                ClaudeChecks.hooks(checks)?.let { put("hooks", it) }
             }
         return settings.takeIf { it.isNotEmpty() }?.let { JsonObject(it).toString() }
     }

@@ -19,6 +19,7 @@ import com.yugahashimoto.andcode.feature.activity.ActivityUiState
 import com.yugahashimoto.andcode.feature.chat.ChatHomeScreen
 import com.yugahashimoto.andcode.feature.chat.ChatUiState
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
+import com.yugahashimoto.andcode.feature.chat.ContextBreakdownActions
 import com.yugahashimoto.andcode.feature.chat.FileMentionsUi
 import com.yugahashimoto.andcode.feature.chat.LocalFileMentions
 import com.yugahashimoto.andcode.feature.chat.LocalSupervisedProcesses
@@ -36,6 +37,7 @@ import com.yugahashimoto.andcode.ui.lock.LocalSendGate
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ANDROID_SETUP
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_REMOTE_CONNECTION
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_AGENT_CODEX
+import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_MCP_CLAUDE
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SETTINGS_PROVIDERS
 import com.yugahashimoto.andcode.ui.navigation.guestBrowserRoute
 import kotlinx.coroutines.CancellationException
@@ -144,6 +146,9 @@ internal fun ChatRoute(
     ) {
         ChatHomeScreen(
             repositoryUrl = repositoryUrl,
+            // No runtime given: the lifecycle looks the chat's owner up, so a runtime switched while
+            // the dialog was open cannot pair this chat with another agent.
+            onRenameChat = { id, title -> actions.onRenameChat(id, null, title) },
             findRequest = waiting.findRequest,
             onFindRequestConsumed = waiting.clearFindRequest,
             state = chatState,
@@ -275,6 +280,15 @@ internal fun ChatRoute(
                     onEdit = chatViewModel::editQueuedPrompt,
                     onRemove = chatViewModel::removeQueuedPrompt,
                 ),
+            contextActions =
+                ContextBreakdownActions(
+                    onOpen = chatViewModel::showContextBreakdown,
+                    onDismiss = chatViewModel::hideContextBreakdown,
+                    onManageMcp = {
+                        chatViewModel.hideContextBreakdown()
+                        navController.navigate(ROUTE_SETTINGS_MCP_CLAUDE)
+                    },
+                ),
             onPermission = chatViewModel::respondToPermission,
             onAllowMcpServer = chatViewModel::allowMcpServer,
             onAbort = chatViewModel::abort,
@@ -374,6 +388,8 @@ internal class ChatRouteActions(
     val onOpenDrawer: () -> Unit,
     /** Outlives the route, so an image being imported is not dropped when the chat is left. */
     val importScope: CoroutineScope,
+    /** Session id, the runtime that owns it, and the new name. */
+    val onRenameChat: (String, String?, String) -> Unit = { _, _, _ -> },
 )
 
 private object ChatRouteTiming {

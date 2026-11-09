@@ -694,6 +694,10 @@ data class ChatUiState(
      * with a fallback model. Cleared at the end of the run; compacting also when it ends or output starts.
      */
     val runActivity: RunActivity? = null,
+    /** True when the agent can say how its context window is split, so the context meter opens that. */
+    val contextBreakdownAvailable: Boolean = false,
+    /** The context window sheet the meter opens: hidden, being asked for, shown, or not available now. */
+    val contextBreakdown: ContextBreakdownState = ContextBreakdownState.Hidden,
     val error: String? = null,
     /**
      * Set by [ChatViewModel.editLastUserMessage] to the text of the message it just removed, so the
@@ -847,7 +851,10 @@ class ChatViewModel(
 ) : ViewModel() {
     private val _uiState =
         MutableStateFlow(
-            ChatUiState(backendName = backend?.displayName.orEmpty()),
+            ChatUiState(
+                backendName = backend?.displayName.orEmpty(),
+                contextBreakdownAvailable = (backend as? RuntimeTarget)?.capabilities?.contextBreakdown == true,
+            ),
         )
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
@@ -1391,6 +1398,18 @@ class ChatViewModel(
     }
 
     /**
+     * Shows a chat's new name in the header when that chat is the one open. Renames come from outside
+     * (the drawer or the ⋮ menu, through the chat lifecycle), and an on-device runtime sends no event
+     * for them, so the header would otherwise keep the old name until the chat is reopened.
+     */
+    fun showRenamedTitle(
+        sessionId: String,
+        title: String,
+    ) {
+        _uiState.update { state -> if (state.sessionId == sessionId) state.copy(sessionTitle = title) else state }
+    }
+
+    /**
      * @param parent the session this one was spawned from when the caller already knows it
      * (subagent drill-in). When null the parent is resolved from the backend so a subagent session
      * opened from anywhere else still offers a way back to the main agent.
@@ -1447,6 +1466,8 @@ class ChatViewModel(
                 // previous chat's number here let a >=90% reading fire summarizeSession on a
                 // chat that never earned it.
                 contextTokensUsed = 0L,
+                // The window sheet describes the chat it was opened on.
+                contextBreakdown = if (switchingSession) ContextBreakdownState.Hidden else it.contextBreakdown,
                 dismissedTodoBarId = null,
                 error = null,
             )
@@ -1599,6 +1620,7 @@ class ChatViewModel(
                 partialText = "",
                 imagePreviews = emptyList(),
                 contextTokensUsed = 0L,
+                contextBreakdown = ContextBreakdownState.Hidden,
                 dismissedTodoBarId = null,
                 rewoundFrom = null,
                 isRewinding = false,
@@ -2038,6 +2060,31 @@ class ChatViewModel(
 
     fun dismissPatchDiff() {
         _uiState.update { it.copy(patchDiff = null) }
+    }
+
+    /** Asks the agent how this chat's context window is split, for the sheet the context meter opens. */
+    fun showContextBreakdown() {
+        val currentBackend = backend ?: return
+        val sessionId = _uiState.value.sessionId
+        _uiState.update { it.copy(contextBreakdown = ContextBreakdownState.Loading) }
+        viewModelScope.launch {
+            val breakdown = sessionId?.let { runCatching { currentBackend.contextBreakdown(it) }.getOrNull() }
+            _uiState.update { state ->
+                // Closed meanwhile, or the composer moved to another chat: the answer is not wanted,
+                // and a sheet still waiting on it is closed rather than left spinning.
+                if (state.sessionId != sessionId) {
+                    state.copy(contextBreakdown = ContextBreakdownState.Hidden)
+                } else if (state.contextBreakdown != ContextBreakdownState.Loading) {
+                    state
+                } else {
+                    state.copy(contextBreakdown = breakdown?.let(ContextBreakdownState::Shown) ?: ContextBreakdownState.Unavailable)
+                }
+            }
+        }
+    }
+
+    fun hideContextBreakdown() {
+        _uiState.update { it.copy(contextBreakdown = ContextBreakdownState.Hidden) }
     }
 
     /**
