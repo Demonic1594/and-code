@@ -1899,4 +1899,17 @@
     <string name="queued_prompt_send_now">Enviar agora (interrompe o turno atual)</string>
     <string name="queued_prompt_edit">Editar</string>
     <string name="queued_prompt_remove">Remover</string>
+    <string name="command_rules_history">Decisões recentes</string>
+    <string name="command_rules_history_caption">O que o Claude Code teve permitido ou recusado recentemente, do mais novo ao mais antigo. Guardado só neste aparelho.</string>
+    <string name="command_rules_history_empty">Nenhuma decisão ainda.</string>
+    <string name="command_rules_history_clear">Limpar</string>
+    <string name="command_rules_history_allowed">Permitido</string>
+    <string name="command_rules_history_refused">Recusado</string>
+    <string name="command_rules_how_phone">Respondido no AndCode</string>
+    <string name="command_rules_how_phone_remembered">Respondido no AndCode e guardado como “%1$s”</string>
+    <string name="command_rules_how_rule">Pela regra de sempre permitir “%1$s”</string>
+    <string name="command_rules_how_kind">Tipo permitido: %1$s</string>
+    <string name="command_rules_how_block">Pela regra de bloqueio “%1$s”</string>
+    <string name="command_rules_how_block_unreadable">Não foi possível ler as regras de bloqueio</string>
+    <string name="command_rules_how_timeout">Sem resposta a tempo</string>
 </resources>

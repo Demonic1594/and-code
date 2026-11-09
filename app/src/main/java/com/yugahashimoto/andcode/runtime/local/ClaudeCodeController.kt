@@ -71,6 +71,8 @@ data class ClaudeCodeUiState(
     val commandRules: List<ClaudePermissionBridge.CommandRule> = emptyList(),
     /** Kinds of calls (reading, editing files) allowed without asking. */
     val allowedToolClasses: Set<ToolClassRules.Kind> = emptySet(),
+    /** What was allowed or refused lately, and how, newest first. */
+    val approvalHistory: List<ApprovalLog.Entry> = emptyList(),
 ) {
     /**
      * The preset [sessionId]'s next turn will actually carry, by the same rule the runtime applies.
@@ -126,6 +128,7 @@ class ClaudeCodeController(
             )
         }.combine(runtime.permissionBridge.rules) { state, rules -> state.copy(commandRules = rules) }
             .combine(runtime.permissionBridge.toolClasses.allowed) { state, kinds -> state.copy(allowedToolClasses = kinds) }
+            .combine(runtime.permissionBridge.approvals.entries) { state, history -> state.copy(approvalHistory = history) }
             .stateIn(scope, SharingStarted.Eagerly, ClaudeCodeUiState())
 
     private var installJob: Job? = null
@@ -236,6 +239,15 @@ class ClaudeCodeController(
     /** Forgets [rule]; a rules file that cannot be written leaves the list as it was, which the screen shows. */
     fun forgetCommandRule(rule: ClaudePermissionBridge.CommandRule) {
         runCatching { runtime.permissionBridge.forget(rule) }
+    }
+
+    /** Reads the history again, off the main thread: what the hook decided only shows up this way. */
+    fun refreshApprovalHistory() {
+        scope.launch(Dispatchers.IO) { runCatching { runtime.permissionBridge.approvals.refresh() } }
+    }
+
+    fun clearApprovalHistory() {
+        scope.launch(Dispatchers.IO) { runCatching { runtime.permissionBridge.approvals.clear() } }
     }
 
     /** Lets calls of [kind] run without asking, or stops it; a file that cannot be written changes nothing. */

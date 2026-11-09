@@ -1873,4 +1873,17 @@
     <string name="queued_prompt_send_now">立即发送（停止当前这一轮）</string>
     <string name="queued_prompt_edit">编辑</string>
     <string name="queued_prompt_remove">移除</string>
+    <string name="command_rules_history">最近的决定</string>
+    <string name="command_rules_history_caption">Claude Code 最近被允许或拒绝的操作，最新的在前。仅保存在本设备上。</string>
+    <string name="command_rules_history_empty">暂无记录。</string>
+    <string name="command_rules_history_clear">清除</string>
+    <string name="command_rules_history_allowed">已允许</string>
+    <string name="command_rules_history_refused">已拒绝</string>
+    <string name="command_rules_how_phone">在 AndCode 中作答</string>
+    <string name="command_rules_how_phone_remembered">在 AndCode 中作答，并保存为“%1$s”</string>
+    <string name="command_rules_how_rule">依据始终允许规则“%1$s”</string>
+    <string name="command_rules_how_kind">允许的类型：%1$s</string>
+    <string name="command_rules_how_block">依据阻止规则“%1$s”</string>
+    <string name="command_rules_how_block_unreadable">无法读取阻止规则</string>
+    <string name="command_rules_how_timeout">未及时回答</string>
 </resources>

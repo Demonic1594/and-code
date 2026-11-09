@@ -1062,6 +1062,8 @@ fun AndCodeApp(
                                     onBlockCommand = workspaceViewModel::blockClaudeCommand,
                                     onForgetCommandRule = workspaceViewModel::forgetClaudeCommandRule,
                                     onSetToolClassAllowed = workspaceViewModel::setClaudeToolClassAllowed,
+                                    onRefreshApprovalHistory = workspaceViewModel::refreshClaudeApprovalHistory,
+                                    onClearApprovalHistory = workspaceViewModel::clearClaudeApprovalHistory,
                                     onOpenProjectInstructions = {
                                         val runtime = selectedRuntime
                                         val path = chatState.sessionDirectory ?: chatState.selectedWorkspacePath

@@ -1893,4 +1893,17 @@
     <string name="queued_prompt_send_now">今すぐ送信 (実行中のターンを止めます)</string>
     <string name="queued_prompt_edit">編集</string>
     <string name="queued_prompt_remove">削除</string>
+    <string name="command_rules_history">最近の判断</string>
+    <string name="command_rules_history_caption">最近 Claude Code に許可または拒否した操作 (新しい順)。この端末にだけ保存されます。</string>
+    <string name="command_rules_history_empty">まだありません。</string>
+    <string name="command_rules_history_clear">消去</string>
+    <string name="command_rules_history_allowed">許可</string>
+    <string name="command_rules_history_refused">拒否</string>
+    <string name="command_rules_how_phone">AndCode で回答</string>
+    <string name="command_rules_how_phone_remembered">AndCode で回答し、「%1$s」として保存</string>
+    <string name="command_rules_how_rule">常に許可するルール「%1$s」による</string>
+    <string name="command_rules_how_kind">許可した種類: %1$s</string>
+    <string name="command_rules_how_block">ブロックするルール「%1$s」による</string>
+    <string name="command_rules_how_block_unreadable">ブロックするルールを読み込めませんでした</string>
+    <string name="command_rules_how_timeout">時間内に回答がありませんでした</string>
 </resources>

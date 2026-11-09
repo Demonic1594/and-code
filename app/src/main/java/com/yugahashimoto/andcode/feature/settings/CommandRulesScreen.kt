@@ -34,6 +34,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.runtime.local.ApprovalLog
 import com.yugahashimoto.andcode.runtime.local.ClaudePermissionBridge.CommandRule
 import com.yugahashimoto.andcode.runtime.local.ToolClassRules
 
@@ -67,7 +69,13 @@ fun CommandRulesScreen(
     onForget: (CommandRule) -> Unit,
     onSetKindAllowed: (ToolClassRules.Kind, Boolean) -> Unit,
     onBack: () -> Unit,
+    /** What was allowed or refused lately; see [approvalHistory]. */
+    history: List<ApprovalLog.Entry> = emptyList(),
+    /** Reads the history again: what the hook decided on its own only shows up then. */
+    onRefreshHistory: () -> Unit = {},
+    onClearHistory: () -> Unit = {},
 ) {
+    LaunchedEffect(Unit) { onRefreshHistory() }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -109,6 +117,7 @@ fun CommandRulesScreen(
                     )
                 }
             }
+            approvalHistory(history, onClearHistory)
             item { Spacer(Modifier.height(24.dp)) }
         }
     }
