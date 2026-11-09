@@ -1,7 +1,7 @@
 # Agent harness improvements (from a Cursor comparison)
 
 Status: **in progress**. Done: items 1 (with per-project rules, #87), 2 (#91), 3 (#58), 4, 6 for
-Claude Code (the context breakdown, #116) and Codex (the meter and Compact now, #CODEXPR), 7 (checks
+Claude Code (the context breakdown, #116) and Codex (the meter and Compact now, #123), 7 (checks
 for Claude Code, #118), the section 8 items
 except the MCP and skills list, and in section 9 deny before ask, risk classes (#89; with #90
 read-only calls skip the prompt once the user allows reading, and editing and web access each have
@@ -123,7 +123,7 @@ a command for it. Neither is verified for Claude Code, Codex or Antigravity.
   `/compact`, and answers a `get_context_usage` request with a per-category split. Codex reports token
   usage on its app-server and compacts on request, but AndCode reads neither yet.
 - **Done** for Claude Code (#116): tapping the context meter opens the split.
-- **Done** for Codex (#CODEXPR): the meter reads Codex's own `thread/tokenUsage/updated` reports
+- **Done** for Codex (#123): the meter reads Codex's own `thread/tokenUsage/updated` reports
   against the window size they carry, and tapping it opens a sheet with what is in use and a Compact
   now button (`thread/compact/start`), offered between turns. A compaction, asked for or Codex's own,
   shows as "Compacting the conversation" while it runs. Antigravity's result carries token counts in
