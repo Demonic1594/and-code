@@ -1,8 +1,9 @@
 package com.yugahashimoto.andcode.core.api
 
 /**
- * How an agent's context window is split, as the agent itself counts it. Only Claude Code reports
- * this (its `get_context_usage` control request); the other agents give a total only.
+ * How an agent's context window is split, as the agent itself counts it. Claude Code reports the
+ * split by category (its `get_context_usage` control request); Codex reports only how much is in use,
+ * which becomes one category beside the free space. The other agents give a total only.
  */
 data class ContextBreakdown(
     /** Tokens in the window now; what the meter shows. */

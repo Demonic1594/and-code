@@ -1933,8 +1933,8 @@
     <string name="context_breakdown_title">Контекстное окно</string>
     <string name="context_breakdown_total">%1$s из %2$s токенов (%3$d%%)</string>
     <string name="context_breakdown_auto_compact">Claude Code сам сжимает разговор при %1$s токенов.</string>
-    <string name="context_breakdown_loading">Запрос к Claude Code…</string>
-    <string name="context_breakdown_unavailable">Сейчас Claude Code не запущен в этом чате. Отправьте сообщение и откройте это снова.</string>
+    <string name="context_breakdown_loading">Запрос к %1$s…</string>
+    <string name="context_breakdown_unavailable">Сейчас %1$s не запущен в этом чате. Отправьте сообщение и откройте это снова.</string>
     <string name="context_breakdown_mcp_title">Серверы MCP</string>
     <string name="context_breakdown_mcp_tools">Инструментов: %1$d</string>
     <string name="context_breakdown_manage_mcp">Управлять серверами MCP</string>
@@ -1975,4 +1975,7 @@
     <string name="mcp_suggestion_microsoft_learn">Официальная документация Microsoft: Azure, .NET, Windows и другое.</string>
     <string name="mcp_suggestion_sequential_thinking">Помогает агенту решать задачу шаг за шагом. Работает локально, нужен Node.js.</string>
     <string name="context_breakdown_memory_large">Большой файл: по словам Claude Code, файл такого размера замедляет его работу.</string>
+    <string name="context_breakdown_compact">Сжать сейчас</string>
+    <string name="context_breakdown_compact_caption">Заменяет старые сообщения сводкой, чтобы в чате осталось место для продолжения. Выполняется как отдельный ход.</string>
+    <string name="context_category_in_use">Инструкции, инструменты и сообщения</string>
 </resources>

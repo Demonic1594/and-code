@@ -17,6 +17,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,17 +50,22 @@ sealed interface ContextBreakdownState {
     data object Unavailable : ContextBreakdownState
 }
 
-/** What the chat screen does for the context window sheet; the meter opens it only when [onOpen] is set. */
+/**
+ * What the chat screen does for the context window sheet; the meter opens it only when [onOpen] is set,
+ * and the sheet offers to compact the chat only when [onCompact] is.
+ */
 data class ContextBreakdownActions(
     val onOpen: (() -> Unit)? = null,
     val onDismiss: () -> Unit = {},
     val onManageMcp: (() -> Unit)? = null,
+    val onCompact: (() -> Unit)? = null,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ContextBreakdownSheet(
     state: ContextBreakdownState,
+    agentName: String,
     actions: ContextBreakdownActions,
 ) {
     if (state == ContextBreakdownState.Hidden) return
@@ -83,15 +89,18 @@ internal fun ContextBreakdownSheet(
                 ContextBreakdownState.Loading ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                         CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                        Text(stringResource(R.string.context_breakdown_loading), style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.context_breakdown_loading, agentName), style = MaterialTheme.typography.bodyMedium)
                     }
                 ContextBreakdownState.Unavailable ->
                     Text(
-                        stringResource(R.string.context_breakdown_unavailable),
+                        stringResource(R.string.context_breakdown_unavailable, agentName),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                is ContextBreakdownState.Shown -> BreakdownContent(state.breakdown, actions.onManageMcp)
+                is ContextBreakdownState.Shown -> {
+                    BreakdownContent(state.breakdown, actions.onManageMcp)
+                    actions.onCompact?.let { compact -> CompactAction(compact) }
+                }
                 ContextBreakdownState.Hidden -> Unit
             }
         }
@@ -192,6 +201,20 @@ private fun WindowBar(
     }
 }
 
+/** Compacting on request: what it does, then the button. */
+@Composable
+private fun CompactAction(onCompact: () -> Unit) {
+    Text(
+        stringResource(R.string.context_breakdown_compact_caption),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = Spacing.sm),
+    )
+    OutlinedButton(onClick = onCompact, modifier = Modifier.testTag("chat-context-compact")) {
+        Text(stringResource(R.string.context_breakdown_compact))
+    }
+}
+
 @Composable
 private fun SectionTitle(text: String) {
     Text(
@@ -269,6 +292,7 @@ private fun categoryLabel(category: ContextBreakdown.Category): String =
         "memory_files" -> stringResource(R.string.context_category_memory_files)
         "skills" -> stringResource(R.string.context_category_skills)
         "messages" -> stringResource(R.string.context_category_messages)
+        "in_use" -> stringResource(R.string.context_category_in_use)
         "autocompact_buffer", "compact_buffer" -> stringResource(R.string.context_category_compact_buffer)
         "free_space" -> stringResource(R.string.context_category_free_space)
         else -> category.name.ifBlank { category.id.orEmpty() }

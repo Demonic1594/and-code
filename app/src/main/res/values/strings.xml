@@ -1937,8 +1937,8 @@
     <string name="context_breakdown_title">Context window</string>
     <string name="context_breakdown_total">%1$s of %2$s tokens (%3$d%%)</string>
     <string name="context_breakdown_auto_compact">Claude Code compacts the conversation on its own at %1$s tokens.</string>
-    <string name="context_breakdown_loading">Asking Claude Code…</string>
-    <string name="context_breakdown_unavailable">Claude Code is not running in this chat right now. Send a message, then open this again.</string>
+    <string name="context_breakdown_loading">Asking %1$s…</string>
+    <string name="context_breakdown_unavailable">%1$s is not running in this chat right now. Send a message, then open this again.</string>
     <string name="context_breakdown_mcp_title">MCP servers</string>
     <string name="context_breakdown_mcp_tools">Tools: %1$d</string>
     <string name="context_breakdown_manage_mcp">Manage MCP servers</string>
@@ -1979,4 +1979,7 @@
     <string name="mcp_suggestion_microsoft_learn">Microsoft\'s official documentation: Azure, .NET, Windows and more.</string>
     <string name="mcp_suggestion_sequential_thinking">Helps the agent work through a problem step by step. Runs locally and needs Node.js.</string>
     <string name="context_breakdown_memory_large">Large: Claude Code says a file this size slows it down.</string>
+    <string name="context_breakdown_compact">Compact now</string>
+    <string name="context_breakdown_compact_caption">Replaces the older messages with a summary, so the chat has room to keep going. It runs like a turn.</string>
+    <string name="context_category_in_use">Instructions, tools and messages</string>
 </resources>

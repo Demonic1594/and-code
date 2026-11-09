@@ -284,6 +284,7 @@ internal fun ChatRoute(
                 ContextBreakdownActions(
                     onOpen = chatViewModel::showContextBreakdown,
                     onDismiss = chatViewModel::hideContextBreakdown,
+                    onCompact = chatViewModel::compactContext,
                     onManageMcp = {
                         chatViewModel.hideContextBreakdown()
                         navController.navigate(ROUTE_SETTINGS_MCP_CLAUDE)

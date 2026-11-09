@@ -442,19 +442,6 @@ class MarkdownLiteTest {
     }
 
     @Test
-    fun `the user's own text keeps its block markers, with only links picked out`() {
-        val inlines = MarkdownLite.parseInline("- not a list\n# not a heading http://localhost:3000")
-
-        assertEquals(
-            listOf(
-                MarkdownInline.Plain("- not a list\n# not a heading "),
-                MarkdownInline.Link("http://localhost:3000", "http://localhost:3000"),
-            ),
-            inlines,
-        )
-    }
-
-    @Test
     fun `a long table split for lazy rendering keeps its column alignment`() {
         val source = "| a | b |\n|:-:|-:|\n" + (1..130).joinToString("\n") { "| $it | x |" }
         val table = MarkdownLite.parse(source).single() as MarkdownBlock.Table

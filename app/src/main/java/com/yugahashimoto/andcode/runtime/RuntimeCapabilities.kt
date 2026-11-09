@@ -96,9 +96,14 @@ data class RuntimeCapabilities(
      */
     val fileEditing: Boolean = false,
     /**
-     * True when [com.yugahashimoto.andcode.runtime.OpenCodeBackend.contextBreakdown] can say how the
-     * context window is split, so tapping the context meter opens that split. Only Claude Code
-     * reports one; the other agents give a total, which the meter already shows.
+     * True when [com.yugahashimoto.andcode.runtime.OpenCodeBackend.contextBreakdown] can describe the
+     * context window, so tapping the context meter opens a sheet about it. Claude Code reports the
+     * split by category; Codex reports how much is in use.
      */
     val contextBreakdown: Boolean = false,
+    /**
+     * True when [com.yugahashimoto.andcode.runtime.OpenCodeBackend.compactSession] can compact a chat
+     * on request, which the context window sheet then offers (Codex).
+     */
+    val compact: Boolean = false,
 )

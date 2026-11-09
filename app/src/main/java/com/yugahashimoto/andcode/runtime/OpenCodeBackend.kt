@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.runtime
 
 import com.yugahashimoto.andcode.core.api.ConfiguredProvider
 import com.yugahashimoto.andcode.core.api.ContextBreakdown
+import com.yugahashimoto.andcode.core.api.ContextUsage
 import com.yugahashimoto.andcode.core.api.McpAuthRemoval
 import com.yugahashimoto.andcode.core.api.McpAuthStart
 import com.yugahashimoto.andcode.core.api.McpAuthStatus
@@ -259,6 +260,18 @@ interface OpenCodeBackend {
      * [RuntimeCapabilities.contextBreakdown]); null otherwise, or when it cannot be asked right now.
      */
     suspend fun contextBreakdown(sessionId: String): ContextBreakdown? = null
+
+    /**
+     * How full [sessionId]'s context window is, from an agent that reports the window's size itself
+     * (Codex); null where the meter is read from the last reply's tokens and the model's limit instead.
+     */
+    suspend fun contextUsage(sessionId: String): ContextUsage? = null
+
+    /**
+     * Has the agent compact [sessionId]'s conversation now, where it can be asked to
+     * ([RuntimeCapabilities.compact]). Returns once the compaction has started; it runs like a turn.
+     */
+    suspend fun compactSession(sessionId: String): Unit = unsupported("compacting")
 
     suspend fun mcpServers(): List<McpServer> = unsupported("MCP servers")
 

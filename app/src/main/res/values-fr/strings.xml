@@ -1920,8 +1920,8 @@
     <string name="context_breakdown_title">Fenêtre de contexte</string>
     <string name="context_breakdown_total">%1$s jetons sur %2$s (%3$d %%)</string>
     <string name="context_breakdown_auto_compact">Claude Code compacte la conversation de lui-même à %1$s jetons.</string>
-    <string name="context_breakdown_loading">Interrogation de Claude Code…</string>
-    <string name="context_breakdown_unavailable">Claude Code ne tourne pas dans ce chat pour le moment. Envoyez un message, puis rouvrez ceci.</string>
+    <string name="context_breakdown_loading">Interrogation de %1$s…</string>
+    <string name="context_breakdown_unavailable">%1$s ne tourne pas dans ce chat pour le moment. Envoyez un message, puis rouvrez ceci.</string>
     <string name="context_breakdown_mcp_title">Serveurs MCP</string>
     <string name="context_breakdown_mcp_tools">Outils : %1$d</string>
     <string name="context_breakdown_manage_mcp">Gérer les serveurs MCP</string>
@@ -1962,4 +1962,7 @@
     <string name="mcp_suggestion_microsoft_learn">Documentation officielle de Microsoft : Azure, .NET, Windows et plus encore.</string>
     <string name="mcp_suggestion_sequential_thinking">Aide l’agent à résoudre un problème étape par étape. S’exécute localement et nécessite Node.js.</string>
     <string name="context_breakdown_memory_large">Volumineux : selon Claude Code, un fichier de cette taille le ralentit.</string>
+    <string name="context_breakdown_compact">Compacter maintenant</string>
+    <string name="context_breakdown_compact_caption">Remplace les anciens messages par un résumé, pour que le chat ait de la place pour continuer. Il s’exécute comme un tour.</string>
+    <string name="context_category_in_use">Instructions, outils et messages</string>
 </resources>

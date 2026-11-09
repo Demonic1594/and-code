@@ -1959,8 +1959,8 @@
     <string name="context_breakdown_title">نافذة السياق</string>
     <string name="context_breakdown_total">%1$s من %2$s توكن (%3$d%%)</string>
     <string name="context_breakdown_auto_compact">يضغط Claude Code المحادثة تلقائيًا عند %1$s توكن.</string>
-    <string name="context_breakdown_loading">جارٍ سؤال Claude Code…</string>
-    <string name="context_breakdown_unavailable">لا يعمل Claude Code في هذه الدردشة الآن. أرسل رسالة، ثم افتح هذا مجددًا.</string>
+    <string name="context_breakdown_loading">جارٍ سؤال %1$s…</string>
+    <string name="context_breakdown_unavailable">لا يعمل %1$s في هذه الدردشة الآن. أرسل رسالة، ثم افتح هذا مجددًا.</string>
     <string name="context_breakdown_mcp_title">خوادم MCP</string>
     <string name="context_breakdown_mcp_tools">الأدوات: %1$d</string>
     <string name="context_breakdown_manage_mcp">إدارة خوادم MCP</string>
@@ -2001,4 +2001,7 @@
     <string name="mcp_suggestion_microsoft_learn">توثيق Microsoft الرسمي: Azure و.NET وWindows وغيرها.</string>
     <string name="mcp_suggestion_sequential_thinking">يساعد الوكيل على حل المشكلة خطوة بخطوة. يعمل محليًا ويحتاج إلى Node.js.</string>
     <string name="context_breakdown_memory_large">ملف كبير: يقول Claude Code إن ملفًا بهذا الحجم يبطئه.</string>
+    <string name="context_breakdown_compact">ضغط المحادثة الآن</string>
+    <string name="context_breakdown_compact_caption">يستبدل الرسائل الأقدم بملخّص، ليبقى في الدردشة متسع للمتابعة. يعمل مثل دور.</string>
+    <string name="context_category_in_use">التعليمات والأدوات والرسائل</string>
 </resources>
