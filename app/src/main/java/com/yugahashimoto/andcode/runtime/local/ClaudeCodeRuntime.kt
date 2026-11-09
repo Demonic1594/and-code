@@ -126,7 +126,8 @@ class ClaudeCodeRuntime(
                 keepEditsInProjectFile.delete()
             }
         }
-        mutableKeepEditsInProject.value = on
+        // The marker file is what each launch reads, so the switch shows the file, not the request.
+        mutableKeepEditsInProject.value = keepEditsInProjectFile.isFile
     }
 
     /**

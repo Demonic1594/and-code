@@ -1907,7 +1907,7 @@
     <string name="command_rules_how_block_unreadable">ブロックするルールを読み込めませんでした</string>
     <string name="command_rules_how_timeout">時間内に回答がありませんでした</string>
     <string name="claude_keep_edits_in_project">ファイルの編集をプロジェクト内に限る</string>
-    <string name="claude_keep_edits_in_project_caption">どの権限モードでも、Claude Code はチャットのフォルダ外のファイルを書き込み・編集しません。コマンドはどこにでも書き込めるため、これはミスを防ぐためのもので、境界ではありません。各チャットの次のメッセージから適用されます。</string>
+    <string name="claude_keep_edits_in_project_caption">どの権限モードでも、Claude Code はチャットのフォルダ外のファイルを書き込み・編集しません。シェルコマンド、MCP ツール、フックが実行するプログラムはどこにでも書き込めるため、これはミスを防ぐためのもので、境界ではありません。各チャットの次のメッセージから適用されます。</string>
     <string name="permission_always_allow_server">%1$s のツールをすべて常に許可</string>
     <string name="command_rules_whole_server">MCP サーバー %1$s のすべてのツール</string>
 </resources>

@@ -1930,7 +1930,7 @@
     <string name="command_rules_how_block_unreadable">The blocking rules could not be read</string>
     <string name="command_rules_how_timeout">No answer in time</string>
     <string name="claude_keep_edits_in_project">Keep file edits inside the project</string>
-    <string name="claude_keep_edits_in_project_caption">Claude Code refuses to write or edit files outside the chat\'s folder, in every permission mode. Commands can still write anywhere, so this guards against mistakes; it is not a boundary. Applies from each chat\'s next message.</string>
+    <string name="claude_keep_edits_in_project_caption">Claude Code refuses to write or edit files outside the chat\'s folder, in every permission mode. Shell commands, MCP tools and programs run by hooks can still write anywhere, so this guards against mistakes; it is not a boundary. Applies from each chat\'s next message.</string>
     <string name="permission_always_allow_server">Always allow every %1$s tool</string>
     <string name="command_rules_whole_server">Every tool from the %1$s MCP server</string>
 </resources>
