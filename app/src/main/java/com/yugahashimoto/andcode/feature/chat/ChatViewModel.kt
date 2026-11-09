@@ -363,6 +363,13 @@ internal const val STALL_RECHECK_INTERVAL_MS = 300_000L
 /** Floor between transcript scans for pull request links, so streaming does not drive them. */
 private const val PULL_REQUEST_SCAN_THROTTLE_MS = 300L
 
+/** One refresh of the meter: tokens in the window, the window's size when the agent reported it (else 0), and the totals. */
+private data class ContextReading(
+    val used: Long,
+    val window: Long,
+    val usage: SessionUsage?,
+)
+
 private data class QueuedPrompt(
     val text: String,
     val attachments: List<PromptAttachment>,
@@ -635,6 +642,11 @@ data class ChatUiState(
     val partialText: String = "",
     val autoAcceptPermissions: Boolean = false,
     val contextTokensUsed: Long = 0L,
+    /**
+     * The window size the agent itself reported for this chat (Codex), which the meter measures
+     * against; 0 where the model's listed limit is used instead.
+     */
+    val contextWindow: Long = 0L,
     /** What this chat has used so far; null until a turn reports tokens. */
     val sessionUsage: SessionUsage? = null,
     val selectedVariant: String? = null,
@@ -698,6 +710,8 @@ data class ChatUiState(
     val contextBreakdownAvailable: Boolean = false,
     /** The context window sheet the meter opens: hidden, being asked for, shown, or not available now. */
     val contextBreakdown: ContextBreakdownState = ContextBreakdownState.Hidden,
+    /** True when the agent compacts a chat on request, so the context window sheet offers it. */
+    val compactAvailable: Boolean = false,
     val error: String? = null,
     /**
      * Set by [ChatViewModel.editLastUserMessage] to the text of the message it just removed, so the
@@ -854,6 +868,7 @@ class ChatViewModel(
             ChatUiState(
                 backendName = backend?.displayName.orEmpty(),
                 contextBreakdownAvailable = (backend as? RuntimeTarget)?.capabilities?.contextBreakdown == true,
+                compactAvailable = (backend as? RuntimeTarget)?.capabilities?.compact == true,
             ),
         )
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
@@ -1380,19 +1395,24 @@ class ChatViewModel(
                 // no tokens at all (there it is ~0 anyway), never the primary source.
                 val messages = currentBackend.listMessages(sessionId)
                 val usage = summarizeSessionUsage(messages, priceCatalog())
+                // An agent that reports its window's fill itself (Codex) is taken at its word.
+                val reported = runCatching { currentBackend.contextUsage(sessionId) }.getOrNull()
                 val used =
-                    messages
-                        .asReversed()
-                        .firstNotNullOfOrNull { message ->
-                            message.info.tokens?.contextUsed
-                                ?.takeIf { !message.info.role.equals("user", ignoreCase = true) }
-                        }
+                    reported?.usedTokens
+                        ?: messages
+                            .asReversed()
+                            .firstNotNullOfOrNull { message ->
+                                message.info.tokens?.contextUsed
+                                    ?.takeIf { !message.info.role.equals("user", ignoreCase = true) }
+                            }
                         ?: currentBackend.session(sessionId).tokens?.contextUsed
                         ?: 0L
-                used to usage
-            }.onSuccess { (used, usage) ->
+                ContextReading(used, reported?.windowTokens ?: 0L, usage)
+            }.onSuccess { reading ->
                 if (_uiState.value.chatGeneration != generation) return@onSuccess
-                _uiState.update { it.copy(contextTokensUsed = used, sessionUsage = usage) }
+                _uiState.update {
+                    it.copy(contextTokensUsed = reading.used, contextWindow = reading.window, sessionUsage = reading.usage)
+                }
             }
         }
     }
@@ -1454,6 +1474,7 @@ class ChatViewModel(
                 // previous chat's number here let a >=90% reading fire summarizeSession on a
                 // chat that never earned it.
                 contextTokensUsed = 0L,
+                contextWindow = 0L,
                 // The window sheet describes the chat it was opened on.
                 contextBreakdown = if (switchingSession) ContextBreakdownState.Hidden else it.contextBreakdown,
                 dismissedTodoBarId = null,
@@ -1608,6 +1629,7 @@ class ChatViewModel(
                 partialText = "",
                 imagePreviews = emptyList(),
                 contextTokensUsed = 0L,
+                contextWindow = 0L,
                 contextBreakdown = ContextBreakdownState.Hidden,
                 dismissedTodoBarId = null,
                 rewoundFrom = null,
@@ -2073,6 +2095,27 @@ class ChatViewModel(
 
     fun hideContextBreakdown() {
         _uiState.update { it.copy(contextBreakdown = ContextBreakdownState.Hidden) }
+    }
+
+    /**
+     * Has the agent compact the open chat now, from the context window sheet. Not while a turn runs:
+     * the compaction is a turn of its own, which the agent would refuse to start beside another. The
+     * sheet closes; the chat then shows the compaction running, and the meter refreshes when it ends.
+     */
+    fun compactContext() {
+        val currentBackend = backend ?: return
+        val state = _uiState.value
+        val sessionId = state.sessionId ?: return
+        if (!state.compactAvailable || state.isRunning) return
+        _uiState.update { it.copy(contextBreakdown = ContextBreakdownState.Hidden) }
+        viewModelScope.launch {
+            runCatching { currentBackend.compactSession(sessionId) }
+                .onFailure { error ->
+                    if (_uiState.value.sessionId == sessionId) {
+                        _uiState.update { it.copy(error = error.safeMessage("Could not compact the conversation")) }
+                    }
+                }
+        }
     }
 
     /**

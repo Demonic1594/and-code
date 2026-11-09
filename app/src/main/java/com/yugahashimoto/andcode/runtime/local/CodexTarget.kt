@@ -1,5 +1,7 @@
 package com.yugahashimoto.andcode.runtime.local
 
+import com.yugahashimoto.andcode.core.api.ContextBreakdown
+import com.yugahashimoto.andcode.core.api.ContextUsage
 import com.yugahashimoto.andcode.core.api.McpServer
 import com.yugahashimoto.andcode.core.api.OpenCodeAgent
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
@@ -62,7 +64,15 @@ class CodexTarget(
     // ClaudeStreamJsonParser does. questions stays false: item/tool/requestUserInput has no UI wired
     // up (see CodexRuntime.handleServerRequest's else branch). Each turn is a multiplexed RPC call
     // rather than a fresh process, so forcesQueue does not apply the way it does for Antigravity.
-    override val capabilities = RuntimeCapabilities(permissions = true, toolEvents = true, providerModelList = true, fileEditing = true)
+    override val capabilities =
+        RuntimeCapabilities(
+            permissions = true,
+            toolEvents = true,
+            providerModelList = true,
+            fileEditing = true,
+            contextBreakdown = true,
+            compact = true,
+        )
 
     /** The ChatGPT sign-in [completeProviderOAuth] is waiting on, set by [authorizeProvider]. */
     @Volatile private var activeLoginId: String? = null
@@ -273,6 +283,13 @@ class CodexTarget(
     private fun resolveKnownModel(modelId: String?): OpenCodeModel? = (modelId ?: knownDefaultModelId)?.let(knownModels::get)
 
     override suspend fun abortSession(sessionId: String): Boolean = withContext(Dispatchers.IO) { runtime.abort(sessionId) }
+
+    override suspend fun contextUsage(sessionId: String): ContextUsage? = runtime.contextUsage(sessionId)
+
+    override suspend fun contextBreakdown(sessionId: String): ContextBreakdown? =
+        runtime.contextUsage(sessionId)?.let(CodexContextUsage::breakdown)
+
+    override suspend fun compactSession(sessionId: String) = withContext(Dispatchers.IO) { runtime.compact(sessionId) }
 
     override suspend fun deleteSession(sessionId: String): Boolean = withContext(Dispatchers.IO) { runtime.deleteSession(sessionId) }
 

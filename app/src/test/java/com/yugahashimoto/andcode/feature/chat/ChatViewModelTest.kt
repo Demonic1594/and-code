@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.feature.chat
 
 import com.yugahashimoto.andcode.core.api.ContextBreakdown
+import com.yugahashimoto.andcode.core.api.ContextUsage
 import com.yugahashimoto.andcode.core.api.OpenCodeAgent
 import com.yugahashimoto.andcode.core.api.OpenCodeApiException
 import com.yugahashimoto.andcode.core.api.OpenCodeCommand
@@ -1268,6 +1269,63 @@ class ChatViewModelTest {
             backend.breakdownGate?.complete(Unit)
             advanceUntilIdle()
             assertEquals(ContextBreakdownState.Hidden, viewModel.uiState.value.contextBreakdown)
+        }
+
+    @Test
+    fun `an agent that reports its window fills the meter, and compacts on request between turns`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(contextBreakdown = true, compact = true))
+            backend.usage = ContextUsage(usedTokens = 54_000, windowTokens = 258_000)
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.compactAvailable)
+
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+            // A compaction is a turn of its own, so none is started beside a running one.
+            viewModel.compactContext()
+            advanceUntilIdle()
+            assertTrue(backend.compacted.isEmpty())
+
+            backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+            assertEquals(54_000L, viewModel.uiState.value.contextTokensUsed)
+            assertEquals(258_000L, viewModel.uiState.value.contextWindow)
+
+            viewModel.showContextBreakdown()
+            advanceUntilIdle()
+            viewModel.compactContext()
+            advanceUntilIdle()
+            assertEquals(listOf("s1"), backend.compacted)
+            assertEquals(ContextBreakdownState.Hidden, viewModel.uiState.value.contextBreakdown)
+
+            backend.compactFailure = IllegalStateException("thread is busy")
+            viewModel.compactContext()
+            advanceUntilIdle()
+            assertEquals("thread is busy", viewModel.uiState.value.error)
+
+            // The window belongs to the chat that reported it.
+            viewModel.newSession()
+            assertEquals(0L, viewModel.uiState.value.contextWindow)
+        }
+
+    @Test
+    fun `a runtime that cannot compact on request is never asked to`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(contextBreakdown = true))
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+            backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.compactAvailable)
+            viewModel.compactContext()
+            advanceUntilIdle()
+            assertTrue(backend.compacted.isEmpty())
+            // No window of its own reported: the model's listed limit sizes the meter instead.
+            assertEquals(0L, viewModel.uiState.value.contextWindow)
         }
 
     @Test
@@ -2834,6 +2892,18 @@ class ChatViewModelTest {
             breakdownAskedFor += sessionId
             breakdownGate?.await()
             return breakdown
+        }
+
+        /** The window fill the agent reports itself, the chats it was asked to compact, and why that fails. */
+        var usage: ContextUsage? = null
+        val compacted = mutableListOf<String>()
+        var compactFailure: Exception? = null
+
+        override suspend fun contextUsage(sessionId: String): ContextUsage? = usage
+
+        override suspend fun compactSession(sessionId: String) {
+            compactFailure?.let { throw it }
+            compacted += sessionId
         }
 
         override suspend fun connect(): Result<OpenCodeHealth> = Result.success(OpenCodeHealth(true, "test"))

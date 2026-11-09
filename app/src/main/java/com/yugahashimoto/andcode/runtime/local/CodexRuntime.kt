@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.runtime.local
 
+import com.yugahashimoto.andcode.core.api.ContextUsage
 import com.yugahashimoto.andcode.core.api.McpServer
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
@@ -63,6 +64,7 @@ class CodexRuntime(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val itemParser = CodexItemParser()
     private val messageStore = ClaudeMessageStore(File(runtimeDirectory, "codex-messages.json"), json)
+    private val usageStore = CodexContextUsage(File(runtimeDirectory, "codex-context-usage.json"), json)
     private val serverLock = Mutex()
 
     /**
@@ -353,7 +355,20 @@ class CodexRuntime(
     suspend fun deleteSession(sessionId: String): Boolean {
         call("thread/delete", buildJsonObject { put("threadId", JsonPrimitive(sessionId)) })
         messageStore.remove(sessionId)
+        usageStore.remove(sessionId)
         return true
+    }
+
+    /** How full [sessionId]'s context window was when Codex last reported it; null before it has. */
+    fun contextUsage(sessionId: String): ContextUsage? = usageStore.get(sessionId)
+
+    /**
+     * Has Codex compact [sessionId]'s conversation now (`thread/compact/start`). It answers at once;
+     * the compaction then runs as a turn of its own, with `turn/started`, a `contextCompaction` item
+     * and `turn/completed`, so the chat shows it running and settles when it ends.
+     */
+    suspend fun compact(sessionId: String) {
+        call("thread/compact/start", buildJsonObject { put("threadId", JsonPrimitive(sessionId)) })
     }
 
     suspend fun archiveSession(sessionId: String): OpenCodeSession {
@@ -604,6 +619,11 @@ class CodexRuntime(
             return
         }
         val sessionId = body.string("threadId") ?: return
+        if (method == CodexContextUsage.METHOD) {
+            // Kept in memory until the turn ends, then written out with the transcript.
+            CodexContextUsage.parse(body)?.let { usageStore.put(sessionId, it) }
+            return
+        }
         val parsed = itemParser.handleNotification(sessionId, method, body)
         if (parsed.events.any { it is OpenCodeEvent.SessionIdle }) {
             // itemParser already forgets its own in-progress message when the notification body
@@ -615,7 +635,10 @@ class CodexRuntime(
         }
         parsed.messages.forEach { message -> messageStore.upsert(sessionId, message) }
         parsed.events.forEach(events::tryEmit)
-        if (parsed.events.any { it is OpenCodeEvent.SessionIdle }) messageStore.flush()
+        if (parsed.events.any { it is OpenCodeEvent.SessionIdle }) {
+            messageStore.flush()
+            usageStore.flush()
+        }
     }
 
     private fun handleServerRequest(

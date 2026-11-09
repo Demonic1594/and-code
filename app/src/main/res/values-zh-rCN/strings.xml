@@ -1891,8 +1891,8 @@
     <string name="context_breakdown_title">上下文窗口</string>
     <string name="context_breakdown_total">%1$s / %2$s token（%3$d%%）</string>
     <string name="context_breakdown_auto_compact">Claude Code 会在达到 %1$s token 时自动压缩对话。</string>
-    <string name="context_breakdown_loading">正在询问 Claude Code…</string>
-    <string name="context_breakdown_unavailable">此对话中 Claude Code 当前未运行。请先发送一条消息，然后再打开这里。</string>
+    <string name="context_breakdown_loading">正在询问 %1$s…</string>
+    <string name="context_breakdown_unavailable">此对话中 %1$s 当前未运行。请先发送一条消息，然后再打开这里。</string>
     <string name="context_breakdown_mcp_title">MCP 服务器</string>
     <string name="context_breakdown_mcp_tools">工具：%1$d</string>
     <string name="context_breakdown_manage_mcp">管理 MCP 服务器</string>
@@ -1925,4 +1925,7 @@
     <string name="claude_checks_save">保存</string>
     <string name="claude_checks_remove">移除</string>
     <string name="claude_checks_applies">添加检查从每个对话的下一条消息起生效。编辑或移除检查会立即生效；已在运行的检查仍会运行完。</string>
+    <string name="context_breakdown_compact">立即压缩</string>
+    <string name="context_breakdown_compact_caption">用摘要替换较早的消息，让对话有空间继续。它像一轮对话一样运行。</string>
+    <string name="context_category_in_use">指令、工具和消息</string>
 </resources>

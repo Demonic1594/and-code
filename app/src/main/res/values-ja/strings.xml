@@ -1911,8 +1911,8 @@
     <string name="context_breakdown_title">コンテキストウィンドウ</string>
     <string name="context_breakdown_total">%2$s トークン中 %1$s（%3$d%%）</string>
     <string name="context_breakdown_auto_compact">Claude Code は %1$s トークンに達すると自動で会話を圧縮します。</string>
-    <string name="context_breakdown_loading">Claude Code に問い合わせ中…</string>
-    <string name="context_breakdown_unavailable">このチャットでは今 Claude Code が動いていません。メッセージを送ってから、もう一度開いてください。</string>
+    <string name="context_breakdown_loading">%1$s に問い合わせ中…</string>
+    <string name="context_breakdown_unavailable">このチャットでは今 %1$s が動いていません。メッセージを送ってから、もう一度開いてください。</string>
     <string name="context_breakdown_mcp_title">MCP サーバー</string>
     <string name="context_breakdown_mcp_tools">ツール: %1$d</string>
     <string name="context_breakdown_manage_mcp">MCP サーバーを管理</string>
@@ -1945,4 +1945,7 @@
     <string name="claude_checks_save">保存</string>
     <string name="claude_checks_remove">削除</string>
     <string name="claude_checks_applies">チェックの追加は各チャットの次のメッセージから反映されます。編集と削除はすぐに反映されますが、実行中のチェックは最後まで実行されます。</string>
+    <string name="context_breakdown_compact">今すぐ圧縮</string>
+    <string name="context_breakdown_compact_caption">古いメッセージを要約に置き換えて、チャットを続ける余地を作ります。ターンと同じように実行されます。</string>
+    <string name="context_category_in_use">指示、ツール、メッセージ</string>
 </resources>
