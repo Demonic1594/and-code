@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
+import com.yugahashimoto.andcode.core.api.RunActivity
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -313,5 +314,39 @@ class CodexItemParserTest {
 
         assertEquals(1, after.messages.single().parts.size)
         assertEquals("fresh", after.messages.single().text)
+    }
+
+    @Test
+    fun `a compaction item says the chat is compacting until it completes`() {
+        // The item/started line a live codex app-server 0.167.0 sent for thread/compact/start.
+        val started =
+            parse(
+                "t1",
+                "item/started",
+                """
+                {"item":{"type":"contextCompaction","id":"cc-1","startedAtMs":1794213636250,"completedAtMs":null},
+                 "threadId":"t1","turnId":"turn-1","startedAtMs":1794213636250}
+                """.trimIndent(),
+            )
+        val completed =
+            parse(
+                "t1",
+                "item/completed",
+                """
+                {"item":{"type":"contextCompaction","id":"cc-1","startedAtMs":1,"completedAtMs":2},
+                 "threadId":"t1","turnId":"turn-1"}
+                """.trimIndent(),
+            )
+
+        assertEquals(OpenCodeEvent.RunActivityChanged("t1", RunActivity.Compacting), started.events.last())
+        assertEquals(OpenCodeEvent.RunActivityChanged("t1", null), completed.events.last())
+        // Other items say nothing about compacting.
+        val other =
+            parse(
+                "t1",
+                "item/started",
+                """{"item":{"type":"reasoning","id":"r-1","summary":[],"content":[]},"threadId":"t1","turnId":"turn-1"}""",
+            )
+        assertTrue(other.events.none { it is OpenCodeEvent.RunActivityChanged })
     }
 }

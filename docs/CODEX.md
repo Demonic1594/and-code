@@ -209,6 +209,31 @@ non-functional, second sandboxing layer.
   live, signed-in account. `CodexItemParser` maps the image back out of the echoed `userMessage`
   content into a `file` part, so the attachment shows in the transcript and survives a reload.
 
+## Context window and compacting
+
+- **The meter.** Codex reports a thread's usage in `thread/tokenUsage/updated` notifications:
+  `tokenUsage.total` and `tokenUsage.last` (each with `totalTokens`, `inputTokens`,
+  `cachedInputTokens`, `outputTokens`, `reasoningOutputTokens`) and `modelContextWindow`. The model
+  list carries no window size, so this is the only source of one. `CodexContextUsage` keeps
+  `last.totalTokens` against `modelContextWindow` per thread, which is what Codex itself counts as in
+  the window (`TokenUsage::tokens_in_context_window` in its protocol crate returns `total_tokens`).
+  It keeps the newest 200 threads in `codex-context-usage.json`, written when a turn ends, because the
+  app-server keeps no usage on the thread, so a chat opened after a restart still shows its meter.
+  The chat reads it through `OpenCodeBackend.contextUsage`, and the meter measures against that window
+  rather than a model limit. Shapes are taken from `generate-json-schema` (0.167.0); a live,
+  signed-in run is still to be seen.
+- **Compact now.** Tapping the meter opens the context window sheet: what is in use, what is free, and
+  a Compact now button, which sends `thread/compact/start` with the thread id. Verified against a
+  live, unauthenticated 0.167.0 app-server: the call answers `{}` at once, then the compaction runs as
+  a turn of its own (`turn/started`, `item/started` for a `contextCompaction` item, then, without
+  credentials, `Reconnecting...` errors, a final `Error running remote compact task: ... 401` and
+  `turn/completed` with status `failed`). The chat therefore shows it running and settles when it
+  ends; the button is not offered while a turn runs. `CodexItemParser` turns the `contextCompaction`
+  item's start and end into the "Compacting the conversation" status, which also covers compactions
+  Codex starts on its own.
+- AndCode does not compact Codex chats by itself: the 90% gate OpenCode chats get before a prompt
+  keys off the model's listed limit, which Codex models do not have, and Codex compacts on its own.
+
 ## Reasoning effort and Fast mode
 
 Both come from `model/list` (verified live against `codex-cli 0.163.0`; a Codex version whose models

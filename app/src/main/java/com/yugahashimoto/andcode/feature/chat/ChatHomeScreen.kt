@@ -254,7 +254,15 @@ fun ChatHomeScreen(
     /** Gives a chat a new name, from the ⋮ menu: session id, then the name. */
     onRenameChat: (String, String) -> Unit = { _, _ -> },
 ) {
-    ContextBreakdownSheet(state.contextBreakdown, contextActions)
+    ContextBreakdownSheet(
+        state = state.contextBreakdown,
+        agentName = state.backendName,
+        actions =
+            contextActions.copy(
+                // Offered only where the agent compacts on request, and not while a turn runs.
+                onCompact = contextActions.onCompact.takeIf { state.compactAvailable && !state.isRunning },
+            ),
+    )
     // Saved state, not plain remember: the Activity is recreated on rotation and other
     // configuration changes, and a remembered field would come back empty. The TextFieldValue
     // saver also keeps the cursor and selection, not just the string (issue #355).
@@ -960,10 +968,11 @@ fun ChatHomeScreen(
                         enterToSend = enterToSend,
                         contextTokensUsed = state.contextTokensUsed,
                         contextLimit =
-                            providers
-                                .firstOrNull { it.id == selectedProviderId }
-                                ?.models?.get(selectedModelId)
-                                ?.limit?.context ?: 0L,
+                            state.contextWindow.takeIf { it > 0L }
+                                ?: providers
+                                    .firstOrNull { it.id == selectedProviderId }
+                                    ?.models?.get(selectedModelId)
+                                    ?.limit?.context ?: 0L,
                         tokensPerSecond = state.connectionQuality?.tokensPerSecond ?: 0.0,
                         onOpenContextBreakdown = contextActions.onOpen.takeIf { state.contextBreakdownAvailable },
                         showSlashCommands = showSlashCommands,

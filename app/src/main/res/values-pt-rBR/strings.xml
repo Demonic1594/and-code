@@ -1920,8 +1920,8 @@
     <string name="context_breakdown_title">Janela de contexto</string>
     <string name="context_breakdown_total">%1$s de %2$s tokens (%3$d%%)</string>
     <string name="context_breakdown_auto_compact">O Claude Code compacta a conversa sozinho ao chegar a %1$s tokens.</string>
-    <string name="context_breakdown_loading">Consultando o Claude Code…</string>
-    <string name="context_breakdown_unavailable">O Claude Code não está em execução neste chat agora. Envie uma mensagem e abra isto de novo.</string>
+    <string name="context_breakdown_loading">Consultando o %1$s…</string>
+    <string name="context_breakdown_unavailable">O %1$s não está em execução neste chat agora. Envie uma mensagem e abra isto de novo.</string>
     <string name="context_breakdown_mcp_title">Servidores MCP</string>
     <string name="context_breakdown_mcp_tools">Ferramentas: %1$d</string>
     <string name="context_breakdown_manage_mcp">Gerenciar servidores MCP</string>
@@ -1954,4 +1954,7 @@
     <string name="claude_checks_save">Salvar</string>
     <string name="claude_checks_remove">Remover</string>
     <string name="claude_checks_applies">Adicionar uma verificação vale a partir da próxima mensagem de cada chat. Editar ou remover vale na hora; uma verificação que já está rodando ainda termina.</string>
+    <string name="context_breakdown_compact">Compactar agora</string>
+    <string name="context_breakdown_compact_caption">Substitui as mensagens mais antigas por um resumo, para que o chat tenha espaço para continuar. Ele é executado como um turno.</string>
+    <string name="context_category_in_use">Instruções, ferramentas e mensagens</string>
 </resources>

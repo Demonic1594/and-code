@@ -6,6 +6,7 @@ import com.yugahashimoto.andcode.core.api.OpenCodeMessageInfo
 import com.yugahashimoto.andcode.core.api.OpenCodePart
 import com.yugahashimoto.andcode.core.api.OpenCodeTime
 import com.yugahashimoto.andcode.core.api.PermissionRequest
+import com.yugahashimoto.andcode.core.api.RunActivity
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -46,13 +47,29 @@ class CodexItemParser {
     ): Parsed {
         val body = params ?: return Parsed()
         return when (method) {
-            "item/started", "item/completed" -> handleItem(sessionId, body)
+            "item/started", "item/completed" -> withCompaction(sessionId, method, body, handleItem(sessionId, body))
             "item/agentMessage/delta" -> handleAgentMessageDelta(sessionId, body)
             "turn/completed" -> handleTurnCompleted(sessionId, body)
             "turn/started" -> Parsed(events = listOf(OpenCodeEvent.SessionStatusChanged(sessionId, "busy")))
             "error" -> handleError(sessionId, body)
             else -> Parsed()
         }
+    }
+
+    /**
+     * A `contextCompaction` item is Codex summarizing the conversation to make room, on its own or
+     * when asked: the chat says so while it runs, as it does for Claude Code's. Its item still becomes
+     * a part like any other.
+     */
+    private fun withCompaction(
+        sessionId: String,
+        method: String,
+        body: JsonObject,
+        parsed: Parsed,
+    ): Parsed {
+        if ((body["item"] as? JsonObject)?.string("type") != COMPACTION_ITEM) return parsed
+        val activity = RunActivity.Compacting.takeIf { method == "item/started" }
+        return parsed.copy(events = parsed.events + OpenCodeEvent.RunActivityChanged(sessionId, activity))
     }
 
     private fun handleTurnCompleted(
@@ -419,6 +436,9 @@ class CodexItemParser {
     }
 
     companion object {
+        /** The item Codex adds while it compacts the conversation (`ContextCompactionThreadItem`). */
+        private const val COMPACTION_ITEM = "contextCompaction"
+
         /** Builds the [PermissionRequest] this app's permission UI shows for a command-execution approval. */
         fun commandApprovalToPermissionRequest(
             sessionId: String,

@@ -1,15 +1,16 @@
 # Agent harness improvements (from a Cursor comparison)
 
 Status: **in progress**. Done: items 1 (with per-project rules, #87), 2 (#91), 3 (#58), 4, 6 for
-Claude Code (the context breakdown, #116), 7 (checks for Claude Code, #118), the section 8 items
+Claude Code (the context breakdown, #116) and Codex (the meter and Compact now, #123), 7 (checks
+for Claude Code, #118), the section 8 items
 except the MCP and skills list, and in section 9 deny before ask, risk classes (#89; with #90
 read-only calls skip the prompt once the user allows reading, and editing and web access each have
 their own switch, all off at first), deny feedback, the audit log (#115), writes outside the
 workspace (an opt-in switch, #117), Stop ending the whole tree (#111) and self-contained final
 messages (#110). Closed because the CLI already does it: item 5 for the model's side, and in
 section 9 point-in-time context, compaction triggers and tool output caps (see
-`2026-11-07-cursor-report-assessment.md`). Left: item 6 for Codex (its usage figure and compact
-action) and section 9's section budgets, whose cost the context breakdown now shows.
+`2026-11-07-cursor-report-assessment.md`). Left: section 9's section budgets, whose cost the
+context breakdown now shows, and section 8's MCP and skills list.
 
 ## Goal
 
@@ -121,8 +122,12 @@ a command for it. Neither is verified for Claude Code, Codex or Antigravity.
 - Checked: OpenCode has a summarize call (used at 90%); Claude Code compacts on its own and takes
   `/compact`, and answers a `get_context_usage` request with a per-category split. Codex reports token
   usage on its app-server and compacts on request, but AndCode reads neither yet.
-- **Done** for Claude Code (#116): tapping the context meter opens the split. Codex's usage figure and
-  compact action are still to do.
+- **Done** for Claude Code (#116): tapping the context meter opens the split.
+- **Done** for Codex (#123): the meter reads Codex's own `thread/tokenUsage/updated` reports
+  against the window size they carry, and tapping it opens a sheet with what is in use and a Compact
+  now button (`thread/compact/start`), offered between turns. A compaction, asked for or Codex's own,
+  shows as "Compacting the conversation" while it runs. Antigravity's result carries token counts in
+  `usage` but no window size, and AndCode does not read them, so its chats keep no meter.
 
 ### 7. User hooks
 
