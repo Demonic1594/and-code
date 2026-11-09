@@ -32,5 +32,16 @@ class ProjectInstructionsTest {
         assertEquals("Use tabs.\n", File(project, ProjectInstructions.CLAUDE_FILE).readText())
     }
 
+    @Test
+    fun `the AGENTS md Codex and OpenCode read is created beside a CLAUDE md, not over it`() {
+        val project = folder.newFolder("project")
+        File(project, ProjectInstructions.CLAUDE_FILE).writeText("Claude rules.\n")
+
+        assertEquals(0, run(ProjectInstructions.ensureExistsCommand(project.path, ProjectInstructions.AGENTS_FILE)))
+
+        assertTrue(File(project, "AGENTS.md").isFile)
+        assertEquals("Claude rules.\n", File(project, ProjectInstructions.CLAUDE_FILE).readText())
+    }
+
     private fun run(command: String): Int = ProcessBuilder("sh", "-c", command).start().waitFor()
 }

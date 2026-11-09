@@ -740,7 +740,7 @@
     <string name="command_rules_settings_row">قواعد الأوامر</string>
     <string name="project_instructions_settings_row">تعليمات المشروع</string>
     <string name="project_instructions_no_project">افتح مشروعًا في محادثة أولًا: ملف التعليمات موجود في مجلده.</string>
-    <string name="project_instructions_failed">تعذّر إنشاء CLAUDE.md في هذا المشروع.</string>
+    <string name="project_instructions_failed">تعذّر إنشاء %1$s في هذا المشروع.</string>
     <string name="command_rules_title">قواعد الأوامر</string>
     <string name="command_rules_caption">يُرفض الأمر المحظور دون سؤال، حتى داخل أمر أطول، ويُطلب من الوكيل عدم إعادة المحاولة. يمكن أن تأتي الخيارات بأي ترتيب، لذا فإن حظر «rm -rf» يحظر أيضًا «rm -fr»، لكن يجب أن تُكتب بالطريقة نفسها: «--force» ليس «-f». الأوامر التي سمحت بها دائمًا عند الموافقة تعمل دون سؤال.</string>
     <string name="command_rules_block_label">حظر الأوامر التي تحتوي على</string>
