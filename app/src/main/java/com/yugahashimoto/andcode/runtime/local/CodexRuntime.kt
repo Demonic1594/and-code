@@ -620,8 +620,13 @@ class CodexRuntime(
         }
         val sessionId = body.string("threadId") ?: return
         if (method == CodexContextUsage.METHOD) {
-            // Kept in memory until the turn ends, then written out with the transcript.
-            CodexContextUsage.parse(body)?.let { usageStore.put(sessionId, it) }
+            // During a turn it is written out with the transcript when the turn ends. One that comes
+            // with no turn of ours in flight (after the end, or for a compaction, which this runtime
+            // does not track) has no such end to wait for, so it is written at once.
+            CodexContextUsage.parse(body)?.let { usage ->
+                usageStore.put(sessionId, usage)
+                if (!sessionsWithTurnInFlight.containsKey(sessionId)) usageStore.flush()
+            }
             return
         }
         val parsed = itemParser.handleNotification(sessionId, method, body)
