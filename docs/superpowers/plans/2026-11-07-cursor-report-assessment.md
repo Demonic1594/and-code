@@ -110,6 +110,6 @@ stored. Mechanisms inside the loop are either already done by the CLI or out of 
 - Stream status: parser unit tests on recorded `system` lines from the CLI.
 - Queue: view-model tests for edit, remove and send-now.
 - Encrypted storage: `RecoveringOpener` and schedule marker unit tests (no device needed).
-- Browser: the script test (`BrowserMcpScriptTest`) for the new tools' replies and the log file's
-  cap; the WebView callbacks need a device check.
+- Browser: the script test (`BrowserMcpScriptTest`) for the new tools' replies, and
+  `BrowserAgentToolsTest` for the page agent's log; the WebView callbacks need a device check.
 - Tree kill, context sheet, hooks: unit tests where pure, then a device check, per repo convention.

@@ -120,9 +120,7 @@ a command for it. Neither is verified for Claude Code, Codex or Antigravity.
 - Step one: check what each CLI reports and supports, then decide.
 - Checked: OpenCode has a summarize call (used at 90%); Claude Code compacts on its own and takes
   `/compact`, and answers a `get_context_usage` request with a per-category split. Codex reports token
-  usage on its app-server and compacts on request, but AndCode reads neither yet. What is left is the
-  split on the phone for Claude Code (row 3 of `2026-11-07-cursor-report-assessment.md`) and Codex's
-  usage figure and compact action.
+  usage on its app-server and compacts on request, but AndCode reads neither yet.
 - **Done** for Claude Code (#116): tapping the context meter opens the split. Codex's usage figure and
   compact action are still to do.
 
@@ -135,8 +133,8 @@ into the agent when it stops), but a raw hook editor is not usable on a phone.
 - Start with Claude Code only, which has its own hook system.
 - **Done** (#118) as two checks for Claude Code, set under Settings, Claude Code, Checks: a command
   run after each file edit and one run before the turn ends. A failing check's output goes back to
-  the agent; the finishing check sends a turn back once at most. Blocking `rm -rf` is the blocking
-  rules of section 9.
+  the agent; the finishing check sends a turn back once at most. Blocking `rm -rf` is covered by
+  section 9's blocking rules.
 
 ### 8. Additions from reading Operit (Android agent app, LGPL-3.0)
 
@@ -231,13 +229,14 @@ item is an idea to check against AndCode, not a claim about how AndCode works to
 2. `@` mentions.
 3. Shadow snapshots (done, #58).
 4. Rules shortcut.
-5. Verify the context meter and compact support per CLI (item 6), then decide.
+5. Verify the context meter and compact support per CLI (item 6), then decide (done; the split
+   for Claude Code is #116).
 6. Long tool output to file.
-7. Hook templates for Claude Code.
+7. Hook templates for Claude Code (done as checks, #118).
 8. Operit-derived items (section 8): the intent trigger with a token, MCP failure reasons,
    Ollama and LM Studio presets, then the MCP and skills list.
 9. Audit-derived items (section 9): deny before ask and deny feedback with the allowlist, then
-   risk classes, the approval audit log and the workspace write check.
+   risk classes, the approval audit log and the workspace write check (done, #89, #115 and #117).
 
 ## Open questions
 
