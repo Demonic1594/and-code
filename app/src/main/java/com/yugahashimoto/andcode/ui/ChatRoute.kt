@@ -144,8 +144,9 @@ internal fun ChatRoute(
     ) {
         ChatHomeScreen(
             repositoryUrl = repositoryUrl,
-            // The open chat always belongs to the selected runtime: opening one switches to it.
-            onRenameChat = { id, title -> actions.onRenameChat(id, selectedRuntime?.id, title) },
+            // No runtime given: the lifecycle looks the chat's owner up, so a runtime switched while
+            // the dialog was open cannot pair this chat with another agent.
+            onRenameChat = { id, title -> actions.onRenameChat(id, null, title) },
             findRequest = waiting.findRequest,
             onFindRequestConsumed = waiting.clearFindRequest,
             state = chatState,
