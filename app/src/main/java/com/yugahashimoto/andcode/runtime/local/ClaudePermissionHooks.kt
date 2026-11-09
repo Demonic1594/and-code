@@ -35,6 +35,9 @@ object ClaudePermissionHooks {
     private const val SETTINGS_RELATIVE = "root/.claude/settings.json"
     private const val HOOK_RELATIVE = "usr/local/bin/and-code-claude-permission-hook.sh"
 
+    /** The line of the hook script that starts its check mode. */
+    internal const val CHECK_MODE_MARKER = "if [ \"\$MODE\" = \"--check\" ]; then"
+
     private val json =
         Json {
             ignoreUnknownKeys = true
@@ -175,6 +178,39 @@ object ClaudePermissionHooks {
             scriptFile.isFile && settingsFile.isFile
         }.getOrDefault(false)
     }
+
+    /**
+     * Replaces the guest's hook script with [hookScript] when it differs, leaving the settings alone.
+     *
+     * An app update ships a new script, but the guest keeps the old one until a runtime start
+     * provisions it again, which a user of Claude Code alone may never trigger. Only a changed script
+     * is written, so a running Claude Code never sees the file rewritten under it for nothing.
+     */
+    fun refreshScript(
+        rootfs: File,
+        hookScript: String,
+    ) {
+        runCatching {
+            val scriptFile = File(rootfs, HOOK_RELATIVE)
+            if (!scriptFile.isFile || scriptFile.readText() == hookScript) return
+            // Written aside and renamed in, so a hook starting meanwhile never runs half a script.
+            val written = File(scriptFile.parentFile, ".${scriptFile.name}.tmp")
+            written.writeText(hookScript)
+            written.setExecutable(true, false)
+            if (!written.renameTo(scriptFile)) {
+                scriptFile.writeText(hookScript)
+                written.delete()
+            }
+            scriptFile.setExecutable(true, false)
+        }
+    }
+
+    /**
+     * True when the guest's hook script has the `--check` mode [ClaudeChecks] calls. An older script
+     * reads that call as a permission request and would put an approval card up instead.
+     */
+    fun supportsChecks(rootfs: File): Boolean =
+        runCatching { File(rootfs, HOOK_RELATIVE).readText().contains(CHECK_MODE_MARKER) }.getOrDefault(false)
 
     fun isInstalled(rootfs: File): Boolean {
         val script = File(rootfs, HOOK_RELATIVE)

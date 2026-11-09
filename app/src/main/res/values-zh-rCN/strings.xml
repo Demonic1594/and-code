@@ -1914,4 +1914,15 @@
     <string name="claude_keep_edits_in_project_caption">在任何权限模式下，Claude Code 都会拒绝写入或编辑聊天文件夹以外的文件。Shell 命令、MCP 工具和钩子运行的程序仍可写入任何位置，因此这只是防止误操作，并非安全边界。从每个对话的下一条消息起生效。</string>
     <string name="permission_always_allow_server">始终允许 %1$s 的所有工具</string>
     <string name="command_rules_whole_server">MCP 服务器 %1$s 的所有工具</string>
+    <string name="claude_checks_settings_row">检查</string>
+    <string name="claude_checks_title">检查</string>
+    <string name="claude_checks_caption">Claude Code 在特定时刻于对话文件夹中运行的命令。命令失败时，其输出会返回给 Claude Code，由它继续修复所报告的问题。这些命令在 Linux 环境中运行。</string>
+    <string name="claude_checks_after_edit">每次编辑文件后</string>
+    <string name="claude_checks_after_edit_caption">Claude Code 每写入或编辑一个文件都会运行，因此请保持快速：例如代码检查工具或类型检查。</string>
+    <string name="claude_checks_before_finish">结束一轮之前</string>
+    <string name="claude_checks_before_finish_caption">在 Claude Code 即将停止时运行。如果失败，本轮会再继续一次以进行修复；之后无论如何都会结束，因此无法通过的检查不会让它一直运行下去。</string>
+    <string name="claude_checks_command_label">命令</string>
+    <string name="claude_checks_save">保存</string>
+    <string name="claude_checks_remove">移除</string>
+    <string name="claude_checks_applies">添加检查从每个对话的下一条消息起生效。编辑或移除检查会立即生效；已在运行的检查仍会运行完。</string>
 </resources>

@@ -126,6 +126,9 @@ class ClaudePermissionBridge(
 
     /** What was allowed or refused, and how, for the history on the Command rules screen. */
     val approvals = ApprovalLog(root)
+
+    /** The checks the hook script runs after an edit or before a turn ends. */
+    val checks = ClaudeChecks(root)
     private val mutableRules = MutableStateFlow(loadRules())
 
     /** Every remembered rule, blocking ones first. */
