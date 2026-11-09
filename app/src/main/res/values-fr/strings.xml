@@ -1912,4 +1912,8 @@
     <string name="command_rules_how_block">Par la règle de blocage « %1$s »</string>
     <string name="command_rules_how_block_unreadable">Les règles de blocage n’ont pas pu être lues</string>
     <string name="command_rules_how_timeout">Pas de réponse à temps</string>
+    <string name="claude_keep_edits_in_project">Garder les modifications de fichiers dans le projet</string>
+    <string name="claude_keep_edits_in_project_caption">Claude Code refuse d’écrire ou de modifier des fichiers hors du dossier du chat, quel que soit le mode d’autorisation. Les commandes peuvent toujours écrire n’importe où : cela évite les erreurs, ce n’est pas une limite de sécurité. S’applique à partir du prochain message de chaque chat.</string>
+    <string name="permission_always_allow_server">Toujours autoriser tous les outils de %1$s</string>
+    <string name="command_rules_whole_server">Tous les outils du serveur MCP %1$s</string>
 </resources>

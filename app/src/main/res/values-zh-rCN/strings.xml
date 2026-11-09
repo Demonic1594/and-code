@@ -1886,4 +1886,8 @@
     <string name="command_rules_how_block">依据阻止规则“%1$s”</string>
     <string name="command_rules_how_block_unreadable">无法读取阻止规则</string>
     <string name="command_rules_how_timeout">未及时回答</string>
+    <string name="claude_keep_edits_in_project">仅在项目内编辑文件</string>
+    <string name="claude_keep_edits_in_project_caption">在任何权限模式下，Claude Code 都会拒绝写入或编辑聊天文件夹以外的文件。命令仍可写入任何位置，因此这只是防止误操作，并非安全边界。从每个对话的下一条消息起生效。</string>
+    <string name="permission_always_allow_server">始终允许 %1$s 的所有工具</string>
+    <string name="command_rules_whole_server">MCP 服务器 %1$s 的所有工具</string>
 </resources>

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.FolderSpecial
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Key
@@ -239,6 +240,8 @@ fun ClaudeCodeAgentSettingsScreen(
     onOpenProjectInstructions: () -> Unit,
     onOpenUrl: (String) -> Unit,
     onBack: () -> Unit,
+    /** Turns on or off Claude Code refusing file writes outside the chat's folder. */
+    onSetKeepEditsInProject: (Boolean) -> Unit = {},
 ) {
     AgentSettingsScaffold(title = stringResource(LocalAgent.CLAUDE_CODE.displayNameRes), onBack = onBack) {
         AgentCardSection {
@@ -286,6 +289,16 @@ fun ClaudeCodeAgentSettingsScreen(
                 title = stringResource(R.string.command_rules_settings_row),
                 value = claude.commandRules.size.takeIf { it > 0 }?.toString(),
                 onClick = onOpenCommandRules,
+            )
+            SettingsDivider()
+            // Off by default: agents write scratch files to /tmp and config under the home folder,
+            // and Bash can still write anywhere, so this prevents mistakes rather than setting a boundary.
+            SettingsToggleRow(
+                icon = Icons.Default.FolderSpecial,
+                title = stringResource(R.string.claude_keep_edits_in_project),
+                subtitle = stringResource(R.string.claude_keep_edits_in_project_caption),
+                checked = claude.keepEditsInProject,
+                onCheckedChange = onSetKeepEditsInProject,
             )
             SettingsDivider()
             SettingsRow(

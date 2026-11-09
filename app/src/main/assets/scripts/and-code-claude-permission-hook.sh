@@ -212,9 +212,17 @@ if [ -f "$ALWAYS" ]; then
     def runsother: test("[=\"\u0027]") or (split("/") | last // "" | sub("[-.0-9]+$"; "") | IN(wrappers[]));
     ($c | test("[;&|`$<>()!\\\\\n\r]")) as $unsafe |
     (($c | words)[0] // "") as $first |
-    .rules[]? | select(.toolName == $t) | select(inproject) |
+    # A rule for a whole MCP server (mcp__browser__*) covers every tool of that server, whatever
+    # its input; same as ClaudePermissionBridge.coversServer.
+    def server: if startswith("mcp__") then (.[5:] | if contains("__") then split("__")[0] else "" end) else "" end;
+    # Only a name that is exactly mcp__<server>__* is a server rule; anything else (not text, a
+    # deeper name) matches nothing here.
+    def coversserver: (.toolName | type == "string" and endswith("__*") and (.[5:-3] | contains("__") | not))
+      and ((.toolName | server) as $s | $s != "" and ($t | server) == $s);
+    .rules[]? | select(.toolName == $t or coversserver) | select(inproject) |
     (.commandPrefix // "") as $p |
-    if $n == "yes" then (if $p == "" then "yes:" else empty end)
+    if coversserver then "yes:" + .toolName
+    elif $n == "yes" then (if $p == "" then "yes:" else empty end)
     elif $unsafe or ($first | runsother) or ($p | words | length) == 0 then empty
     else ($p | words) as $r | ($c | words) as $w |
       if ($w | length) >= ($r | length) and $w[0:($r | length)] == $r then "yes:" + ($r | join(" ")) else empty end

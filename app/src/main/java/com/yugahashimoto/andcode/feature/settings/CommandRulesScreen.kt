@@ -49,6 +49,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.runtime.local.ApprovalLog
+import com.yugahashimoto.andcode.runtime.local.ClaudePermissionBridge
 import com.yugahashimoto.andcode.runtime.local.ClaudePermissionBridge.CommandRule
 import com.yugahashimoto.andcode.runtime.local.ToolClassRules
 
@@ -254,7 +255,11 @@ private fun RuleRow(
             contentDescription = null,
             tint = if (rule.blocks) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
         )
-        val label = rule.words ?: stringResource(R.string.command_rules_whole_tool, rule.toolName)
+        val server = ClaudePermissionBridge.serverOfRule(rule.toolName)
+        val label =
+            rule.words
+                ?: server?.let { stringResource(R.string.command_rules_whole_server, it) }
+                ?: stringResource(R.string.command_rules_whole_tool, rule.toolName)
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,

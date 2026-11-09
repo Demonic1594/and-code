@@ -258,6 +258,8 @@ private fun ErrorPartCard(
 @Composable
 fun PermissionCard(
     permission: PermissionRequest,
+    /** Allows the call and every later one from its MCP server; offered only for an MCP tool. */
+    onAllowServer: ((String) -> Unit)? = null,
     onPermission: (String, PermissionResponse, Boolean) -> Unit,
 ) {
     // One glance, one thumb: what the agent wants to run, in a code block, then every answer on one
@@ -385,6 +387,17 @@ fun PermissionCard(
                     contentPadding = padding,
                 ) {
                     PermissionButtonLabel(stringResource(R.string.allow_once))
+                }
+            }
+            // An MCP server's tools often come as a set (the browser's eight), each asking once
+            // before "Always allow" covers it; this covers the set at once.
+            val server = permission.mcpServer
+            if (server != null && onAllowServer != null && permission.canAlwaysAllow) {
+                TextButton(
+                    onClick = { onAllowServer(permission.id) },
+                    modifier = Modifier.align(Alignment.End),
+                ) {
+                    Text(stringResource(R.string.permission_always_allow_server, server), style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
