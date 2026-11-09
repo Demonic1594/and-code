@@ -1913,7 +1913,7 @@
     <string name="command_rules_how_block_unreadable">Não foi possível ler as regras de bloqueio</string>
     <string name="command_rules_how_timeout">Sem resposta a tempo</string>
     <string name="claude_keep_edits_in_project">Manter as edições de arquivos dentro do projeto</string>
-    <string name="claude_keep_edits_in_project_caption">O Claude Code se recusa a gravar ou editar arquivos fora da pasta do chat, em qualquer modo de permissão. Comandos ainda podem gravar em qualquer lugar, então isso evita erros; não é um limite de segurança. Vale a partir da próxima mensagem de cada chat.</string>
+    <string name="claude_keep_edits_in_project_caption">O Claude Code se recusa a gravar ou editar arquivos fora da pasta do chat, em qualquer modo de permissão. Comandos de shell, ferramentas MCP e programas executados por hooks ainda podem gravar em qualquer lugar, então isso evita erros; não é um limite de segurança. Vale a partir da próxima mensagem de cada chat.</string>
     <string name="permission_always_allow_server">Sempre permitir todas as ferramentas de %1$s</string>
     <string name="command_rules_whole_server">Todas as ferramentas do servidor MCP %1$s</string>
     <string name="claude_checks_settings_row">Verificações</string>

@@ -1952,7 +1952,7 @@
     <string name="command_rules_how_block_unreadable">تعذّرت قراءة قواعد الحظر</string>
     <string name="command_rules_how_timeout">لم تصل إجابة في الوقت المحدد</string>
     <string name="claude_keep_edits_in_project">إبقاء تعديلات الملفات داخل المشروع</string>
-    <string name="claude_keep_edits_in_project_caption">يرفض Claude Code كتابة الملفات أو تعديلها خارج مجلد الدردشة، في كل أوضاع الأذونات. لا تزال الأوامر قادرة على الكتابة في أي مكان، لذا يمنع هذا الأخطاء ولا يُعدّ حدًّا أمنيًا. يسري من الرسالة التالية في كل دردشة.</string>
+    <string name="claude_keep_edits_in_project_caption">يرفض Claude Code كتابة الملفات أو تعديلها خارج مجلد الدردشة، في كل أوضاع الأذونات. لا تزال أوامر الطرفية وأدوات MCP والبرامج التي تشغّلها الخطافات قادرة على الكتابة في أي مكان، لذا يمنع هذا الأخطاء ولا يُعدّ حدًّا أمنيًا. يسري من الرسالة التالية في كل دردشة.</string>
     <string name="permission_always_allow_server">السماح دائمًا بكل أدوات %1$s</string>
     <string name="command_rules_whole_server">كل أدوات خادم MCP %1$s</string>
     <string name="claude_checks_settings_row">الفحوصات</string>
