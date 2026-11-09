@@ -4,6 +4,7 @@
   <a href="https://github.com/Demonic1594/and-code/actions/workflows/android.yml"><img src="https://github.com/Demonic1594/and-code/actions/workflows/android.yml/badge.svg" alt="CI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Demonic1594/and-code" alt="License: MIT" /></a>
   <a href="https://github.com/yuga-hashimoto/and-code"><img src="https://img.shields.io/badge/fork%20of-yuga--hashimoto%2Fand--code-blue" alt="Fork of yuga-hashimoto/and-code" /></a>
+  <a href="https://github.com/Demonic1594/and-code/releases/latest"><img src="https://img.shields.io/github/v/release/Demonic1594/and-code?label=AndCode%20LH" alt="Fork release" /></a>
   <a href="https://github.com/yuga-hashimoto/and-code/releases/latest"><img src="https://img.shields.io/github/v/release/yuga-hashimoto/and-code?label=upstream%20release" alt="Upstream release" /></a>
 </p>
 
@@ -11,7 +12,7 @@
 
 AndCodeはAIコーディングエージェントをスマートフォンで使えるようにするネイティブAndroid GUIアプリです。[OpenCode](https://github.com/sst/opencode)、[Claude Code](https://github.com/anthropics/claude-code)、[Google Antigravity](https://github.com/google-antigravity/antigravity-cli)、[OpenAI Codex](https://github.com/openai/codex)とタッチ操作中心のインターフェースで対話できます — 端末エミュレータもSSHもPCも、オンデバイス実行には一切不要です。PRootによるオンデバイスランタイムか、PC/Mac/Linux上の既存OpenCodeサーバーへのリモート接続で動作します。
 
-[アップストリームのリリース](https://github.com/yuga-hashimoto/and-code/releases/latest) · [フォーク独自の機能](docs/FEATURES.md) · [フォークのメモ](docs/FORK.md)
+[フォークのリリース](https://github.com/Demonic1594/and-code/releases/latest) · [アップストリームのリリース](https://github.com/yuga-hashimoto/and-code/releases/latest) · [フォーク独自の機能](docs/FEATURES.md) · [フォークのメモ](docs/FORK.md)
 
 [English](README.md) | [日本語](README.ja.md) | [简体中文](README.zh-CN.md) | [Español](README.es.md) | [Français](README.fr.md) | [Português (Brasil)](README.pt-BR.md) | [Русский](README.ru.md) | [العربية](README.ar.md)（日本語と英語以外の翻訳はアップストリームのもので、このフォーク独自の機能は含みません）
 
@@ -26,10 +27,14 @@ AndCodeはAIコーディングエージェントをスマートフォンで使�
 - **使用量ページ** — すべてのチャットのトークン数とコストを、日・モデル・エージェント別に表示
 - **変更のレビュー・受信トレイ・巻き戻し** — 回答が変更した内容を行コメント付きでレビュー、承認や完了したチャットを1つのリストで処理、チャットを任意のメッセージ（ファイルも含む）まで巻き戻し
 - **アーティファクト** — エージェントが作ったページ・図・文書・画像をプレビュー。デスクトップ表示とズームに対応
+- **調整できる承認** — 各呼び出しのリスクを承認カードに表示（承認を求めるすべてのエージェント）。Claude Codeでは、プロジェクト単位やMCPサーバー単位の常に許可ルール、ブロックするコマンド、読み取り・Web・編集の種類ごとの許可、許可・拒否の履歴
+- **Claude Codeの制御** — 編集のたびやターン終了前に実行するチェック、Write・Edit・NotebookEditツールをプロジェクト内に限るスイッチ（シェルコマンド・MCPツール・フックは外にも書き込める）、Ultracode、コンテキストウィンドウの内訳
+- **動き続けるサーバー** — エージェントが起動した開発サーバーはターン後も動き続け、「プロセス」画面で管理可能。ターミナルで起動したサーバーはリンクで共有可能
 - **新しいデザイン** — アプリ全体で統一したデザイン、Material Youの配色、コード用のJetBrains Mono、触覚フィードバック、実行設定シート
-- **チャットの使い勝手** — メッセージ内検索、チャット内検索、チャットのピン留め、引数付きの保存済みプロンプト、本当の削除とアーカイブ、回答と自分のメッセージの完全なMarkdown表示（入れ子のリスト、タスクの箱、表、脚注）、Markdownで共有、画像の貼り付け、返信できる実行中通知
+- **プライバシーと自動化** — 指紋・顔・画面ロックによるアプリのロック、Taskerなど他のアプリから実行できるスケジュール
+- **チャットの使い勝手** — メッセージ内検索、チャット内検索、チャットのピン留めと名前変更、`@`でのファイル指定、返信中に送ったプロンプトの保留（送信動作が「キュー」のとき）、引数付きの保存済みプロンプト、任意のメッセージ時点へのファイル復元、本当の削除とアーカイブ、回答と自分のメッセージの完全なMarkdown表示（入れ子のリスト、タスクの箱、表、脚注）、Markdownで共有、画像の貼り付け、返信できる実行中通知
 
-デバッグビルドは**AndCode LH**としてアップストリーム版と並べてインストールでき、ローカルランタイムのポートも別なので衝突しません。このフォークにはまだ独自のリリースがありません。[ビルド](#ビルド)するか、プルリクエストに`build-apk`ラベルを付ける、またはActionsタブから**PR APK Build**ワークフローを実行するとインストール可能なAPKが得られます。
+このフォークのビルドは**AndCode LH**（`com.yugahashimoto.andcode.heap`）としてアップストリーム版と並べてインストールでき、データもローカルランタイムのポートも別なので衝突しません。このリポジトリの[リリース](https://github.com/Demonic1594/and-code/releases/latest)からダウンロードするか、自分で[ビルド](#ビルド)するか、プルリクエストの`build-apk`ラベルまたは**PR APK Build**ワークフローで入手できます。最新のリリース以降にマージされた機能は次のリリースに入ります。ビルドの種類とリリースの作り方は[docs/FORK.md](docs/FORK.md)（英語）にあります。
 
 > [!IMPORTANT]
 > AndCodeは、利用者自身のAndroid端末上で対応する第三者製コマンドラインツールをインストールまたは起動する、独立したローカルファーストGUIです。AndCode自体がClaude、Google Antigravity、OpenAI Codex、OpenCodeなどのAIサービス、サブスクリプション、モデル利用権またはアカウント利用権を提供するものではありません。認証、モデルアクセス、推論およびサービスとの通信は、各公式CLIまたは利用者が設定したプロバイダーによって処理されます。AndCodeはOpenCode、Anthropic、GoogleまたはOpenAIと提携、承認、後援または公式サポート関係にありません。詳細は[法的情報・第三者ソフトウェア](#法的情報第三者ソフトウェア)を参照してください。
@@ -70,9 +75,6 @@ AndCodeはAIコーディングエージェントをスマートフォンで使�
 
 </div>
 
-> [!IMPORTANT]
-> AndCodeは独立したオープンソースプロジェクトです。OpenCode、Anthropic、Googleのいずれとも一切関係ありません。
-
 ---
 
 ## 目次
@@ -112,11 +114,11 @@ AndCodeはAIコーディングエージェントをスマートフォンで使�
 - **オンデバイスランタイム** — Alpine Linux、Git、bash、curl、ripgrep、コーディングエージェントをPRootで自動セットアップ
 - **リポジトリ・ワークスペース** — デバイス上でGitリポジトリを開き、ファイルツリーを閲覧し、シンタックスハイライト付きでファイルを表示
 - **端末内ファイル** — 全ファイルアクセスを許可すると、端末内のファイル（`/sdcard`、SDカード、USBドライブ）をフォルダ選択画面から閲覧でき、エージェントからも参照可能。アプリ領域へコピーせず、その場で開きます
-- **Gitサポート** — GUIでステータスの閲覧と差分の確認ができます。その他のGit操作には組み込みランタイムのターミナルを使用してください
+- **Gitサポート** — GUIでステータスの閲覧と差分の確認ができます（このフォークでは下記のGitパネルも追加）
 - **差分ビューア** — 適用前にコード変更をインラインで確認
 - **組み込みターミナル** — オンデバイスランタイム内の対話型シェル（本物のPTY）：出力のストリーミング、標準入力、Ctrl+C、色表示に対応し、元のワークスペースで開きます。ここで起動した開発サーバー（Vite、`python -m http.server` など）はチップとして表示され、アプリ内ブラウザでページを開けます。`vim` などの全画面プログラムはまだ未対応です
 - **プルリクエストバッジ** — チャットで作成したPRを入力欄の上に固定表示。差分行数と状態（ドラフト／オープン／コンフリクト／マージ済み／クローズ）が一目でわかり、タップでGitHubを開きます
-- **ツール承認** — 危険なツール操作の許可・拒否
+- **ツール承認** — 危険なツール操作の許可・拒否（このフォークではリスク表示・ルール・履歴を追加、下記参照）
 - **セッション管理** — 新規作成、再開、名前変更、削除
 - **スケジュール実行** — 単発またはcronによる定期実行でプロンプトを自動実行し、実行履歴を確認
 - **動的モデル** — 接続中のエージェントインスタンスからモデル・プロバイダー・エージェントを動的取得
@@ -138,14 +140,22 @@ AndCodeはAIコーディングエージェントをスマートフォンで使�
 - **使用量** — すべてのチャットのトークン数とコスト。日別チャートとモデル別・エージェント別の内訳
 - **変更カードとレビュー** — 回答が編集したファイルを確認し、行コメントを1つのメッセージとしてエージェントへ返す
 - **受信トレイ** — すべてのエージェントの承認・実行中のチャット・未読のチャットを1つのリストに集約。許可／拒否、停止、返信に対応
-- **巻き戻し** — OpenCodeのチャットと、エージェントが変更したファイルを、任意のメッセージの時点に戻す（他のエージェントでは使えません）
+- **巻き戻し** — OpenCodeのチャットと、エージェントが変更したファイルを、任意のメッセージの時点に戻す
+- **メッセージ時点へのファイル復元** — 自前のチェックポイントを持たないオンデバイスのエージェント（Claude Code・Codex・Antigravity・新APIのOpenCode）では、フォルダ外にアプリが保存するスナップショットから、任意のメッセージの前の状態にプロジェクトのファイルを戻す（依存関係・ビルドのフォルダ、gitignore対象のファイル、入れ子のGitリポジトリはスナップショットされず、そのまま残る）
 - **アーティファクト** — エージェントが作ったものの全画面プレビューと、起動したローカルサーバーの一覧
+- **動き続けるサーバー** — エージェントが`andcode-run`で起動した開発サーバーはターン後も動き続け、クラッシュすると再起動し、設定→プロセスに一覧表示。ターミナルで起動したサーバーはCloudflareのクイックトンネルでリンク共有可能
+- **承認** — 承認ごとのリスク表示（承認を求めるすべてのエージェント）。Claude Codeでは、プロジェクト単位（または1つのMCPサーバーの全ツール）の常に許可ルール、どのモードでも拒否するブロック対象コマンド、読み取り・Web・編集の種類ごとの許可、判断の履歴
+- **Claude Codeのチェックとガード** — ファイル編集のたびやターン終了前に実行するコマンド（失敗は修正のためClaude Codeに返される）、Write・Edit・NotebookEditツールをプロジェクト内に限るスイッチ（シェルコマンド・MCPツール・フックは外にも書き込める）、メーターから開くコンテキストウィンドウの内訳、再試行・圧縮・モデルのフォールバックのチャット表示
 - **常に最新** — 数秒以上アプリを離れたあと、戻るとすぐに再接続して取りこぼしを取得するため、返信を見るためにセッションを開き直す必要がありません
 - **メッセージのMarkdown** — 回答も自分のメッセージもCommonMarkとGitHubの表・タスクリスト・取り消し線・脚注で表示。入れ子のリスト、リストやコードを含む引用、列揃えされた表、参照リンクに対応
-- **検索と整理** — すべてのチャットのメッセージ内検索、チャット内検索、ピン留め、アーカイブ、本当の削除
+- **検索と整理** — すべてのチャットのメッセージ内検索、チャット内検索、ピン留め、名前変更、アーカイブ、本当の削除
+- **入力欄** — `@`でプロジェクトのファイルを指定、長いメッセージの全画面編集、送信動作が「キュー」のとき返信中に送ったプロンプトを「今すぐ送信」「編集」「削除」付きで保留
 - **保存済みプロンプト** — `$ARGUMENTS`や`$1`、`$2`のプレースホルダーを使える`/name`コマンド
 - **実行中の通知** — 現在のステップと**停止**を表示する1つの常駐通知と、通知シェードからの**返信**
 - **実行設定シート** — エージェントまたは権限モード、思考レベル、高速モード、システムプロンプトのプリセットを1か所に
+- **アプリのロック** — アプリを開くとき（必要ならメッセージ送信のたび）に端末の指紋・顔・画面ロックを要求
+- **他のアプリからスケジュールを実行** — 作成したトークンでTaskerなどがスケジュールを実行
+- **使用量の見積もり** — プランで無料と報告されたターンを、自動更新される価格表の定価で見積もり
 - **GitHubトークンでのサインイン** — OAuthクライアントIDのないビルドでは、パーソナルアクセストークンを使用
 
 ## Antigravity
@@ -194,7 +204,7 @@ OpenAIのCodex CLIは、OpenCodeやClaude Codeと同じAlpine/PRootサンドボ�
 
 ### オンデバイス実行（PC不要）
 
-1. APKをインストール：このフォークのビルド（Actionsタブの**PR APK Build**ワークフロー、またはソースから）、もしくはアップストリームの[リリース](https://github.com/yuga-hashimoto/and-code/releases/latest)
+1. APKをインストール：このフォークの[リリース](https://github.com/Demonic1594/and-code/releases/latest)、またはアップストリームの[リリース](https://github.com/yuga-hashimoto/and-code/releases/latest)から
 2. アプリを開く → **作業先** → **このAndroid端末** → **この端末へセットアップ**
 3. ランタイムのダウンロード・インストールを待つ（約2分）
 4. コーディングエージェントを選択してチャット開始
@@ -251,7 +261,7 @@ npx qrcode "opencode://connect?name=Mac%20mini&url=http%3A%2F%2F192.168.1.10%3A4
 4. 両方のSHA-256チェックサムを検証
 5. アプリ専用ディレクトリに展開
 6. Alpine内にGit、bash、curl、ripgrep、CA証明書をインストール
-7. `127.0.0.1:4097`でエージェントサーバーを起動
+7. `127.0.0.1:4097`でエージェントサーバーを起動（AndCode LHではアップストリーム版と衝突しないよう`4098`）
 8. アプリをローカルランタイムに切り替え
 
 固定バージョン（エージェント自体を変更せずアプリのリリースで更新可能。詳細は[`local-runtime-manifest.json`](app/src/main/assets/local-runtime-manifest.json)を参照）:
@@ -307,6 +317,7 @@ adb install -r app/build/outputs/apk/github/debug/app-github-debug.apk
 - [オンデバイスランタイム設計](docs/LOCAL_RUNTIME.md)
 - [Antigravityローカルランタイム](docs/ANTIGRAVITY.md)
 - [Antigravityエージェント同等機能設計書](docs/superpowers/specs/2026-07-27-antigravity-agent-parity-design.md)
+- [Claude Codeローカルランタイム](docs/CLAUDE_CODE.md)
 - [Codexローカルランタイム](docs/CODEX.md)
 - [CIガイド](docs/CI.md)
 - [リリースガイド](docs/RELEASE.md)
@@ -314,6 +325,7 @@ adb install -r app/build/outputs/apk/github/debug/app-github-debug.apk
 - [デバイス検証マトリクス](docs/device-matrix.md)
 - [フォークのメモ（デバッグビルド、アップストリームとの同期）](docs/FORK.md)
 - [フォーク独自の機能（英語）](docs/FEATURES.md)
+- [フォークのロードマップ（予定している作業の順番、英語）](docs/ROADMAP.md)
 
 ## コントリビューション
 

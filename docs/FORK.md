@@ -52,16 +52,25 @@ keeps both reporters off.
 GitHub device sign-in needs an OAuth app's client ID, read from the optional repository variable
 `FORK_GITHUB_CLIENT_ID`. Without it, sign-in with a personal access token still works.
 
-Each APK has a `.sha256` file. The signed build needs the repository secrets
-`RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and
-`RELEASE_KEY_PASSWORD`; without all four only the debug APK is published. `RELEASE_KEYSTORE_BASE64` is
-the `.jks` file in base64: `base64 -w0 <file>` on Linux, `base64 -i <file>` on macOS, or
-`[Convert]::ToBase64String([IO.File]::ReadAllBytes("<full path>")) | Set-Clipboard` in PowerShell
-(it needs the full path to the file). The release step opens the decoded keystore with the store password and alias first, so a wrong one of those is named in the run log. It does not check `RELEASE_KEY_PASSWORD`; a wrong key password only fails later, in Gradle. The log never shows any part of a secret. Set them before the first run
-for a tag: the release notes are written once, when the release is created. Keep the keystore and its
-password backed up outside the repository: a signed install only accepts updates signed with the
-same key. Android does not let a debug-signed install update to the signed one (or back), so moving
-between them means uninstalling first, which removes that install's data.
+Each APK has a `.sha256` file. Releases up to v1.2.29 were published debug-signed only; the signed
+build starts with the first release made after the secrets below are set.
+
+The signed build needs four repository secrets; without all four only the debug APK is published.
+
+- `RELEASE_KEYSTORE_BASE64`: the `.jks` file in base64. `base64 -w0 <file>` on Linux,
+  `base64 -i <file>` on macOS, or
+  `[Convert]::ToBase64String([IO.File]::ReadAllBytes("<full path>")) | Set-Clipboard` in PowerShell
+  (it needs the full path to the file).
+- `RELEASE_KEYSTORE_PASSWORD` and `RELEASE_KEY_ALIAS`: the release step opens the decoded keystore
+  with these first, so a wrong one is named in the run log.
+- `RELEASE_KEY_PASSWORD`: not checked up front; a wrong key password only fails later, in Gradle.
+
+The log never shows any part of a secret. Set them before the first run for a tag: the release
+notes are written once, when the release is created. Back up the keystore, `RELEASE_KEYSTORE_PASSWORD`,
+`RELEASE_KEY_PASSWORD` and `RELEASE_KEY_ALIAS` outside the repository: a signed install only accepts
+updates signed with the same key. Android does
+not let a debug-signed install update to the signed one (or back), so moving between them means
+uninstalling first, which removes that install's data.
 
 `release.yml` (upstream's signed flow, which builds `com.yugahashimoto.andcode` with upstream's
 Firebase project) is skipped on a repository whose `AND_CODE_GITHUB_CLIENT_ID` variable is not set.
@@ -76,8 +85,17 @@ git fetch upstream main
 git merge --no-ff upstream/main
 ```
 
-After the merge, check that the three debug-variant files above are still present and that
-`AndroidManifest.xml` declares `largeHeap` exactly once.
+Do it on a branch from `scripts/new-worktree.sh` and open a PR as usual, then **merge that PR with
+a merge commit, not a squash**: the merge is what tells git which upstream commits the fork already
+has, so a squashed sync makes the next one replay and conflict on everything again. Sync only what
+upstream has merged into its `main`; an open upstream PR waits until it lands there.
+
+When resolving conflicts, keep the fork's version of `.release-version`, `versionCode` and
+`versionName` in `app/build.gradle.kts`, `ReleaseMetadataTest` and the fastlane changelogs: the
+fork numbers its own releases. Check those files after every sync, not only when they conflict:
+where the fork has not touched one since the last sync, git takes upstream's version silently. After
+the merge, also check that the three debug-variant files above are
+still present and that `AndroidManifest.xml` declares `largeHeap` exactly once.
 
 The fork maintains only `README.md` and `README.ja.md`. The other translations come from upstream
 and follow it, so the "update every translation" rule in [`docs/TRANSLATION.md`](TRANSLATION.md)
