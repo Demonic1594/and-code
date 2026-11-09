@@ -27,7 +27,7 @@ This repository is a fork of [yuga-hashimoto/and-code](https://github.com/yuga-h
 - **Usage page** — tokens and cost across every chat, by day, model and agent
 - **Changes review, Inbox and Rewind** — review what an answer changed with line comments, handle approvals and finished chats in one list, and rewind a chat to any of your messages, files included
 - **Artifacts** — preview the pages, drawings, documents and pictures the agent made, with a desktop layout and zoom
-- **Approvals you can tune** — the risk of each call on its card for every agent, and for Claude Code always-allow rules per project or for a whole MCP server, blocked commands, allowing reading, web or editing by kind, and a history of what was allowed or refused
+- **Approvals you can tune** — the risk of each call on its card for every agent that asks, and for Claude Code always-allow rules per project or for a whole MCP server, blocked commands, allowing reading, web or editing by kind, and a history of what was allowed or refused
 - **Claude Code controls** — checks it runs after each edit or before it ends a turn, a switch keeping its file edits in the project, Ultracode, and a view of what fills its context window
 - **Servers that stay up** — dev servers the agent starts keep running after the turn, with a Processes screen; servers started in the terminal can be shared by link
 - **A new look** — one design language across the app, Material You colours, JetBrains Mono for code, haptics, and a Run settings sheet
@@ -144,7 +144,7 @@ On-device agents run inside a Linux environment via PRoot. OpenCode, Claude Code
 - **Restore files to a message** — For on-device agents without their own checkpoints (Claude Code, Codex, Antigravity, OpenCode on the new API): put the project's files back to how they were before any of your messages, from snapshots the app keeps outside the folder
 - **Artifacts** — Full-screen preview of what the agent made, and a list of the local servers it started
 - **Servers that stay up** — `andcode-run` keeps the dev servers agents start alive after the turn, restarts a crash, and lists them under Settings → Processes. A server started in the terminal can be shared by link through a Cloudflare quick tunnel
-- **Approvals** — A risk chip on each approval, for every agent. For Claude Code: always-allow rules kept per project (or for every tool of one MCP server), blocked commands refused in every mode, reading, web or editing allowed by kind, and a history of decisions
+- **Approvals** — A risk chip on each approval, for every agent that asks. For Claude Code: always-allow rules kept per project (or for every tool of one MCP server), blocked commands refused in every mode, reading, web or editing allowed by kind, and a history of decisions
 - **Claude Code checks and guards** — A command it runs after each file edit or before finishing a turn, with failures sent back to fix; a switch keeping its file edits inside the project; a context window breakdown from the meter; retries, compaction and model fallback shown in the chat
 - **Stays live** — After you have been away for a few seconds, the chat reconnects as soon as you come back and catches up on anything it missed, so you no longer need to reopen the session to see a reply
 - **Markdown in messages** — Answers and your own messages render CommonMark with GitHub tables, task lists, strikethrough and footnotes: nested lists, quotes holding lists and code, aligned table columns, reference links
