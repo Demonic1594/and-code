@@ -165,8 +165,9 @@ private fun BreakdownContent(
 }
 
 /**
- * The size, in tokens, past which Claude Code says one instruction file "will impact performance".
- * It warns only in its own terminal, which AndCode does not show, so the sheet says it instead.
+ * About the size, in tokens, past which Claude Code says one instruction file "will impact
+ * performance". It warns only in its own terminal, which AndCode does not show, so the sheet says it
+ * instead, as a likely case: Claude Code counts characters, which the sheet does not have.
  * Claude Code 2.1.319 allows the larger of 40,000 characters and 5% of the window, in characters,
  * per file; at its 3 to 4 characters a token, that is about the larger of 10,000 tokens and a
  * twentieth of the window.

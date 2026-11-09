@@ -1974,7 +1974,7 @@
     <string name="mcp_suggestion_deepwiki">Отвечает на вопросы о публичных репозиториях GitHub.</string>
     <string name="mcp_suggestion_microsoft_learn">Официальная документация Microsoft: Azure, .NET, Windows и другое.</string>
     <string name="mcp_suggestion_sequential_thinking">Помогает агенту решать задачу шаг за шагом. Работает локально, нужен Node.js.</string>
-    <string name="context_breakdown_memory_large">Большой файл: по словам Claude Code, файл такого размера замедляет его работу.</string>
+    <string name="context_breakdown_memory_large">Большой файл: вероятно, больше размера, при котором Claude Code предупреждает, что файл замедляет его работу.</string>
     <string name="context_breakdown_compact">Сжать сейчас</string>
     <string name="context_breakdown_compact_caption">Заменяет старые сообщения сводкой, чтобы в чате осталось место для продолжения. Выполняется как отдельный ход.</string>
     <string name="context_category_in_use">Инструкции, инструменты и сообщения</string>

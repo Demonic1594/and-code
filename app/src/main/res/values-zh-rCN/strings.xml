@@ -1935,7 +1935,7 @@
     <string name="mcp_suggestion_deepwiki">回答有关 GitHub 公开仓库的问题。</string>
     <string name="mcp_suggestion_microsoft_learn">微软官方文档：Azure、.NET、Windows 等。</string>
     <string name="mcp_suggestion_sequential_thinking">帮助智能体一步步解决问题。在本地运行，需要 Node.js。</string>
-    <string name="context_breakdown_memory_large">文件较大：Claude Code 称此大小的文件会拖慢它的运行。</string>
+    <string name="context_breakdown_memory_large">文件较大：可能已超过 Claude Code 提示会拖慢其运行的大小。</string>
     <string name="context_breakdown_compact">立即压缩</string>
     <string name="context_breakdown_compact_caption">用摘要替换较早的消息，让对话有空间继续。它像一轮对话一样运行。</string>
     <string name="context_category_in_use">指令、工具和消息</string>

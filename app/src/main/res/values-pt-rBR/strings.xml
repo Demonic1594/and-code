@@ -1961,7 +1961,7 @@
     <string name="mcp_suggestion_deepwiki">Responde a perguntas sobre repositórios públicos do GitHub.</string>
     <string name="mcp_suggestion_microsoft_learn">Documentação oficial da Microsoft: Azure, .NET, Windows e mais.</string>
     <string name="mcp_suggestion_sequential_thinking">Ajuda o agente a resolver um problema passo a passo. Roda localmente e precisa do Node.js.</string>
-    <string name="context_breakdown_memory_large">Grande: segundo o Claude Code, um arquivo deste tamanho o deixa mais lento.</string>
+    <string name="context_breakdown_memory_large">Grande: provavelmente passa do tamanho a partir do qual o Claude Code avisa que um arquivo o deixa mais lento.</string>
     <string name="context_breakdown_compact">Compactar agora</string>
     <string name="context_breakdown_compact_caption">Substitui as mensagens mais antigas por um resumo, para que o chat tenha espaço para continuar. Ele é executado como um turno.</string>
     <string name="context_category_in_use">Instruções, ferramentas e mensagens</string>

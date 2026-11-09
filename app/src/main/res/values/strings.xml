@@ -1978,7 +1978,7 @@
     <string name="mcp_suggestion_deepwiki">Answers questions about public GitHub repositories.</string>
     <string name="mcp_suggestion_microsoft_learn">Microsoft\'s official documentation: Azure, .NET, Windows and more.</string>
     <string name="mcp_suggestion_sequential_thinking">Helps the agent work through a problem step by step. Runs locally and needs Node.js.</string>
-    <string name="context_breakdown_memory_large">Large: Claude Code says a file this size slows it down.</string>
+    <string name="context_breakdown_memory_large">Large: probably past the size at which Claude Code warns that a file slows it down.</string>
     <string name="context_breakdown_compact">Compact now</string>
     <string name="context_breakdown_compact_caption">Replaces the older messages with a summary, so the chat has room to keep going. It runs like a turn.</string>
     <string name="context_category_in_use">Instructions, tools and messages</string>

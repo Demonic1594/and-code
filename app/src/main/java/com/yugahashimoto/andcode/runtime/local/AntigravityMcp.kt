@@ -34,17 +34,16 @@ object AntigravityMcp {
             McpServer(name = name, type = if (url != null) "remote" else "local", command = command, url = url)
         }
 
-    /** [program] with the entry's `args`, as one line to show; an argument with spaces is quoted. */
+    /**
+     * [program] with the entry's `args`, as one line to show, quoted so that typing it back in (to
+     * replace the server) gives the same program and arguments.
+     */
     private fun commandLine(
         program: String,
         entry: JsonObject,
     ): String {
-        val args =
-            (entry[ARGS_KEY] as? JsonArray)
-                ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
-                ?.map { if (it.any(Char::isWhitespace)) "'$it'" else it }
-                .orEmpty()
-        return (listOf(program) + args).joinToString(" ")
+        val args = (entry[ARGS_KEY] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.orEmpty()
+        return joinCommandLine(listOf(program) + args)
     }
 
     /** @param body `{"name", "url"}` for a remote server or `{"name", "command"}` for a local one. */

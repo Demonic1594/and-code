@@ -112,6 +112,25 @@ class McpViewModelTest {
         }
 
     @Test
+    fun `a suggested local server fills the command, and Add sends it as a local server`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = McpViewModel({ backend }, LocalAgent.CLAUDE_CODE)
+            advanceUntilIdle()
+
+            viewModel.showAddDialog(mcpSuggestions.first { it.name == "sequential-thinking" })
+            assertEquals("npx -y @modelcontextprotocol/server-sequential-thinking", viewModel.state.value.addCommand)
+            assertEquals("", viewModel.state.value.addUrl)
+
+            viewModel.addServer()
+            advanceUntilIdle()
+            val body = requireNotNull(backend.addBody)
+            assertEquals("local", body["type"]!!.jsonPrimitive.content)
+            assertEquals("npx -y @modelcontextprotocol/server-sequential-thinking", body["command"]!!.jsonPrimitive.content)
+            assertNull(body["url"])
+        }
+
+    @Test
     fun `OpenCode add payload nests config and sends local command as arguments`() =
         runTest(dispatcher) {
             val backend = FakeBackend()

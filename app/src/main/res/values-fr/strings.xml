@@ -1961,7 +1961,7 @@
     <string name="mcp_suggestion_deepwiki">Répond aux questions sur les dépôts GitHub publics.</string>
     <string name="mcp_suggestion_microsoft_learn">Documentation officielle de Microsoft : Azure, .NET, Windows et plus encore.</string>
     <string name="mcp_suggestion_sequential_thinking">Aide l’agent à résoudre un problème étape par étape. S’exécute localement et nécessite Node.js.</string>
-    <string name="context_breakdown_memory_large">Volumineux : selon Claude Code, un fichier de cette taille le ralentit.</string>
+    <string name="context_breakdown_memory_large">Volumineux : dépasse probablement la taille à partir de laquelle Claude Code signale qu’un fichier le ralentit.</string>
     <string name="context_breakdown_compact">Compacter maintenant</string>
     <string name="context_breakdown_compact_caption">Remplace les anciens messages par un résumé, pour que le chat ait de la place pour continuer. Il s’exécute comme un tour.</string>
     <string name="context_category_in_use">Instructions, outils et messages</string>
