@@ -48,6 +48,25 @@ class ApprovalLogTest {
     }
 
     @Test
+    fun `the hook's file is cut back when the log opens, and long fields it wrote are clipped`() {
+        val hookFile = File(folder.root, ApprovalLog.HOOK_FILE)
+        val long = "y".repeat(500)
+        hookFile.writeText(
+            (0..400).joinToString("\n", postfix = "\n") { i ->
+                """{"timeMs":$i,"tool":"Read","summary":"$long","allowed":true,"how":"rule","rule":"$long"}"""
+            },
+        )
+
+        val log = log()
+        log.refresh()
+
+        assertEquals(200, hookFile.readLines().size)
+        assertEquals(400L, log.entries.value.first().timeMs)
+        assertEquals(200, log.entries.value.first().summary.length)
+        assertEquals(200, log.entries.value.first().rule?.length)
+    }
+
+    @Test
     fun `clearing forgets both files`() {
         val log = log()
         log.record("Bash", "ls", allowed = true, how = ApprovalLog.PHONE)

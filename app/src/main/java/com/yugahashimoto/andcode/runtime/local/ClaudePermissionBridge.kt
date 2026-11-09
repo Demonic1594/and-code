@@ -379,8 +379,8 @@ class ClaudePermissionBridge(
         }
     }
 
-    @Synchronized
     /** Keeps an always-allow rule for [stored] and returns its words (the tool's name for a tool-wide one), or null when none is kept. */
+    @Synchronized
     private fun rememberRule(stored: StoredRequest): String? {
         val element = (stored.toolInput as? JsonObject)?.get("command")
         // A command that is not a string (an object, null) is approved once and never remembered:

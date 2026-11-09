@@ -42,6 +42,12 @@ class ApprovalLog(
     private val hookFile = File(root, HOOK_FILE)
     private val mutableEntries = MutableStateFlow<List<Entry>>(emptyList())
 
+    init {
+        // The hook appends on every call it decides, so its file is cut back here and on each
+        // phone answer too, not only when the history is opened.
+        runCatching { trim(hookFile) }
+    }
+
     /** The newest entries first, as of the last [record], [refresh] or [clear]. */
     val entries: StateFlow<List<Entry>> = mutableEntries.asStateFlow()
 
@@ -59,6 +65,7 @@ class ApprovalLog(
                 json.encodeToString(Entry.serializer(), Entry(now(), tool, summary.take(MAX_SUMMARY), allowed, how, rule)) + "\n",
             )
             trim(appFile)
+            trim(hookFile)
         }
         refreshLocked()
     }
@@ -87,11 +94,21 @@ class ApprovalLog(
         runCatching { if (file.isFile) file.readLines() else emptyList() }
             .getOrDefault(emptyList())
             .mapNotNull { line -> runCatching { json.decodeFromString(Entry.serializer(), line) }.getOrNull() }
+            // The guest can write the hook's file, so nothing read back is trusted to be short.
+            .map { it.copy(summary = it.summary.take(MAX_SUMMARY), rule = it.rule?.take(MAX_SUMMARY)) }
 
     private fun trim(file: File) {
         if (!file.isFile) return
         val lines = file.readLines()
-        if (lines.size > MAX_LINES) file.writeText(lines.takeLast(KEEP_LINES).joinToString("\n", postfix = "\n"))
+        if (lines.size <= MAX_LINES) return
+        // Written aside and renamed over the file, so an append from the hook in the meantime is
+        // lost whole rather than written over halfway.
+        val kept = File(file.parentFile, "${file.name}.tmp")
+        kept.writeText(lines.takeLast(KEEP_LINES).joinToString("\n", postfix = "\n"))
+        if (!kept.renameTo(file)) {
+            file.writeText(kept.readText())
+            kept.delete()
+        }
     }
 
     companion object {
