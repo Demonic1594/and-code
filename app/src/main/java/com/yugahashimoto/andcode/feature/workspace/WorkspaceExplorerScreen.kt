@@ -79,6 +79,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextRange
@@ -659,7 +660,7 @@ private fun ChangesTab(
                             modifier = Modifier.clickable { showBranchSheet = true },
                         )
                     }
-                    Text(stringResource(R.string.item_count, state.changes.size))
+                    Text(pluralStringResource(R.plurals.item_count, state.changes.size, state.changes.size))
                 }
             }
         }
@@ -1133,7 +1134,7 @@ private fun SectionTitle(
 ) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        Text(stringResource(R.string.item_count, count), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(pluralStringResource(R.plurals.item_count, count, count), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -1299,6 +1300,6 @@ private fun suggestedCommitMessage(paths: List<String>): String {
         0 -> ""
         1 -> stringResource(R.string.git_commit_suggest_one, names[0])
         2 -> stringResource(R.string.git_commit_suggest_two, names[0], names[1])
-        else -> stringResource(R.string.git_commit_suggest_many, names[0], names.size - 1)
+        else -> pluralStringResource(R.plurals.git_commit_suggest_many, names.size - 1, names[0], names.size - 1)
     }
 }

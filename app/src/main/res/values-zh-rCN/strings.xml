@@ -1,29 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AndCode</string>
-    <string name="unofficial_client">非官方开源客户端</string>
 
-    <string name="nav_home">首页</string>
-    <string name="nav_chat">聊天</string>
-    <string name="nav_connections">连接</string>
-    <string name="nav_sessions">会话</string>
     <string name="nav_workspaces">工作区</string>
-    <string name="nav_activity">活动</string>
     <string name="nav_settings">设置</string>
 
-    <string name="connection_missing">连接电脑以开始使用</string>
     <string name="connected_version">已连接 · %s</string>
-    <string name="connection_help">在电脑上使用密码启动 opencode serve，然后输入其局域网或 Tailscale 地址。</string>
     <string name="add_connection">添加连接</string>
     <string name="edit_connection">编辑连接</string>
     <string name="connection_name">显示名称</string>
     <string name="server_url">OpenCode 服务器 URL</string>
     <string name="username">用户名</string>
     <string name="password">服务器密码</string>
-    <string name="allow_lan_http">允许局域网/Tailscale 上的明文 HTTP</string>
     <string name="test_connection">测试连接</string>
     <string name="select">选择</string>
-    <string name="not_set">未设置</string>
     <string name="delete">删除</string>
     <string name="cancel">取消</string>
     <string name="save">保存</string>
@@ -36,8 +26,6 @@
     <string name="thinking">思考中…</string>
     <string name="chat_reconnecting">与运行时的连接已中断，正在重新连接…</string>
     <string name="processing">处理中…</string>
-    <string name="model">模型</string>
-    <string name="agent">代理</string>
     <string name="permission_required">需要批准</string>
     <string name="permission_show_all">显示全部</string>
     <string name="permission_risk_read_only">读取</string>
@@ -57,12 +45,24 @@
     <string name="tool_input_label">输入</string>
     <string name="tool_output_label">输出</string>
     <string name="tool_output_truncated">…输出已截断</string>
-    <string name="activity_summary_commands">执行了 %1$d 条命令</string>
-    <string name="activity_summary_reads">读取了 %1$d 个文件</string>
-    <string name="activity_summary_edits">编辑了 %1$d 个文件</string>
-    <string name="activity_summary_subagents">运行了 %1$d 个子代理</string>
-    <string name="activity_summary_tools">使用了 %1$d 个工具</string>
-    <string name="activity_summary_reasoning">思考 %1$d 次</string>
+    <plurals name="activity_summary_commands">
+        <item quantity="other">执行了 %1$d 条命令</item>
+    </plurals>
+    <plurals name="activity_summary_reads">
+        <item quantity="other">读取了 %1$d 个文件</item>
+    </plurals>
+    <plurals name="activity_summary_edits">
+        <item quantity="other">编辑了 %1$d 个文件</item>
+    </plurals>
+    <plurals name="activity_summary_subagents">
+        <item quantity="other">运行了 %1$d 个子代理</item>
+    </plurals>
+    <plurals name="activity_summary_tools">
+        <item quantity="other">使用了 %1$d 个工具</item>
+    </plurals>
+    <plurals name="activity_summary_reasoning">
+        <item quantity="other">思考 %1$d 次</item>
+    </plurals>
     <string name="activity_summary_separator">、</string>
     <string name="activity_details_title">执行内容</string>
     <string name="activity_details_open">显示执行详情</string>
@@ -70,7 +70,6 @@
     <string name="file_changes_title">文件更改</string>
     <string name="file_changes_generic">文件已更改</string>
     <string name="diff_unavailable">差异不可用 — 此工作区不是 Git 仓库</string>
-    <string name="workspace_folder_label">工作文件夹</string>
     <string name="workspace_import_folder">导入文件夹…</string>
     <string name="workspace_clone_github">从 GitHub 克隆…</string>
     <string name="workspace_clone_title">克隆 GitHub 仓库</string>
@@ -92,7 +91,6 @@
     <string name="workspace_delete_failed">无法删除此文件夹。如果运行环境正在运行，请先停止后重试。</string>
     <string name="workspace_delete_retry">重试</string>
     <string name="workspace_choose_folder">选择已有文件夹</string>
-    <string name="cd_choose_folder">选择已有文件夹</string>
     <string name="workspace_folder_picker_up">返回上一级</string>
     <string name="workspace_folder_picker_empty">此处没有子文件夹。</string>
     <string name="workspace_folder_picker_select">使用此文件夹</string>
@@ -100,17 +98,9 @@
     <string name="workspace_device_storage_row">允许访问设备文件</string>
     <string name="workspace_device_storage_hint">AndCode 目前只能看到自己的文件夹。授予所有文件访问权限后即可直接打开手机上的文件。</string>
 
-    <string name="recent_sessions">最近的会话</string>
-    <string name="view_all">查看全部</string>
-    <string name="no_sessions">暂无会话</string>
 
-    <string name="remote_runtime">电脑远程运行时</string>
-    <string name="local_runtime">Android 本地运行时</string>
-    <string name="experimental_not_installed">托管本地运行时</string>
-    <string name="local_runtime_note">可在“工作区”中安装、启动、停止和修复 Android 本地运行时。</string>
 
     <string name="home_assistant">主屏幕助手</string>
-    <string name="set_default_assistant">设为默认数字助手</string>
     <string name="voice">语音</string>
     <string name="cd_expand_composer">展开消息</string>
     <string name="cd_collapse_composer">收起消息</string>
@@ -121,7 +111,6 @@
     <string name="could_not_open_settings">无法打开助手设置</string>
 
 
-    <string name="about">关于</string>
 
     <string name="notification_channel_approvals">批准</string>
     <string name="notification_channel_status">任务状态</string>
@@ -131,7 +120,6 @@
     <string name="notification_complete_title">运行已完成</string>
     <string name="notification_complete_body">聊天 %1$s 处于空闲状态</string>
     <string name="permission_chat_confirmation">此对话正在等待你的批准。请选择允许该智能体执行的操作：</string>
-    <string name="permission_response_failed">该智能体无法应用此权限响应。</string>
     <string name="notification_error_title">运行错误</string>
     <string name="notification_error_body">会话失败</string>
     <string name="chat_stall_title">本次运行已无响应</string>
@@ -157,7 +145,6 @@
     <string name="schedule_completion_timeout">定时运行失去响应且从未完成</string>
     <string name="schedule_max_duration">定时运行超过了最长运行时间</string>
     <string name="schedule_run_overlapping">上一次运行仍在进行中</string>
-    <string name="schedule_service_busy">当时有另一个定时任务正在运行</string>
     <string name="schedule_foreground_start_blocked">Android 阻止了后台启动</string>
     <string name="schedule_session_not_created">无法在运行时中打开会话</string>
     <string name="schedule_run_not_started_attempts">%1$s（%2$d 次尝试）</string>
@@ -169,15 +156,7 @@
     <string name="notification_schedule_not_started_body">%1$s · %2$s</string>
     <string name="notification_stalled_title">有一次运行已无响应</string>
     <string name="notification_stalled_body">%1$s · %2$s</string>
-    <string name="notification_permission_failed">无法发送授权。请打开应用后重试。</string>
-    <string name="provider_credentials">提供商连接</string>
-    <string name="provider_credentials_help">通过所选的 OpenCode 运行时连接提供商。可用的登录方式由 OpenCode 提供。</string>
-    <string name="provider_id_hint">提供商 ID（例如 openai）</string>
     <string name="api_key_hint">API 密钥</string>
-    <string name="save_api_key">保存密钥</string>
-    <string name="clear_api_key">清除密钥</string>
-    <string name="key_saved">已保存</string>
-    <string name="key_missing">未设置</string>
     <string name="provider_connect_title">连接 %1$s</string>
     <string name="provider_select_method">选择登录方式。</string>
     <string name="provider_connect">连接</string>
@@ -187,7 +166,6 @@
     <string name="provider_not_connected">未连接</string>
     <string name="provider_connected_success">提供商已连接。</string>
     <string name="provider_disconnected_success">提供商已断开连接。</string>
-    <string name="provider_auth_unavailable">所选的 OpenCode 运行时没有可用的提供商身份验证方式。</string>
     <string name="provider_waiting_for_browser">等待在浏览器中完成授权…</string>
     <string name="provider_confirmation_code">确认码</string>
     <string name="provider_auth_in_progress">正在连接…</string>
@@ -221,23 +199,13 @@
     <string name="question_free_text_label">其他（自行输入答案）</string>
     <string name="question_cancel">不回答</string>
     <string name="question_dismiss">关闭问题</string>
-    <string name="assistant_runtime">助手运行时</string>
-    <string name="assistant_workspace">助手工作区路径</string>
-    <string name="import_workspace_folder">将文件夹导入本地工作区</string>
-    <string name="notifications_permission_rationale">通知用于在应用处于后台时进行批准和任务完成提醒。</string>
     <string name="capability_version">OpenCode %1$s</string>
-    <string name="request_notifications">允许通知</string>
 
-    <string name="session_options">会话选项</string>
     <string name="rename_session">重命名</string>
     <string name="delete_session">删除</string>
-    <string name="rename_session_title">重命名会话</string>
-    <string name="session_title_hint">会话标题</string>
     <string name="delete_session_title">删除会话？</string>
-    <string name="delete_session_body">此会话及其消息将被永久删除。</string>
 
     <string name="add_via_qr">通过二维码添加</string>
-    <string name="scan_qr_title">扫描连接二维码</string>
     <string name="discover_on_lan">在局域网上发现</string>
     <string name="discovering_servers">正在搜索 OpenCode 服务器…</string>
     <string name="no_servers_found">在局域网上未找到服务器</string>
@@ -248,7 +216,9 @@
     <string name="collapse">折叠</string>
     <string name="diff_label">差异</string>
     <string name="close_description">关闭</string>
-    <string name="item_count">%1$d 项</string>
+    <plurals name="item_count">
+        <item quantity="other">%1$d 项</item>
+    </plurals>
     <string name="unsupported_abi">不支持的 ABI：%1$s</string>
 
     <string name="todo_timeline_progress">%2$d 个中 %1$d 个 Todo 已完成</string>
@@ -257,8 +227,6 @@
     <string name="tab_files">文件</string>
     <string name="tab_search">搜索</string>
     <string name="tab_changes">更改</string>
-    <string name="back_to_file_list">返回文件列表</string>
-    <string name="loading_files">正在加载文件</string>
     <string name="binary_file_no_preview">无法预览二进制文件。</string>
     <string name="parent_folder">上级文件夹</string>
     <string name="loading_file_list">正在加载文件列表</string>
@@ -346,7 +314,6 @@
     <string name="adb_status_disconnected">未连接</string>
     <string name="adb_status_discovered">已检测到无线调试（端口 %1$d）</string>
     <string name="adb_status_connected">已连接（端口 %1$d）</string>
-    <string name="adb_status_error">错误</string>
     <string name="adb_pair_button">配对设备</string>
     <string name="adb_connect_button">连接</string>
     <string name="adb_disconnect_button">断开</string>
@@ -356,7 +323,6 @@
     <string name="adb_pair_code_label">配对码</string>
     <string name="adb_pair_confirm">配对</string>
     <string name="adb_pairing_in_progress">配对中…</string>
-    <string name="adb_connecting_in_progress">连接中…</string>
     <string name="adb_requires_android_11">需要 Android 11 或更高版本</string>
     <string name="runtime_status_not_installed">未安装</string>
     <string name="runtime_status_setting_up">正在设置</string>
@@ -376,11 +342,7 @@
     <string name="runtime_targets_title">运行时</string>
     <string name="in_use_label">使用中</string>
     <string name="edit_description">编辑</string>
-    <string name="setup_this_device_button">在此设备上设置</string>
     <string name="starting_opencode_version">正在启动 OpenCode %1$s</string>
-    <string name="start_opencode_button">启动 OpenCode</string>
-    <string name="stop_local_runtime_button">停止本地运行时</string>
-    <string name="diagnostics_and_management_button">诊断和管理</string>
     <string name="workspace_folders_title">工作区文件夹</string>
     <string name="no_workspaces_title">暂无工作区文件夹</string>
     <string name="no_workspaces_body">开始会话后，智能体使用过的文件夹会显示在这里。</string>
@@ -393,17 +355,8 @@
     <string name="ready_running">OpenCode %1$s · 运行中</string>
     <string name="generic_runtime_problem">本地运行时出现问题</string>
 
-    <string name="select_a_runtime">选择运行时</string>
     <string name="connected_label">已连接</string>
     <string name="disconnected_label">未连接</string>
-    <string name="current_configuration">当前配置</string>
-    <string name="not_selected">未选择</string>
-    <string name="opencode_default_value">运行时默认</string>
-    <string name="no_ai_service_selected">未选择 AI 服务</string>
-    <string name="connection_or_fetch_failed">连接或获取失败</string>
-    <string name="checking_connection_status">正在检查连接和状态</string>
-    <string name="choose_local_or_pc_runtime">选择 Android 本地或电脑运行时</string>
-    <string name="not_connected_to_opencode">未连接到运行时</string>
 
     <string name="voice_no_runtime_configured">请先设置运行时。</string>
     <string name="voice_event_connection_failed">无法连接到运行时事件</string>
@@ -420,7 +373,6 @@
     <string name="voice_retry_button">再说一次</string>
 
     <string name="tts_error">语音错误</string>
-    <string name="tts_error_code">语音错误：%1$d</string>
     <string name="speech_error_audio">音频错误</string>
     <string name="speech_error_client">客户端错误</string>
     <string name="speech_error_permissions">缺少权限</string>
@@ -455,26 +407,23 @@
     <string name="install_step_done">本地 OpenCode 已安装</string>
 
     <string name="menu_description">菜单</string>
-    <string name="drawer_search_description">搜索</string>
     <string name="drawer_recent_chats">最近的聊天</string>
     <string name="drawer_project_default">默认</string>
     <string name="drawer_projects_title">项目</string>
     <string name="drawer_agents_title">智能体</string>
     <string name="drawer_add_project">添加项目</string>
-    <string name="drawer_pinned">已固定</string>
-    <string name="drawer_pinned_sample_1">重要对话</string>
-    <string name="drawer_pinned_sample_2">项目笔记</string>
-    <string name="drawer_features">功能</string>
-    <string name="drawer_plan_label">免费方案</string>
-    <string name="drawer_user_email_placeholder">user@example.com</string>
     <string name="drawer_time_just_now">刚刚</string>
-    <string name="drawer_time_minutes_ago">%1$d 分钟前</string>
-    <string name="drawer_time_hours_ago">%1$d 小时前</string>
-    <string name="drawer_time_days_ago">%1$d 天前</string>
+    <plurals name="drawer_time_minutes_ago">
+        <item quantity="other">%1$d 分钟前</item>
+    </plurals>
+    <plurals name="drawer_time_hours_ago">
+        <item quantity="other">%1$d 小时前</item>
+    </plurals>
+    <plurals name="drawer_time_days_ago">
+        <item quantity="other">%1$d 天前</item>
+    </plurals>
 
     <string name="chat_home_title">聊天</string>
-    <string name="chat_build_headline">使用 OpenCode 构建</string>
-    <string name="chat_build_subtitle">随便问什么——一起实现、修复和审查代码。</string>
     <string name="chat_message_placeholder">发送消息…</string>
     <string name="chat_attach">附加文件</string>
     <string name="chat_remove_attachment">移除附件</string>
@@ -487,8 +436,6 @@
     <string name="chat_thinking_level_minimal">极低</string>
     <string name="chat_thinking_level_ultra">极致</string>
     <string name="chat_fast_mode">快速</string>
-    <string name="chat_mode_build">构建</string>
-    <string name="chat_mode_plan">计划</string>
     <string name="chat_agents_loading">正在加载智能体…</string>
     <string name="chat_agents_load_failed">无法加载智能体，点按重试。</string>
     <string name="chat_mode_auto_accept">自动接受</string>
@@ -549,15 +496,6 @@
     <string name="github_code_copied">代码已复制到剪贴板</string>
     <string name="setup_github_optional_description">现在连接 GitHub 以将私有仓库与本地 Git 一起使用。您可以跳过此步骤，稍后在设置中连接。</string>
     <string name="picker_search">搜索模型</string>
-    <string name="suggestion_implement_title">帮我实现一个函数</string>
-    <string name="suggestion_implement_subtitle">编写和实现代码</string>
-    <string name="suggestion_debug_title">查找 bug 的原因</string>
-    <string name="suggestion_debug_subtitle">诊断和修复问题</string>
-    <string name="suggestion_organize_title">整理项目结构</string>
-    <string name="suggestion_organize_subtitle">清理文件和文件夹</string>
-    <string name="attach_button_description">附加</string>
-    <string name="attach_menu_stub">附加文件（即将推出）</string>
-    <string name="session_history">会话历史</string>
 
     <string name="picker_title">选择模型和运行时</string>
     <string name="picker_caption">选择运行位置和使用哪个模型。</string>
@@ -565,7 +503,6 @@
     <string name="section_model">模型</string>
     <string name="section_favorites">收藏</string>
     <string name="section_recent">最近</string>
-    <string name="this_android">此 Android</string>
     <string name="picker_no_providers">暂无已连接的提供商</string>
     <string name="picker_connect_provider">连接提供商</string>
 
@@ -582,25 +519,11 @@
     <string name="onboarding_feature_anywhere">在通知中批准、停止或回复</string>
     <string name="onboarding_primary_button_android">在 Android 上开始设置</string>
     <string name="onboarding_primary_button_remote">连接到电脑或 Mac</string>
-    <string name="onboarding_skip_link">稍后添加远程连接</string>
 
     <string name="android_setup_title">设置此 Android</string>
     <string name="setup_step_download">下载运行时</string>
     <string name="setup_step_provider">连接提供商</string>
-    <string name="setup_step_apikey">设置 API 密钥</string>
-    <string name="setup_step_test">测试连接</string>
-    <string name="apikey_caption">您的 API 密钥安全地存储在此设备上</string>
-    <string name="test_status_untested">未测试</string>
-    <string name="test_status_testing">正在测试…</string>
-    <string name="test_status_success">连接成功</string>
-    <string name="test_status_failure">连接失败</string>
-    <string name="run_connection_test_button">运行连接测试</string>
     <string name="setup_complete_button">完成</string>
-    <string name="provider_openai">OpenAI</string>
-    <string name="provider_google">Google</string>
-    <string name="provider_anthropic">Anthropic</string>
-    <string name="provider_ollama">Ollama</string>
-    <string name="provider_other">其他</string>
 
     <string name="remote_connection_title">连接到电脑/Mac</string>
     <string name="remote_step1_title">在电脑上运行此命令</string>
@@ -623,9 +546,6 @@
     <string name="settings_home_assistant_row">主屏幕助手</string>
     <string name="assistant_enabled_pill">已启用</string>
     <string name="assistant_disabled_pill">已禁用</string>
-    <string name="wake_word_row_title">唤醒词</string>
-    <string name="wake_word_value">OpenCode</string>
-    <string name="wake_word_stub_body">此功能即将推出。</string>
     <string name="voice_settings_row">语音设置</string>
     <string name="provider_settings_row">提供商设置</string>
     <string name="settings_local_runtime_row">本地运行时</string>
@@ -634,8 +554,6 @@
     <string name="notifications_row">通知</string>
     <string name="local_runtime_idle_stop_row">停止空闲运行时</string>
     <string name="local_runtime_idle_stop_row_description">在计划任务运行或您打开应用时会自动重启，但设备重启后不会自动启动</string>
-    <string name="privacy_row">隐私和数据</string>
-    <string name="privacy_stub_body">此功能即将推出。</string>
     <string name="diagnostics_row">诊断和日志</string>
     <string name="app_info_row">应用信息</string>
     <string name="legal_privacy_settings_row">法律与隐私</string>
@@ -698,7 +616,9 @@
 
     <string name="drawer_archive_session">归档</string>
     <string name="drawer_selected_count">已选 %1$d 项</string>
-    <string name="drawer_delete_selected_body">%1$d 个会话将被永久删除。</string>
+    <plurals name="drawer_delete_selected_body">
+        <item quantity="other">%1$d 个会话将被永久删除。</item>
+    </plurals>
 
     <string name="mcp_title">MCP 服务器</string>
     <string name="mcp_add_server">添加服务器</string>
@@ -714,7 +634,9 @@
     <string name="mcp_auth_not_removed">认证未被移除</string>
     <string name="mcp_auth_failed_status">认证失败：%1$s</string>
     <string name="mcp_remove_server">移除服务器</string>
-    <string name="mcp_tools_count">%1$d 个工具</string>
+    <plurals name="mcp_tools_count">
+        <item quantity="other">%1$d 个工具</item>
+    </plurals>
     <string name="mcp_name_hint">服务器名称</string>
     <string name="mcp_command_hint">命令（本地服务器）</string>
     <string name="mcp_url_hint">URL（远程服务器）</string>
@@ -756,9 +678,6 @@
     <string name="server_info_no_skills">没有可用的技能</string>
     <string name="server_info_settings_row">服务器配置和工具</string>
 
-    <string name="agents_md_generate">生成 AGENTS.md</string>
-    <string name="agents_md_generated">AGENTS.md 已生成</string>
-    <string name="agents_md_failed">生成 AGENTS.md 失败</string>
 
     <string name="tab_pr">PR</string>
     <string name="switch_branch">切换分支</string>
@@ -773,8 +692,6 @@
     <string name="diff_stat">+%1$d / -%2$d</string>
     <string name="syntax_theme_row">语法高亮主题</string>
     <string name="syntax_theme_dialog_title">选择语法主题</string>
-    <string name="usage_row">用量</string>
-    <string name="font_size_dialog_title">字体大小</string>
     <string name="widget_quick_input_hint">发送消息…</string>
     <string name="model_visibility_row">显示的模型</string>
     <string name="model_visibility_title">显示的模型</string>
@@ -792,7 +709,6 @@
     <string name="cd_app_logo">AndCode</string>
     <string name="cd_permission">Permission</string>
     <string name="cd_runtime_type">Runtime type</string>
-    <string name="cd_new_chat">New chat</string>
     <string name="cd_server_url">Server URL</string>
     <string name="cd_password">Password</string>
     <string name="cd_test_connection">Test connection</string>
@@ -800,7 +716,6 @@
     <string name="cd_lan_discovery">Discover on LAN</string>
     <string name="cd_clear_search">Clear search</string>
     <string name="cd_repair">Repair</string>
-    <string name="cd_session">Session</string>
     <string name="cd_attachment">Attachment</string>
     <string name="cd_image_preview">Image preview</string>
     <string name="cd_close_image">关闭图片</string>
@@ -812,13 +727,8 @@
     <string name="cd_reasoning">Reasoning</string>
     <string name="cd_tool">Tool</string>
     <string name="cd_file_changes">File changes</string>
-    <string name="cd_setup">Setup</string>
-    <string name="cd_start">Start</string>
     <string name="cd_stop">Stop</string>
-    <string name="cd_diagnostics">Diagnostics</string>
     <string name="cd_connection_error">Connection error</string>
-    <string name="cd_import_folder">Import folder</string>
-    <string name="cd_clone_github">Clone from GitHub</string>
     <string name="cd_scroll_to_bottom">Scroll to bottom</string>
     <string name="cd_attached_image">Attached image</string>
     <string name="cd_remove_image">Remove image</string>
@@ -828,7 +738,6 @@
     <string name="cd_thinking">Thinking</string>
     <string name="cd_fast_mode">快速模式</string>
     <string name="cd_system_prompt">系统提示词</string>
-    <string name="cd_agent_mode">Agent mode</string>
     <string name="cd_updating">Updating</string>
     <string name="cd_operation_result">Operation result</string>
     <string name="cd_check_update">Check for update</string>
@@ -837,7 +746,6 @@
     <string name="cd_rollback">Rollback</string>
     <string name="cd_tool_status">Tool status</string>
     <string name="cd_delete_runtime">Delete runtime</string>
-    <string name="cd_workspace">Workspace</string>
     <string name="cd_navigate">Navigate</string>
     <string name="cd_cancel">Cancel</string>
     <string name="cd_accept">Accept</string>
@@ -853,7 +761,6 @@
     <string name="cd_subagent_status">Subagent status</string>
     <string name="cd_toggle_password">Toggle password visibility</string>
     <string name="cd_info">Info</string>
-    <string name="cd_add_project">Add project</string>
     <string name="cd_file">File</string>
     <string name="cd_code_match">Code match</string>
     <string name="cd_git">Git</string>
@@ -862,9 +769,6 @@
     <string name="cd_step_completed">Step completed</string>
     <string name="cd_error">Error</string>
     <string name="cd_runtime_ready">Runtime ready</string>
-    <string name="cd_workspaces">Workspaces</string>
-    <string name="cd_nav_item">Navigation item</string>
-    <string name="cd_terminal">Terminal</string>
     <string name="cd_add_tab">Add tab</string>
     <string name="cd_back">Back</string>
     <string name="cd_next_match">Next match</string>
@@ -892,7 +796,6 @@
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">Agent</string>
-    <string name="tab_new_default">New</string>
     <string name="tab_type_terminal">Terminal</string>
     <string name="tab_close">Close</string>
     <string name="tab_close_others">Close Others</string>
@@ -906,11 +809,6 @@
     <!-- Chat screen -->
 
     <!-- Chat errors -->
-    <string name="error_opencode_operation">操作失败</string>
-    <string name="error_no_connection">尚未配置运行时连接</string>
-    <string name="session_title_attachment">Attachment</string>
-    <string name="error_answer_required">Answer required</string>
-    <string name="error_question_failed">提问失败</string>
     <string name="error_session_failed">会话出错</string>
     <string name="chat_error_zen_free_tier_title">OpenCode 免费模型需要登录 Zen</string>
     <string name="chat_error_zen_free_tier_body">除非登录 OpenCode Zen，否则 OpenCode 仅允许在官方桌面端和 CLI 中使用免费模型。请在设置 → 提供方中连接 OpenCode，或使用其他提供方。</string>
@@ -949,12 +847,6 @@
     <string name="voice_listening_placeholder">Listening…</string>
 
     <!-- Drawer grouping -->
-    <string name="grouping_project">Project</string>
-    <string name="grouping_status">Status</string>
-    <string name="status_group_running">Running</string>
-    <string name="status_group_waiting">Waiting</string>
-    <string name="status_group_done">Done</string>
-    <string name="status_group_error">Error</string>
 
     <!-- Quick input widget -->
     <string name="toast_permission_granted">Permission granted. Tap mic again.</string>
@@ -1066,7 +958,6 @@
     <string name="antigravity_installed_version">Antigravity %1$s</string>
     <string name="claude_status_not_installed">未安装</string>
     <string name="claude_status_installing">安装中</string>
-    <string name="claude_status_ready">可用</string>
     <string name="claude_status_signed_out">未登录</string>
     <string name="claude_sign_in_button">设置 Claude Code</string>
     <string name="claude_sign_out_button">退出登录</string>
@@ -1140,9 +1031,7 @@
     <string name="risk_warning_full_access_body">启用此设置后,官方 CLI 可以在未经确认的情况下更改文件或执行命令。\n\nPRoot 是兼容运行环境,并非完整的安全沙箱。请备份重要文件,并仅使用可信的仓库、提示词和 MCP 服务器。</string>
     <string name="risk_warning_all_files_title">允许访问设备上的所有文件?</string>
     <string name="risk_warning_all_files_body">授予此权限后,您运行的代理可以读写此设备上文件夹选择器可访问的任意文件,而不仅限于 AndCode 自身的存储空间。\n\n只有在信任所使用的代理、提示词及 MCP 服务器时才应授予此权限。</string>
-    <string name="risk_warning_mcp_server_title">正在添加第三方 MCP 服务器</string>
     <string name="risk_warning_mcp_server_body">MCP 服务器可以读取提示词、文件和工具输出,部分服务器还能代表您执行操作。请仅添加可信的服务器。</string>
-    <string name="risk_warning_schedule_title">定时与后台运行</string>
     <string name="risk_warning_schedule_body">定时任务会在无人值守的情况下运行,使用代理当时所设置的权限模式。启用重复计划前,请检查提示词内容和权限模式。</string>
     <string name="risk_warning_understood">了解,继续</string>
     <string name="chat_response_duration">%1$d min</string>
@@ -1184,8 +1073,6 @@
     <string name="schedule_date">日期</string>
     <string name="schedule_time">时间</string>
     <string name="schedule_day_of_month">日</string>
-    <string name="schedule_weekday">星期</string>
-    <string name="schedule_enabled">已启用</string>
     <string name="schedule_auto_accept">自动批准工具权限</string>
     <string name="schedule_auto_accept_hint">为此计划覆盖全局设置</string>
     <string name="schedule_delete">删除计划</string>
@@ -1200,8 +1087,6 @@
     <string name="schedule_next_run">下次：%1$s</string>
     <string name="schedule_last_run">上次运行：%1$s</string>
     <string name="schedule_never_ran">从未运行</string>
-    <string name="schedule_runs_title">运行历史</string>
-    <string name="schedule_no_runs">此计划尚未运行。</string>
     <string name="schedule_runs_empty">暂无运行。计划触发后会显示在此处。</string>
     <string name="schedule_open_chat">打开聊天</string>
     <string name="schedule_status_running">运行中</string>
@@ -1216,7 +1101,6 @@
     <string name="schedule_model_unset">默认模型</string>
     <string name="schedule_workspace_unset">无工作区</string>
     <string name="schedule_agent_unset">未设置代理</string>
-    <string name="schedule_recurring">重复</string>
     <string name="schedule_run_now_started">计划正在运行。</string>
     <string name="schedule_edit_menu">编辑</string>
     <string name="schedule_exact_alarm_title">允许闹钟和提醒</string>
@@ -1243,7 +1127,9 @@
     <string name="cd_pull_request_link_state">拉取请求 #%1$d，%2$s。在 GitHub 上打开</string>
     <string name="cd_pull_request_files">拉取请求 #%1$d，新增 %2$d 行，删除 %3$d 行。在 GitHub 上打开更改的文件</string>
     <string name="pr_collapse">收起</string>
-    <string name="cd_pull_request_expand">显示另外 %1$d 个拉取请求</string>
+    <plurals name="cd_pull_request_expand">
+        <item quantity="other">显示另外 %1$d 个拉取请求</item>
+    </plurals>
     <string name="cd_pull_request_collapse">减少显示的拉取请求</string>
     <string name="cd_pull_request_dismiss">隐藏拉取请求 #%1$d</string>
     <string name="runtime_connection_unhealthy">本地 OpenCode 运行环境异常</string>
@@ -1504,7 +1390,9 @@
     <string name="git_invalid_branch">分支名称不能以 - 开头</string>
     <string name="git_commit_suggest_one">更新 %1$s</string>
     <string name="git_commit_suggest_two">更新 %1$s 和 %2$s</string>
-    <string name="git_commit_suggest_many">更新 %1$s 及其他 %2$d 个文件</string>
+    <plurals name="git_commit_suggest_many">
+        <item quantity="other">更新 %1$s 及其他 %2$d 个文件</item>
+    </plurals>
     <string name="git_title">源代码管理</string>
     <string name="git_refresh">刷新</string>
     <string name="git_not_a_repo">不是 Git 仓库</string>
@@ -1568,16 +1456,24 @@
     <string name="archive_more_actions">更多操作</string>
     <string name="archive_archived_ago">归档于 %1$s</string>
     <string name="archive_delete_one_title">要永久删除“%1$s”吗？</string>
-    <string name="archive_delete_many_title">要永久删除 %1$d 个聊天吗？</string>
+    <plurals name="archive_delete_many_title">
+        <item quantity="other">要永久删除 %1$d 个聊天吗？</item>
+    </plurals>
     <string name="archive_delete_all_title">要删除所有已归档的聊天吗？</string>
     <string name="archive_delete_body">代理自己保存的每段对话也会被删除。此操作无法撤销。</string>
     <string name="settings_archive_row">已归档的聊天</string>
     <string name="chat_deleted_snackbar">聊天已删除</string>
-    <string name="chats_deleted_snackbar">已删除 %1$d 个聊天</string>
+    <plurals name="chats_deleted_snackbar">
+        <item quantity="other">已删除 %1$d 个聊天</item>
+    </plurals>
     <string name="chat_archived_snackbar">聊天已归档</string>
-    <string name="chats_archived_snackbar">已归档 %1$d 个聊天</string>
+    <plurals name="chats_archived_snackbar">
+        <item quantity="other">已归档 %1$d 个聊天</item>
+    </plurals>
     <string name="chat_restored_snackbar">聊天已恢复</string>
-    <string name="chats_restored_snackbar">已恢复 %1$d 个聊天</string>
+    <plurals name="chats_restored_snackbar">
+        <item quantity="other">已恢复 %1$d 个聊天</item>
+    </plurals>
     <string name="chat_delete_failed_snackbar">未删除 (%1$d)：%2$s</string>
     <string name="chat_archive_failed_snackbar">未归档 (%1$d)：%2$s</string>
     <string name="chat_restore_failed_snackbar">未恢复 (%1$d)：%2$s</string>
@@ -1594,7 +1490,9 @@
     <string name="chat_find_close">关闭查找</string>
     <string name="message_search_hint">搜索所有聊天</string>
     <string name="message_search_include_archived">包含已归档</string>
-    <string name="message_search_progress">已搜索 %1$d / %2$d 个聊天</string>
+    <plurals name="message_search_progress">
+        <item quantity="other">已搜索 %1$d / %2$d 个聊天</item>
+    </plurals>
     <string name="message_search_empty_title">搜索所有聊天</string>
     <string name="message_search_empty_body">在您和代理写下的内容中查找词语，涵盖每个代理的聊天，而不仅是标题。</string>
     <string name="message_search_no_results_title">无匹配项</string>

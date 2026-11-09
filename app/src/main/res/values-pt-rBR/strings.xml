@@ -1,29 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AndCode</string>
-    <string name="unofficial_client">Cliente de código aberto não oficial</string>
 
-    <string name="nav_home">Início</string>
-    <string name="nav_chat">Chat</string>
-    <string name="nav_connections">Conexões</string>
-    <string name="nav_sessions">Sessões</string>
     <string name="nav_workspaces">Espaços de trabalho</string>
-    <string name="nav_activity">Atividade</string>
     <string name="nav_settings">Configurações</string>
 
-    <string name="connection_missing">Conecte um PC para começar</string>
     <string name="connected_version">Conectado · %s</string>
-    <string name="connection_help">No PC, inicie o opencode serve com uma senha e insira o endereço LAN ou Tailscale.</string>
     <string name="add_connection">Adicionar conexão</string>
     <string name="edit_connection">Editar conexão</string>
     <string name="connection_name">Nome de exibição</string>
     <string name="server_url">URL do servidor OpenCode</string>
     <string name="username">Nome de usuário</string>
     <string name="password">Senha do servidor</string>
-    <string name="allow_lan_http">Permitir HTTP sem criptografia em LAN/Tailscale</string>
     <string name="test_connection">Testar conexão</string>
     <string name="select">Selecionar</string>
-    <string name="not_set">Não definido</string>
     <string name="delete">Excluir</string>
     <string name="cancel">Cancelar</string>
     <string name="save">Salvar</string>
@@ -36,8 +26,6 @@
     <string name="thinking">Pensando…</string>
     <string name="chat_reconnecting">A conexão com o ambiente foi interrompida. Reconectando…</string>
     <string name="processing">Processando…</string>
-    <string name="model">Modelo</string>
-    <string name="agent">Agente</string>
     <string name="permission_required">Aprovação necessária</string>
     <string name="permission_show_all">Mostrar tudo</string>
     <string name="permission_risk_read_only">Lê</string>
@@ -57,12 +45,36 @@
     <string name="tool_input_label">Entrada</string>
     <string name="tool_output_label">Saída</string>
     <string name="tool_output_truncated">…saída truncada</string>
-    <string name="activity_summary_commands">%1$d comando(s) executado(s)</string>
-    <string name="activity_summary_reads">%1$d arquivo(s) lido(s)</string>
-    <string name="activity_summary_edits">%1$d arquivo(s) editado(s)</string>
-    <string name="activity_summary_subagents">%1$d subagente(s) executado(s)</string>
-    <string name="activity_summary_tools">%1$d ferramenta(s) usada(s)</string>
-    <string name="activity_summary_reasoning">%1$d raciocínio(s)</string>
+    <plurals name="activity_summary_commands">
+        <item quantity="one">%1$d comando executado</item>
+        <item quantity="many">%1$d comandos executados</item>
+        <item quantity="other">%1$d comandos executados</item>
+    </plurals>
+    <plurals name="activity_summary_reads">
+        <item quantity="one">%1$d arquivo lido</item>
+        <item quantity="many">%1$d arquivos lidos</item>
+        <item quantity="other">%1$d arquivos lidos</item>
+    </plurals>
+    <plurals name="activity_summary_edits">
+        <item quantity="one">%1$d arquivo editado</item>
+        <item quantity="many">%1$d arquivos editados</item>
+        <item quantity="other">%1$d arquivos editados</item>
+    </plurals>
+    <plurals name="activity_summary_subagents">
+        <item quantity="one">%1$d subagente executado</item>
+        <item quantity="many">%1$d subagentes executados</item>
+        <item quantity="other">%1$d subagentes executados</item>
+    </plurals>
+    <plurals name="activity_summary_tools">
+        <item quantity="one">%1$d ferramenta usada</item>
+        <item quantity="many">%1$d ferramentas usadas</item>
+        <item quantity="other">%1$d ferramentas usadas</item>
+    </plurals>
+    <plurals name="activity_summary_reasoning">
+        <item quantity="one">%1$d raciocínio</item>
+        <item quantity="many">%1$d raciocínios</item>
+        <item quantity="other">%1$d raciocínios</item>
+    </plurals>
     <string name="activity_summary_separator">, </string>
     <string name="activity_details_title">Atividade</string>
     <string name="activity_details_open">Mostrar detalhes da atividade</string>
@@ -70,7 +82,6 @@
     <string name="file_changes_title">Alterações de arquivos</string>
     <string name="file_changes_generic">Arquivos foram alterados</string>
     <string name="diff_unavailable">Diff indisponível — este espaço de trabalho não é um repositório Git</string>
-    <string name="workspace_folder_label">Pasta de trabalho</string>
     <string name="workspace_import_folder">Importar pasta…</string>
     <string name="workspace_clone_github">Clonar do GitHub…</string>
     <string name="workspace_clone_title">Clonar um repositório do GitHub</string>
@@ -92,7 +103,6 @@
     <string name="workspace_delete_failed">Não foi possível excluir esta pasta. Pare o ambiente de execução, se estiver ativo, e tente novamente.</string>
     <string name="workspace_delete_retry">Tentar novamente</string>
     <string name="workspace_choose_folder">Escolher pasta existente</string>
-    <string name="cd_choose_folder">Escolher uma pasta existente</string>
     <string name="workspace_folder_picker_up">Um nível acima</string>
     <string name="workspace_folder_picker_empty">Nenhuma subpasta aqui.</string>
     <string name="workspace_folder_picker_select">Usar esta pasta</string>
@@ -100,17 +110,9 @@
     <string name="workspace_device_storage_row">Permitir acesso aos arquivos do dispositivo</string>
     <string name="workspace_device_storage_hint">O AndCode só enxerga as próprias pastas. Conceda acesso a todos os arquivos para abrir os que já estão no seu telefone.</string>
 
-    <string name="recent_sessions">Sessões recentes</string>
-    <string name="view_all">Ver tudo</string>
-    <string name="no_sessions">Nenhuma sessão ainda</string>
 
-    <string name="remote_runtime">Ambiente de execução remoto do PC</string>
-    <string name="local_runtime">Ambiente de execução local do Android</string>
-    <string name="experimental_not_installed">Ambiente de execução local gerenciado</string>
-    <string name="local_runtime_note">Instale, inicie, pare e repare o ambiente local do Android em Espaços de trabalho.</string>
 
     <string name="home_assistant">Assistente inicial</string>
-    <string name="set_default_assistant">Definir como assistente digital padrão</string>
     <string name="voice">Voz</string>
     <string name="cd_expand_composer">Expandir mensagem</string>
     <string name="cd_collapse_composer">Recolher mensagem</string>
@@ -121,7 +123,6 @@
     <string name="could_not_open_settings">Não foi possível abrir as configurações do assistente</string>
 
 
-    <string name="about">Sobre</string>
 
     <string name="notification_channel_approvals">Aprovações</string>
     <string name="notification_channel_status">Status da tarefa</string>
@@ -131,7 +132,6 @@
     <string name="notification_complete_title">Execução concluída</string>
     <string name="notification_complete_body">O chat %1$s está ocioso</string>
     <string name="permission_chat_confirmation">Este chat aguarda sua aprovação. Escolha o que o agente pode fazer:</string>
-    <string name="permission_response_failed">O agente não conseguiu aplicar essa resposta de permissão.</string>
     <string name="notification_error_title">Erro de execução</string>
     <string name="notification_error_body">Uma sessão falhou</string>
     <string name="chat_stall_title">Esta execução ficou em silêncio</string>
@@ -159,7 +159,6 @@
     <string name="schedule_completion_timeout">A execução agendada ficou em silêncio e nunca terminou</string>
     <string name="schedule_max_duration">A execução agendada passou da duração máxima</string>
     <string name="schedule_run_overlapping">A execução anterior ainda está em andamento</string>
-    <string name="schedule_service_busy">Outro agendamento estava em execução neste horário</string>
     <string name="schedule_foreground_start_blocked">O Android bloqueou o início em segundo plano</string>
     <string name="schedule_session_not_created">Não foi possível abrir uma sessão no runtime</string>
     <string name="schedule_run_not_started_attempts">%1$s (%2$d tentativas)</string>
@@ -171,15 +170,7 @@
     <string name="notification_schedule_not_started_body">%1$s · %2$s</string>
     <string name="notification_stalled_title">Uma execução ficou em silêncio</string>
     <string name="notification_stalled_body">%1$s · %2$s</string>
-    <string name="notification_permission_failed">Não foi possível enviar a aprovação. Abra o app e tente novamente.</string>
-    <string name="provider_credentials">Conexões de provedores</string>
-    <string name="provider_credentials_help">Conecte provedores através do ambiente de execução OpenCode selecionado. Os métodos de login disponíveis são fornecidos pelo OpenCode.</string>
-    <string name="provider_id_hint">ID do provedor (ex. openai)</string>
     <string name="api_key_hint">Chave API</string>
-    <string name="save_api_key">Salvar chave</string>
-    <string name="clear_api_key">Limpar chave</string>
-    <string name="key_saved">Salva</string>
-    <string name="key_missing">Não definida</string>
     <string name="provider_connect_title">Conectar %1$s</string>
     <string name="provider_select_method">Escolha um método de login.</string>
     <string name="provider_connect">Conectar</string>
@@ -189,7 +180,6 @@
     <string name="provider_not_connected">Não conectado</string>
     <string name="provider_connected_success">Provedor conectado.</string>
     <string name="provider_disconnected_success">Provedor desconectado.</string>
-    <string name="provider_auth_unavailable">Nenhum método de autenticação de provedor está disponível no ambiente de execução OpenCode selecionado.</string>
     <string name="provider_waiting_for_browser">Aguardando a conclusão da autorização no navegador…</string>
     <string name="provider_confirmation_code">Código de confirmação</string>
     <string name="provider_auth_in_progress">Conectando…</string>
@@ -225,23 +215,13 @@
     <string name="question_free_text_label">Outro (digite sua resposta)</string>
     <string name="question_cancel">Não responder</string>
     <string name="question_dismiss">Fechar a pergunta</string>
-    <string name="assistant_runtime">Ambiente de execução do assistente</string>
-    <string name="assistant_workspace">Caminho do espaço de trabalho do assistente</string>
-    <string name="import_workspace_folder">Importar pasta para o espaço de trabalho local</string>
-    <string name="notifications_permission_rationale">As notificações são usadas para aprovações e conclusão de tarefas enquanto o aplicativo está em segundo plano.</string>
     <string name="capability_version">OpenCode %1$s</string>
-    <string name="request_notifications">Permitir notificações</string>
 
-    <string name="session_options">Opções de sessão</string>
     <string name="rename_session">Renomear</string>
     <string name="delete_session">Excluir</string>
-    <string name="rename_session_title">Renomear sessão</string>
-    <string name="session_title_hint">Título da sessão</string>
     <string name="delete_session_title">Excluir sessão?</string>
-    <string name="delete_session_body">Esta sessão e suas mensagens serão excluídas permanentemente.</string>
 
     <string name="add_via_qr">Adicionar via QR</string>
-    <string name="scan_qr_title">Escanear um código QR de conexão</string>
     <string name="discover_on_lan">Descobrir na LAN</string>
     <string name="discovering_servers">Procurando servidores OpenCode…</string>
     <string name="no_servers_found">Nenhum servidor encontrado na LAN</string>
@@ -252,7 +232,11 @@
     <string name="collapse">Recolher</string>
     <string name="diff_label">Diff</string>
     <string name="close_description">Fechar</string>
-    <string name="item_count">%1$d itens</string>
+    <plurals name="item_count">
+        <item quantity="one">%1$d item</item>
+        <item quantity="many">%1$d itens</item>
+        <item quantity="other">%1$d itens</item>
+    </plurals>
     <string name="unsupported_abi">ABI não suportada: %1$s</string>
 
     <string name="todo_timeline_progress">%1$d de %2$d Todo concluído</string>
@@ -261,8 +245,6 @@
     <string name="tab_files">Arquivos</string>
     <string name="tab_search">Pesquisar</string>
     <string name="tab_changes">Alterações</string>
-    <string name="back_to_file_list">Voltar à lista de arquivos</string>
-    <string name="loading_files">Carregando arquivo</string>
     <string name="binary_file_no_preview">Arquivos binários não podem ser visualizados.</string>
     <string name="parent_folder">Pasta superior</string>
     <string name="loading_file_list">Carregando lista de arquivos</string>
@@ -350,7 +332,6 @@
     <string name="adb_status_disconnected">Não conectado</string>
     <string name="adb_status_discovered">Depuração sem fio detectada (porta %1$d)</string>
     <string name="adb_status_connected">Conectado (porta %1$d)</string>
-    <string name="adb_status_error">Erro</string>
     <string name="adb_pair_button">Parear dispositivo</string>
     <string name="adb_connect_button">Conectar</string>
     <string name="adb_disconnect_button">Desconectar</string>
@@ -360,7 +341,6 @@
     <string name="adb_pair_code_label">Código de pareamento</string>
     <string name="adb_pair_confirm">Parear</string>
     <string name="adb_pairing_in_progress">Pareando…</string>
-    <string name="adb_connecting_in_progress">Conectando…</string>
     <string name="adb_requires_android_11">Requer Android 11 ou posterior</string>
     <string name="runtime_status_not_installed">Não instalado</string>
     <string name="runtime_status_setting_up">Configurando</string>
@@ -380,11 +360,7 @@
     <string name="runtime_targets_title">Ambientes de execução</string>
     <string name="in_use_label">Em uso</string>
     <string name="edit_description">Editar</string>
-    <string name="setup_this_device_button">Configurar neste dispositivo</string>
     <string name="starting_opencode_version">Iniciando OpenCode %1$s</string>
-    <string name="start_opencode_button">Iniciar OpenCode</string>
-    <string name="stop_local_runtime_button">Parar ambiente de execução local</string>
-    <string name="diagnostics_and_management_button">Diagnósticos e gerenciamento</string>
     <string name="workspace_folders_title">Pastas do espaço de trabalho</string>
     <string name="no_workspaces_title">Nenhuma pasta de espaço de trabalho ainda</string>
     <string name="no_workspaces_body">As pastas usadas pelo seu agente aparecerão aqui quando você iniciar uma sessão.</string>
@@ -397,17 +373,8 @@
     <string name="ready_running">OpenCode %1$s · Em execução</string>
     <string name="generic_runtime_problem">Ocorreu um problema com o ambiente de execução local</string>
 
-    <string name="select_a_runtime">Selecionar um ambiente de execução</string>
     <string name="connected_label">Conectado</string>
     <string name="disconnected_label">Não conectado</string>
-    <string name="current_configuration">Configuração atual</string>
-    <string name="not_selected">Não selecionado</string>
-    <string name="opencode_default_value">Padrão do ambiente</string>
-    <string name="no_ai_service_selected">Nenhum serviço de IA selecionado</string>
-    <string name="connection_or_fetch_failed">Falha ao conectar ou buscar</string>
-    <string name="checking_connection_status">Verificando conexão e status</string>
-    <string name="choose_local_or_pc_runtime">Escolha um ambiente de execução local do Android ou do PC</string>
-    <string name="not_connected_to_opencode">Sem conexão com um ambiente</string>
 
     <string name="voice_no_runtime_configured">Configure um ambiente.</string>
     <string name="voice_event_connection_failed">Não foi possível conectar aos eventos do ambiente</string>
@@ -424,7 +391,6 @@
     <string name="voice_retry_button">Falar novamente</string>
 
     <string name="tts_error">Erro de fala</string>
-    <string name="tts_error_code">Erro de fala: %1$d</string>
     <string name="speech_error_audio">Erro de áudio</string>
     <string name="speech_error_client">Erro do cliente</string>
     <string name="speech_error_permissions">Permissão ausente</string>
@@ -459,26 +425,29 @@
     <string name="install_step_done">OpenCode local instalado</string>
 
     <string name="menu_description">Menu</string>
-    <string name="drawer_search_description">Pesquisar</string>
     <string name="drawer_recent_chats">Chats recentes</string>
     <string name="drawer_project_default">Padrão</string>
     <string name="drawer_projects_title">Projetos</string>
     <string name="drawer_agents_title">Agentes</string>
     <string name="drawer_add_project">Adicionar projeto</string>
-    <string name="drawer_pinned">Fixado</string>
-    <string name="drawer_pinned_sample_1">Conversa importante</string>
-    <string name="drawer_pinned_sample_2">Notas do projeto</string>
-    <string name="drawer_features">Recursos</string>
-    <string name="drawer_plan_label">Plano gratuito</string>
-    <string name="drawer_user_email_placeholder">user@example.com</string>
     <string name="drawer_time_just_now">Agora mesmo</string>
-    <string name="drawer_time_minutes_ago">Há %1$d minutos</string>
-    <string name="drawer_time_hours_ago">Há %1$d horas</string>
-    <string name="drawer_time_days_ago">Há %1$d dias</string>
+    <plurals name="drawer_time_minutes_ago">
+        <item quantity="one">Há %1$d minuto</item>
+        <item quantity="many">Há %1$d minutos</item>
+        <item quantity="other">Há %1$d minutos</item>
+    </plurals>
+    <plurals name="drawer_time_hours_ago">
+        <item quantity="one">Há %1$d hora</item>
+        <item quantity="many">Há %1$d horas</item>
+        <item quantity="other">Há %1$d horas</item>
+    </plurals>
+    <plurals name="drawer_time_days_ago">
+        <item quantity="one">Há %1$d dia</item>
+        <item quantity="many">Há %1$d dias</item>
+        <item quantity="other">Há %1$d dias</item>
+    </plurals>
 
     <string name="chat_home_title">Chat</string>
-    <string name="chat_build_headline">Construa com o OpenCode</string>
-    <string name="chat_build_subtitle">Pergunte qualquer coisa — implemente, corrija e revise código juntos.</string>
     <string name="chat_message_placeholder">Enviar mensagem…</string>
     <string name="chat_attach">Anexar arquivo</string>
     <string name="chat_remove_attachment">Remover anexo</string>
@@ -491,8 +460,6 @@
     <string name="chat_thinking_level_minimal">Mínimo</string>
     <string name="chat_thinking_level_ultra">Ultra</string>
     <string name="chat_fast_mode">Rápido</string>
-    <string name="chat_mode_build">Construir</string>
-    <string name="chat_mode_plan">Planejar</string>
     <string name="chat_agents_loading">Carregando agentes…</string>
     <string name="chat_agents_load_failed">Não foi possível carregar os agentes. Toque para tentar novamente.</string>
     <string name="chat_mode_auto_accept">Aceitação automática</string>
@@ -553,15 +520,6 @@
     <string name="github_code_copied">Código copiado para a área de transferência</string>
     <string name="setup_github_optional_description">Conecte o GitHub agora para usar repositórios privados com Git local. Você pode pular isso e conectar depois nas Configurações.</string>
     <string name="picker_search">Pesquisar modelos</string>
-    <string name="suggestion_implement_title">Ajude-me a implementar uma função</string>
-    <string name="suggestion_implement_subtitle">Escrever e implementar código</string>
-    <string name="suggestion_debug_title">Encontrar a causa de um bug</string>
-    <string name="suggestion_debug_subtitle">Diagnosticar e corrigir problemas</string>
-    <string name="suggestion_organize_title">Organizar a estrutura do projeto</string>
-    <string name="suggestion_organize_subtitle">Limpar arquivos e pastas</string>
-    <string name="attach_button_description">Anexar</string>
-    <string name="attach_menu_stub">Anexar arquivo (em breve)</string>
-    <string name="session_history">Histórico de sessões</string>
 
     <string name="picker_title">Selecionar modelo e ambiente de execução</string>
     <string name="picker_caption">Escolha onde executar e qual modelo usar.</string>
@@ -569,7 +527,6 @@
     <string name="section_model">Modelo</string>
     <string name="section_favorites">Favoritos</string>
     <string name="section_recent">Recentes</string>
-    <string name="this_android">Este Android</string>
     <string name="picker_no_providers">Nenhum provedor conectado ainda</string>
     <string name="picker_connect_provider">Conectar um provedor</string>
 
@@ -586,25 +543,11 @@
     <string name="onboarding_feature_anywhere">Aprove, pare ou responda pelas notificações</string>
     <string name="onboarding_primary_button_android">Iniciar configuração no Android</string>
     <string name="onboarding_primary_button_remote">Conectar a um PC ou Mac</string>
-    <string name="onboarding_skip_link">Adicionar uma conexão remota depois</string>
 
     <string name="android_setup_title">Configurar este Android</string>
     <string name="setup_step_download">Baixar ambiente de execução</string>
     <string name="setup_step_provider">Conectar um provedor</string>
-    <string name="setup_step_apikey">Definir chave API</string>
-    <string name="setup_step_test">Testar conexão</string>
-    <string name="apikey_caption">Sua chave API é armazenada com segurança neste dispositivo</string>
-    <string name="test_status_untested">Não testado</string>
-    <string name="test_status_testing">Testando…</string>
-    <string name="test_status_success">Conexão bem-sucedida</string>
-    <string name="test_status_failure">Conexão falhou</string>
-    <string name="run_connection_test_button">Executar teste de conexão</string>
     <string name="setup_complete_button">Concluído</string>
-    <string name="provider_openai">OpenAI</string>
-    <string name="provider_google">Google</string>
-    <string name="provider_anthropic">Anthropic</string>
-    <string name="provider_ollama">Ollama</string>
-    <string name="provider_other">Outro</string>
 
     <string name="remote_connection_title">Conectar ao PC/Mac</string>
     <string name="remote_step1_title">Execute este comando no seu PC</string>
@@ -627,9 +570,6 @@
     <string name="settings_home_assistant_row">Assistente inicial</string>
     <string name="assistant_enabled_pill">Ativado</string>
     <string name="assistant_disabled_pill">Desativado</string>
-    <string name="wake_word_row_title">Palavra de ativação</string>
-    <string name="wake_word_value">OpenCode</string>
-    <string name="wake_word_stub_body">Este recurso estará disponível em breve.</string>
     <string name="voice_settings_row">Configurações de voz</string>
     <string name="provider_settings_row">Configurações de provedores</string>
     <string name="settings_local_runtime_row">Ambiente de execução local</string>
@@ -638,8 +578,6 @@
     <string name="notifications_row">Notificações</string>
     <string name="local_runtime_idle_stop_row">Parar ambiente de execução ocioso</string>
     <string name="local_runtime_idle_stop_row_description">Reinicia automaticamente quando um agendamento é executado ou você abre o app, mas não automaticamente após reiniciar o dispositivo</string>
-    <string name="privacy_row">Privacidade e dados</string>
-    <string name="privacy_stub_body">Este recurso estará disponível em breve.</string>
     <string name="diagnostics_row">Diagnósticos e registros</string>
     <string name="app_info_row">Informações do aplicativo</string>
     <string name="legal_privacy_settings_row">Jurídico e Privacidade</string>
@@ -704,7 +642,11 @@
 
     <string name="drawer_archive_session">Arquivar</string>
     <string name="drawer_selected_count">%1$d selecionado(s)</string>
-    <string name="drawer_delete_selected_body">%1$d sessões serão permanentemente excluídas.</string>
+    <plurals name="drawer_delete_selected_body">
+        <item quantity="one">%1$d sessão será excluída permanentemente.</item>
+        <item quantity="many">%1$d sessões serão excluídas permanentemente.</item>
+        <item quantity="other">%1$d sessões serão excluídas permanentemente.</item>
+    </plurals>
 
     <string name="mcp_title">Servidores MCP</string>
     <string name="mcp_add_server">Adicionar servidor</string>
@@ -720,7 +662,11 @@
     <string name="mcp_auth_not_removed">A autenticação não foi removida</string>
     <string name="mcp_auth_failed_status">Falha na autenticação: %1$s</string>
     <string name="mcp_remove_server">Remover servidor</string>
-    <string name="mcp_tools_count">%1$d ferramentas</string>
+    <plurals name="mcp_tools_count">
+        <item quantity="one">%1$d ferramenta</item>
+        <item quantity="many">%1$d ferramentas</item>
+        <item quantity="other">%1$d ferramentas</item>
+    </plurals>
     <string name="mcp_name_hint">Nome do servidor</string>
     <string name="mcp_command_hint">Comando (servidor local)</string>
     <string name="mcp_url_hint">URL (servidor remoto)</string>
@@ -762,9 +708,6 @@
     <string name="server_info_no_skills">Nenhuma habilidade disponível</string>
     <string name="server_info_settings_row">Configuração e ferramentas do servidor</string>
 
-    <string name="agents_md_generate">Gerar AGENTS.md</string>
-    <string name="agents_md_generated">AGENTS.md gerado</string>
-    <string name="agents_md_failed">Falha ao gerar AGENTS.md</string>
 
     <string name="tab_pr">PR</string>
     <string name="switch_branch">Trocar branch</string>
@@ -779,8 +722,6 @@
     <string name="diff_stat">+%1$d / -%2$d</string>
     <string name="syntax_theme_row">Tema de sintaxe</string>
     <string name="syntax_theme_dialog_title">Escolher tema de sintaxe</string>
-    <string name="usage_row">Uso</string>
-    <string name="font_size_dialog_title">Tamanho da fonte</string>
     <string name="widget_quick_input_hint">Enviar mensagem…</string>
     <string name="model_visibility_row">Modelos visíveis</string>
     <string name="model_visibility_title">Modelos visíveis</string>
@@ -798,7 +739,6 @@
     <string name="cd_app_logo">AndCode</string>
     <string name="cd_permission">Permission</string>
     <string name="cd_runtime_type">Runtime type</string>
-    <string name="cd_new_chat">New chat</string>
     <string name="cd_server_url">Server URL</string>
     <string name="cd_password">Password</string>
     <string name="cd_test_connection">Test connection</string>
@@ -806,7 +746,6 @@
     <string name="cd_lan_discovery">Discover on LAN</string>
     <string name="cd_clear_search">Clear search</string>
     <string name="cd_repair">Repair</string>
-    <string name="cd_session">Session</string>
     <string name="cd_attachment">Attachment</string>
     <string name="cd_image_preview">Image preview</string>
     <string name="cd_close_image">Fechar imagem</string>
@@ -818,13 +757,8 @@
     <string name="cd_reasoning">Reasoning</string>
     <string name="cd_tool">Tool</string>
     <string name="cd_file_changes">File changes</string>
-    <string name="cd_setup">Setup</string>
-    <string name="cd_start">Start</string>
     <string name="cd_stop">Stop</string>
-    <string name="cd_diagnostics">Diagnostics</string>
     <string name="cd_connection_error">Connection error</string>
-    <string name="cd_import_folder">Import folder</string>
-    <string name="cd_clone_github">Clone from GitHub</string>
     <string name="cd_scroll_to_bottom">Scroll to bottom</string>
     <string name="cd_attached_image">Attached image</string>
     <string name="cd_remove_image">Remove image</string>
@@ -834,7 +768,6 @@
     <string name="cd_thinking">Thinking</string>
     <string name="cd_fast_mode">Modo rápido</string>
     <string name="cd_system_prompt">Prompt do sistema</string>
-    <string name="cd_agent_mode">Agent mode</string>
     <string name="cd_updating">Updating</string>
     <string name="cd_operation_result">Operation result</string>
     <string name="cd_check_update">Check for update</string>
@@ -843,7 +776,6 @@
     <string name="cd_rollback">Rollback</string>
     <string name="cd_tool_status">Tool status</string>
     <string name="cd_delete_runtime">Delete runtime</string>
-    <string name="cd_workspace">Workspace</string>
     <string name="cd_navigate">Navigate</string>
     <string name="cd_cancel">Cancel</string>
     <string name="cd_accept">Accept</string>
@@ -859,7 +791,6 @@
     <string name="cd_subagent_status">Subagent status</string>
     <string name="cd_toggle_password">Toggle password visibility</string>
     <string name="cd_info">Info</string>
-    <string name="cd_add_project">Add project</string>
     <string name="cd_file">File</string>
     <string name="cd_code_match">Code match</string>
     <string name="cd_git">Git</string>
@@ -868,9 +799,6 @@
     <string name="cd_step_completed">Step completed</string>
     <string name="cd_error">Error</string>
     <string name="cd_runtime_ready">Runtime ready</string>
-    <string name="cd_workspaces">Workspaces</string>
-    <string name="cd_nav_item">Navigation item</string>
-    <string name="cd_terminal">Terminal</string>
     <string name="cd_add_tab">Add tab</string>
     <string name="cd_back">Back</string>
     <string name="cd_next_match">Next match</string>
@@ -898,7 +826,6 @@
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">Agent</string>
-    <string name="tab_new_default">New</string>
     <string name="tab_type_terminal">Terminal</string>
     <string name="tab_close">Close</string>
     <string name="tab_close_others">Close Others</string>
@@ -912,11 +839,6 @@
     <!-- Chat screen -->
 
     <!-- Chat errors -->
-    <string name="error_opencode_operation">A operação falhou</string>
-    <string name="error_no_connection">Nenhuma conexão de ambiente configurada</string>
-    <string name="session_title_attachment">Attachment</string>
-    <string name="error_answer_required">Answer required</string>
-    <string name="error_question_failed">A pergunta falhou</string>
     <string name="error_session_failed">A sessão falhou</string>
     <string name="chat_error_zen_free_tier_title">Os modelos gratuitos do OpenCode precisam de login no Zen</string>
     <string name="chat_error_zen_free_tier_body">O OpenCode limita os modelos gratuitos ao desktop e à CLI oficiais, a menos que você entre no OpenCode Zen. Conecte o OpenCode em Configurações → Provedores, ou use outro provedor.</string>
@@ -955,12 +877,6 @@
     <string name="voice_listening_placeholder">Listening…</string>
 
     <!-- Drawer grouping -->
-    <string name="grouping_project">Project</string>
-    <string name="grouping_status">Status</string>
-    <string name="status_group_running">Running</string>
-    <string name="status_group_waiting">Waiting</string>
-    <string name="status_group_done">Done</string>
-    <string name="status_group_error">Error</string>
 
     <!-- Quick input widget -->
     <string name="toast_permission_granted">Permission granted. Tap mic again.</string>
@@ -1072,7 +988,6 @@
     <string name="antigravity_installed_version">Antigravity %1$s</string>
     <string name="claude_status_not_installed">Não instalado</string>
     <string name="claude_status_installing">Instalando</string>
-    <string name="claude_status_ready">Pronto</string>
     <string name="claude_status_signed_out">Sem sessão iniciada</string>
     <string name="claude_sign_in_button">Configurar o Claude Code</string>
     <string name="claude_sign_out_button">Sair</string>
@@ -1146,9 +1061,7 @@
     <string name="risk_warning_full_access_body">Ativar esta opção permite que a CLI oficial altere arquivos ou execute comandos sem pedir confirmação antes.\n\nO PRoot é um ambiente de compatibilidade, não um sandbox de segurança completo. Faça backup de qualquer coisa importante e use apenas repositórios, prompts e servidores MCP confiáveis.</string>
     <string name="risk_warning_all_files_title">Permitir acesso a todos os arquivos do dispositivo?</string>
     <string name="risk_warning_all_files_body">Conceder isso permite que os agentes que você executa leiam e modifiquem qualquer arquivo alcançável pelo seletor de pastas neste dispositivo, não apenas o armazenamento próprio do AndCode.\n\nConceda isso apenas se confiar nos agentes, prompts e servidores MCP que usa com eles.</string>
-    <string name="risk_warning_mcp_server_title">Adicionando um servidor MCP de terceiros</string>
     <string name="risk_warning_mcp_server_body">Servidores MCP podem ler prompts, arquivos e saídas de ferramentas, e alguns podem realizar ações em seu nome. Adicione apenas servidores em que você confia.</string>
-    <string name="risk_warning_schedule_title">Execuções agendadas e em segundo plano</string>
     <string name="risk_warning_schedule_body">Prompts agendados são executados sem supervisão, usando o modo de permissão em que o agente estiver configurado no momento. Revise o prompt e o modo de permissão antes de ativar um agendamento recorrente.</string>
     <string name="risk_warning_understood">Entendi, continuar</string>
     <string name="chat_response_duration">%1$d min</string>
@@ -1190,8 +1103,6 @@
     <string name="schedule_date">Data</string>
     <string name="schedule_time">Hora</string>
     <string name="schedule_day_of_month">Dia do mês</string>
-    <string name="schedule_weekday">Dia da semana</string>
-    <string name="schedule_enabled">Ativado</string>
     <string name="schedule_auto_accept">Aprovar automaticamente permissões de ferramentas</string>
     <string name="schedule_auto_accept_hint">Substitui a configuração global para este agendamento</string>
     <string name="schedule_delete">Excluir agendamento</string>
@@ -1206,8 +1117,6 @@
     <string name="schedule_next_run">Próxima: %1$s</string>
     <string name="schedule_last_run">Última execução: %1$s</string>
     <string name="schedule_never_ran">Nunca executado</string>
-    <string name="schedule_runs_title">Histórico</string>
-    <string name="schedule_no_runs">Este agendamento ainda não foi executado.</string>
     <string name="schedule_runs_empty">Ainda não há execuções. Elas aparecerão aqui quando o agendamento for disparado.</string>
     <string name="schedule_open_chat">Abrir chat</string>
     <string name="schedule_status_running">Em execução</string>
@@ -1222,7 +1131,6 @@
     <string name="schedule_model_unset">Modelo padrão</string>
     <string name="schedule_workspace_unset">Sem espaço de trabalho</string>
     <string name="schedule_agent_unset">Agente não definido</string>
-    <string name="schedule_recurring">Recorrente</string>
     <string name="schedule_run_now_started">O agendamento está em execução.</string>
     <string name="schedule_edit_menu">Editar</string>
     <string name="schedule_exact_alarm_title">Permitir alarmes e lembretes</string>
@@ -1249,7 +1157,11 @@
     <string name="cd_pull_request_link_state">Pull request #%1$d, %2$s. Abre no GitHub</string>
     <string name="cd_pull_request_files">Pull request #%1$d, %2$d adicionadas, %3$d removidas. Abre os arquivos alterados no GitHub</string>
     <string name="pr_collapse">Menos</string>
-    <string name="cd_pull_request_expand">Mostrar mais %1$d pull requests</string>
+    <plurals name="cd_pull_request_expand">
+        <item quantity="one">Mostrar mais %1$d pull request</item>
+        <item quantity="many">Mostrar mais %1$d pull requests</item>
+        <item quantity="other">Mostrar mais %1$d pull requests</item>
+    </plurals>
     <string name="cd_pull_request_collapse">Mostrar menos pull requests</string>
     <string name="cd_pull_request_dismiss">Ocultar o pull request #%1$d</string>
     <string name="runtime_connection_unhealthy">O runtime local do OpenCode não está funcionando corretamente</string>
@@ -1514,7 +1426,11 @@
     <string name="git_invalid_branch">O nome da branch não pode começar com -</string>
     <string name="git_commit_suggest_one">Atualizar %1$s</string>
     <string name="git_commit_suggest_two">Atualizar %1$s e %2$s</string>
-    <string name="git_commit_suggest_many">Atualizar %1$s e mais %2$d arquivos</string>
+    <plurals name="git_commit_suggest_many">
+        <item quantity="one">Atualizar %1$s e mais %2$d arquivo</item>
+        <item quantity="many">Atualizar %1$s e mais %2$d arquivos</item>
+        <item quantity="other">Atualizar %1$s e mais %2$d arquivos</item>
+    </plurals>
     <string name="git_title">Controle de código</string>
     <string name="git_refresh">Atualizar</string>
     <string name="git_not_a_repo">Não é um repositório Git</string>
@@ -1578,16 +1494,32 @@
     <string name="archive_more_actions">Mais ações</string>
     <string name="archive_archived_ago">Arquivada: %1$s</string>
     <string name="archive_delete_one_title">Excluir “%1$s” definitivamente?</string>
-    <string name="archive_delete_many_title">Excluir %1$d conversas definitivamente?</string>
+    <plurals name="archive_delete_many_title">
+        <item quantity="one">Excluir %1$d conversa definitivamente?</item>
+        <item quantity="many">Excluir %1$d conversas definitivamente?</item>
+        <item quantity="other">Excluir %1$d conversas definitivamente?</item>
+    </plurals>
     <string name="archive_delete_all_title">Excluir todas as conversas arquivadas?</string>
     <string name="archive_delete_body">A cópia de cada conversa guardada pelo agente também é excluída. Essa ação não pode ser desfeita.</string>
     <string name="settings_archive_row">Conversas arquivadas</string>
     <string name="chat_deleted_snackbar">Conversa excluída</string>
-    <string name="chats_deleted_snackbar">%1$d conversas excluídas</string>
+    <plurals name="chats_deleted_snackbar">
+        <item quantity="one">%1$d conversa excluída</item>
+        <item quantity="many">%1$d conversas excluídas</item>
+        <item quantity="other">%1$d conversas excluídas</item>
+    </plurals>
     <string name="chat_archived_snackbar">Conversa arquivada</string>
-    <string name="chats_archived_snackbar">%1$d conversas arquivadas</string>
+    <plurals name="chats_archived_snackbar">
+        <item quantity="one">%1$d conversa arquivada</item>
+        <item quantity="many">%1$d conversas arquivadas</item>
+        <item quantity="other">%1$d conversas arquivadas</item>
+    </plurals>
     <string name="chat_restored_snackbar">Conversa restaurada</string>
-    <string name="chats_restored_snackbar">%1$d conversas restauradas</string>
+    <plurals name="chats_restored_snackbar">
+        <item quantity="one">%1$d conversa restaurada</item>
+        <item quantity="many">%1$d conversas restauradas</item>
+        <item quantity="other">%1$d conversas restauradas</item>
+    </plurals>
     <string name="chat_delete_failed_snackbar">Não excluídas (%1$d): %2$s</string>
     <string name="chat_archive_failed_snackbar">Não arquivadas (%1$d): %2$s</string>
     <string name="chat_restore_failed_snackbar">Não restauradas (%1$d): %2$s</string>
@@ -1604,7 +1536,11 @@
     <string name="chat_find_close">Fechar pesquisa</string>
     <string name="message_search_hint">Pesquisar em todas as conversas</string>
     <string name="message_search_include_archived">Incluir arquivadas</string>
-    <string name="message_search_progress">Conversas pesquisadas: %1$d de %2$d</string>
+    <plurals name="message_search_progress">
+        <item quantity="one">Conversas pesquisadas: %1$d de %2$d</item>
+        <item quantity="many">Conversas pesquisadas: %1$d de %2$d</item>
+        <item quantity="other">Conversas pesquisadas: %1$d de %2$d</item>
+    </plurals>
     <string name="message_search_empty_title">Pesquisar em todas as conversas</string>
     <string name="message_search_empty_body">Encontra palavras no que você e os agentes escreveram, nas conversas de todos os agentes, não só nos títulos.</string>
     <string name="message_search_no_results_title">Nenhum resultado</string>

@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -210,7 +211,7 @@ fun ArchiveScreen(
                     when {
                         request is DeleteRequest.All -> stringResource(R.string.archive_delete_all_title)
                         chats.size == 1 -> stringResource(R.string.archive_delete_one_title, chats.first().session.title)
-                        else -> stringResource(R.string.archive_delete_many_title, chats.size)
+                        else -> pluralStringResource(R.plurals.archive_delete_many_title, chats.size, chats.size)
                     },
                 )
             },

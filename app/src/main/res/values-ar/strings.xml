@@ -1,29 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AndCode</string>
-    <string name="unofficial_client">عميل مفتوح المصدر غير رسمي</string>
 
-    <string name="nav_home">الرئيسية</string>
-    <string name="nav_chat">الدردشة</string>
-    <string name="nav_connections">الاتصالات</string>
-    <string name="nav_sessions">الجلسات</string>
     <string name="nav_workspaces">مساحات العمل</string>
-    <string name="nav_activity">النشاط</string>
     <string name="nav_settings">الإعدادات</string>
 
-    <string name="connection_missing">اتصل بجهاز كمبيوتر للبدء</string>
     <string name="connected_version">متصل · %s</string>
-    <string name="connection_help">على جهاز الكمبيوتر، ابدأ opencode serve بكلمة مرور، ثم أدخل عنوان LAN أو Tailscale الخاص به.</string>
     <string name="add_connection">إضافة اتصال</string>
     <string name="edit_connection">تعديل الاتصال</string>
     <string name="connection_name">اسم العرض</string>
     <string name="server_url">عنوان URL لخادم OpenCode</string>
     <string name="username">اسم المستخدم</string>
     <string name="password">كلمة مرور الخادم</string>
-    <string name="allow_lan_http">السماح بـ HTTP غير المشفر على LAN/Tailscale</string>
     <string name="test_connection">اختبار الاتصال</string>
     <string name="select">تحديد</string>
-    <string name="not_set">غير محدد</string>
     <string name="delete">حذف</string>
     <string name="cancel">إلغاء</string>
     <string name="save">حفظ</string>
@@ -36,8 +26,6 @@
     <string name="thinking">جارٍ التفكير…</string>
     <string name="chat_reconnecting">انقطع الاتصال ببيئة التشغيل. جارٍ إعادة الاتصال…</string>
     <string name="processing">جارٍ المعالجة…</string>
-    <string name="model">النموذج</string>
-    <string name="agent">الوكيل</string>
     <string name="permission_required">الموافقة مطلوبة</string>
     <string name="permission_show_all">عرض الكل</string>
     <string name="permission_risk_read_only">قراءة</string>
@@ -57,12 +45,54 @@
     <string name="tool_input_label">الإدخال</string>
     <string name="tool_output_label">الإخراج</string>
     <string name="tool_output_truncated">…تم اقتطاع الإخراج</string>
-    <string name="activity_summary_commands">تم تنفيذ %1$d أمر</string>
-    <string name="activity_summary_reads">تم قراءة %1$d ملف</string>
-    <string name="activity_summary_edits">تم تعديل %1$d ملف</string>
-    <string name="activity_summary_subagents">تم تشغيل %1$d وكيل فرعي</string>
-    <string name="activity_summary_tools">تم استخدام %1$d أداة</string>
-    <string name="activity_summary_reasoning">%1$d عملية تفكير</string>
+    <plurals name="activity_summary_commands">
+        <item quantity="zero">تم تنفيذ %1$d أمر</item>
+        <item quantity="one">تم تنفيذ أمر واحد</item>
+        <item quantity="two">تم تنفيذ أمرين</item>
+        <item quantity="few">تم تنفيذ %1$d أوامر</item>
+        <item quantity="many">تم تنفيذ %1$d أمرًا</item>
+        <item quantity="other">تم تنفيذ %1$d أمر</item>
+    </plurals>
+    <plurals name="activity_summary_reads">
+        <item quantity="zero">تمت قراءة %1$d ملف</item>
+        <item quantity="one">تمت قراءة ملف واحد</item>
+        <item quantity="two">تمت قراءة ملفين</item>
+        <item quantity="few">تمت قراءة %1$d ملفات</item>
+        <item quantity="many">تمت قراءة %1$d ملفًا</item>
+        <item quantity="other">تمت قراءة %1$d ملف</item>
+    </plurals>
+    <plurals name="activity_summary_edits">
+        <item quantity="zero">تم تعديل %1$d ملف</item>
+        <item quantity="one">تم تعديل ملف واحد</item>
+        <item quantity="two">تم تعديل ملفين</item>
+        <item quantity="few">تم تعديل %1$d ملفات</item>
+        <item quantity="many">تم تعديل %1$d ملفًا</item>
+        <item quantity="other">تم تعديل %1$d ملف</item>
+    </plurals>
+    <plurals name="activity_summary_subagents">
+        <item quantity="zero">تم تشغيل %1$d وكيل فرعي</item>
+        <item quantity="one">تم تشغيل وكيل فرعي واحد</item>
+        <item quantity="two">تم تشغيل وكيلين فرعيين</item>
+        <item quantity="few">تم تشغيل %1$d وكلاء فرعيين</item>
+        <item quantity="many">تم تشغيل %1$d وكيلًا فرعيًا</item>
+        <item quantity="other">تم تشغيل %1$d وكيل فرعي</item>
+    </plurals>
+    <plurals name="activity_summary_tools">
+        <item quantity="zero">تم استخدام %1$d أداة</item>
+        <item quantity="one">تم استخدام أداة واحدة</item>
+        <item quantity="two">تم استخدام أداتين</item>
+        <item quantity="few">تم استخدام %1$d أدوات</item>
+        <item quantity="many">تم استخدام %1$d أداة</item>
+        <item quantity="other">تم استخدام %1$d أداة</item>
+    </plurals>
+    <plurals name="activity_summary_reasoning">
+        <item quantity="zero">%1$d عملية تفكير</item>
+        <item quantity="one">عملية تفكير واحدة</item>
+        <item quantity="two">عمليتا تفكير</item>
+        <item quantity="few">%1$d عمليات تفكير</item>
+        <item quantity="many">%1$d عملية تفكير</item>
+        <item quantity="other">%1$d عملية تفكير</item>
+    </plurals>
     <string name="activity_summary_separator">، </string>
     <string name="activity_details_title">النشاط</string>
     <string name="activity_details_open">إظهار تفاصيل النشاط</string>
@@ -70,7 +100,6 @@
     <string name="file_changes_title">تغييرات الملفات</string>
     <string name="file_changes_generic">تم تغيير الملفات</string>
     <string name="diff_unavailable">الفرق غير متاح — مساحة العمل هذه ليست مستودع Git</string>
-    <string name="workspace_folder_label">مجلد العمل</string>
     <string name="workspace_import_folder">استيراد مجلد…</string>
     <string name="workspace_clone_github">استنساخ من GitHub…</string>
     <string name="workspace_clone_title">استنساخ مستودع GitHub</string>
@@ -92,7 +121,6 @@
     <string name="workspace_delete_failed">تعذر حذف هذا المجلد. أوقف بيئة التشغيل إذا كانت قيد التشغيل ثم حاول مرة أخرى.</string>
     <string name="workspace_delete_retry">إعادة المحاولة</string>
     <string name="workspace_choose_folder">اختيار مجلد موجود</string>
-    <string name="cd_choose_folder">اختيار مجلد موجود</string>
     <string name="workspace_folder_picker_up">مستوى للأعلى</string>
     <string name="workspace_folder_picker_empty">لا توجد مجلدات فرعية هنا.</string>
     <string name="workspace_folder_picker_select">استخدام هذا المجلد</string>
@@ -100,17 +128,9 @@
     <string name="workspace_device_storage_row">السماح بالوصول إلى ملفات الجهاز</string>
     <string name="workspace_device_storage_hint">لا يرى AndCode سوى مجلداته الخاصة. امنحه الوصول إلى كل الملفات لفتح الملفات الموجودة على هاتفك مباشرة.</string>
 
-    <string name="recent_sessions">الجلسات الأخيرة</string>
-    <string name="view_all">عرض الكل</string>
-    <string name="no_sessions">لا توجد جلسات بعد</string>
 
-    <string name="remote_runtime">بيئة التشغيل عن بُعد للكمبيوتر</string>
-    <string name="local_runtime">بيئة التشغيل المحلية على Android</string>
-    <string name="experimental_not_installed">بيئة التشغيل المحلية المُدارة</string>
-    <string name="local_runtime_note">ثبّت بيئة التشغيل المحلية على Android وشغّلها وأوقفها وأصلحها من مساحات العمل.</string>
 
     <string name="home_assistant">المساعد الرئيسي</string>
-    <string name="set_default_assistant">تعيين كمساعد رقمي افتراضي</string>
     <string name="voice">الصوت</string>
     <string name="cd_expand_composer">توسيع الرسالة</string>
     <string name="cd_collapse_composer">طي الرسالة</string>
@@ -121,7 +141,6 @@
     <string name="could_not_open_settings">تعذر فتح إعدادات المساعد</string>
 
 
-    <string name="about">حول</string>
 
     <string name="notification_channel_approvals">الموافقات</string>
     <string name="notification_channel_status">حالة المهمة</string>
@@ -131,7 +150,6 @@
     <string name="notification_complete_title">انتهى التنفيذ</string>
     <string name="notification_complete_body">المحادثة %1$s خاملة</string>
     <string name="permission_chat_confirmation">تنتظر هذه المحادثة موافقتك. اختر ما يُسمح للوكيل بفعله:</string>
-    <string name="permission_response_failed">تعذّر على الوكيل تطبيق استجابة الإذن هذه.</string>
     <string name="notification_error_title">خطأ في التنفيذ</string>
     <string name="notification_error_body">فشلت جلسة</string>
     <string name="chat_stall_title">توقّف هذا التنفيذ عن الاستجابة</string>
@@ -162,7 +180,6 @@
     <string name="schedule_completion_timeout">توقّف التشغيل المجدول عن الاستجابة ولم يكتمل</string>
     <string name="schedule_max_duration">تجاوز التشغيل المجدول أقصى مدة مسموحة</string>
     <string name="schedule_run_overlapping">التشغيل السابق ما زال جاريًا</string>
-    <string name="schedule_service_busy">كان هناك جدول آخر قيد التشغيل في ذلك الوقت</string>
     <string name="schedule_foreground_start_blocked">حظر Android البدء في الخلفية</string>
     <string name="schedule_session_not_created">تعذّر فتح جلسة على بيئة التشغيل</string>
     <string name="schedule_run_not_started_attempts">%1$s (%2$d محاولات)</string>
@@ -174,15 +191,7 @@
     <string name="notification_schedule_not_started_body">%1$s · %2$s</string>
     <string name="notification_stalled_title">توقّف أحد عمليات التنفيذ عن الاستجابة</string>
     <string name="notification_stalled_body">%1$s · %2$s</string>
-    <string name="notification_permission_failed">تعذّر إرسال الموافقة. افتح التطبيق وحاول مرة أخرى.</string>
-    <string name="provider_credentials">اتصالات الموفرين</string>
-    <string name="provider_credentials_help">اتصل بالموفرين من خلال بيئة تشغيل OpenCode المحددة. يتم توفير طرق تسجيل الدخول المتاحة بواسطة OpenCode.</string>
-    <string name="provider_id_hint">معرف الموفر (مثال: openai)</string>
     <string name="api_key_hint">مفتاح API</string>
-    <string name="save_api_key">حفظ المفتاح</string>
-    <string name="clear_api_key">مسح المفتاح</string>
-    <string name="key_saved">تم الحفظ</string>
-    <string name="key_missing">غير محدد</string>
     <string name="provider_connect_title">الاتصال بـ %1$s</string>
     <string name="provider_select_method">اختر طريقة تسجيل الدخول.</string>
     <string name="provider_connect">اتصال</string>
@@ -192,7 +201,6 @@
     <string name="provider_not_connected">غير متصل</string>
     <string name="provider_connected_success">تم الاتصال بالموفر.</string>
     <string name="provider_disconnected_success">تم قطع الاتصال بالموفر.</string>
-    <string name="provider_auth_unavailable">لا تتوفر طرق مصادقة الموفر من بيئة تشغيل OpenCode المحددة.</string>
     <string name="provider_waiting_for_browser">في انتظار انتهاء التفويض في المتصفح…</string>
     <string name="provider_confirmation_code">رمز التأكيد</string>
     <string name="provider_auth_in_progress">جارٍ الاتصال…</string>
@@ -231,23 +239,13 @@
     <string name="question_free_text_label">أخرى (اكتب إجابتك)</string>
     <string name="question_cancel">رفض الإجابة</string>
     <string name="question_dismiss">إغلاق السؤال</string>
-    <string name="assistant_runtime">بيئة تشغيل المساعد</string>
-    <string name="assistant_workspace">مسار مساحة عمل المساعد</string>
-    <string name="import_workspace_folder">استيراد مجلد إلى مساحة العمل المحلية</string>
-    <string name="notifications_permission_rationale">تُستخدم الإشعارات للموافقات وإكمال المهام أثناء وجود التطبيق في الخلفية.</string>
     <string name="capability_version">OpenCode %1$s</string>
-    <string name="request_notifications">السماح بالإشعارات</string>
 
-    <string name="session_options">خيارات الجلسة</string>
     <string name="rename_session">إعادة تسمية</string>
     <string name="delete_session">حذف</string>
-    <string name="rename_session_title">إعادة تسمية الجلسة</string>
-    <string name="session_title_hint">عنوان الجلسة</string>
     <string name="delete_session_title">حذف الجلسة؟</string>
-    <string name="delete_session_body">سيتم حذف هذه الجلسة ورسائلها نهائيًا.</string>
 
     <string name="add_via_qr">إضافة عبر رمز QR</string>
-    <string name="scan_qr_title">مسح رمز QR للاتصال</string>
     <string name="discover_on_lan">اكتشاف على LAN</string>
     <string name="discovering_servers">جارٍ البحث عن خوادم OpenCode…</string>
     <string name="no_servers_found">لم يتم العثور على خوادم على LAN</string>
@@ -258,7 +256,14 @@
     <string name="collapse">طي</string>
     <string name="diff_label">الفرق</string>
     <string name="close_description">إغلاق</string>
-    <string name="item_count">%1$d عناصر</string>
+    <plurals name="item_count">
+        <item quantity="zero">لا توجد عناصر</item>
+        <item quantity="one">عنصر واحد</item>
+        <item quantity="two">عنصران</item>
+        <item quantity="few">%1$d عناصر</item>
+        <item quantity="many">%1$d عنصرًا</item>
+        <item quantity="other">%1$d عنصر</item>
+    </plurals>
     <string name="unsupported_abi">ABI غير مدعوم: %1$s</string>
 
     <string name="todo_timeline_progress">اكتمل %1$d من %2$d Todo</string>
@@ -267,8 +272,6 @@
     <string name="tab_files">الملفات</string>
     <string name="tab_search">بحث</string>
     <string name="tab_changes">التغييرات</string>
-    <string name="back_to_file_list">العودة إلى قائمة الملفات</string>
-    <string name="loading_files">جارٍ تحميل الملف</string>
     <string name="binary_file_no_preview">لا يمكن معاينة الملفات الثنائية.</string>
     <string name="parent_folder">المجلد الأصلي</string>
     <string name="loading_file_list">جارٍ تحميل قائمة الملفات</string>
@@ -356,7 +359,6 @@
     <string name="adb_status_disconnected">غير متصل</string>
     <string name="adb_status_discovered">تم اكتشاف تصحيح الأخطاء اللاسلكي (المنفذ %1$d)</string>
     <string name="adb_status_connected">متصل (المنفذ %1$d)</string>
-    <string name="adb_status_error">خطأ</string>
     <string name="adb_pair_button">إقران الجهاز</string>
     <string name="adb_connect_button">اتصال</string>
     <string name="adb_disconnect_button">قطع الاتصال</string>
@@ -366,7 +368,6 @@
     <string name="adb_pair_code_label">رمز الإقران</string>
     <string name="adb_pair_confirm">إقران</string>
     <string name="adb_pairing_in_progress">جارٍ الإقران…</string>
-    <string name="adb_connecting_in_progress">جارٍ الاتصال…</string>
     <string name="adb_requires_android_11">يتطلب Android 11 أو أحدث</string>
     <string name="runtime_status_not_installed">غير مثبت</string>
     <string name="runtime_status_setting_up">جارٍ الإعداد</string>
@@ -386,11 +387,7 @@
     <string name="runtime_targets_title">بيئات التشغيل</string>
     <string name="in_use_label">قيد الاستخدام</string>
     <string name="edit_description">تعديل</string>
-    <string name="setup_this_device_button">الإعداد على هذا الجهاز</string>
     <string name="starting_opencode_version">جارٍ بدء OpenCode %1$s</string>
-    <string name="start_opencode_button">بدء OpenCode</string>
-    <string name="stop_local_runtime_button">إيقاف بيئة التشغيل المحلية</string>
-    <string name="diagnostics_and_management_button">التشخيصات والإدارة</string>
     <string name="workspace_folders_title">مجلدات مساحة العمل</string>
     <string name="no_workspaces_title">لا توجد مجلدات مساحة عمل بعد</string>
     <string name="no_workspaces_body">ستظهر هنا المجلدات التي يستخدمها وكيلك بعد بدء جلسة.</string>
@@ -403,17 +400,8 @@
     <string name="ready_running">OpenCode %1$s · قيد التشغيل</string>
     <string name="generic_runtime_problem">حدثت مشكلة في بيئة التشغيل المحلية</string>
 
-    <string name="select_a_runtime">تحديد بيئة تشغيل</string>
     <string name="connected_label">متصل</string>
     <string name="disconnected_label">غير متصل</string>
-    <string name="current_configuration">التكوين الحالي</string>
-    <string name="not_selected">غير محدد</string>
-    <string name="opencode_default_value">الافتراضي لبيئة التشغيل</string>
-    <string name="no_ai_service_selected">لم يتم تحديد خدمة ذكاء اصطناعي</string>
-    <string name="connection_or_fetch_failed">فشل الاتصال أو الجلب</string>
-    <string name="checking_connection_status">جارٍ التحقق من الاتصال والحالة</string>
-    <string name="choose_local_or_pc_runtime">اختر بيئة تشغيل محلية على Android أو كمبيوتر</string>
-    <string name="not_connected_to_opencode">غير متصل ببيئة تشغيل</string>
 
     <string name="voice_no_runtime_configured">يرجى إعداد بيئة تشغيل.</string>
     <string name="voice_event_connection_failed">تعذّر الاتصال بأحداث بيئة التشغيل</string>
@@ -430,7 +418,6 @@
     <string name="voice_retry_button">التحدث مرة أخرى</string>
 
     <string name="tts_error">خطأ في الكلام</string>
-    <string name="tts_error_code">خطأ في الكلام: %1$d</string>
     <string name="speech_error_audio">خطأ صوتي</string>
     <string name="speech_error_client">خطأ في العميل</string>
     <string name="speech_error_permissions">إذن مفقود</string>
@@ -465,26 +452,38 @@
     <string name="install_step_done">تم تثبيت OpenCode المحلي</string>
 
     <string name="menu_description">القائمة</string>
-    <string name="drawer_search_description">بحث</string>
     <string name="drawer_recent_chats">الدردشات الأخيرة</string>
     <string name="drawer_project_default">افتراضي</string>
     <string name="drawer_projects_title">المشاريع</string>
     <string name="drawer_agents_title">الوكلاء</string>
     <string name="drawer_add_project">إضافة مشروع</string>
-    <string name="drawer_pinned">مثبت</string>
-    <string name="drawer_pinned_sample_1">محادثة مهمة</string>
-    <string name="drawer_pinned_sample_2">ملاحظات المشروع</string>
-    <string name="drawer_features">الميزات</string>
-    <string name="drawer_plan_label">الخطة المجانية</string>
-    <string name="drawer_user_email_placeholder">user@example.com</string>
     <string name="drawer_time_just_now">الآن</string>
-    <string name="drawer_time_minutes_ago">منذ %1$d دقيقة</string>
-    <string name="drawer_time_hours_ago">منذ %1$d ساعة</string>
-    <string name="drawer_time_days_ago">منذ %1$d يوم</string>
+    <plurals name="drawer_time_minutes_ago">
+        <item quantity="zero">منذ %1$d دقيقة</item>
+        <item quantity="one">منذ دقيقة واحدة</item>
+        <item quantity="two">منذ دقيقتين</item>
+        <item quantity="few">منذ %1$d دقائق</item>
+        <item quantity="many">منذ %1$d دقيقة</item>
+        <item quantity="other">منذ %1$d دقيقة</item>
+    </plurals>
+    <plurals name="drawer_time_hours_ago">
+        <item quantity="zero">منذ %1$d ساعة</item>
+        <item quantity="one">منذ ساعة واحدة</item>
+        <item quantity="two">منذ ساعتين</item>
+        <item quantity="few">منذ %1$d ساعات</item>
+        <item quantity="many">منذ %1$d ساعة</item>
+        <item quantity="other">منذ %1$d ساعة</item>
+    </plurals>
+    <plurals name="drawer_time_days_ago">
+        <item quantity="zero">منذ %1$d يوم</item>
+        <item quantity="one">منذ يوم واحد</item>
+        <item quantity="two">منذ يومين</item>
+        <item quantity="few">منذ %1$d أيام</item>
+        <item quantity="many">منذ %1$d يومًا</item>
+        <item quantity="other">منذ %1$d يوم</item>
+    </plurals>
 
     <string name="chat_home_title">الدردشة</string>
-    <string name="chat_build_headline">ابنِ مع OpenCode</string>
-    <string name="chat_build_subtitle">اسأل أي شيء — نفّذ وأصلح وراجع الكود معًا.</string>
     <string name="chat_message_placeholder">أرسل رسالة…</string>
     <string name="chat_attach">إرفاق ملف</string>
     <string name="chat_remove_attachment">إزالة المرفق</string>
@@ -497,8 +496,6 @@
     <string name="chat_thinking_level_minimal">الحد الأدنى</string>
     <string name="chat_thinking_level_ultra">فائق</string>
     <string name="chat_fast_mode">سريع</string>
-    <string name="chat_mode_build">بناء</string>
-    <string name="chat_mode_plan">تخطيط</string>
     <string name="chat_agents_loading">جارٍ تحميل الوكلاء…</string>
     <string name="chat_agents_load_failed">تعذّر تحميل الوكلاء. انقر لإعادة المحاولة.</string>
     <string name="chat_mode_auto_accept">قبول تلقائي</string>
@@ -559,15 +556,6 @@
     <string name="github_code_copied">تم نسخ الرمز إلى الحافظة</string>
     <string name="setup_github_optional_description">اتصل بـ GitHub الآن لاستخدام المستودعات الخاصة مع Git المحلي. يمكنك تخطي هذا والاتصال لاحقًا في الإعدادات.</string>
     <string name="picker_search">البحث في النماذج</string>
-    <string name="suggestion_implement_title">ساعدني في تنفيذ دالة</string>
-    <string name="suggestion_implement_subtitle">كتابة وتنفيذ الكود</string>
-    <string name="suggestion_debug_title">إيجاد سبب خطأ</string>
-    <string name="suggestion_debug_subtitle">تشخيص وإصلاح المشكلات</string>
-    <string name="suggestion_organize_title">تنظيم هيكل المشروع</string>
-    <string name="suggestion_organize_subtitle">تنظيف الملفات والمجلدات</string>
-    <string name="attach_button_description">إرفاق</string>
-    <string name="attach_menu_stub">إرفاق ملف (قريبًا)</string>
-    <string name="session_history">سجل الجلسات</string>
 
     <string name="picker_title">تحديد النموذج وبيئة التشغيل</string>
     <string name="picker_caption">اختر مكان التشغيل والنموذج الذي تريد استخدامه.</string>
@@ -575,7 +563,6 @@
     <string name="section_model">النموذج</string>
     <string name="section_favorites">المفضلة</string>
     <string name="section_recent">الأخيرة</string>
-    <string name="this_android">هذا Android</string>
     <string name="picker_no_providers">لا يوجد موفرون متصلون بعد</string>
     <string name="picker_connect_provider">توصيل موفر</string>
 
@@ -592,25 +579,11 @@
     <string name="onboarding_feature_anywhere">وافق أو أوقف أو رد من الإشعارات</string>
     <string name="onboarding_primary_button_android">بدء الإعداد على Android</string>
     <string name="onboarding_primary_button_remote">الاتصال بجهاز كمبيوتر أو Mac</string>
-    <string name="onboarding_skip_link">إضافة اتصال عن بُعد لاحقًا</string>
 
     <string name="android_setup_title">إعداد هذا Android</string>
     <string name="setup_step_download">تنزيل بيئة التشغيل</string>
     <string name="setup_step_provider">الاتصال بموفر</string>
-    <string name="setup_step_apikey">تعيين مفتاح API</string>
-    <string name="setup_step_test">اختبار الاتصال</string>
-    <string name="apikey_caption">يتم تخزين مفتاح API الخاص بك بأمان على هذا الجهاز</string>
-    <string name="test_status_untested">لم يتم اختباره</string>
-    <string name="test_status_testing">جارٍ الاختبار…</string>
-    <string name="test_status_success">نجح الاتصال</string>
-    <string name="test_status_failure">فشل الاتصال</string>
-    <string name="run_connection_test_button">تشغيل اختبار الاتصال</string>
     <string name="setup_complete_button">تم</string>
-    <string name="provider_openai">OpenAI</string>
-    <string name="provider_google">Google</string>
-    <string name="provider_anthropic">Anthropic</string>
-    <string name="provider_ollama">Ollama</string>
-    <string name="provider_other">أخرى</string>
 
     <string name="remote_connection_title">الاتصال بكمبيوتر/Mac</string>
     <string name="remote_step1_title">شغّل هذا الأمر على جهاز الكمبيوتر</string>
@@ -633,9 +606,6 @@
     <string name="settings_home_assistant_row">المساعد الرئيسي</string>
     <string name="assistant_enabled_pill">مفعل</string>
     <string name="assistant_disabled_pill">معطل</string>
-    <string name="wake_word_row_title">كلمة التنشيط</string>
-    <string name="wake_word_value">OpenCode</string>
-    <string name="wake_word_stub_body">هذه الميزة ستتوفر قريبًا.</string>
     <string name="voice_settings_row">إعدادات الصوت</string>
     <string name="provider_settings_row">إعدادات الموفرين</string>
     <string name="settings_local_runtime_row">بيئة التشغيل المحلية</string>
@@ -644,8 +614,6 @@
     <string name="notifications_row">الإشعارات</string>
     <string name="local_runtime_idle_stop_row">إيقاف بيئة التشغيل الخاملة</string>
     <string name="local_runtime_idle_stop_row_description">تُعاد تلقائيًا عند تنفيذ جدولة أو عند فتح التطبيق، لكن ليس تلقائيًا بعد إعادة تشغيل الجهاز</string>
-    <string name="privacy_row">الخصوصية والبيانات</string>
-    <string name="privacy_stub_body">هذه الميزة ستتوفر قريبًا.</string>
     <string name="diagnostics_row">التشخيصات والسجلات</string>
     <string name="app_info_row">معلومات التطبيق</string>
     <string name="legal_privacy_settings_row">الشؤون القانونية والخصوصية</string>
@@ -713,7 +681,14 @@
 
     <string name="drawer_archive_session">أرشفة</string>
     <string name="drawer_selected_count">%1$d محدد</string>
-    <string name="drawer_delete_selected_body">سيتم حذف %1$d جلسة بشكل دائم.</string>
+    <plurals name="drawer_delete_selected_body">
+        <item quantity="zero">سيتم حذف %1$d جلسة بشكل دائم.</item>
+        <item quantity="one">سيتم حذف جلسة واحدة بشكل دائم.</item>
+        <item quantity="two">سيتم حذف جلستين بشكل دائم.</item>
+        <item quantity="few">سيتم حذف %1$d جلسات بشكل دائم.</item>
+        <item quantity="many">سيتم حذف %1$d جلسة بشكل دائم.</item>
+        <item quantity="other">سيتم حذف %1$d جلسة بشكل دائم.</item>
+    </plurals>
 
     <string name="mcp_title">خوادم MCP</string>
     <string name="mcp_add_server">إضافة خادم</string>
@@ -729,7 +704,14 @@
     <string name="mcp_auth_not_removed">لم تتم إزالة المصادقة</string>
     <string name="mcp_auth_failed_status">فشلت المصادقة: %1$s</string>
     <string name="mcp_remove_server">إزالة الخادم</string>
-    <string name="mcp_tools_count">%1$d أدوات</string>
+    <plurals name="mcp_tools_count">
+        <item quantity="zero">لا توجد أدوات</item>
+        <item quantity="one">أداة واحدة</item>
+        <item quantity="two">أداتان</item>
+        <item quantity="few">%1$d أدوات</item>
+        <item quantity="many">%1$d أداة</item>
+        <item quantity="other">%1$d أداة</item>
+    </plurals>
     <string name="mcp_name_hint">اسم الخادم</string>
     <string name="mcp_command_hint">الأمر (خادم محلي)</string>
     <string name="mcp_url_hint">عنوان URL (خادم عن بُعد)</string>
@@ -771,9 +753,6 @@
     <string name="server_info_no_skills">لا توجد مهارات متاحة</string>
     <string name="server_info_settings_row">تكوين الخادم والأدوات</string>
 
-    <string name="agents_md_generate">إنشاء AGENTS.md</string>
-    <string name="agents_md_generated">تم إنشاء AGENTS.md</string>
-    <string name="agents_md_failed">فشل إنشاء AGENTS.md</string>
 
     <string name="tab_pr">PR</string>
     <string name="switch_branch">تبديل الفرع</string>
@@ -788,8 +767,6 @@
     <string name="diff_stat">+%1$d / -%2$d</string>
     <string name="syntax_theme_row">سمة بناء الجملة</string>
     <string name="syntax_theme_dialog_title">اختيار سمة بناء الجملة</string>
-    <string name="usage_row">الاستخدام</string>
-    <string name="font_size_dialog_title">حجم الخط</string>
     <string name="widget_quick_input_hint">أرسل رسالة…</string>
     <string name="model_visibility_row">النماذج المرئية</string>
     <string name="model_visibility_title">النماذج المرئية</string>
@@ -807,7 +784,6 @@
     <string name="cd_app_logo">AndCode</string>
     <string name="cd_permission">Permission</string>
     <string name="cd_runtime_type">Runtime type</string>
-    <string name="cd_new_chat">New chat</string>
     <string name="cd_server_url">Server URL</string>
     <string name="cd_password">Password</string>
     <string name="cd_test_connection">Test connection</string>
@@ -815,7 +791,6 @@
     <string name="cd_lan_discovery">Discover on LAN</string>
     <string name="cd_clear_search">Clear search</string>
     <string name="cd_repair">Repair</string>
-    <string name="cd_session">Session</string>
     <string name="cd_attachment">Attachment</string>
     <string name="cd_image_preview">Image preview</string>
     <string name="cd_close_image">Close image</string>
@@ -827,13 +802,8 @@
     <string name="cd_reasoning">Reasoning</string>
     <string name="cd_tool">Tool</string>
     <string name="cd_file_changes">File changes</string>
-    <string name="cd_setup">Setup</string>
-    <string name="cd_start">Start</string>
     <string name="cd_stop">Stop</string>
-    <string name="cd_diagnostics">Diagnostics</string>
     <string name="cd_connection_error">Connection error</string>
-    <string name="cd_import_folder">Import folder</string>
-    <string name="cd_clone_github">Clone from GitHub</string>
     <string name="cd_scroll_to_bottom">Scroll to bottom</string>
     <string name="cd_attached_image">Attached image</string>
     <string name="cd_remove_image">Remove image</string>
@@ -843,7 +813,6 @@
     <string name="cd_thinking">Thinking</string>
     <string name="cd_fast_mode">الوضع السريع</string>
     <string name="cd_system_prompt">موجّه النظام</string>
-    <string name="cd_agent_mode">Agent mode</string>
     <string name="cd_updating">Updating</string>
     <string name="cd_operation_result">Operation result</string>
     <string name="cd_check_update">Check for update</string>
@@ -852,7 +821,6 @@
     <string name="cd_rollback">Rollback</string>
     <string name="cd_tool_status">Tool status</string>
     <string name="cd_delete_runtime">Delete runtime</string>
-    <string name="cd_workspace">Workspace</string>
     <string name="cd_navigate">Navigate</string>
     <string name="cd_cancel">Cancel</string>
     <string name="cd_accept">Accept</string>
@@ -868,7 +836,6 @@
     <string name="cd_subagent_status">Subagent status</string>
     <string name="cd_toggle_password">Toggle password visibility</string>
     <string name="cd_info">Info</string>
-    <string name="cd_add_project">Add project</string>
     <string name="cd_file">File</string>
     <string name="cd_code_match">Code match</string>
     <string name="cd_git">Git</string>
@@ -877,9 +844,6 @@
     <string name="cd_step_completed">Step completed</string>
     <string name="cd_error">Error</string>
     <string name="cd_runtime_ready">Runtime ready</string>
-    <string name="cd_workspaces">Workspaces</string>
-    <string name="cd_nav_item">Navigation item</string>
-    <string name="cd_terminal">Terminal</string>
     <string name="cd_add_tab">Add tab</string>
     <string name="cd_back">Back</string>
     <string name="cd_next_match">Next match</string>
@@ -907,7 +871,6 @@
 
     <!-- Workspace explorer tabs -->
     <string name="tab_type_agent">Agent</string>
-    <string name="tab_new_default">New</string>
     <string name="tab_type_terminal">Terminal</string>
     <string name="tab_close">Close</string>
     <string name="tab_close_others">Close Others</string>
@@ -921,11 +884,6 @@
     <!-- Chat screen -->
 
     <!-- Chat errors -->
-    <string name="error_opencode_operation">فشلت العملية</string>
-    <string name="error_no_connection">لم يتم إعداد اتصال ببيئة التشغيل</string>
-    <string name="session_title_attachment">Attachment</string>
-    <string name="error_answer_required">Answer required</string>
-    <string name="error_question_failed">فشل السؤال</string>
     <string name="error_session_failed">فشلت الجلسة</string>
     <string name="chat_error_zen_free_tier_title">نماذج OpenCode المجانية تحتاج إلى تسجيل الدخول إلى Zen</string>
     <string name="chat_error_zen_free_tier_body">يقيّد OpenCode نماذجه المجانية على سطح المكتب وواجهة الأوامر الرسمية ما لم تسجّل الدخول إلى OpenCode Zen. وصّل OpenCode من الإعدادات ← الموفرون، أو استخدم موفرًا آخر.</string>
@@ -964,12 +922,6 @@
     <string name="voice_listening_placeholder">Listening…</string>
 
     <!-- Drawer grouping -->
-    <string name="grouping_project">Project</string>
-    <string name="grouping_status">Status</string>
-    <string name="status_group_running">Running</string>
-    <string name="status_group_waiting">Waiting</string>
-    <string name="status_group_done">Done</string>
-    <string name="status_group_error">Error</string>
 
     <!-- Quick input widget -->
     <string name="toast_permission_granted">Permission granted. Tap mic again.</string>
@@ -1081,7 +1033,6 @@
     <string name="antigravity_installed_version">Antigravity %1$s</string>
     <string name="claude_status_not_installed">غير مثبّت</string>
     <string name="claude_status_installing">جارٍ التثبيت</string>
-    <string name="claude_status_ready">جاهز</string>
     <string name="claude_status_signed_out">لم يتم تسجيل الدخول</string>
     <string name="claude_sign_in_button">إعداد Claude Code</string>
     <string name="claude_sign_out_button">تسجيل الخروج</string>
@@ -1155,9 +1106,7 @@
     <string name="risk_warning_full_access_body">يسمح تفعيل هذا الخيار لواجهة CLI الرسمية بتغيير الملفات أو تنفيذ الأوامر دون سؤالك أولاً.\n\nPRoot بيئة توافق وليست عزلاً أمنياً كاملاً. احتفظ بنسخة احتياطية من الملفات المهمة، واستخدم فقط مستودعات وموجهات وخوادم MCP موثوقة.</string>
     <string name="risk_warning_all_files_title">السماح بالوصول إلى جميع ملفات الجهاز؟</string>
     <string name="risk_warning_all_files_body">يتيح منح هذا الإذن للوكلاء التي تشغّلها قراءة وتعديل أي ملف يمكن الوصول إليه على هذا الجهاز، وليس فقط تخزين AndCode الخاص.\n\nامنح هذا الإذن فقط إذا كنت تثق بالوكلاء والموجهات وخوادم MCP التي تستخدمها معها.</string>
-    <string name="risk_warning_mcp_server_title">إضافة خادم MCP تابع لجهة خارجية</string>
     <string name="risk_warning_mcp_server_body">يمكن لخوادم MCP قراءة الموجهات والملفات ومخرجات الأدوات، وبعضها يمكنه تنفيذ إجراءات نيابةً عنك. أضف فقط الخوادم التي تثق بها.</string>
-    <string name="risk_warning_schedule_title">التشغيل المجدول والتشغيل في الخلفية</string>
     <string name="risk_warning_schedule_body">تعمل المطالبات المجدولة دون إشراف، باستخدام وضع الأذونات المحدد للوكيل في ذلك الوقت. راجع المطالبة ووضع الأذونات قبل تفعيل جدولة متكررة.</string>
     <string name="risk_warning_understood">فهمت، متابعة</string>
     <string name="chat_response_duration">%1$d min</string>
@@ -1199,8 +1148,6 @@
     <string name="schedule_date">التاريخ</string>
     <string name="schedule_time">الوقت</string>
     <string name="schedule_day_of_month">يوم من الشهر</string>
-    <string name="schedule_weekday">يوم من الأسبوع</string>
-    <string name="schedule_enabled">مفعّل</string>
     <string name="schedule_auto_accept">الموافقة التلقائية على أذونات الأدوات</string>
     <string name="schedule_auto_accept_hint">يتجاوز الإعداد العام لهذا الجدول</string>
     <string name="schedule_delete">حذف الجدول</string>
@@ -1215,8 +1162,6 @@
     <string name="schedule_next_run">التالي: %1$s</string>
     <string name="schedule_last_run">آخر تشغيل: %1$s</string>
     <string name="schedule_never_ran">لم يتم تشغيله</string>
-    <string name="schedule_runs_title">سجل التشغيل</string>
-    <string name="schedule_no_runs">لم يتم تشغيل هذا الجدول بعد.</string>
     <string name="schedule_runs_empty">لا توجد تشغيلات بعد. ستظهر هنا عند تفعيل الجدول.</string>
     <string name="schedule_open_chat">فتح الدردشة</string>
     <string name="schedule_status_running">قيد التشغيل</string>
@@ -1231,7 +1176,6 @@
     <string name="schedule_model_unset">الطراز الافتراضي</string>
     <string name="schedule_workspace_unset">بدون مساحة عمل</string>
     <string name="schedule_agent_unset">الوكيل غير محدد</string>
-    <string name="schedule_recurring">متكرر</string>
     <string name="schedule_run_now_started">الجدول قيد التشغيل.</string>
     <string name="schedule_edit_menu">تعديل</string>
     <string name="schedule_exact_alarm_title">السماح بالمنبهات والتذكيرات</string>
@@ -1258,7 +1202,14 @@
     <string name="cd_pull_request_link_state">طلب السحب رقم %1$d، %2$s. يُفتح على GitHub</string>
     <string name="cd_pull_request_files">طلب السحب رقم %1$d، %2$d إضافة و%3$d حذف. يُفتح الملفات المُعدّلة على GitHub</string>
     <string name="pr_collapse">طيّ</string>
-    <string name="cd_pull_request_expand">عرض %1$d طلبات سحب إضافية</string>
+    <plurals name="cd_pull_request_expand">
+        <item quantity="zero">عرض %1$d طلب سحب إضافي</item>
+        <item quantity="one">عرض طلب سحب إضافي واحد</item>
+        <item quantity="two">عرض طلبَي سحب إضافيين</item>
+        <item quantity="few">عرض %1$d طلبات سحب إضافية</item>
+        <item quantity="many">عرض %1$d طلب سحب إضافيًا</item>
+        <item quantity="other">عرض %1$d طلب سحب إضافي</item>
+    </plurals>
     <string name="cd_pull_request_collapse">عرض عدد أقل من طلبات السحب</string>
     <string name="cd_pull_request_dismiss">إخفاء طلب السحب رقم %1$d</string>
     <string name="runtime_connection_unhealthy">بيئة OpenCode المحلية لا تعمل بشكل سليم</string>
@@ -1529,7 +1480,14 @@
     <string name="git_invalid_branch">لا يمكن أن يبدأ اسم الفرع بـ -</string>
     <string name="git_commit_suggest_one">تحديث %1$s</string>
     <string name="git_commit_suggest_two">تحديث %1$s و%2$s</string>
-    <string name="git_commit_suggest_many">تحديث %1$s و%2$d ملفات أخرى</string>
+    <plurals name="git_commit_suggest_many">
+        <item quantity="zero">تحديث %1$s و%2$d ملف آخر</item>
+        <item quantity="one">تحديث %1$s وملف آخر</item>
+        <item quantity="two">تحديث %1$s وملفين آخرين</item>
+        <item quantity="few">تحديث %1$s و%2$d ملفات أخرى</item>
+        <item quantity="many">تحديث %1$s و%2$d ملفًا آخر</item>
+        <item quantity="other">تحديث %1$s و%2$d ملف آخر</item>
+    </plurals>
     <string name="git_title">التحكم بالمصدر</string>
     <string name="git_refresh">تحديث</string>
     <string name="git_not_a_repo">ليس مستودع Git</string>
@@ -1593,16 +1551,44 @@
     <string name="archive_more_actions">المزيد من الإجراءات</string>
     <string name="archive_archived_ago">أُرشفت: %1$s</string>
     <string name="archive_delete_one_title">هل تريد حذف «%1$s» نهائيًا؟</string>
-    <string name="archive_delete_many_title">هل تريد حذف %1$d محادثة نهائيًا؟</string>
+    <plurals name="archive_delete_many_title">
+        <item quantity="zero">هل تريد حذف %1$d محادثة نهائيًا؟</item>
+        <item quantity="one">هل تريد حذف محادثة واحدة نهائيًا؟</item>
+        <item quantity="two">هل تريد حذف محادثتين نهائيًا؟</item>
+        <item quantity="few">هل تريد حذف %1$d محادثات نهائيًا؟</item>
+        <item quantity="many">هل تريد حذف %1$d محادثة نهائيًا؟</item>
+        <item quantity="other">هل تريد حذف %1$d محادثة نهائيًا؟</item>
+    </plurals>
     <string name="archive_delete_all_title">هل تريد حذف كل المحادثات المؤرشفة؟</string>
     <string name="archive_delete_body">تُحذف أيضًا نسخة الوكيل من كل محادثة. لا يمكن التراجع عن هذا الإجراء.</string>
     <string name="settings_archive_row">المحادثات المؤرشفة</string>
     <string name="chat_deleted_snackbar">تم حذف المحادثة</string>
-    <string name="chats_deleted_snackbar">تم حذف %1$d محادثة</string>
+    <plurals name="chats_deleted_snackbar">
+        <item quantity="zero">تم حذف %1$d محادثة</item>
+        <item quantity="one">تم حذف محادثة واحدة</item>
+        <item quantity="two">تم حذف محادثتين</item>
+        <item quantity="few">تم حذف %1$d محادثات</item>
+        <item quantity="many">تم حذف %1$d محادثة</item>
+        <item quantity="other">تم حذف %1$d محادثة</item>
+    </plurals>
     <string name="chat_archived_snackbar">تمت أرشفة المحادثة</string>
-    <string name="chats_archived_snackbar">تمت أرشفة %1$d محادثة</string>
+    <plurals name="chats_archived_snackbar">
+        <item quantity="zero">تمت أرشفة %1$d محادثة</item>
+        <item quantity="one">تمت أرشفة محادثة واحدة</item>
+        <item quantity="two">تمت أرشفة محادثتين</item>
+        <item quantity="few">تمت أرشفة %1$d محادثات</item>
+        <item quantity="many">تمت أرشفة %1$d محادثة</item>
+        <item quantity="other">تمت أرشفة %1$d محادثة</item>
+    </plurals>
     <string name="chat_restored_snackbar">تمت استعادة المحادثة</string>
-    <string name="chats_restored_snackbar">تمت استعادة %1$d محادثة</string>
+    <plurals name="chats_restored_snackbar">
+        <item quantity="zero">تمت استعادة %1$d محادثة</item>
+        <item quantity="one">تمت استعادة محادثة واحدة</item>
+        <item quantity="two">تمت استعادة محادثتين</item>
+        <item quantity="few">تمت استعادة %1$d محادثات</item>
+        <item quantity="many">تمت استعادة %1$d محادثة</item>
+        <item quantity="other">تمت استعادة %1$d محادثة</item>
+    </plurals>
     <string name="chat_delete_failed_snackbar">لم يُحذف (%1$d): %2$s</string>
     <string name="chat_archive_failed_snackbar">لم يُؤرشف (%1$d): %2$s</string>
     <string name="chat_restore_failed_snackbar">لم يُستعد (%1$d): %2$s</string>
@@ -1619,7 +1605,14 @@
     <string name="chat_find_close">إغلاق البحث</string>
     <string name="message_search_hint">البحث في كل المحادثات</string>
     <string name="message_search_include_archived">تضمين المؤرشفة</string>
-    <string name="message_search_progress">تم البحث في %1$d من %2$d محادثة</string>
+    <plurals name="message_search_progress">
+        <item quantity="zero">المحادثات التي تم البحث فيها: %1$d من %2$d</item>
+        <item quantity="one">المحادثات التي تم البحث فيها: %1$d من %2$d</item>
+        <item quantity="two">المحادثات التي تم البحث فيها: %1$d من %2$d</item>
+        <item quantity="few">المحادثات التي تم البحث فيها: %1$d من %2$d</item>
+        <item quantity="many">المحادثات التي تم البحث فيها: %1$d من %2$d</item>
+        <item quantity="other">المحادثات التي تم البحث فيها: %1$d من %2$d</item>
+    </plurals>
     <string name="message_search_empty_title">البحث في كل المحادثات</string>
     <string name="message_search_empty_body">يبحث عن الكلمات فيما كتبته أنت والوكلاء، في محادثات كل الوكلاء، وليس في عناوينها فقط.</string>
     <string name="message_search_no_results_title">لا توجد نتائج</string>

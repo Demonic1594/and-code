@@ -25,7 +25,7 @@ internal suspend fun offerUndoDelete(
         if (count == 1) {
             context.getString(R.string.chat_deleted_snackbar)
         } else {
-            context.getString(R.string.chats_deleted_snackbar, count)
+            context.resources.getQuantityString(R.plurals.chats_deleted_snackbar, count, count)
         }
     host.currentSnackbarData?.dismiss()
     val choice =
@@ -50,7 +50,7 @@ internal suspend fun offerUndoArchive(
         if (count == 1) {
             context.getString(R.string.chat_archived_snackbar)
         } else {
-            context.getString(R.string.chats_archived_snackbar, count)
+            context.resources.getQuantityString(R.plurals.chats_archived_snackbar, count, count)
         }
     host.currentSnackbarData?.dismiss()
     val choice =

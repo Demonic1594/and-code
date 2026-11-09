@@ -1,25 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="runtime_setup_required_title">エージェントが未準備です</string>
-    <string name="runtime_setup_required_body">メニューから設定を開き、このAndroidのランタイムをセットアップするか、PC・Macへの接続を追加してください。</string>
     <string name="runtime_setup_required_body_compact">この端末にエージェントを導入するか、OpenCodeが動作しているPC/Macに接続してください。</string>
-    <string name="open_settings_action">メニューを開く</string>
     <string name="setup_this_android_action">このAndroidをセットアップ</string>
     <string name="connect_pc_mac_action">PC・Macに接続</string>
     <string name="setup_short_action">セットアップ</string>
     <string name="connect_short_action">接続</string>
     <string name="chat_model_short_default">モデル</string>
-    <string name="chat_workspace_short_default">既定</string>
-    <string name="chat_build_subtitle_compact">エージェントに実装・修正・調査を依頼します。</string>
     <string name="settings_wake_word_row">ウェイクワード</string>
-    <string name="settings_wake_word_value">未導入</string>
     <string name="wake_word_active">有効</string>
     <string name="wake_word_inactive">無効</string>
     <string name="setup_step_counter">ステップ %1$d / %2$d</string>
     <string name="setup_next_action">次へ</string>
     <string name="setup_back_action">戻る</string>
     <string name="setup_skip_action">スキップ</string>
-    <string name="setup_download_description">この端末内でOpenCodeを実行するためのランタイムを準備します。</string>
     <string name="setup_runtime_not_installed">未インストール</string>
     <string name="setup_runtime_ready">ランタイムの準備ができました</string>
     <string name="setup_provider_optional_description">AIプロバイダを接続するとチャットを始められます。このステップは任意です。スキップして、後から設定でどのプロバイダにも接続できます。</string>
@@ -30,8 +24,6 @@
     <string name="remote_connection_intro">OpenCodeを実行しているPC・Macの接続情報を入力します。</string>
     <string name="remote_connection_unhealthy">OpenCodeサーバーが正常に応答しませんでした。</string>
     <string name="remote_connection_failed">接続に失敗しました。</string>
-    <string name="provider_saved_credentials_title">保存済みの認証情報</string>
-    <string name="provider_add_credentials_title">APIキーを追加・更新</string>
     <string name="voice_settings_intro">音声入力と読み上げの動作を設定します。</string>
     <string name="assistant_target_section">アシスタント起動先</string>
     <string name="assistant_agent_label">起動するAgent</string>
@@ -58,7 +50,6 @@
     <string name="tts_voice_id_label">音声ID</string>
     <string name="tts_model_label">モデル</string>
     <string name="wake_word_section_title">呼びかけ</string>
-    <string name="wake_word_pack_required">ウェイクワード用の追加パックはまだ導入されていません。</string>
     <string name="wake_word_description">自分で決めたフレーズでハンズフリーにアシスタントを起動します。</string>
     <string name="wake_word_barge_in">読み上げ中の割り込み</string>
     <string name="wake_word_barge_in_description">読み上げ中にウェイクワードで停止できるようにします。</string>

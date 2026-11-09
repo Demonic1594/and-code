@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -239,7 +240,7 @@ private fun McpServerCard(
             if (server.tools.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    stringResource(R.string.mcp_tools_count, server.tools.size),
+                    pluralStringResource(R.plurals.mcp_tools_count, server.tools.size, server.tools.size),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
