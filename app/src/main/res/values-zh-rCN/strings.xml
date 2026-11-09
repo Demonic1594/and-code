@@ -1928,4 +1928,12 @@
     <string name="claude_checks_save">保存</string>
     <string name="claude_checks_remove">移除</string>
     <string name="claude_checks_applies">添加检查从每个对话的下一条消息起生效。编辑或移除检查会立即生效；已在运行的检查仍会运行完。</string>
+    <string name="mcp_suggestions_title">推荐的服务器</string>
+    <string name="mcp_suggestions_caption">知名服务器。点“添加”会填好表单，再由你确认。添加前请先了解该服务器的作用。</string>
+    <string name="mcp_suggestion_add">添加</string>
+    <string name="mcp_suggestion_context7">库和框架的最新文档与代码示例。</string>
+    <string name="mcp_suggestion_deepwiki">回答有关 GitHub 公开仓库的问题。</string>
+    <string name="mcp_suggestion_microsoft_learn">微软官方文档：Azure、.NET、Windows 等。</string>
+    <string name="mcp_suggestion_sequential_thinking">帮助智能体一步步解决问题。在本地运行，需要 Node.js。</string>
+    <string name="context_breakdown_memory_large">文件较大：Claude Code 称此大小的文件会拖慢它的运行。</string>
 </resources>

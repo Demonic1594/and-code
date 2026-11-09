@@ -200,8 +200,16 @@ class McpViewModel(
         _state.update { it.copy(oauthServerName = null, oauthCode = "") }
     }
 
-    fun showAddDialog() {
-        _state.update { it.copy(showAddDialog = true, addName = "", addCommand = "", addUrl = "") }
+    /** Opens the add-server form, empty or filled in from [suggestion]. */
+    fun showAddDialog(suggestion: McpSuggestion? = null) {
+        _state.update {
+            it.copy(
+                showAddDialog = true,
+                addName = suggestion?.name.orEmpty(),
+                addCommand = suggestion?.command.orEmpty(),
+                addUrl = suggestion?.url.orEmpty(),
+            )
+        }
     }
 
     fun dismissAddDialog() {

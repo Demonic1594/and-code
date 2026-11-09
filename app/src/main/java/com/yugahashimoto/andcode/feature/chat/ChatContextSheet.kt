@@ -144,9 +144,25 @@ private fun BreakdownContent(
     }
     if (breakdown.memoryFiles.isNotEmpty()) {
         SectionTitle(stringResource(R.string.context_breakdown_memory_title))
-        breakdown.memoryFiles.forEach { file -> TokenRow(label = file.path, tokens = file.tokens) }
+        val largeAt = largeInstructionFileTokens(breakdown.maxTokens)
+        breakdown.memoryFiles.forEach { file ->
+            TokenRow(
+                label = file.path,
+                tokens = file.tokens,
+                detail = stringResource(R.string.context_breakdown_memory_large).takeIf { file.tokens > largeAt },
+            )
+        }
     }
 }
+
+/**
+ * The size, in tokens, past which Claude Code says one instruction file "will impact performance".
+ * It warns only in its own terminal, which AndCode does not show, so the sheet says it instead.
+ * Claude Code 2.1.319 allows the larger of 40,000 characters and 5% of the window, in characters,
+ * per file; at its 3 to 4 characters a token, that is about the larger of 10,000 tokens and a
+ * twentieth of the window.
+ */
+internal fun largeInstructionFileTokens(windowTokens: Long): Long = maxOf(10_000L, windowTokens / 20)
 
 /** The window as one bar: what fills it, then what is kept for compaction, then what is free. */
 @Composable
