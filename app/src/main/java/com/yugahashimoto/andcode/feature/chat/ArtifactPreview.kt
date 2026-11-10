@@ -25,11 +25,11 @@ import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.outlined.Article
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
@@ -91,7 +91,7 @@ internal fun ArtifactKind.icon(): ImageVector =
     when (this) {
         ArtifactKind.HTML -> Icons.Outlined.Language
         ArtifactKind.SVG -> Icons.Outlined.Palette
-        ArtifactKind.MARKDOWN -> Icons.Outlined.Article
+        ArtifactKind.MARKDOWN -> Icons.AutoMirrored.Outlined.Article
         ArtifactKind.IMAGE -> Icons.Outlined.Image
     }
 

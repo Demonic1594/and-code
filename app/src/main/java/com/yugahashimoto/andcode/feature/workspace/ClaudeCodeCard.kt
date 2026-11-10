@@ -10,9 +10,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -280,7 +280,7 @@ private fun BrowserStep(
     var code by rememberSaveable { mutableStateOf("") }
     Text(stringResource(R.string.claude_auth_instructions), style = MaterialTheme.typography.bodySmall)
     Button(onClick = { onOpenUrl(auth.url) }, modifier = Modifier.fillMaxWidth()) {
-        Icon(Icons.Default.OpenInNew, contentDescription = null)
+        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
         Spacer(Modifier.padding(horizontal = 4.dp))
         Text(stringResource(R.string.claude_auth_open_browser))
     }

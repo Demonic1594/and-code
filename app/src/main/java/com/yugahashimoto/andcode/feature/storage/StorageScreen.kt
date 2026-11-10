@@ -25,6 +25,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.automirrored.outlined.Chat
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
@@ -32,7 +34,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.AutoDelete
 import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.Cached
-import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
@@ -40,7 +41,6 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.MoreHoriz
-import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.AlertDialog
@@ -115,7 +115,7 @@ private val AREA_STYLES =
             AreaStyle(
                 R.string.storage_area_agent_data,
                 R.string.storage_area_agent_data_desc,
-                Icons.Outlined.Chat,
+                Icons.AutoMirrored.Outlined.Chat,
                 Color(0xFF6366F1),
             ),
         StorageArea.LINUX to
@@ -136,7 +136,7 @@ private val AREA_STYLES =
             AreaStyle(
                 R.string.storage_area_logs,
                 R.string.storage_area_logs_desc,
-                Icons.Outlined.ReceiptLong,
+                Icons.AutoMirrored.Outlined.ReceiptLong,
                 Color(0xFFA16207),
             ),
         StorageArea.LEFTOVERS to
