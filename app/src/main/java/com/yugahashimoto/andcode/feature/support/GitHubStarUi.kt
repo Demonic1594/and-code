@@ -8,10 +8,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -245,7 +245,7 @@ private fun SupportLinkButton(
             modifier = Modifier.padding(start = 8.dp),
         )
         Spacer(Modifier.weight(1f))
-        Icon(Icons.Default.OpenInNew, contentDescription = null)
+        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
     }
 }
 

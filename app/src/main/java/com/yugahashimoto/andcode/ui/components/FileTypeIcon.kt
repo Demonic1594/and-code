@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.ui.components
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DataObject
@@ -8,7 +9,6 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
@@ -81,7 +81,7 @@ fun FileTypeIcon(
             if (isOpen) Icons.Default.FolderOpen else Icons.Default.Folder
         } else {
             val ext = fileName.substringAfterLast('.', "").lowercase()
-            extensionIconMap[ext] ?: Icons.Default.InsertDriveFile
+            extensionIconMap[ext] ?: Icons.AutoMirrored.Filled.InsertDriveFile
         }
     Icon(
         imageVector = icon,

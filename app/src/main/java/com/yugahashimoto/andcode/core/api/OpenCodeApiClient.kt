@@ -838,6 +838,10 @@ class OpenCodeApiClient(
                     .connectTimeout(15, TimeUnit.SECONDS)
                     .readTimeout(120, TimeUnit.SECONDS)
                     .writeTimeout(30, TimeUnit.SECONDS)
+                    // OpenCodeUrl checks the address the user entered, not where a server redirects:
+                    // a redirect between https and http would resend a prompt, code and all, in the
+                    // clear, so it fails as the redirect response instead.
+                    .followSslRedirects(false)
             val pin = profile?.pinSha256
             if (!pin.isNullOrBlank() && profile.baseUrl.startsWith("https://", ignoreCase = true)) {
                 val host =

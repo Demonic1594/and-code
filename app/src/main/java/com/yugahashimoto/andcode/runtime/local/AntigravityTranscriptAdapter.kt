@@ -114,7 +114,8 @@ class AntigravityTranscriptAdapter(
         }
 
     companion object {
-        fun hookJson(record: AntigravityHookRecord): String =
-            Json { encodeDefaults = true }.encodeToString(AntigravityHookRecord.serializer(), record)
+        private val hookFormat = Json { encodeDefaults = true }
+
+        fun hookJson(record: AntigravityHookRecord): String = hookFormat.encodeToString(AntigravityHookRecord.serializer(), record)
     }
 }

@@ -783,7 +783,7 @@
     <string name="cd_navigate">Naviguer</string>
     <string name="cd_cancel">Annuler</string>
     <string name="cd_accept">Accepter</string>
-    <string name="cd_send">Send</string>
+    <string name="cd_send">Envoyer</string>
     <string name="cd_task_status">État de la tâche</string>
     <string name="cd_disconnect">Déconnecter</string>
     <string name="cd_connect">Connecter</string>

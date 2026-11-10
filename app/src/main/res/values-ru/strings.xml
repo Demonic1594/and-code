@@ -799,12 +799,12 @@
     <string name="cd_navigate">Перейти</string>
     <string name="cd_cancel">Отмена</string>
     <string name="cd_accept">Принять</string>
-    <string name="cd_send">Send</string>
+    <string name="cd_send">Отправить</string>
     <string name="cd_task_status">Статус задачи</string>
     <string name="cd_disconnect">Отключить</string>
     <string name="cd_connect">Подключить</string>
     <string name="cd_favorite">Добавить в избранное или убрать</string>
-    <string name="cd_microphone">Microphone</string>
+    <string name="cd_microphone">Микрофон</string>
     <string name="cd_file_type">Файл</string>
     <string name="cd_repository">Репозиторий</string>
     <string name="cd_settings_section">Раздел настроек</string>

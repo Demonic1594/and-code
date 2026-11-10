@@ -17,7 +17,7 @@ object RuntimeArchive {
         destination: File,
     ) {
         ArArchiveInputStream(BufferedInputStream(input)).use { ar ->
-            var entry = ar.nextArEntry
+            var entry = ar.nextEntry
             while (entry != null) {
                 if (entry.name == "data.tar.xz") {
                     XZCompressorInputStream(BufferedInputStream(ar)).use { xz ->
@@ -25,7 +25,7 @@ object RuntimeArchive {
                     }
                     return
                 }
-                entry = ar.nextArEntry
+                entry = ar.nextEntry
             }
         }
         error("Debian package does not contain data.tar.xz")

@@ -751,12 +751,12 @@
     <string name="cd_navigate">导航</string>
     <string name="cd_cancel">取消</string>
     <string name="cd_accept">接受</string>
-    <string name="cd_send">Send</string>
+    <string name="cd_send">发送</string>
     <string name="cd_task_status">任务状态</string>
     <string name="cd_disconnect">断开连接</string>
     <string name="cd_connect">连接</string>
     <string name="cd_favorite">切换收藏</string>
-    <string name="cd_microphone">Microphone</string>
+    <string name="cd_microphone">麦克风</string>
     <string name="cd_file_type">文件</string>
     <string name="cd_repository">仓库</string>
     <string name="cd_settings_section">设置分区</string>

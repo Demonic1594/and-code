@@ -287,6 +287,8 @@ dependencies {
     "githubImplementation"("com.google.firebase:firebase-analytics")
     "githubImplementation"("com.google.firebase:firebase-crashlytics")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    // LocalLifecycleOwner moved here from compose-ui, which only re-exports it now (deprecated).
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-process:2.8.7")
     implementation("androidx.biometric:biometric:1.1.0")
@@ -354,7 +356,7 @@ dependencies {
     // Testing
     testImplementation("junit:junit:4.13.2")
     // Real org.json implementation for unit tests that exercise the schedule bridge protocol.
-    testImplementation("org.json:json:20231013")
+    testImplementation("org.json:json:20260814")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

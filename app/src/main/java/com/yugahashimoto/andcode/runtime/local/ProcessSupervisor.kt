@@ -179,7 +179,7 @@ class ProcessSupervisor(
             !SupervisedProcessSpec.isValidName(spec.name) -> StartResult.InvalidName
             sameName != null -> StartResult.AlreadyRunning(sameName)
             running.size >= maxProcesses -> StartResult.LimitReached(maxProcesses)
-            samePort != null && spec.port != null -> StartResult.PortTaken(spec.port, samePort.spec.name)
+            samePort != null -> StartResult.PortTaken(requireNotNull(spec.port), samePort.spec.name)
             else -> null
         }
     }

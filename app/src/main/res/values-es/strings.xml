@@ -783,12 +783,12 @@
     <string name="cd_navigate">Navegar</string>
     <string name="cd_cancel">Cancelar</string>
     <string name="cd_accept">Aceptar</string>
-    <string name="cd_send">Send</string>
+    <string name="cd_send">Enviar</string>
     <string name="cd_task_status">Estado de la tarea</string>
     <string name="cd_disconnect">Desconectar</string>
     <string name="cd_connect">Conectar</string>
     <string name="cd_favorite">Marcar o desmarcar como favorito</string>
-    <string name="cd_microphone">Microphone</string>
+    <string name="cd_microphone">Micrófono</string>
     <string name="cd_file_type">Archivo</string>
     <string name="cd_repository">Repositorio</string>
     <string name="cd_settings_section">Sección de ajustes</string>
