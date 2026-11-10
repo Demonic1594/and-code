@@ -28,6 +28,7 @@ each fix that changes what the user sees lists a device check in its PR.
   group that is part of every match. No `GlobalScope`. The one `runBlocking` (Codex's JSON-RPC reader)
   and the `Thread.sleep` calls run on background threads, as their comments say.
 - The pricing snapshot loads in the background, when `PriceCatalogRepository` is built.
+- The 213 libraries in the release build have no known vulnerability in the OSV database.
 - Every standalone icon button has a content description (icons inside a labelled button rightly have none).
 - The lint warnings about WebView features (`RequiresFeature`), haptic constants and API 30/33
   constants (`InlinedApi`) are already guarded by feature or SDK checks.
@@ -54,6 +55,7 @@ each fix that changes what the user sees lists a device check in its PR.
 | 7 | Only Claude Code had a shortcut to its project instructions file; Codex and OpenCode, which read `AGENTS.md`, had none (`docs/FEATURES.md`, "Not done yet"). | The same shortcut for both; a new `AGENTS.md` starts as a copy of `CLAUDE.md` (#127). |
 | 8 | Spanish, French, Brazilian Portuguese, Russian, Chinese and Arabic still show English for strings added since they were last translated: 184 to 230 per language match the English text, about 165 of them after names and terms that stay the same (GitHub, MCP, Claude Code). Japanese is up to date. | **Pending**: translated (follow-up PR). |
 | 9 | The OpenCode client followed a redirect from https to http, which would resend a prompt (with code in it) in the clear to an address nobody checked. The context sheet could show over 100% for Codex. `docs/FEATURES.md` still said only Claude Code had the context sheet, and listed neither suggested MCP servers nor that Checks apply to every project. | Redirects between https and http are refused for OpenCode servers; the percentage stops at 100; the rows are updated (this PR). |
+| 10 | GitHub reports 3 Dependabot alerts on main (1 high, 2 moderate), which this session cannot read. Every resolved dependency (213 in the release build, 522 across tests, androidTest, the benchmark module and the build tools) was checked against the OSV database: the only known vulnerability is in `org.json:json:20231013` (GHSA-ghc9-756g-vrcv, a denial of service), used only by unit tests, so nothing shipped is affected. | `org.json` to 20260814 (this PR). The remaining alerts need a look at Security → Dependabot on GitHub. |
 
 ## Left on purpose
 
