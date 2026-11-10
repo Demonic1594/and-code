@@ -18,6 +18,7 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -705,5 +706,13 @@ class OpenCodeApiClientTest {
                 allowInsecureLan = true,
             )
         return OpenCodeApiClient(profile, OkHttpClient())
+    }
+
+    @Test
+    fun `the default client does not follow a redirect between https and http`() {
+        val client = OpenCodeApiClient.defaultHttpClient()
+
+        assertFalse(client.followSslRedirects)
+        assertTrue(client.followRedirects)
     }
 }

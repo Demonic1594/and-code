@@ -113,7 +113,8 @@ private fun BreakdownContent(
     onManageMcp: (() -> Unit)?,
 ) {
     val colors = categoryColors(breakdown.categories)
-    val percent = (breakdown.usedTokens * 100 / breakdown.maxTokens).toInt()
+    // Codex can report more tokens than its window just before it compacts.
+    val percent = (breakdown.usedTokens * 100 / breakdown.maxTokens).toInt().coerceIn(0, 100)
     Text(
         stringResource(
             R.string.context_breakdown_total,
