@@ -4,7 +4,14 @@
     <string name="github_star_prompt_body">AndCode مشروع مفتوح المصدر. إذا كان مفيدًا لك، فإن إضافة نجمة على GitHub تساعد في استمرار التطوير.</string>
     <string name="github_star_second_prompt_title">هل كان AndCode مفيدًا؟</string>
     <string name="github_star_second_prompt_body">إذا نجحت مهمتك الأولى، ففكّر في دعم AndCode بنجمة على GitHub.</string>
-    <string name="github_star_count">%1$d نجمة على GitHub</string>
+    <plurals name="github_star_count">
+        <item quantity="zero">%1$d نجمة على GitHub</item>
+        <item quantity="one">نجمة واحدة على GitHub</item>
+        <item quantity="two">نجمتان على GitHub</item>
+        <item quantity="few">%1$d نجمات على GitHub</item>
+        <item quantity="many">%1$d نجمةً على GitHub</item>
+        <item quantity="other">%1$d نجمة على GitHub</item>
+    </plurals>
     <string name="github_star_action">أضف نجمة على GitHub</string>
     <string name="github_star_later">لاحقًا</string>
     <string name="github_star_not_now">ليس الآن</string>

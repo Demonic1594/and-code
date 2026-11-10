@@ -641,7 +641,11 @@
     <string name="auto_archive_max_sessions_dialog_title">Nb max. de discussions actives</string>
 
     <string name="drawer_archive_session">Archiver</string>
-    <string name="drawer_selected_count">%1$d sélectionné(s)</string>
+    <plurals name="drawer_selected_count">
+        <item quantity="one">%1$d sélectionnée</item>
+        <item quantity="many">%1$d sélectionnées</item>
+        <item quantity="other">%1$d sélectionnées</item>
+    </plurals>
     <plurals name="drawer_delete_selected_body">
         <item quantity="one">%1$d session sera supprimée définitivement.</item>
         <item quantity="many">%1$d sessions seront supprimées définitivement.</item>
@@ -765,7 +769,7 @@
     <string name="cd_attach_file">Joindre un fichier</string>
     <string name="cd_camera">Appareil photo</string>
     <string name="cd_gallery">Galerie</string>
-    <string name="cd_thinking">Réflexion en cours</string>
+    <string name="cd_thinking">Raisonnement</string>
     <string name="cd_fast_mode">Mode rapide</string>
     <string name="cd_system_prompt">Invite système</string>
     <string name="cd_updating">Mise à jour</string>

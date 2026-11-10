@@ -4,7 +4,9 @@
     <string name="github_star_prompt_body">AndCode 是开源项目。如果它对你有帮助，欢迎在 GitHub 上点一个 Star 支持持续开发。</string>
     <string name="github_star_second_prompt_title">AndCode 对你有帮助吗？</string>
     <string name="github_star_second_prompt_body">如果第一次任务体验不错，欢迎用一个 GitHub Star 支持 AndCode。</string>
-    <string name="github_star_count">GitHub Stars：%1$d</string>
+    <plurals name="github_star_count">
+        <item quantity="other">GitHub Stars：%1$d</item>
+    </plurals>
     <string name="github_star_action">在 GitHub 上 Star</string>
     <string name="github_star_later">稍后</string>
     <string name="github_star_not_now">暂时不要</string>

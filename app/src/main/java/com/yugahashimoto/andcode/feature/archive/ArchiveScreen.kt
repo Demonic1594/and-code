@@ -101,7 +101,7 @@ fun ArchiveScreen(
                 title = {
                     Text(
                         if (selectionMode) {
-                            stringResource(R.string.drawer_selected_count, selected.size)
+                            pluralStringResource(R.plurals.drawer_selected_count, selected.size, selected.size)
                         } else {
                             stringResource(R.string.archive_title)
                         },

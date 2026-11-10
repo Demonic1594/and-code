@@ -654,12 +654,17 @@
     <string name="auto_archive_max_sessions_dialog_title">Макс. число активных чатов</string>
 
     <string name="drawer_archive_session">Архивировать</string>
-    <string name="drawer_selected_count">Выбрано: %1$d</string>
+    <plurals name="drawer_selected_count">
+        <item quantity="one">Выбрано: %1$d</item>
+        <item quantity="few">Выбрано: %1$d</item>
+        <item quantity="many">Выбрано: %1$d</item>
+        <item quantity="other">Выбрано: %1$d</item>
+    </plurals>
     <plurals name="drawer_delete_selected_body">
-        <item quantity="one">%1$d сеанс будет удалён безвозвратно.</item>
-        <item quantity="few">%1$d сеанса будут удалены безвозвратно.</item>
-        <item quantity="many">%1$d сеансов будут удалены безвозвратно.</item>
-        <item quantity="other">%1$d сеанса будут удалены безвозвратно.</item>
+        <item quantity="one">%1$d сессия будет удалена безвозвратно.</item>
+        <item quantity="few">%1$d сессии будут удалены безвозвратно.</item>
+        <item quantity="many">%1$d сессий будут удалены безвозвратно.</item>
+        <item quantity="other">%1$d сессии будут удалены безвозвратно.</item>
     </plurals>
 
     <string name="mcp_title">Серверы MCP</string>

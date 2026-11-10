@@ -29,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -63,7 +64,7 @@ fun GitHubStarPromptDialog(
                 )
                 starCount?.let {
                     Text(
-                        stringResource(R.string.github_star_count, it),
+                        pluralStringResource(R.plurals.github_star_count, it, it),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -166,7 +167,7 @@ private fun GitHubSupportHeader(snapshot: GitHubStarSnapshot) {
     )
     snapshot.stargazersCount?.let {
         Text(
-            stringResource(R.string.github_star_count, it),
+            pluralStringResource(R.plurals.github_star_count, it, it),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
         )

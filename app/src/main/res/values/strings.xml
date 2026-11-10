@@ -631,7 +631,10 @@
 
     <!-- Drawer session actions -->
     <string name="drawer_archive_session">Archive</string>
-    <string name="drawer_selected_count">%1$d selected</string>
+    <plurals name="drawer_selected_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
     <plurals name="drawer_delete_selected_body">
         <item quantity="one">%1$d session will be permanently deleted.</item>
         <item quantity="other">%1$d sessions will be permanently deleted.</item>

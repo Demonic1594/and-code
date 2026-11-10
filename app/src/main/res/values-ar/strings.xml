@@ -680,7 +680,14 @@
     <string name="auto_archive_max_sessions_dialog_title">الحد الأقصى للمحادثات النشطة</string>
 
     <string name="drawer_archive_session">أرشفة</string>
-    <string name="drawer_selected_count">%1$d محدد</string>
+    <plurals name="drawer_selected_count">
+        <item quantity="zero">%1$d محدد</item>
+        <item quantity="one">%1$d محدد</item>
+        <item quantity="two">%1$d محدد</item>
+        <item quantity="few">%1$d محدد</item>
+        <item quantity="many">%1$d محدد</item>
+        <item quantity="other">%1$d محدد</item>
+    </plurals>
     <plurals name="drawer_delete_selected_body">
         <item quantity="zero">سيتم حذف %1$d جلسة بشكل دائم.</item>
         <item quantity="one">سيتم حذف جلسة واحدة بشكل دائم.</item>
@@ -810,7 +817,7 @@
     <string name="cd_attach_file">إرفاق ملف</string>
     <string name="cd_camera">الكاميرا</string>
     <string name="cd_gallery">المعرض</string>
-    <string name="cd_thinking">جارٍ التفكير</string>
+    <string name="cd_thinking">يدعم التفكير</string>
     <string name="cd_fast_mode">الوضع السريع</string>
     <string name="cd_system_prompt">موجّه النظام</string>
     <string name="cd_updating">جارٍ التحديث</string>

@@ -4,7 +4,12 @@
     <string name="github_star_prompt_body">AndCode — проект с открытым исходным кодом. Если он полезен, звезда на GitHub поможет продолжать разработку.</string>
     <string name="github_star_second_prompt_title">AndCode оказался полезен?</string>
     <string name="github_star_second_prompt_body">Если первая задача прошла успешно, поддержите AndCode звездой на GitHub.</string>
-    <string name="github_star_count">Звёзд GitHub: %1$d</string>
+    <plurals name="github_star_count">
+        <item quantity="one">Звёзд GitHub: %1$d</item>
+        <item quantity="few">Звёзд GitHub: %1$d</item>
+        <item quantity="many">Звёзд GitHub: %1$d</item>
+        <item quantity="other">Звёзд GitHub: %1$d</item>
+    </plurals>
     <string name="github_star_action">Поставить звезду на GitHub</string>
     <string name="github_star_later">Позже</string>
     <string name="github_star_not_now">Не сейчас</string>

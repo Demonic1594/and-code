@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -198,7 +199,7 @@ internal fun SelectionActionBar(
         }
         Spacer(Modifier.width(4.dp))
         Text(
-            text = stringResource(R.string.drawer_selected_count, selectedCount),
+            text = pluralStringResource(R.plurals.drawer_selected_count, selectedCount, selectedCount),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),

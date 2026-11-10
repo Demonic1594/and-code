@@ -641,7 +641,11 @@
     <string name="auto_archive_max_sessions_dialog_title">Máx. de chats activos</string>
 
     <string name="drawer_archive_session">Archivar</string>
-    <string name="drawer_selected_count">%1$d seleccionado(s)</string>
+    <plurals name="drawer_selected_count">
+        <item quantity="one">%1$d seleccionado</item>
+        <item quantity="many">%1$d seleccionados</item>
+        <item quantity="other">%1$d seleccionados</item>
+    </plurals>
     <plurals name="drawer_delete_selected_body">
         <item quantity="one">%1$d sesión se eliminará permanentemente.</item>
         <item quantity="many">%1$d sesiones se eliminarán permanentemente.</item>
@@ -765,7 +769,7 @@
     <string name="cd_attach_file">Adjuntar archivo</string>
     <string name="cd_camera">Cámara</string>
     <string name="cd_gallery">Galería</string>
-    <string name="cd_thinking">Pensando</string>
+    <string name="cd_thinking">Razonamiento</string>
     <string name="cd_fast_mode">Modo rápido</string>
     <string name="cd_system_prompt">Prompt del sistema</string>
     <string name="cd_updating">Actualizando</string>
