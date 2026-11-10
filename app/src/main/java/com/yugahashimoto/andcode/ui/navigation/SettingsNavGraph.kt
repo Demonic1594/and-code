@@ -29,6 +29,7 @@ import com.yugahashimoto.andcode.feature.settings.GitHubSettingsScreen
 import com.yugahashimoto.andcode.feature.settings.ModelVisibilityScreen
 import com.yugahashimoto.andcode.feature.settings.OpenCodeAgentSettingsScreen
 import com.yugahashimoto.andcode.feature.settings.OpenCodeAgentSettingsViewModel
+import com.yugahashimoto.andcode.feature.settings.ProjectInstructions
 import com.yugahashimoto.andcode.feature.settings.ProviderSettingsScreen
 import com.yugahashimoto.andcode.feature.settings.SavedPromptsScreen
 import com.yugahashimoto.andcode.feature.settings.SettingsScreenV2
@@ -73,6 +74,8 @@ fun NavGraphBuilder.settingsNavGraph(
     antigravity: () -> com.yugahashimoto.andcode.runtime.local.AntigravityControllerState,
     antigravityActions: AntigravitySettingsActions,
     onRequestWakeWordPermission: () -> Unit,
+    /** Opens the open project's instructions file of this name in the editor, creating it when missing. */
+    onOpenProjectInstructions: (String) -> Unit,
 ) {
     composable(ROUTE_SETTINGS) {
         val settingsState by settingsViewModel.state.collectAsState()
@@ -357,6 +360,7 @@ fun NavGraphBuilder.settingsNavGraph(
                         ?: stringResource(R.string.system_prompt_none)
                 },
             onOpenMcp = { navController.navigate(ROUTE_SETTINGS_MCP) },
+            onOpenProjectInstructions = { onOpenProjectInstructions(ProjectInstructions.AGENTS_FILE) },
             onBack = { navController.popBackStack() },
         )
     }
@@ -386,7 +390,7 @@ fun NavGraphBuilder.settingsNavGraph(
             onOpenMcp = { navController.navigate(ROUTE_SETTINGS_MCP_CLAUDE) },
             onOpenCommandRules = { navController.navigate(ROUTE_SETTINGS_COMMAND_RULES) },
             onOpenChecks = { navController.navigate(ROUTE_SETTINGS_CLAUDE_CHECKS) },
-            onOpenProjectInstructions = claudeActions.onOpenProjectInstructions,
+            onOpenProjectInstructions = { onOpenProjectInstructions(ProjectInstructions.CLAUDE_FILE) },
             onSetKeepEditsInProject = claudeActions.onSetKeepEditsInProject,
             onOpenUrl = { url ->
                 UrlLauncher.openUrl(context, url)
@@ -485,6 +489,7 @@ fun NavGraphBuilder.settingsNavGraph(
             onInstall = app.codexController::install,
             onSignOut = app.codexController::signOut,
             onOpenMcp = { navController.navigate(ROUTE_SETTINGS_MCP_CODEX) },
+            onOpenProjectInstructions = { onOpenProjectInstructions(ProjectInstructions.AGENTS_FILE) },
             onBack = { navController.popBackStack() },
         )
     }
@@ -715,8 +720,6 @@ data class ClaudeSettingsActions(
     val onSetKeepEditsInProject: (Boolean) -> Unit = {},
     /** Sets or removes (blank) the command Claude Code runs after an edit or before ending a turn. */
     val onSetCheck: (com.yugahashimoto.andcode.runtime.local.ClaudeChecks.Kind, String) -> Unit = { _, _ -> },
-    /** Opens the open project's CLAUDE.md in the editor, creating it when missing. */
-    val onOpenProjectInstructions: () -> Unit,
 )
 
 /** Antigravity actions the settings graph forwards to its agent screen. */

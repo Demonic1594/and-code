@@ -731,7 +731,7 @@
     <string name="command_rules_settings_row">Reglas de comandos</string>
     <string name="project_instructions_settings_row">Instrucciones del proyecto</string>
     <string name="project_instructions_no_project">Abre primero un proyecto en un chat: el archivo de instrucciones está en su carpeta.</string>
-    <string name="project_instructions_failed">No se pudo crear CLAUDE.md en este proyecto.</string>
+    <string name="project_instructions_failed">No se pudo crear %1$s en este proyecto.</string>
     <string name="command_rules_title">Reglas de comandos</string>
     <string name="command_rules_caption">Un comando bloqueado se rechaza sin preguntar, también dentro de un comando más largo, y se le indica al agente que no lo reintente. Las opciones pueden ir en cualquier orden, así que bloquear “rm -rf” también bloquea “rm -fr”, pero deben escribirse igual: “--force” no es “-f”. Los comandos que permitiste siempre en una aprobación se ejecutan sin preguntar.</string>
     <string name="command_rules_block_label">Bloquear comandos que contengan</string>
