@@ -43,6 +43,7 @@ import com.yugahashimoto.andcode.feature.storage.StorageViewModel
 import com.yugahashimoto.andcode.feature.support.GitHubSupportSheetHost
 import com.yugahashimoto.andcode.feature.wakeword.VoskModelState
 import com.yugahashimoto.andcode.feature.wakeword.WakeWordSettingsPolicy
+import com.yugahashimoto.andcode.feature.widget.QuickInputWidgetProvider
 import com.yugahashimoto.andcode.runtime.LocalRuntimeStatus
 import com.yugahashimoto.andcode.runtime.RuntimeRegistry
 import com.yugahashimoto.andcode.runtime.local.AntigravityInstallStatus
@@ -110,6 +111,7 @@ fun NavGraphBuilder.settingsNavGraph(
             currentLanguage = preferences().language,
             onLanguageChange = { language ->
                 appPreferences.setLanguage(language)
+                QuickInputWidgetProvider.refreshAll(context)
                 (context as? android.app.Activity)?.recreate()
             },
             uiFontSize = preferences().uiFontSize,

@@ -22,17 +22,20 @@ each fix that changes what the user sees lists a device check in its PR.
 
 ## Healthy
 
-- Every `!!` in the main code is either inside a `runCatching` (the OpenCode event parser) or on a
-  value set on the line before. No `GlobalScope`. The one `runBlocking` (Codex's JSON-RPC reader)
+- Every `!!` in the main code (28) is safe: inside a `runCatching` (the OpenCode event parser, the
+  chat image loader), right after the value is set or checked for null (`startedAtMillis`, the
+  installed Antigravity version, the browser's `loadError`, the provider's `models`), or on a regex
+  group that is part of every match. No `GlobalScope`. The one `runBlocking` (Codex's JSON-RPC reader)
   and the `Thread.sleep` calls run on background threads, as their comments say.
-- Startup reads nothing heavy on the main thread: the pricing snapshot is read lazily, off it.
+- The pricing snapshot loads in the background, when `PriceCatalogRepository` is built.
 - Every standalone icon button has a content description (icons inside a labelled button rightly have none).
 - The lint warnings about WebView features (`RequiresFeature`), haptic constants and API 30/33
   constants (`InlinedApi`) are already guarded by feature or SDK checks.
 - The exported `ScheduleTriggerReceiver` refuses any intent without the user's token.
 - Cleartext HTTP is allowed in the base config on purpose (remote runtimes on LAN and Tailscale
-  addresses, which the config cannot list); `OpenCodeUrl.isTrustedCleartextHost()` limits it to
-  local, private and Tailscale hosts.
+  addresses, which the config cannot list). `OpenCodeUrl.normalize()` accepts a plain `http://`
+  server address only for local, private and Tailscale hosts; it checks the address the user enters,
+  not where that server redirects (see "Left on purpose").
 - `SetWorldReadable`/`SetWorldWritable` are on files inside the app's own PRoot environment, which
   the guest's tools need to read or write.
 - All unit tests pass apart from `ProcessTerminalSessionTest > decodes multi byte characters`, which
@@ -44,11 +47,11 @@ each fix that changes what the user sees lists a device check in its PR.
 |---|---|---|
 | 1 | Six icons that point a direction (Send, Open in new, Chat, Receipt, Article, File) used the old, non-mirrored versions, so they point the wrong way in the Arabic UI. | The `AutoMirrored` versions (this PR). |
 | 2 | `LocalLifecycleOwner` from `compose-ui` is deprecated (4 screens); `ArArchiveInputStream.nextArEntry` is deprecated; two conditions were always true; one `Json` was built on every call. | Moved to `lifecycle-runtime-compose`, `nextEntry`, the dead conditions removed, one shared `Json` (this PR). |
-| 3 | The home screen widget's Send and microphone buttons had English labels in every language. | The app's `cd_send` and `cd_microphone` strings, translated in the 6 languages where they were still English (this PR). |
+| 3 | The home screen widget's Send and microphone buttons had English labels in every language. | The app's `cd_send` and `cd_microphone` strings, translated in the 6 languages where they were still English, and set with the hint from the app's language rather than the system's, so the widget matches the app (this PR). |
 | 4 | detekt's top-level constant pattern rejected Kotlin's own convention (`SCREAMING_SNAKE_CASE`), so 172 constants sat in the baseline and every new one had to be added there by hand. | The pattern accepts it; the 172 entries are gone (this PR). |
 | 5 | Count strings were not plurals: "1 minutes ago", "Ran 1 command(s)", "1 chats deleted", and their Russian and Arabic forms were wrong for most numbers. | **Pending**: plurals in all 8 locales (follow-up PR). |
 | 6 | 151 resources (mostly strings, each translated 8 times) are no longer used. | **Pending**: removed (follow-up PR). |
-| 7 | Only Claude Code had a shortcut to its project instructions file; Codex and OpenCode, which read `AGENTS.md`, had none (`docs/FEATURES.md`, "Not done yet"). | **Pending**: the same shortcut for both (follow-up PR). |
+| 7 | Only Claude Code had a shortcut to its project instructions file; Codex and OpenCode, which read `AGENTS.md`, had none (`docs/FEATURES.md`, "Not done yet"). | The same shortcut for both; a new `AGENTS.md` starts as a copy of `CLAUDE.md` (#127). |
 | 8 | Spanish, French, Brazilian Portuguese, Russian, Chinese and Arabic still show English for strings added since they were last translated: 184 to 230 per language match the English text, about 165 of them after names and terms that stay the same (GitHub, MCP, Claude Code). Japanese is up to date. | **Pending**: translated (follow-up PR). |
 
 ## Left on purpose
@@ -68,6 +71,15 @@ each fix that changes what the user sees lists a device check in its PR.
   shrink as the code they point at is changed.
 - **`UsableSpace`** (11): the free-space checks before an install are estimates, and
   `StorageManager.getAllocatableBytes` would only make them less strict.
+- **Startup on the main thread.** `AndCodeApplication` reads the app language from encrypted
+  preferences before the first screen (`attachBaseContext`), then opens the encrypted settings and
+  decodes the schedules and their run history in `onCreate`, all on the main thread. The first screen
+  needs the language and settings, so moving them off it means a loading state; whether that is
+  worth it needs a cold-start measurement on a device.
+- **Redirects to plain HTTP.** OkHttp follows redirects, and nothing rechecks a redirect's address,
+  so a server the user added over HTTPS could send a request on to a public `http://` address. It
+  would have to be the user's own server doing it, and OkHttp drops the `Authorization` header when
+  the scheme or host changes; refusing such redirects would mean an interceptor on every client.
 - **`AppBundleLocaleChanges`**: the app is not shipped as an app bundle split by language.
 - **Antigravity's instructions file.** Its project-level file is not confirmed (`agy` reads its
   global `~/.gemini/GEMINI.md`), so no shortcut is offered for it yet.
