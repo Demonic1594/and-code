@@ -8,7 +8,7 @@
         <item quantity="zero">%1$d نجمة على GitHub</item>
         <item quantity="one">نجمة واحدة على GitHub</item>
         <item quantity="two">نجمتان على GitHub</item>
-        <item quantity="few">%1$d نجمات على GitHub</item>
+        <item quantity="few">%1$d نجوم على GitHub</item>
         <item quantity="many">%1$d نجمةً على GitHub</item>
         <item quantity="other">%1$d نجمة على GitHub</item>
     </plurals>
