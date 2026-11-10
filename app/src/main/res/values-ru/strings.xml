@@ -692,7 +692,7 @@
     <string name="command_rules_settings_row">Правила команд</string>
     <string name="project_instructions_settings_row">Инструкции проекта</string>
     <string name="project_instructions_no_project">Сначала откройте проект в чате: файл инструкций находится в его папке.</string>
-    <string name="project_instructions_failed">Не удалось создать CLAUDE.md в этом проекте.</string>
+    <string name="project_instructions_failed">Не удалось создать %1$s в этом проекте.</string>
     <string name="command_rules_title">Правила команд</string>
     <string name="command_rules_caption">Заблокированная команда отклоняется без вопроса, даже внутри более длинной команды, и агенту сообщается, что повторять её не нужно. Флаги могут идти в любом порядке, поэтому блокировка «rm -rf» блокирует и «rm -fr», но писать их нужно так же: «--force» — это не «-f». Команды, которые вы всегда разрешили при подтверждении, выполняются без вопроса.</string>
     <string name="command_rules_block_label">Блокировать команды, содержащие</string>

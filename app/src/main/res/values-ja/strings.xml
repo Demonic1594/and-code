@@ -661,7 +661,7 @@
     <string name="command_rules_settings_row">コマンドルール</string>
     <string name="project_instructions_settings_row">プロジェクトの指示</string>
     <string name="project_instructions_no_project">先にチャットでプロジェクトを開いてください。指示ファイルはそのフォルダーにあります。</string>
-    <string name="project_instructions_failed">このプロジェクトに CLAUDE.md を作成できませんでした。</string>
+    <string name="project_instructions_failed">このプロジェクトに %1$s を作成できませんでした。</string>
     <string name="command_rules_title">コマンドルール</string>
     <string name="command_rules_caption">ブロックしたコマンドは、長いコマンドの一部であっても確認なしで拒否され、エージェントには再試行しないよう伝えます。オプションの順序は問いません（「rm -rf」をブロックすると「rm -fr」もブロックされます）が、表記は一致する必要があります。「--force」と「-f」は別のものとして扱われます。承認時に「常に許可」したコマンドは確認なしで実行されます。</string>
     <string name="command_rules_block_label">次を含むコマンドをブロック</string>

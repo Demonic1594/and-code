@@ -677,7 +677,7 @@
     <string name="command_rules_settings_row">Règles de commandes</string>
     <string name="project_instructions_settings_row">Instructions du projet</string>
     <string name="project_instructions_no_project">Ouvrez d’abord un projet dans une discussion : le fichier d’instructions se trouve dans son dossier.</string>
-    <string name="project_instructions_failed">Impossible de créer CLAUDE.md dans ce projet.</string>
+    <string name="project_instructions_failed">Impossible de créer %1$s dans ce projet.</string>
     <string name="command_rules_title">Règles de commandes</string>
     <string name="command_rules_caption">Une commande bloquée est refusée sans demander, même au sein d’une commande plus longue, et l’agent est prié de ne pas réessayer. Les options peuvent venir dans n’importe quel ordre, donc bloquer « rm -rf » bloque aussi « rm -fr », mais elles doivent s’écrire pareil : « --force » n’est pas « -f ». Les commandes que vous avez toujours autorisées lors d’une approbation s’exécutent sans demander.</string>
     <string name="command_rules_block_label">Bloquer les commandes contenant</string>

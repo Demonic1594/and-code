@@ -118,6 +118,7 @@ fun CodexAgentSettingsScreen(
     onInstall: () -> Unit,
     onSignOut: () -> Unit,
     onOpenMcp: () -> Unit,
+    onOpenProjectInstructions: () -> Unit,
     onBack: () -> Unit,
 ) {
     AgentSettingsScaffold(title = stringResource(LocalAgent.CODEX.displayNameRes), onBack = onBack) {
@@ -146,6 +147,8 @@ fun CodexAgentSettingsScreen(
                 title = stringResource(R.string.mcp_settings_row),
                 onClick = onOpenMcp,
             )
+            SettingsDivider()
+            ProjectInstructionsRow(ProjectInstructions.AGENTS_FILE, onOpenProjectInstructions)
         }
     }
     if (signInDialog != null) {
@@ -311,12 +314,7 @@ fun ClaudeCodeAgentSettingsScreen(
                 onCheckedChange = onSetKeepEditsInProject,
             )
             SettingsDivider()
-            SettingsRow(
-                icon = Icons.Default.Description,
-                title = stringResource(R.string.project_instructions_settings_row),
-                value = ProjectInstructions.CLAUDE_FILE,
-                onClick = onOpenProjectInstructions,
-            )
+            ProjectInstructionsRow(ProjectInstructions.CLAUDE_FILE, onOpenProjectInstructions)
         }
     }
 }
@@ -350,6 +348,7 @@ fun OpenCodeAgentSettingsScreen(
     onOpenSystemPrompt: () -> Unit,
     systemPromptLabel: String,
     onOpenMcp: () -> Unit,
+    onOpenProjectInstructions: () -> Unit,
     onBack: () -> Unit,
 ) {
     AgentSettingsScaffold(title = stringResource(LocalAgent.OPEN_CODE.displayNameRes), onBack = onBack) {
@@ -419,6 +418,8 @@ fun OpenCodeAgentSettingsScreen(
                 title = stringResource(R.string.mcp_settings_row),
                 onClick = onOpenMcp,
             )
+            SettingsDivider()
+            ProjectInstructionsRow(ProjectInstructions.AGENTS_FILE, onOpenProjectInstructions)
         }
     }
 
@@ -725,4 +726,18 @@ private fun AgentSettingsScaffold(
             content()
         }
     }
+}
+
+/** Opens the project's [file], the instructions the agent follows there. */
+@Composable
+private fun ProjectInstructionsRow(
+    file: String,
+    onClick: () -> Unit,
+) {
+    SettingsRow(
+        icon = Icons.Default.Description,
+        title = stringResource(R.string.project_instructions_settings_row),
+        value = file,
+        onClick = onClick,
+    )
 }

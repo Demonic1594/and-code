@@ -1079,24 +1079,6 @@ fun AndCodeApp(
                                     onClearApprovalHistory = workspaceViewModel::clearClaudeApprovalHistory,
                                     onSetKeepEditsInProject = workspaceViewModel::setClaudeKeepEditsInProject,
                                     onSetCheck = workspaceViewModel::setClaudeCheck,
-                                    onOpenProjectInstructions = {
-                                        val runtime = selectedRuntime
-                                        val path = chatState.sessionDirectory ?: chatState.selectedWorkspacePath
-                                        if (runtime == null || path == null || !runtime.capabilities.fileEditing) {
-                                            Toast.makeText(context, R.string.project_instructions_no_project, Toast.LENGTH_LONG).show()
-                                        } else {
-                                            drawerScope.launch {
-                                                if (!ProjectInstructions.prepare(app.commandRunner, path)) {
-                                                    Toast.makeText(context, R.string.project_instructions_failed, Toast.LENGTH_LONG).show()
-                                                    return@launch
-                                                }
-                                                // The editor edits inside the selected workspace only.
-                                                selectedWorkspace = workspaceState.workspaces.firstOrNull { it.path == path }
-                                                    ?: WorkspaceRef(id = path, name = path.substringAfterLast('/'), path = path)
-                                                navController.navigate(codeViewerRoute(runtime.id, path, ProjectInstructions.CLAUDE_FILE))
-                                            }
-                                        }
-                                    },
                                 ),
                             antigravity = { antigravityState },
                             antigravityActions =
@@ -1114,6 +1096,28 @@ fun AndCodeApp(
                             onRequestWakeWordPermission = {
                                 startWakeWordAfterPermission = true
                                 microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            },
+                            onOpenProjectInstructions = { file ->
+                                val runtime = selectedRuntime
+                                val path = chatState.sessionDirectory ?: chatState.selectedWorkspacePath
+                                if (runtime == null || path == null || !runtime.capabilities.fileEditing) {
+                                    Toast.makeText(context, R.string.project_instructions_no_project, Toast.LENGTH_LONG).show()
+                                } else {
+                                    drawerScope.launch {
+                                        if (!ProjectInstructions.prepare(app.commandRunner, path, file)) {
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(R.string.project_instructions_failed, file),
+                                                Toast.LENGTH_LONG,
+                                            ).show()
+                                            return@launch
+                                        }
+                                        // The editor edits inside the selected workspace only.
+                                        selectedWorkspace = workspaceState.workspaces.firstOrNull { it.path == path }
+                                            ?: WorkspaceRef(id = path, name = path.substringAfterLast('/'), path = path)
+                                        navController.navigate(codeViewerRoute(runtime.id, path, file))
+                                    }
+                                }
                             },
                         )
 
