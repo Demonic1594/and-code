@@ -4,7 +4,11 @@
     <string name="github_star_prompt_body">AndCode es de código abierto. Si te resulta útil, una estrella en GitHub ayuda a seguir desarrollándolo.</string>
     <string name="github_star_second_prompt_title">¿Te resultó útil AndCode?</string>
     <string name="github_star_second_prompt_body">Si tu primera tarea salió bien, considera apoyar AndCode con una estrella en GitHub.</string>
-    <string name="github_star_count">%1$d estrellas en GitHub</string>
+    <plurals name="github_star_count">
+        <item quantity="one">%1$d estrella en GitHub</item>
+        <item quantity="many">%1$d estrellas en GitHub</item>
+        <item quantity="other">%1$d estrellas en GitHub</item>
+    </plurals>
     <string name="github_star_action">Dar estrella en GitHub</string>
     <string name="github_star_later">Quizá más tarde</string>
     <string name="github_star_not_now">Ahora no</string>

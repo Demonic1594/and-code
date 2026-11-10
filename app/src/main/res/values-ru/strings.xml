@@ -1,29 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AndCode</string>
-    <string name="unofficial_client">Неофициальный клиент с открытым исходным кодом</string>
 
-    <string name="nav_home">Главная</string>
-    <string name="nav_chat">Чат</string>
-    <string name="nav_connections">Подключения</string>
-    <string name="nav_sessions">Сессии</string>
     <string name="nav_workspaces">Рабочие пространства</string>
-    <string name="nav_activity">Активность</string>
     <string name="nav_settings">Настройки</string>
 
-    <string name="connection_missing">Подключите ПК, чтобы начать</string>
     <string name="connected_version">Подключено · %s</string>
-    <string name="connection_help">На ПК запустите opencode serve с паролем, затем введите его адрес LAN или Tailscale.</string>
     <string name="add_connection">Добавить подключение</string>
     <string name="edit_connection">Изменить подключение</string>
     <string name="connection_name">Отображаемое имя</string>
     <string name="server_url">URL сервера OpenCode</string>
     <string name="username">Имя пользователя</string>
     <string name="password">Пароль сервера</string>
-    <string name="allow_lan_http">Разрешить незашифрованный HTTP в LAN/Tailscale</string>
     <string name="test_connection">Проверить подключение</string>
     <string name="select">Выбрать</string>
-    <string name="not_set">Не задано</string>
     <string name="delete">Удалить</string>
     <string name="cancel">Отмена</string>
     <string name="save">Сохранить</string>
@@ -36,8 +26,6 @@
     <string name="thinking">Размышление…</string>
     <string name="chat_reconnecting">Соединение со средой прервано. Переподключение…</string>
     <string name="processing">Обработка…</string>
-    <string name="model">Модель</string>
-    <string name="agent">Агент</string>
     <string name="permission_required">Требуется одобрение</string>
     <string name="permission_show_all">Показать полностью</string>
     <string name="permission_risk_read_only">Читает</string>
@@ -57,12 +45,42 @@
     <string name="tool_input_label">Ввод</string>
     <string name="tool_output_label">Вывод</string>
     <string name="tool_output_truncated">…вывод обрезан</string>
-    <string name="activity_summary_commands">Выполнено команд: %1$d</string>
-    <string name="activity_summary_reads">Прочитано файлов: %1$d</string>
-    <string name="activity_summary_edits">Изменено файлов: %1$d</string>
-    <string name="activity_summary_subagents">Запущено субагентов: %1$d</string>
-    <string name="activity_summary_tools">Использовано инструментов: %1$d</string>
-    <string name="activity_summary_reasoning">Размышлений: %1$d</string>
+    <plurals name="activity_summary_commands">
+        <item quantity="one">Выполнено команд: %1$d</item>
+        <item quantity="few">Выполнено команд: %1$d</item>
+        <item quantity="many">Выполнено команд: %1$d</item>
+        <item quantity="other">Выполнено команд: %1$d</item>
+    </plurals>
+    <plurals name="activity_summary_reads">
+        <item quantity="one">Прочитано файлов: %1$d</item>
+        <item quantity="few">Прочитано файлов: %1$d</item>
+        <item quantity="many">Прочитано файлов: %1$d</item>
+        <item quantity="other">Прочитано файлов: %1$d</item>
+    </plurals>
+    <plurals name="activity_summary_edits">
+        <item quantity="one">Изменено файлов: %1$d</item>
+        <item quantity="few">Изменено файлов: %1$d</item>
+        <item quantity="many">Изменено файлов: %1$d</item>
+        <item quantity="other">Изменено файлов: %1$d</item>
+    </plurals>
+    <plurals name="activity_summary_subagents">
+        <item quantity="one">Запущено субагентов: %1$d</item>
+        <item quantity="few">Запущено субагентов: %1$d</item>
+        <item quantity="many">Запущено субагентов: %1$d</item>
+        <item quantity="other">Запущено субагентов: %1$d</item>
+    </plurals>
+    <plurals name="activity_summary_tools">
+        <item quantity="one">Использовано инструментов: %1$d</item>
+        <item quantity="few">Использовано инструментов: %1$d</item>
+        <item quantity="many">Использовано инструментов: %1$d</item>
+        <item quantity="other">Использовано инструментов: %1$d</item>
+    </plurals>
+    <plurals name="activity_summary_reasoning">
+        <item quantity="one">Размышлений: %1$d</item>
+        <item quantity="few">Размышлений: %1$d</item>
+        <item quantity="many">Размышлений: %1$d</item>
+        <item quantity="other">Размышлений: %1$d</item>
+    </plurals>
     <string name="activity_summary_separator">, </string>
     <string name="activity_details_title">Действия</string>
     <string name="activity_details_open">Показать подробности действий</string>
@@ -70,7 +88,6 @@
     <string name="file_changes_title">Изменения файлов</string>
     <string name="file_changes_generic">Файлы были изменены</string>
     <string name="diff_unavailable">Diff недоступен — это рабочее пространство не является репозиторием Git</string>
-    <string name="workspace_folder_label">Рабочая папка</string>
     <string name="workspace_import_folder">Импортировать папку…</string>
     <string name="workspace_clone_github">Клонировать из GitHub…</string>
     <string name="workspace_clone_title">Клонировать репозиторий GitHub</string>
@@ -92,7 +109,6 @@
     <string name="workspace_delete_failed">Не удалось удалить эту папку. Остановите среду выполнения, если она запущена, и повторите попытку.</string>
     <string name="workspace_delete_retry">Повторить</string>
     <string name="workspace_choose_folder">Выбрать существующую папку</string>
-    <string name="cd_choose_folder">Выбрать существующую папку</string>
     <string name="workspace_folder_picker_up">На уровень вверх</string>
     <string name="workspace_folder_picker_empty">Здесь нет вложенных папок.</string>
     <string name="workspace_folder_picker_select">Использовать эту папку</string>
@@ -100,17 +116,9 @@
     <string name="workspace_device_storage_row">Разрешить доступ к файлам устройства</string>
     <string name="workspace_device_storage_hint">AndCode видит только собственные папки. Разрешите доступ ко всем файлам, чтобы открывать файлы, которые уже есть на телефоне.</string>
 
-    <string name="recent_sessions">Недавние сессии</string>
-    <string name="view_all">Показать все</string>
-    <string name="no_sessions">Сессий пока нет</string>
 
-    <string name="remote_runtime">Удалённая среда выполнения ПК</string>
-    <string name="local_runtime">Локальная среда выполнения Android</string>
-    <string name="experimental_not_installed">Управляемая локальная среда выполнения</string>
-    <string name="local_runtime_note">Установка, запуск, остановка и восстановление локальной среды Android — в разделе «Рабочие области».</string>
 
     <string name="home_assistant">Домашний ассистент</string>
-    <string name="set_default_assistant">Назначить цифровым ассистентом по умолчанию</string>
     <string name="voice">Голос</string>
     <string name="cd_expand_composer">Развернуть сообщение</string>
     <string name="cd_collapse_composer">Свернуть сообщение</string>
@@ -121,7 +129,6 @@
     <string name="could_not_open_settings">Не удалось открыть настройки ассистента</string>
 
 
-    <string name="about">О приложении</string>
 
     <string name="notification_channel_approvals">Одобрения</string>
     <string name="notification_channel_status">Статус задачи</string>
@@ -131,7 +138,6 @@
     <string name="notification_complete_title">Выполнение завершено</string>
     <string name="notification_complete_body">Чат %1$s бездействует</string>
     <string name="permission_chat_confirmation">Этот чат ожидает вашего подтверждения. Выберите, что разрешено агенту:</string>
-    <string name="permission_response_failed">Агент не смог применить этот ответ о разрешении.</string>
     <string name="notification_error_title">Ошибка выполнения</string>
     <string name="notification_error_body">Сессия завершилась с ошибкой</string>
     <string name="chat_stall_title">Выполнение перестало отвечать</string>
@@ -160,7 +166,6 @@
     <string name="schedule_completion_timeout">Запланированный запуск перестал отвечать и не завершился</string>
     <string name="schedule_max_duration">Запланированный запуск превысил максимальную длительность</string>
     <string name="schedule_run_overlapping">Предыдущий запуск ещё выполняется</string>
-    <string name="schedule_service_busy">В это время выполнялось другое расписание</string>
     <string name="schedule_foreground_start_blocked">Android заблокировал запуск в фоновом режиме</string>
     <string name="schedule_session_not_created">Не удалось открыть сессию в среде выполнения</string>
     <string name="schedule_run_not_started_attempts">%1$s (попыток: %2$d)</string>
@@ -172,15 +177,7 @@
     <string name="notification_schedule_not_started_body">%1$s · %2$s</string>
     <string name="notification_stalled_title">Запуск перестал отвечать</string>
     <string name="notification_stalled_body">%1$s · %2$s</string>
-    <string name="notification_permission_failed">Не удалось отправить подтверждение. Откройте приложение и попробуйте снова.</string>
-    <string name="provider_credentials">Подключения провайдеров</string>
-    <string name="provider_credentials_help">Подключайте провайдеров через выбранную среду выполнения OpenCode. Доступные способы входа предоставляются OpenCode.</string>
-    <string name="provider_id_hint">ID провайдера (напр. openai)</string>
     <string name="api_key_hint">Ключ API</string>
-    <string name="save_api_key">Сохранить ключ</string>
-    <string name="clear_api_key">Очистить ключ</string>
-    <string name="key_saved">Сохранено</string>
-    <string name="key_missing">Не задано</string>
     <string name="provider_connect_title">Подключить %1$s</string>
     <string name="provider_select_method">Выберите способ входа.</string>
     <string name="provider_connect">Подключить</string>
@@ -190,7 +187,6 @@
     <string name="provider_not_connected">Не подключено</string>
     <string name="provider_connected_success">Провайдер подключён.</string>
     <string name="provider_disconnected_success">Провайдер отключён.</string>
-    <string name="provider_auth_unavailable">В выбранной среде выполнения OpenCode нет доступных методов аутентификации провайдера.</string>
     <string name="provider_waiting_for_browser">Ожидание завершения авторизации в браузере…</string>
     <string name="provider_confirmation_code">Код подтверждения</string>
     <string name="provider_auth_in_progress">Подключение…</string>
@@ -227,23 +223,13 @@
     <string name="question_free_text_label">Другое (введите свой ответ)</string>
     <string name="question_cancel">Не отвечать</string>
     <string name="question_dismiss">Закрыть вопрос</string>
-    <string name="assistant_runtime">Среда выполнения ассистента</string>
-    <string name="assistant_workspace">Путь к рабочему пространству ассистента</string>
-    <string name="import_workspace_folder">Импортировать папку в локальное рабочее пространство</string>
-    <string name="notifications_permission_rationale">Уведомления используются для одобрений и завершения задач, пока приложение работает в фоновом режиме.</string>
     <string name="capability_version">OpenCode %1$s</string>
-    <string name="request_notifications">Разрешить уведомления</string>
 
-    <string name="session_options">Параметры сессии</string>
     <string name="rename_session">Переименовать</string>
     <string name="delete_session">Удалить</string>
-    <string name="rename_session_title">Переименовать сессию</string>
-    <string name="session_title_hint">Название сессии</string>
     <string name="delete_session_title">Удалить сессию?</string>
-    <string name="delete_session_body">Эта сессия и её сообщения будут удалены безвозвратно.</string>
 
     <string name="add_via_qr">Добавить через QR</string>
-    <string name="scan_qr_title">Сканировать QR-код подключения</string>
     <string name="discover_on_lan">Обнаружить в LAN</string>
     <string name="discovering_servers">Поиск серверов OpenCode…</string>
     <string name="no_servers_found">Серверы в LAN не найдены</string>
@@ -254,7 +240,12 @@
     <string name="collapse">Свернуть</string>
     <string name="diff_label">Различия</string>
     <string name="close_description">Закрыть</string>
-    <string name="item_count">%1$d элементов</string>
+    <plurals name="item_count">
+        <item quantity="one">%1$d элемент</item>
+        <item quantity="few">%1$d элемента</item>
+        <item quantity="many">%1$d элементов</item>
+        <item quantity="other">%1$d элемента</item>
+    </plurals>
     <string name="unsupported_abi">Неподдерживаемый ABI: %1$s</string>
 
     <string name="todo_timeline_progress">Выполнено %1$d из %2$d Todo</string>
@@ -263,8 +254,6 @@
     <string name="tab_files">Файлы</string>
     <string name="tab_search">Поиск</string>
     <string name="tab_changes">Изменения</string>
-    <string name="back_to_file_list">Назад к списку файлов</string>
-    <string name="loading_files">Загрузка файла</string>
     <string name="binary_file_no_preview">Предпросмотр двоичных файлов недоступен.</string>
     <string name="parent_folder">Родительская папка</string>
     <string name="loading_file_list">Загрузка списка файлов</string>
@@ -352,7 +341,6 @@
     <string name="adb_status_disconnected">Не подключено</string>
     <string name="adb_status_discovered">Обнаружена беспроводная отладка (порт %1$d)</string>
     <string name="adb_status_connected">Подключено (порт %1$d)</string>
-    <string name="adb_status_error">Ошибка</string>
     <string name="adb_pair_button">Сопряжённое устройство</string>
     <string name="adb_connect_button">Подключить</string>
     <string name="adb_disconnect_button">Отключить</string>
@@ -362,7 +350,6 @@
     <string name="adb_pair_code_label">Код сопряжения</string>
     <string name="adb_pair_confirm">Сопрячь</string>
     <string name="adb_pairing_in_progress">Сопряжение…</string>
-    <string name="adb_connecting_in_progress">Подключение…</string>
     <string name="adb_requires_android_11">Требуется Android 11 или новее</string>
     <string name="runtime_status_not_installed">Не установлено</string>
     <string name="runtime_status_setting_up">Настройка</string>
@@ -382,11 +369,7 @@
     <string name="runtime_targets_title">Среды выполнения</string>
     <string name="in_use_label">Используется</string>
     <string name="edit_description">Изменить</string>
-    <string name="setup_this_device_button">Настроить на этом устройстве</string>
     <string name="starting_opencode_version">Запуск OpenCode %1$s</string>
-    <string name="start_opencode_button">Запустить OpenCode</string>
-    <string name="stop_local_runtime_button">Остановить локальную среду выполнения</string>
-    <string name="diagnostics_and_management_button">Диагностика и управление</string>
     <string name="workspace_folders_title">Папки рабочего пространства</string>
     <string name="no_workspaces_title">Папок рабочего пространства пока нет</string>
     <string name="no_workspaces_body">Папки, которые использует агент, появятся здесь после начала сессии.</string>
@@ -399,17 +382,8 @@
     <string name="ready_running">OpenCode %1$s · Работает</string>
     <string name="generic_runtime_problem">Возникла проблема с локальной средой выполнения</string>
 
-    <string name="select_a_runtime">Выберите среду выполнения</string>
     <string name="connected_label">Подключено</string>
     <string name="disconnected_label">Не подключено</string>
-    <string name="current_configuration">Текущая конфигурация</string>
-    <string name="not_selected">Не выбрано</string>
-    <string name="opencode_default_value">По умолчанию для среды</string>
-    <string name="no_ai_service_selected">Сервис ИИ не выбран</string>
-    <string name="connection_or_fetch_failed">Не удалось подключиться или получить данные</string>
-    <string name="checking_connection_status">Проверка подключения и статуса</string>
-    <string name="choose_local_or_pc_runtime">Выберите локальную среду выполнения Android или ПК</string>
-    <string name="not_connected_to_opencode">Нет подключения к среде</string>
 
     <string name="voice_no_runtime_configured">Настройте среду выполнения.</string>
     <string name="voice_event_connection_failed">Не удалось подключиться к событиям среды</string>
@@ -426,7 +400,6 @@
     <string name="voice_retry_button">Говорить снова</string>
 
     <string name="tts_error">Ошибка речи</string>
-    <string name="tts_error_code">Ошибка речи: %1$d</string>
     <string name="speech_error_audio">Ошибка аудио</string>
     <string name="speech_error_client">Ошибка клиента</string>
     <string name="speech_error_permissions">Отсутствует разрешение</string>
@@ -461,26 +434,32 @@
     <string name="install_step_done">Локальный OpenCode установлен</string>
 
     <string name="menu_description">Меню</string>
-    <string name="drawer_search_description">Поиск</string>
     <string name="drawer_recent_chats">Недавние чаты</string>
     <string name="drawer_project_default">По умолчанию</string>
     <string name="drawer_projects_title">Проекты</string>
     <string name="drawer_agents_title">Агенты</string>
     <string name="drawer_add_project">Добавить проект</string>
-    <string name="drawer_pinned">Закреплённые</string>
-    <string name="drawer_pinned_sample_1">Важный разговор</string>
-    <string name="drawer_pinned_sample_2">Заметки проекта</string>
-    <string name="drawer_features">Функции</string>
-    <string name="drawer_plan_label">Бесплатный план</string>
-    <string name="drawer_user_email_placeholder">user@example.com</string>
     <string name="drawer_time_just_now">Только что</string>
-    <string name="drawer_time_minutes_ago">%1$d мин. назад</string>
-    <string name="drawer_time_hours_ago">%1$d ч. назад</string>
-    <string name="drawer_time_days_ago">%1$d дн. назад</string>
+    <plurals name="drawer_time_minutes_ago">
+        <item quantity="one">%1$d мин. назад</item>
+        <item quantity="few">%1$d мин. назад</item>
+        <item quantity="many">%1$d мин. назад</item>
+        <item quantity="other">%1$d мин. назад</item>
+    </plurals>
+    <plurals name="drawer_time_hours_ago">
+        <item quantity="one">%1$d ч. назад</item>
+        <item quantity="few">%1$d ч. назад</item>
+        <item quantity="many">%1$d ч. назад</item>
+        <item quantity="other">%1$d ч. назад</item>
+    </plurals>
+    <plurals name="drawer_time_days_ago">
+        <item quantity="one">%1$d дн. назад</item>
+        <item quantity="few">%1$d дн. назад</item>
+        <item quantity="many">%1$d дн. назад</item>
+        <item quantity="other">%1$d дн. назад</item>
+    </plurals>
 
     <string name="chat_home_title">Чат</string>
-    <string name="chat_build_headline">Создавайте с OpenCode</string>
-    <string name="chat_build_subtitle">Спрашивайте о чём угодно — реализуйте, исправляйте и проверяйте код вместе.</string>
     <string name="chat_message_placeholder">Написать сообщение…</string>
     <string name="chat_attach">Прикрепить файл</string>
     <string name="chat_remove_attachment">Удалить вложение</string>
@@ -493,8 +472,6 @@
     <string name="chat_thinking_level_minimal">Минимум</string>
     <string name="chat_thinking_level_ultra">Ультра</string>
     <string name="chat_fast_mode">Быстрый</string>
-    <string name="chat_mode_build">Сборка</string>
-    <string name="chat_mode_plan">План</string>
     <string name="chat_agents_loading">Загрузка агентов…</string>
     <string name="chat_agents_load_failed">Не удалось загрузить агентов. Нажмите, чтобы повторить.</string>
     <string name="chat_mode_auto_accept">Автоприём</string>
@@ -555,15 +532,6 @@
     <string name="github_code_copied">Код скопирован в буфер обмена</string>
     <string name="setup_github_optional_description">Подключите GitHub сейчас, чтобы использовать приватные репозитории с локальным Git. Можно пропустить и подключить позже в Настройках.</string>
     <string name="picker_search">Поиск моделей</string>
-    <string name="suggestion_implement_title">Помогите реализовать функцию</string>
-    <string name="suggestion_implement_subtitle">Написать и реализовать код</string>
-    <string name="suggestion_debug_title">Найти причину бага</string>
-    <string name="suggestion_debug_subtitle">Диагностика и исправление проблем</string>
-    <string name="suggestion_organize_title">Организовать структуру проекта</string>
-    <string name="suggestion_organize_subtitle">Навести порядок в файлах и папках</string>
-    <string name="attach_button_description">Прикрепить</string>
-    <string name="attach_menu_stub">Прикрепить файл (скоро)</string>
-    <string name="session_history">История сессий</string>
 
     <string name="picker_title">Выбор модели и среды выполнения</string>
     <string name="picker_caption">Выберите, где запускать и какую модель использовать.</string>
@@ -571,7 +539,6 @@
     <string name="section_model">Модель</string>
     <string name="section_favorites">Избранное</string>
     <string name="section_recent">Недавние</string>
-    <string name="this_android">Этот Android</string>
     <string name="picker_no_providers">Подключённых провайдеров пока нет</string>
     <string name="picker_connect_provider">Подключить провайдера</string>
 
@@ -588,25 +555,11 @@
     <string name="onboarding_feature_anywhere">Одобряйте, останавливайте и отвечайте из уведомлений</string>
     <string name="onboarding_primary_button_android">Начать настройку на Android</string>
     <string name="onboarding_primary_button_remote">Подключиться к ПК или Mac</string>
-    <string name="onboarding_skip_link">Добавить удалённое подключение позже</string>
 
     <string name="android_setup_title">Настроить этот Android</string>
     <string name="setup_step_download">Загрузить среду выполнения</string>
     <string name="setup_step_provider">Подключить провайдера</string>
-    <string name="setup_step_apikey">Задать ключ API</string>
-    <string name="setup_step_test">Проверить подключение</string>
-    <string name="apikey_caption">Ваш ключ API безопасно хранится на этом устройстве</string>
-    <string name="test_status_untested">Не проверено</string>
-    <string name="test_status_testing">Проверка…</string>
-    <string name="test_status_success">Подключение успешно</string>
-    <string name="test_status_failure">Подключение не удалось</string>
-    <string name="run_connection_test_button">Выполнить проверку подключения</string>
     <string name="setup_complete_button">Готово</string>
-    <string name="provider_openai">OpenAI</string>
-    <string name="provider_google">Google</string>
-    <string name="provider_anthropic">Anthropic</string>
-    <string name="provider_ollama">Ollama</string>
-    <string name="provider_other">Другой</string>
 
     <string name="remote_connection_title">Подключение к ПК/Mac</string>
     <string name="remote_step1_title">Выполните эту команду на вашем ПК</string>
@@ -629,9 +582,6 @@
     <string name="settings_home_assistant_row">Домашний ассистент</string>
     <string name="assistant_enabled_pill">Включено</string>
     <string name="assistant_disabled_pill">Отключено</string>
-    <string name="wake_word_row_title">Слово пробуждения</string>
-    <string name="wake_word_value">OpenCode</string>
-    <string name="wake_word_stub_body">Эта функция скоро появится.</string>
     <string name="voice_settings_row">Настройки голоса</string>
     <string name="provider_settings_row">Настройки провайдеров</string>
     <string name="settings_local_runtime_row">Локальная среда выполнения</string>
@@ -640,8 +590,6 @@
     <string name="notifications_row">Уведомления</string>
     <string name="local_runtime_idle_stop_row">Останавливать неактивную среду выполнения</string>
     <string name="local_runtime_idle_stop_row_description">Автоматически перезапускается при выполнении расписания или при открытии приложения, но не запускается автоматически после перезагрузки устройства</string>
-    <string name="privacy_row">Конфиденциальность и данные</string>
-    <string name="privacy_stub_body">Эта функция скоро появится.</string>
     <string name="diagnostics_row">Диагностика и журналы</string>
     <string name="app_info_row">О приложении</string>
     <string name="legal_privacy_settings_row">Правовая информация и конфиденциальность</string>
@@ -706,8 +654,18 @@
     <string name="auto_archive_max_sessions_dialog_title">Макс. число активных чатов</string>
 
     <string name="drawer_archive_session">Архивировать</string>
-    <string name="drawer_selected_count">Выбрано: %1$d</string>
-    <string name="drawer_delete_selected_body">%1$d сеансов будет удалено безвозвратно.</string>
+    <plurals name="drawer_selected_count">
+        <item quantity="one">Выбрано: %1$d</item>
+        <item quantity="few">Выбрано: %1$d</item>
+        <item quantity="many">Выбрано: %1$d</item>
+        <item quantity="other">Выбрано: %1$d</item>
+    </plurals>
+    <plurals name="drawer_delete_selected_body">
+        <item quantity="one">%1$d сессия будет удалена безвозвратно.</item>
+        <item quantity="few">%1$d сессии будут удалены безвозвратно.</item>
+        <item quantity="many">%1$d сессий будут удалены безвозвратно.</item>
+        <item quantity="other">%1$d сессии будут удалены безвозвратно.</item>
+    </plurals>
 
     <string name="mcp_title">Серверы MCP</string>
     <string name="mcp_add_server">Добавить сервер</string>
@@ -723,7 +681,12 @@
     <string name="mcp_auth_not_removed">Аутентификация не была удалена</string>
     <string name="mcp_auth_failed_status">Ошибка аутентификации: %1$s</string>
     <string name="mcp_remove_server">Удалить сервер</string>
-    <string name="mcp_tools_count">%1$d инструментов</string>
+    <plurals name="mcp_tools_count">
+        <item quantity="one">%1$d инструмент</item>
+        <item quantity="few">%1$d инструмента</item>
+        <item quantity="many">%1$d инструментов</item>
+        <item quantity="other">%1$d инструмента</item>
+    </plurals>
     <string name="mcp_name_hint">Имя сервера</string>
     <string name="mcp_command_hint">Команда (локальный сервер)</string>
     <string name="mcp_url_hint">URL (удалённый сервер)</string>
@@ -765,9 +728,6 @@
     <string name="server_info_no_skills">Нет доступных навыков</string>
     <string name="server_info_settings_row">Конфигурация сервера и инструменты</string>
 
-    <string name="agents_md_generate">Сгенерировать AGENTS.md</string>
-    <string name="agents_md_generated">AGENTS.md сгенерирован</string>
-    <string name="agents_md_failed">Не удалось сгенерировать AGENTS.md</string>
 
     <string name="tab_pr">PR</string>
     <string name="switch_branch">Переключить ветку</string>
@@ -782,8 +742,6 @@
     <string name="diff_stat">+%1$d / -%2$d</string>
     <string name="syntax_theme_row">Тема синтаксиса</string>
     <string name="syntax_theme_dialog_title">Выбрать тему синтаксиса</string>
-    <string name="usage_row">Использование</string>
-    <string name="font_size_dialog_title">Размер шрифта</string>
     <string name="widget_quick_input_hint">Написать сообщение…</string>
     <string name="model_visibility_row">Показываемые модели</string>
     <string name="model_visibility_title">Показываемые модели</string>
@@ -794,92 +752,79 @@
     <string name="subagent_return_to_parent">Вернуться к основному агенту: %1$s</string>
     <string name="subagent_parent_untitled">Основная сессия</string>
     <!-- Content descriptions -->
-    <string name="cd_folder">Folder</string>
-    <string name="cd_expand_dropdown">Expand dropdown</string>
-    <string name="cd_expand_collapse">Expand or collapse</string>
-    <string name="cd_search">Search</string>
+    <string name="cd_folder">Папка</string>
+    <string name="cd_expand_dropdown">Развернуть список</string>
+    <string name="cd_expand_collapse">Развернуть или свернуть</string>
+    <string name="cd_search">Поиск</string>
     <string name="cd_app_logo">AndCode</string>
-    <string name="cd_permission">Permission</string>
-    <string name="cd_runtime_type">Runtime type</string>
-    <string name="cd_new_chat">New chat</string>
-    <string name="cd_server_url">Server URL</string>
-    <string name="cd_password">Password</string>
-    <string name="cd_test_connection">Test connection</string>
-    <string name="cd_scan_qr">Scan QR code</string>
-    <string name="cd_lan_discovery">Discover on LAN</string>
-    <string name="cd_clear_search">Clear search</string>
-    <string name="cd_repair">Repair</string>
-    <string name="cd_session">Session</string>
-    <string name="cd_attachment">Attachment</string>
-    <string name="cd_image_preview">Image preview</string>
-    <string name="cd_close_image">Close image</string>
-    <string name="cd_download_image">Download image</string>
+    <string name="cd_permission">Разрешение</string>
+    <string name="cd_runtime_type">Тип среды выполнения</string>
+    <string name="cd_server_url">URL сервера</string>
+    <string name="cd_password">Пароль</string>
+    <string name="cd_test_connection">Проверить подключение</string>
+    <string name="cd_scan_qr">Сканировать QR-код</string>
+    <string name="cd_lan_discovery">Обнаружить в LAN</string>
+    <string name="cd_clear_search">Очистить поиск</string>
+    <string name="cd_repair">Восстановить</string>
+    <string name="cd_attachment">Вложение</string>
+    <string name="cd_image_preview">Предпросмотр изображения</string>
+    <string name="cd_close_image">Закрыть изображение</string>
+    <string name="cd_download_image">Скачать изображение</string>
     <string name="image_loading">Loading image...</string>
-    <string name="image_load_failed">Could not load image</string>
-    <string name="image_saved">Image saved to Pictures/AndCode</string>
-    <string name="image_save_failed">Could not save image</string>
-    <string name="cd_reasoning">Reasoning</string>
-    <string name="cd_tool">Tool</string>
-    <string name="cd_file_changes">File changes</string>
-    <string name="cd_setup">Setup</string>
-    <string name="cd_start">Start</string>
-    <string name="cd_stop">Stop</string>
-    <string name="cd_diagnostics">Diagnostics</string>
-    <string name="cd_connection_error">Connection error</string>
-    <string name="cd_import_folder">Import folder</string>
-    <string name="cd_clone_github">Clone from GitHub</string>
-    <string name="cd_scroll_to_bottom">Scroll to bottom</string>
-    <string name="cd_attached_image">Attached image</string>
-    <string name="cd_remove_image">Remove image</string>
-    <string name="cd_attach_file">Attach file</string>
-    <string name="cd_camera">Camera</string>
-    <string name="cd_gallery">Gallery</string>
-    <string name="cd_thinking">Thinking</string>
+    <string name="image_load_failed">Не удалось загрузить изображение</string>
+    <string name="image_saved">Изображение сохранено в Pictures/AndCode</string>
+    <string name="image_save_failed">Не удалось сохранить изображение</string>
+    <string name="cd_reasoning">Рассуждение</string>
+    <string name="cd_tool">Инструмент</string>
+    <string name="cd_file_changes">Изменения файлов</string>
+    <string name="cd_stop">Остановить</string>
+    <string name="cd_connection_error">Ошибка подключения</string>
+    <string name="cd_scroll_to_bottom">Прокрутить вниз</string>
+    <string name="cd_attached_image">Прикреплённое изображение</string>
+    <string name="cd_remove_image">Удалить изображение</string>
+    <string name="cd_attach_file">Прикрепить файл</string>
+    <string name="cd_camera">Камера</string>
+    <string name="cd_gallery">Галерея</string>
+    <string name="cd_thinking">Размышление</string>
     <string name="cd_fast_mode">Быстрый режим</string>
     <string name="cd_system_prompt">Системный промпт</string>
-    <string name="cd_agent_mode">Agent mode</string>
-    <string name="cd_updating">Updating</string>
-    <string name="cd_operation_result">Operation result</string>
-    <string name="cd_check_update">Check for update</string>
-    <string name="cd_up_to_date">Up to date</string>
-    <string name="cd_update">Update</string>
-    <string name="cd_rollback">Rollback</string>
-    <string name="cd_tool_status">Tool status</string>
-    <string name="cd_delete_runtime">Delete runtime</string>
-    <string name="cd_workspace">Workspace</string>
-    <string name="cd_navigate">Navigate</string>
-    <string name="cd_cancel">Cancel</string>
-    <string name="cd_accept">Accept</string>
+    <string name="cd_updating">Обновление</string>
+    <string name="cd_operation_result">Результат операции</string>
+    <string name="cd_check_update">Проверить обновления</string>
+    <string name="cd_up_to_date">Актуальная версия</string>
+    <string name="cd_update">Обновить</string>
+    <string name="cd_rollback">Откатить</string>
+    <string name="cd_tool_status">Статус инструмента</string>
+    <string name="cd_delete_runtime">Удалить среду выполнения</string>
+    <string name="cd_navigate">Перейти</string>
+    <string name="cd_cancel">Отмена</string>
+    <string name="cd_accept">Принять</string>
     <string name="cd_send">Отправить</string>
-    <string name="cd_task_status">Task status</string>
-    <string name="cd_disconnect">Disconnect</string>
-    <string name="cd_connect">Connect</string>
-    <string name="cd_favorite">Toggle favorite</string>
+    <string name="cd_task_status">Статус задачи</string>
+    <string name="cd_disconnect">Отключить</string>
+    <string name="cd_connect">Подключить</string>
+    <string name="cd_favorite">Добавить в избранное или убрать</string>
     <string name="cd_microphone">Микрофон</string>
-    <string name="cd_file_type">File</string>
-    <string name="cd_repository">Repository</string>
-    <string name="cd_settings_section">Settings section</string>
-    <string name="cd_subagent_status">Subagent status</string>
-    <string name="cd_toggle_password">Toggle password visibility</string>
-    <string name="cd_info">Info</string>
-    <string name="cd_add_project">Add project</string>
-    <string name="cd_file">File</string>
-    <string name="cd_code_match">Code match</string>
+    <string name="cd_file_type">Файл</string>
+    <string name="cd_repository">Репозиторий</string>
+    <string name="cd_settings_section">Раздел настроек</string>
+    <string name="cd_subagent_status">Статус субагента</string>
+    <string name="cd_toggle_password">Показать или скрыть пароль</string>
+    <string name="cd_info">Сведения</string>
+    <string name="cd_file">Файл</string>
+    <string name="cd_code_match">Совпадение в коде</string>
     <string name="cd_git">Git</string>
-    <string name="cd_current_branch">Current branch</string>
-    <string name="cd_new_branch">New branch</string>
-    <string name="cd_step_completed">Step completed</string>
-    <string name="cd_error">Error</string>
-    <string name="cd_runtime_ready">Runtime ready</string>
-    <string name="cd_workspaces">Workspaces</string>
-    <string name="cd_nav_item">Navigation item</string>
-    <string name="cd_terminal">Terminal</string>
-    <string name="cd_add_tab">Add tab</string>
-    <string name="cd_back">Back</string>
-    <string name="cd_next_match">Next match</string>
-    <string name="cd_clear_terminal">Clear terminal</string>
-    <string name="cd_send_command">Send command</string>
-    <string name="cd_delete">Delete</string>
+    <string name="cd_current_branch">Текущая ветка</string>
+    <string name="cd_new_branch">Новая ветка</string>
+    <string name="cd_step_completed">Шаг выполнен</string>
+    <string name="cd_error">Ошибка</string>
+    <string name="cd_runtime_ready">Среда выполнения готова</string>
+    <string name="cd_add_tab">Добавить вкладку</string>
+    <string name="cd_back">Назад</string>
+    <string name="cd_next_match">Следующее совпадение</string>
+    <string name="cd_clear_terminal">Очистить терминал</string>
+    <string name="cd_send_command">Отправить команду</string>
+    <string name="cd_delete">Удалить</string>
 
     <!-- Command palette & search -->
     <!-- Terminal -->
@@ -900,26 +845,20 @@
     <string name="cd_terminal_server_stopped">Порт %1$d остановлен</string>
 
     <!-- Workspace explorer tabs -->
-    <string name="tab_type_agent">Agent</string>
-    <string name="tab_new_default">New</string>
-    <string name="tab_type_terminal">Terminal</string>
-    <string name="tab_close">Close</string>
-    <string name="tab_close_others">Close Others</string>
-    <string name="tab_content_placeholder">Tab content</string>
+    <string name="tab_type_agent">Агент</string>
+    <string name="tab_type_terminal">Терминал</string>
+    <string name="tab_close">Закрыть</string>
+    <string name="tab_close_others">Закрыть остальные</string>
+    <string name="tab_content_placeholder">Содержимое вкладки</string>
     <string name="git_label">Git</string>
 
     <!-- Code viewer -->
-    <string name="code_no_matches">No matches</string>
+    <string name="code_no_matches">Нет совпадений</string>
     <string name="code_match_counter">%1$d / %2$d</string>
 
     <!-- Chat screen -->
 
     <!-- Chat errors -->
-    <string name="error_opencode_operation">Операция не выполнена</string>
-    <string name="error_no_connection">Подключение к среде не настроено</string>
-    <string name="session_title_attachment">Attachment</string>
-    <string name="error_answer_required">Answer required</string>
-    <string name="error_question_failed">Не удалось обработать вопрос</string>
     <string name="error_session_failed">Ошибка сессии</string>
     <string name="chat_error_zen_free_tier_title">Бесплатные модели OpenCode требуют входа в Zen</string>
     <string name="chat_error_zen_free_tier_body">OpenCode ограничивает бесплатные модели официальным рабочим столом и CLI, если вы не войдёте в OpenCode Zen. Подключите OpenCode в Настройки → Провайдеры или используйте другого провайдера.</string>
@@ -929,80 +868,74 @@
 
     <!-- Connection dialog -->
     <string name="connection_test_success">OpenCode %1$s</string>
-    <string name="connection_test_failed">Connection failed</string>
+    <string name="connection_test_failed">Не удалось подключиться</string>
 
     <!-- Slash commands -->
-    <string name="slash_desc_new">Start a new session</string>
-    <string name="slash_desc_clear">Clear current conversation</string>
-    <string name="slash_desc_model">Switch model</string>
-    <string name="slash_desc_agent">Switch agent</string>
-    <string name="slash_desc_attach">Attach a file</string>
-    <string name="slash_desc_help">Show help</string>
+    <string name="slash_desc_new">Начать новую сессию</string>
+    <string name="slash_desc_clear">Очистить текущий разговор</string>
+    <string name="slash_desc_model">Сменить модель</string>
+    <string name="slash_desc_agent">Сменить агента</string>
+    <string name="slash_desc_attach">Прикрепить файл</string>
+    <string name="slash_desc_help">Показать справку</string>
 
     <!-- Chat home -->
-    <string name="side_panel_files_title">Files</string>
-    <string name="side_panel_files_desc">File explorer</string>
-    <string name="action_copy">Copy</string>
-    <string name="action_copy_markdown">Copy as Markdown</string>
-    <string name="action_edit_message">Edit &amp; resend</string>
-    <string name="attach_file">File</string>
-    <string name="attach_camera">Camera</string>
-    <string name="attach_gallery">Gallery</string>
-    <string name="attachment_load_failed">Could not attach file</string>
-    <string name="error_video_not_supported">Video files cannot be sent directly. Remove the video and attach images instead.</string>
-    <string name="status_queued">Queued</string>
+    <string name="side_panel_files_title">Файлы</string>
+    <string name="side_panel_files_desc">Обзор файлов</string>
+    <string name="action_copy">Копировать</string>
+    <string name="action_copy_markdown">Копировать как Markdown</string>
+    <string name="action_edit_message">Изменить и отправить снова</string>
+    <string name="attach_file">Файл</string>
+    <string name="attach_camera">Камера</string>
+    <string name="attach_gallery">Галерея</string>
+    <string name="attachment_load_failed">Не удалось прикрепить файл</string>
+    <string name="error_video_not_supported">Видео нельзя отправить напрямую. Удалите видео и прикрепите изображения.</string>
+    <string name="status_queued">В очереди</string>
 
     <!-- Resume command -->
 
     <!-- Voice -->
-    <string name="voice_listening_placeholder">Listening…</string>
+    <string name="voice_listening_placeholder">Прослушивание…</string>
 
     <!-- Drawer grouping -->
-    <string name="grouping_project">Project</string>
-    <string name="grouping_status">Status</string>
-    <string name="status_group_running">Running</string>
-    <string name="status_group_waiting">Waiting</string>
-    <string name="status_group_done">Done</string>
-    <string name="status_group_error">Error</string>
 
     <!-- Quick input widget -->
-    <string name="toast_permission_granted">Permission granted. Tap mic again.</string>
-    <string name="toast_mic_permission_required">Microphone permission required</string>
-    <string name="widget_no_runtime">No runtime connected</string>
-    <string name="widget_sending">Sending…</string>
-    <string name="widget_session_title">Widget: %1$s</string>
-    <string name="widget_sent">Sent!</string>
-    <string name="widget_error">Error: %1$s</string>
-    <string name="widget_listening">Listening…</string>
-    <string name="widget_processing">Processing…</string>
-    <string name="widget_voice_error">Voice error</string>
-    <string name="widget_no_speech">No speech detected</string>
+    <string name="toast_permission_granted">Разрешение получено. Нажмите на микрофон ещё раз.</string>
+    <string name="toast_mic_permission_required">Нужно разрешение на доступ к микрофону</string>
+    <string name="widget_no_runtime">Среда выполнения не подключена</string>
+    <string name="widget_sending">Отправка…</string>
+    <string name="widget_session_title">Виджет: %1$s</string>
+    <string name="widget_sent">Отправлено!</string>
+    <string name="widget_error">Ошибка: %1$s</string>
+    <string name="widget_listening">Прослушивание…</string>
+    <string name="widget_processing">Обработка…</string>
+    <string name="widget_voice_error">Ошибка распознавания речи</string>
+    <string name="widget_no_speech">Речь не распознана</string>
 
     <!-- Diagnostics sheet -->
-    <string name="diagnostics_title">Diagnostics</string>
-    <string name="diagnostics_section_app">App</string>
-    <string name="diagnostics_version">Version</string>
-    <string name="diagnostics_build_type">Build type</string>
-    <string name="diagnostics_section_connection">Connection</string>
-    <string name="diagnostics_status">Status</string>
-    <string name="diagnostics_runtime">Runtime</string>
-    <string name="diagnostics_section_memory">Memory</string>
-    <string name="diagnostics_total">Total</string>
-    <string name="diagnostics_free">Free</string>
-    <string name="diagnostics_max">Max</string>
-    <string name="diagnostics_section_storage">Storage</string>
-    <string name="diagnostics_available">Available</string>
-    <string name="diagnostics_copy_button">Copy Diagnostics</string>
+    <string name="diagnostics_title">Диагностика</string>
+    <string name="diagnostics_section_app">Приложение</string>
+    <string name="diagnostics_version">Версия</string>
+    <string name="diagnostics_build_type">Тип сборки</string>
+    <string name="diagnostics_section_connection">Подключение</string>
+    <string name="diagnostics_status">Статус</string>
+    <string name="diagnostics_runtime">Среда выполнения</string>
+    <string name="diagnostics_section_memory">Память</string>
+    <string name="diagnostics_total">Всего</string>
+    <string name="diagnostics_free">Свободно</string>
+    <string name="diagnostics_max">Максимум</string>
+    <string name="diagnostics_section_storage">Хранилище</string>
+    <string name="diagnostics_available">Доступно</string>
+    <string name="diagnostics_copy_button">Копировать диагностику</string>
 
     <!-- Session detail -->
 
-    <string name="runtime_diagnostics_failed">Failed to diagnose the local runtime</string>
-    <string name="runtime_update_check_failed">Failed to check for OpenCode updates</string>
-    <string name="runtime_repair_start_failed">Cannot start local runtime repair</string>
-    <string name="runtime_update_start_failed">Cannot start OpenCode update</string>
-    <string name="runtime_rollback_start_failed">Cannot start OpenCode rollback</string>
-    <string name="runtime_delete_failed">Cannot delete the local runtime</string>
-    <string name="runtime_delete_timeout">Runtime deletion timed out</string>
+    <string name="runtime_diagnostics_failed">Не удалось проверить локальную среду выполнения</string>
+    <string name="runtime_update_check_failed">Не удалось проверить обновления OpenCode</string>
+    <string name="runtime_repair_start_failed">Не удаётся запустить восстановление локальной среды выполнения</string>
+    <string name="runtime_update_start_failed">Не удаётся запустить обновление OpenCode</string>
+    <string name="runtime_rollback_start_failed">Не удаётся запустить откат OpenCode</string>
+    <string name="runtime_delete_failed">Не удаётся удалить локальную среду выполнения</string>
+    <string name="runtime_delete_timeout">Время ожидания удаления среды выполнения истекло</string>
 
     <!-- Claude Code agent and agent selection -->
     <string name="agent_opencode_name">OpenCode</string>
@@ -1075,7 +1008,6 @@
     <string name="antigravity_installed_version">Antigravity %1$s</string>
     <string name="claude_status_not_installed">Не установлено</string>
     <string name="claude_status_installing">Установка</string>
-    <string name="claude_status_ready">Готово</string>
     <string name="claude_status_signed_out">Вы не вошли</string>
     <string name="claude_sign_in_button">Настроить Claude Code</string>
     <string name="claude_sign_out_button">Выйти</string>
@@ -1154,8 +1086,8 @@
     <string name="risk_warning_schedule_title">Запуск по расписанию и в фоновом режиме</string>
     <string name="risk_warning_schedule_body">Запланированные промпты выполняются без присмотра, с тем режимом разрешений, который установлен у агента на этот момент. Перед включением повторяющегося расписания проверьте промпт и режим разрешений.</string>
     <string name="risk_warning_understood">Понятно, продолжить</string>
-    <string name="chat_response_duration">%1$d min</string>
-    <string name="chat_response_duration_under_minute">&lt;1 min</string>
+    <string name="chat_response_duration">%1$d мин</string>
+    <string name="chat_response_duration_under_minute">&lt;1 мин</string>
     <string name="nav_schedules">Расписания</string>
     <string name="schedule_new">Новое расписание</string>
     <string name="schedule_automation_menu">Запуск из других приложений</string>
@@ -1193,8 +1125,6 @@
     <string name="schedule_date">Дата</string>
     <string name="schedule_time">Время</string>
     <string name="schedule_day_of_month">День месяца</string>
-    <string name="schedule_weekday">День недели</string>
-    <string name="schedule_enabled">Включено</string>
     <string name="schedule_auto_accept">Автоматически одобрять разрешения инструментов</string>
     <string name="schedule_auto_accept_hint">Переопределяет общий параметр для этого расписания</string>
     <string name="schedule_delete">Удалить расписание</string>
@@ -1209,8 +1139,6 @@
     <string name="schedule_next_run">Следующий: %1$s</string>
     <string name="schedule_last_run">Последний запуск: %1$s</string>
     <string name="schedule_never_ran">Не запускалось</string>
-    <string name="schedule_runs_title">История запусков</string>
-    <string name="schedule_no_runs">Это расписание ещё не запускалось.</string>
     <string name="schedule_runs_empty">Запусков пока нет. Они появятся здесь после срабатывания расписания.</string>
     <string name="schedule_open_chat">Открыть чат</string>
     <string name="schedule_status_running">Выполняется</string>
@@ -1225,7 +1153,6 @@
     <string name="schedule_model_unset">Модель по умолчанию</string>
     <string name="schedule_workspace_unset">Нет рабочей области</string>
     <string name="schedule_agent_unset">Агент не задан</string>
-    <string name="schedule_recurring">Повторяющееся</string>
     <string name="schedule_run_now_started">Расписание выполняется.</string>
     <string name="schedule_edit_menu">Изменить</string>
     <string name="schedule_exact_alarm_title">Разрешить будильники и напоминания</string>
@@ -1252,7 +1179,12 @@
     <string name="cd_pull_request_link_state">Пул-реквест #%1$d, %2$s. Откроется на GitHub</string>
     <string name="cd_pull_request_files">Пул-реквест #%1$d, добавлено строк: %2$d, удалено: %3$d. Откроет изменённые файлы на GitHub</string>
     <string name="pr_collapse">Свернуть</string>
-    <string name="cd_pull_request_expand">Показать ещё пул-реквестов: %1$d</string>
+    <plurals name="cd_pull_request_expand">
+        <item quantity="one">Показать ещё пул-реквестов: %1$d</item>
+        <item quantity="few">Показать ещё пул-реквестов: %1$d</item>
+        <item quantity="many">Показать ещё пул-реквестов: %1$d</item>
+        <item quantity="other">Показать ещё пул-реквестов: %1$d</item>
+    </plurals>
     <string name="cd_pull_request_collapse">Показать меньше пул-реквестов</string>
     <string name="cd_pull_request_dismiss">Скрыть пул-реквест #%1$d</string>
     <string name="runtime_connection_unhealthy">Локальная среда OpenCode работает некорректно</string>
@@ -1519,7 +1451,12 @@
     <string name="git_invalid_branch">Имя ветки не может начинаться с -</string>
     <string name="git_commit_suggest_one">Обновить %1$s</string>
     <string name="git_commit_suggest_two">Обновить %1$s и %2$s</string>
-    <string name="git_commit_suggest_many">Обновить %1$s и ещё файлов: %2$d</string>
+    <plurals name="git_commit_suggest_many">
+        <item quantity="one">Обновить %1$s и ещё файлов: %2$d</item>
+        <item quantity="few">Обновить %1$s и ещё файлов: %2$d</item>
+        <item quantity="many">Обновить %1$s и ещё файлов: %2$d</item>
+        <item quantity="other">Обновить %1$s и ещё файлов: %2$d</item>
+    </plurals>
     <string name="git_title">Система контроля версий</string>
     <string name="git_refresh">Обновить</string>
     <string name="git_not_a_repo">Не Git-репозиторий</string>
@@ -1583,16 +1520,36 @@
     <string name="archive_more_actions">Другие действия</string>
     <string name="archive_archived_ago">В архиве: %1$s</string>
     <string name="archive_delete_one_title">Удалить «%1$s» навсегда?</string>
-    <string name="archive_delete_many_title">Удалить чаты навсегда (%1$d)?</string>
+    <plurals name="archive_delete_many_title">
+        <item quantity="one">Удалить чаты навсегда (%1$d)?</item>
+        <item quantity="few">Удалить чаты навсегда (%1$d)?</item>
+        <item quantity="many">Удалить чаты навсегда (%1$d)?</item>
+        <item quantity="other">Удалить чаты навсегда (%1$d)?</item>
+    </plurals>
     <string name="archive_delete_all_title">Удалить все архивированные чаты?</string>
     <string name="archive_delete_body">Копия каждого разговора у самого агента тоже удаляется. Это действие нельзя отменить.</string>
     <string name="settings_archive_row">Архив чатов</string>
     <string name="chat_deleted_snackbar">Чат удалён</string>
-    <string name="chats_deleted_snackbar">Удалено чатов: %1$d</string>
+    <plurals name="chats_deleted_snackbar">
+        <item quantity="one">Удалено чатов: %1$d</item>
+        <item quantity="few">Удалено чатов: %1$d</item>
+        <item quantity="many">Удалено чатов: %1$d</item>
+        <item quantity="other">Удалено чатов: %1$d</item>
+    </plurals>
     <string name="chat_archived_snackbar">Чат заархивирован</string>
-    <string name="chats_archived_snackbar">Заархивировано чатов: %1$d</string>
+    <plurals name="chats_archived_snackbar">
+        <item quantity="one">Заархивировано чатов: %1$d</item>
+        <item quantity="few">Заархивировано чатов: %1$d</item>
+        <item quantity="many">Заархивировано чатов: %1$d</item>
+        <item quantity="other">Заархивировано чатов: %1$d</item>
+    </plurals>
     <string name="chat_restored_snackbar">Чат восстановлен</string>
-    <string name="chats_restored_snackbar">Восстановлено чатов: %1$d</string>
+    <plurals name="chats_restored_snackbar">
+        <item quantity="one">Восстановлено чатов: %1$d</item>
+        <item quantity="few">Восстановлено чатов: %1$d</item>
+        <item quantity="many">Восстановлено чатов: %1$d</item>
+        <item quantity="other">Восстановлено чатов: %1$d</item>
+    </plurals>
     <string name="chat_delete_failed_snackbar">Не удалено (%1$d): %2$s</string>
     <string name="chat_archive_failed_snackbar">Не заархивировано (%1$d): %2$s</string>
     <string name="chat_restore_failed_snackbar">Не восстановлено (%1$d): %2$s</string>
@@ -1609,7 +1566,12 @@
     <string name="chat_find_close">Закрыть поиск</string>
     <string name="message_search_hint">Поиск по всем чатам</string>
     <string name="message_search_include_archived">Включая архив</string>
-    <string name="message_search_progress">Просмотрено чатов: %1$d из %2$d</string>
+    <plurals name="message_search_progress">
+        <item quantity="one">Просмотрено чатов: %1$d из %2$d</item>
+        <item quantity="few">Просмотрено чатов: %1$d из %2$d</item>
+        <item quantity="many">Просмотрено чатов: %1$d из %2$d</item>
+        <item quantity="other">Просмотрено чатов: %1$d из %2$d</item>
+    </plurals>
     <string name="message_search_empty_title">Поиск по всем чатам</string>
     <string name="message_search_empty_body">Находит слова в том, что написали вы и агенты, во всех чатах всех агентов, а не только в заголовках.</string>
     <string name="message_search_no_results_title">Нет совпадений</string>

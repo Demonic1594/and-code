@@ -4,7 +4,9 @@
     <string name="github_star_prompt_body">AndCodeはオープンソースで開発しています。役に立ったら、GitHub Starで開発を応援してもらえるとうれしいです。</string>
     <string name="github_star_second_prompt_title">AndCodeは役に立ちましたか？</string>
     <string name="github_star_second_prompt_body">最初のタスクがうまくいったら、GitHub StarでAndCodeを応援してもらえるとうれしいです。</string>
-    <string name="github_star_count">GitHub Stars %1$d</string>
+    <plurals name="github_star_count">
+        <item quantity="other">GitHub Stars %1$d</item>
+    </plurals>
     <string name="github_star_action">GitHubでStarする</string>
     <string name="github_star_later">あとで</string>
     <string name="github_star_not_now">今はしない</string>

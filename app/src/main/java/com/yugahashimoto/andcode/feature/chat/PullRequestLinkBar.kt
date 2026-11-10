@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -198,7 +199,7 @@ private fun ExpandChip(
             if (expanded) {
                 stringResource(R.string.cd_pull_request_collapse)
             } else {
-                stringResource(R.string.cd_pull_request_expand, hidden)
+                pluralStringResource(R.plurals.cd_pull_request_expand, hidden, hidden)
             },
     ) {
         Icon(

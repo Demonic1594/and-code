@@ -4,7 +4,10 @@
     <string name="github_star_prompt_body">AndCode is open source. If you find it useful, a GitHub Star is a simple way to support continued development.</string>
     <string name="github_star_second_prompt_title">Was AndCode useful?</string>
     <string name="github_star_second_prompt_body">If your first task went well, please consider supporting AndCode with a GitHub Star.</string>
-    <string name="github_star_count">%1$d GitHub Stars</string>
+    <plurals name="github_star_count">
+        <item quantity="one">%1$d GitHub star</item>
+        <item quantity="other">%1$d GitHub stars</item>
+    </plurals>
     <string name="github_star_action">Star on GitHub</string>
     <string name="github_star_later">Maybe later</string>
     <string name="github_star_not_now">Not now</string>

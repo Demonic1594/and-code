@@ -39,6 +39,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -114,7 +115,7 @@ fun MessageSearchScreen(
                 Spacer(Modifier.weight(1f))
                 if (state.total > 0) {
                     Text(
-                        text = stringResource(R.string.message_search_progress, state.searched, state.total),
+                        text = pluralStringResource(R.plurals.message_search_progress, state.total, state.searched, state.total),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

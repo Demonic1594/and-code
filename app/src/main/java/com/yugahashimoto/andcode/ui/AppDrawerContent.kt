@@ -38,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
@@ -405,7 +406,7 @@ fun AppDrawerContent(
             title = { Text(stringResource(R.string.delete_session_title)) },
             text = {
                 Text(
-                    stringResource(R.string.drawer_delete_selected_body, selectedSessionIds.size),
+                    pluralStringResource(R.plurals.drawer_delete_selected_body, selectedSessionIds.size, selectedSessionIds.size),
                 )
             },
             confirmButton = {

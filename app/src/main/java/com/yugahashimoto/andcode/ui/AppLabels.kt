@@ -42,7 +42,7 @@ internal fun chatActionMessage(
     return if (result.succeeded.size == 1) {
         context.getString(R.string.chat_restored_snackbar)
     } else {
-        context.getString(R.string.chats_restored_snackbar, result.succeeded.size)
+        context.resources.getQuantityString(R.plurals.chats_restored_snackbar, result.succeeded.size, result.succeeded.size)
     }
 }
 
@@ -56,8 +56,8 @@ internal fun relativeTimeLabel(
     val days = hours / 24L
     return when {
         minutes < 1L -> context.getString(R.string.drawer_time_just_now)
-        hours < 1L -> context.getString(R.string.drawer_time_minutes_ago, minutes)
-        days < 1L -> context.getString(R.string.drawer_time_hours_ago, hours)
-        else -> context.getString(R.string.drawer_time_days_ago, days)
+        hours < 1L -> context.resources.getQuantityString(R.plurals.drawer_time_minutes_ago, minutes.toInt(), minutes)
+        days < 1L -> context.resources.getQuantityString(R.plurals.drawer_time_hours_ago, hours.toInt(), hours)
+        else -> context.resources.getQuantityString(R.plurals.drawer_time_days_ago, days.toInt(), days)
     }
 }

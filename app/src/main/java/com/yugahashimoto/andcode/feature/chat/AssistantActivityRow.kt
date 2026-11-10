@@ -53,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -234,21 +235,21 @@ private fun activitySummaryText(summary: ActivitySummary): String {
     val phrases = mutableListOf<String>()
     ToolCategory.entries.forEach { category ->
         val count = summary.counts[category] ?: return@forEach
-        phrases += stringResource(category.summaryStringRes(), count)
+        phrases += pluralStringResource(category.summaryPluralsRes(), count, count)
     }
     if (phrases.isEmpty() && summary.reasoningCount > 0) {
-        phrases += stringResource(R.string.activity_summary_reasoning, summary.reasoningCount)
+        phrases += pluralStringResource(R.plurals.activity_summary_reasoning, summary.reasoningCount, summary.reasoningCount)
     }
     return phrases.joinToString(stringResource(R.string.activity_summary_separator))
 }
 
-private fun ToolCategory.summaryStringRes(): Int =
+private fun ToolCategory.summaryPluralsRes(): Int =
     when (this) {
-        ToolCategory.COMMAND -> R.string.activity_summary_commands
-        ToolCategory.READ -> R.string.activity_summary_reads
-        ToolCategory.EDIT -> R.string.activity_summary_edits
-        ToolCategory.SUBAGENT -> R.string.activity_summary_subagents
-        ToolCategory.OTHER -> R.string.activity_summary_tools
+        ToolCategory.COMMAND -> R.plurals.activity_summary_commands
+        ToolCategory.READ -> R.plurals.activity_summary_reads
+        ToolCategory.EDIT -> R.plurals.activity_summary_edits
+        ToolCategory.SUBAGENT -> R.plurals.activity_summary_subagents
+        ToolCategory.OTHER -> R.plurals.activity_summary_tools
     }
 
 internal fun toolCategoryIcon(category: ToolCategory): ImageVector =

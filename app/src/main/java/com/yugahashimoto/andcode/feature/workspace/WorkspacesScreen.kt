@@ -65,6 +65,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -322,7 +323,7 @@ fun WorkspacesScreen(
             item {
                 WorkspaceSectionHeader(
                     stringResource(R.string.workspace_folders_title),
-                    trailing = stringResource(R.string.item_count, state.workspaces.size),
+                    trailing = pluralStringResource(R.plurals.item_count, state.workspaces.size, state.workspaces.size),
                 )
                 // Importing a folder and cloning a repository both write into the Android runtime's
                 // filesystem, so they only produce a usable working folder while that runtime is the
