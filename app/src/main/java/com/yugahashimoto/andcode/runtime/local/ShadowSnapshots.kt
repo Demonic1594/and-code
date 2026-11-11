@@ -303,7 +303,7 @@ class ShadowSnapshots(
                         root,
                         workspace,
                     )} rm -q -r --cached --ignore-unmatch --pathspec-from-file=- --pathspec-file-nul; fi",
-                "${git(root, workspace)} add -A -- ':/'",
+                *nestedRepositoriesScript(root, workspace).toTypedArray(),
                 // Which workspace this history is for, so it can be deleted once that folder is gone.
                 "printf '%s' ${WorkspaceShell.quote(workspace)} > $dir/$WORKSPACE_FILE",
                 // Histories from before snapshots stood alone were one chain: give its newest commits
@@ -318,6 +318,52 @@ class ShadowSnapshots(
                 "$git update-ref HEAD \"${'$'}c\"",
                 "printf '%s\\n' \"${'$'}c\"",
             ).joinToString("\n")
+        }
+
+        /**
+         * Adds the workspace's files to the snapshot, including those inside repositories nested in it.
+         *
+         * `git add` treats a folder holding its own `.git` as a submodule: one with no commit yet makes
+         * the whole add fail, and one with commits is stored as a link, so its files were missing from
+         * diffs and a restore left them as they were. Each nested repository (not ignored, not in an
+         * excluded folder) is left out of the main add and added on its own, from its own top, through
+         * a separate index, so its `.git` and its own ignored files stay out; the tree that gives is
+         * grafted in at its folder. Shallow ones go first, so a repository inside another is grafted
+         * after the outer one has been.
+         */
+        internal fun nestedRepositoriesScript(
+            root: String,
+            workspace: String,
+        ): List<String> {
+            val dir = gitDir(root, workspace)
+            val git = git(root, workspace)
+            val ws = WorkspaceShell.quote(workspace)
+            val pruned =
+                EXCLUDED.filter { it.endsWith("/") }.joinToString(" -o ") { "-name ${WorkspaceShell.quote(it.trimEnd('/'))}" }
+            val list = WorkspaceShell.quote("$dir/andcode-nested")
+            val pathspecs = WorkspaceShell.quote("$dir/andcode-pathspecs")
+            val nestedGit =
+                "git --git-dir=${WorkspaceShell.quote(dir)} -c core.quotepath=off -c core.hooksPath=/dev/null -c gc.auto=0"
+            return listOf(
+                // Relative paths of nested repositories (a `.git` folder or file below the top), shallow first.
+                "(cd $ws && find . -mindepth 1 \\( $pruned \\) -prune -o -name .git -prune -print) | " +
+                    "sed -e 's|^\\./||' -e 's|/\\.git$||' | grep -Fvx .git | " +
+                    "while IFS= read -r n; do $git check-ignore -q -- \"${'$'}n/\" || printf '%s\\n' \"${'$'}n\"; done | sort > $list",
+                "{ printf '%s\\n' ':/'; while IFS= read -r n; do printf ':(top,exclude)%s/\\n' \"${'$'}n\"; done < $list; } > $pathspecs",
+                "$git add -A --pathspec-from-file=$pathspecs",
+                "while IFS= read -r n; do " +
+                    // The repositories nested inside this one, relative to it, are added on their own turn.
+                    "{ printf '%s\\n' ':/'; " +
+                    "awk -v p=\"${'$'}n/\" 'index(${'$'}0, p) == 1 { print substr(${'$'}0, length(p) + 1) }' $list | " +
+                    "while IFS= read -r m; do printf ':(top,exclude)%s/\\n' \"${'$'}m\"; done; } > $pathspecs; " +
+                    "idx=${WorkspaceShell.quote("$dir/andcode-nested-index-")}$(printf '%s' \"${'$'}n\" | cksum | cut -d' ' -f1); " +
+                    "t=$(GIT_INDEX_FILE=\"${'$'}idx\" $nestedGit --work-tree=$ws/\"${'$'}n\" add -A --pathspec-from-file=$pathspecs && " +
+                    "GIT_INDEX_FILE=\"${'$'}idx\" $nestedGit --work-tree=$ws/\"${'$'}n\" write-tree); " +
+                    // Whatever the folder held before (a link, or the files of an earlier snapshot) goes first.
+                    "$git ls-files -z -- \"${'$'}n\" | $git update-index -z --force-remove --stdin; " +
+                    "$git read-tree --prefix=\"${'$'}n/\" \"${'$'}t\"; " +
+                    "done < $list",
+            )
         }
 
         /**

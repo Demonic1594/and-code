@@ -145,6 +145,116 @@ class ShadowSnapshotsTest {
             assertEquals("NEW=2\n", aside.readText())
         }
 
+    private fun gitIn(
+        dir: File,
+        vararg args: String,
+    ) {
+        val process =
+            ProcessBuilder(listOf("git", "-c", "user.name=t", "-c", "user.email=t@t") + args)
+                .directory(dir)
+                .redirectErrorStream(true)
+                .start()
+        process.inputStream.readBytes()
+        assertEquals("git ${args.joinToString(" ")}", 0, process.waitFor())
+    }
+
+    /** An agent ran `git init` (or a scaffolder) in a subfolder and has not committed yet. */
+    @Test
+    fun `a nested repository with no commit yet does not stop the snapshot`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            File(workspace, "top.txt").writeText("top\n")
+            val app = File(workspace, "app").apply { mkdirs() }
+            gitIn(app, "init", "-q")
+            File(app, "main.js").writeText("one\n")
+
+            val before = assertNotNullAnd(snapshots.snapshot(workspace.path))
+            File(app, "main.js").writeText("two\n")
+            val after = assertNotNullAnd(snapshots.snapshot(workspace.path))
+
+            val changes = requireNotNull(snapshots.diff(workspace.path, before, after))
+            assertEquals(listOf("app/main.js"), changes.map { it.displayPath })
+            assertNotNull("restored", snapshots.restore(workspace.path, before))
+            assertEquals("one\n", File(app, "main.js").readText())
+            assertTrue("the nested repository is left in place", File(app, ".git").isDirectory)
+        }
+
+    /** A workspace opened on a folder that holds several clones. */
+    @Test
+    fun `files inside a nested repository with commits are diffed and restored like any other`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            val lib = File(workspace, "libs/core").apply { mkdirs() }
+            gitIn(lib, "init", "-q")
+            File(lib, "core.kt").writeText("val x = 1\n")
+            File(lib, ".gitignore").writeText("secret.env\n")
+            gitIn(lib, "add", ".")
+            gitIn(lib, "commit", "-qm", "init")
+            val nestedHead = File(lib, ".git/HEAD").readText()
+
+            val before = assertNotNullAnd(snapshots.snapshot(workspace.path))
+            File(lib, "core.kt").writeText("val x = 2\n")
+            File(lib, "added.kt").writeText("new\n")
+            File(lib, "secret.env").writeText("token\n")
+            val after = assertNotNullAnd(snapshots.snapshot(workspace.path))
+
+            val changes = requireNotNull(snapshots.diff(workspace.path, before, after))
+            assertEquals(setOf("libs/core/core.kt", "libs/core/added.kt"), changes.map { it.displayPath }.toSet())
+
+            assertNotNull("restored", snapshots.restore(workspace.path, before))
+            assertEquals("val x = 1\n", File(lib, "core.kt").readText())
+            assertFalse(File(lib, "added.kt").exists())
+            assertEquals("the nested repository's own ignored file stays", "token\n", File(lib, "secret.env").readText())
+            assertEquals("its git data is never touched", nestedHead, File(lib, ".git/HEAD").readText())
+        }
+
+    @Test
+    fun `a nested repository the workspace ignores stays out of snapshots`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            File(workspace, ".gitignore").writeText("vendor/\n")
+            val vendor = File(workspace, "vendor/thing").apply { mkdirs() }
+            gitIn(vendor, "init", "-q")
+            File(vendor, "big.c").writeText("int x;\n")
+            File(workspace, "top.txt").writeText("top\n")
+
+            val before = assertNotNullAnd(snapshots.snapshot(workspace.path))
+            File(vendor, "big.c").writeText("int y;\n")
+            File(workspace, "top.txt").writeText("changed\n")
+            val after = assertNotNullAnd(snapshots.snapshot(workspace.path))
+
+            val changes = requireNotNull(snapshots.diff(workspace.path, before, after))
+            assertEquals(listOf("top.txt"), changes.map { it.displayPath })
+        }
+
+    @Test
+    fun `a repository inside a nested repository, with a space in its name, is snapshotted too`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            val outer = File(workspace, "outer repo").apply { mkdirs() }
+            gitIn(outer, "init", "-q")
+            File(outer, "o.txt").writeText("o1\n")
+            val inner = File(outer, "packages/inner one").apply { mkdirs() }
+            gitIn(inner, "init", "-q")
+            File(inner, "i.txt").writeText("i1\n")
+
+            val before = assertNotNullAnd(snapshots.snapshot(workspace.path))
+            File(outer, "o.txt").writeText("o2\n")
+            File(inner, "i.txt").writeText("i2\n")
+            val after = assertNotNullAnd(snapshots.snapshot(workspace.path))
+
+            val changes = requireNotNull(snapshots.diff(workspace.path, before, after))
+            assertEquals(setOf("outer repo/o.txt", "outer repo/packages/inner one/i.txt"), changes.map { it.displayPath }.toSet())
+            assertNotNull("restored", snapshots.restore(workspace.path, before))
+            assertEquals("o1\n", File(outer, "o.txt").readText())
+            assertEquals("i1\n", File(inner, "i.txt").readText())
+        }
+
+    private fun assertNotNullAnd(value: String?): String {
+        assertNotNull("the snapshot was taken", value)
+        return value!!
+    }
+
     @Test
     fun `excluded folders never enter a snapshot`() =
         runBlocking {
