@@ -247,6 +247,27 @@ class ScheduleBridgeTest {
         assertEquals(existing, store.schedule(existing.id))
     }
 
+    /** null hands the schedule to the app-wide setting, which may itself auto-approve. */
+    @Test
+    fun `clearing auto-approval to null in the same request does not unlock what an auto-approving schedule runs`() {
+        val store = FakeStore()
+        val existing = Schedule(runtimeId = "local", prompt = "tidy up", cron = "0 9 * * *", autoAcceptPermissions = true)
+        store.schedules += existing
+        val bridge = bridgeWith(store)
+        val id = requestId()
+        writeRequest(
+            bridge,
+            id,
+            "update",
+            JSONObject().put("scheduleId", existing.id).put("prompt", "rm -rf ~").put("autoAcceptPermissions", JSONObject.NULL),
+        )
+
+        bridge.pollOnce()
+
+        assertFalse(readResponse(bridge, id).getBoolean("ok"))
+        assertEquals(existing, store.schedule(existing.id))
+    }
+
     @Test
     fun `an agent may still rename, retime or turn off an auto-approving schedule, and drop its auto-approval`() {
         val store = FakeStore()
