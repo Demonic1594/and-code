@@ -466,7 +466,7 @@ def ref_expression(ref: object, action: str) -> str:
 
 
 def tool_show(args: dict) -> str:
-    url = args["url"]
+    url = web_url(args.get("url"))
     COMMAND_FILE.parent.mkdir(parents=True, exist_ok=True)
     COMMAND_FILE.write_text(json.dumps({"action": "open", "url": url}), encoding="utf-8")
     return f"requested the app to open {url}"
@@ -482,7 +482,17 @@ def tool_status(args: dict) -> str:
     return f"connected: {name} / page: {target.get('url', '')} ({target.get('title', '')})"
 
 
+def web_url(url: object) -> str:
+    """[url] if it is an http(s) address; the Guest Browser only shows web pages."""
+    text = str(url or "").strip()
+    scheme = text.split(":", 1)[0].lower() if ":" in text else ""
+    if scheme not in ("http", "https"):
+        raise ValueError("only http:// and https:// addresses can be opened in the Guest Browser")
+    return text
+
+
 def tool_navigate(args: dict) -> str:
+    web_url(args.get("url"))
     page = _session().open_page_session()
     try:
         page.call("Page.navigate", url=args["url"])

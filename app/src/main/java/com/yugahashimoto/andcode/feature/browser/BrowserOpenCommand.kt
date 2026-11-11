@@ -7,12 +7,20 @@ import org.json.JSONObject
 import java.io.File
 import java.net.URI
 
-/** Resolves the active guest workspace to the same host folder its PRoot process sees. */
+/**
+ * The URL of the browser command waiting in the active guest workspace, consumed, or null.
+ *
+ * Resolves the workspace to the same host folder its PRoot process sees. A command written before
+ * [notBefore] (epoch millis, when the app began watching this workspace) is deleted unopened: the
+ * agent writes its command while the workspace is open, whereas one that came with a cloned or
+ * checked-out repository was there already, and would open whatever page that repository chose.
+ */
 internal fun consumeBrowserOpenCommand(
     workspacePath: String?,
     agent: LocalAgent?,
     runtimeDirectory: File,
     deviceStorage: DeviceStorage.Mounts,
+    notBefore: Long = 0L,
 ): String? {
     // A remote workspace can share a path with a local one, but its commands are not on this phone.
     if (workspacePath == null || agent == null) return null
@@ -25,7 +33,9 @@ internal fun consumeBrowserOpenCommand(
             WorkspaceFolders.hostDirectory(rootfs, File(runtimeDirectory, "workspace"), workspacePath, deviceStorage)
                 ?: return null
         val commandFile = File(workspace, ".and-code/browser-command.json")
-        if (!commandFile.isFile) return null
+        val stale = commandFile.isFile && commandFile.lastModified() < notBefore
+        if (stale) commandFile.delete()
+        if (stale || !commandFile.isFile) return null
         val command = JSONObject(commandFile.readText())
         val url = command.optString("url")
         val uri = URI(url)

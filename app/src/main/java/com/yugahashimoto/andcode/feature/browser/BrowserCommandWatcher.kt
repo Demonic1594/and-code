@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 private const val POLL_INTERVAL_MILLIS = 1000L
+private const val MTIME_SLACK_MILLIS = 2000L
 
 /**
  * Watches the active workspace for a browser command written by the in-guest agent
@@ -39,11 +40,14 @@ fun GuestBrowserCommandWatcher(
     val openUrl by rememberUpdatedState(onOpenUrl)
     LaunchedEffect(workspacePath, agent, runtimeDirectory, foreground) {
         if (workspacePath == null || agent == null) return@LaunchedEffect
+        // A command older than this was not written by the agent working here (see consumeBrowserOpenCommand);
+        // the slack covers file systems that keep modification times to the second or two.
+        val watchingSince = System.currentTimeMillis() - MTIME_SLACK_MILLIS
         watchBrowserCommands(
             active = foreground,
             poll = {
                 withContext(Dispatchers.IO) {
-                    consumeBrowserOpenCommand(workspacePath, agent, runtimeDirectory, DeviceStorage.mounts())
+                    consumeBrowserOpenCommand(workspacePath, agent, runtimeDirectory, DeviceStorage.mounts(), watchingSince)
                 }
             },
             onOpenUrl = { url -> openUrl(url) },

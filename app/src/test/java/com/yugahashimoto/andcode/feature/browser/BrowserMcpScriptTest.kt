@@ -352,6 +352,28 @@ class BrowserMcpScriptTest {
     }
 
     @Test
+    fun `only web addresses are opened or navigated to`() {
+        val answer =
+            run(
+                """
+                def fail():
+                    raise AssertionError("no page should be opened")
+                m._session = fail
+                for tool in (m.tool_navigate, m.tool_show):
+                    for url in ("file:///data/data/x", "content://com.yugahashimoto.andcode.fileprovider/a", "javascript:alert(1)", ""):
+                        try:
+                            tool({"url": url})
+                            print("opened " + url)
+                        except ValueError as e:
+                            print("refused")
+                print(m.web_url(" HTTPS://example.com/ "))
+                """.trimIndent(),
+            )
+
+        assertEquals(List(8) { "refused" }.joinToString("\n") + "\nHTTPS://example.com/", answer)
+    }
+
+    @Test
     fun `a click with neither a handle nor both coordinates says what to pass`() {
         val answer =
             run(

@@ -92,6 +92,28 @@ class BrowserCommandWatcherTest {
         assertTrue(file.exists())
     }
 
+    /** A cloned repository can carry `.and-code/browser-command.json`; only one the agent writes counts. */
+    @Test
+    fun `a command already there when the watching started is dropped without opening`() {
+        val file = command("environment/rootfs/root/project", url = "https://phishing.example/")
+        val watchingSince = System.currentTimeMillis()
+        file.setLastModified(watchingSince - 60_000)
+
+        assertNull(consumeBrowserOpenCommand("/root/project", LocalAgent.CODEX, runtimeDirectory, DeviceStorage.Mounts.None, watchingSince))
+        assertFalse("a stale command is removed, so it cannot fire later", file.exists())
+    }
+
+    @Test
+    fun `a command written after the watching started is opened`() {
+        val watchingSince = System.currentTimeMillis() - 1_000
+        command("environment/rootfs/root/project")
+
+        assertEquals(
+            "https://www.google.com/",
+            consumeBrowserOpenCommand("/root/project", LocalAgent.CODEX, runtimeDirectory, DeviceStorage.Mounts.None, watchingSince),
+        )
+    }
+
     @Test
     fun `missing command does not open the browser`() {
         assertNull(consume("/workspace/project"))
