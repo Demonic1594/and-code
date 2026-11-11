@@ -174,6 +174,7 @@ class ScheduleBridge(
                 ok("runs", runsJson(store.runs(scheduleId)))
             }
             "create" -> {
+                refuseAutoAcceptGrant(args)
                 val built = buildScheduleFromArgs(args)
                 store.upsert(built)
                 ok("schedule", scheduleJson(store.schedule(built.id) ?: built))
@@ -181,7 +182,14 @@ class ScheduleBridge(
             "update" -> {
                 val id = requiredString(args, "scheduleId")
                 val existing = store.schedule(id) ?: throw IllegalArgumentException("schedule not found: $id")
+                refuseAutoAcceptGrant(args)
                 val updated = applyScheduleArgs(existing, args)
+                if (existing.autoAcceptPermissions == true && updated.autoAcceptPermissions == true && updated.changesWhatRuns(existing)) {
+                    throw IllegalArgumentException(
+                        "this schedule approves its own tool calls, so only the user can change what it runs; " +
+                            "set autoAcceptPermissions to false first, or ask the user to edit it in the Schedules screen",
+                    )
+                }
                 store.upsert(updated)
                 ok("schedule", scheduleJson(store.schedule(id) ?: updated))
             }
@@ -208,6 +216,25 @@ class ScheduleBridge(
             else -> throw IllegalArgumentException("unknown operation: $op")
         }
     }
+
+    /**
+     * Requests here come from an agent, so an agent could otherwise give its future runs every approval
+     * without asking: only the user grants that, in the Schedules screen. Turning it off (false) or
+     * following the app's setting (null) is always allowed.
+     */
+    private fun refuseAutoAcceptGrant(args: JSONObject) {
+        if (optionalBoolean(args, "autoAcceptPermissions") == true) {
+            throw IllegalArgumentException(
+                "autoAcceptPermissions can only be turned on by the user in the Schedules screen; " +
+                    "leave it out or set it to false",
+            )
+        }
+    }
+
+    /** What a run does, as opposed to its name, timing or whether it is on. */
+    private fun Schedule.changesWhatRuns(before: Schedule): Boolean =
+        runtimeId != before.runtimeId || workspacePath != before.workspacePath || providerId != before.providerId ||
+            modelId != before.modelId || agentId != before.agentId || prompt != before.prompt
 
     private fun buildScheduleFromArgs(args: JSONObject): Schedule {
         val (oneTimeAt, cron) = resolveTrigger(args)

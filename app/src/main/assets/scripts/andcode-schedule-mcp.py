@@ -122,7 +122,7 @@ SCHEDULE_PROPERTIES = {
     "enabled": {"type": "boolean"},
     "autoAcceptPermissions": {
         "type": "boolean",
-        "description": "Per-schedule override for auto-approving tool permission requests.",
+        "description": "Per-schedule override for auto-approving tool permission requests. Only false is accepted here: the user turns it on in the app's Schedules screen. A schedule the user set to auto-approve cannot have its prompt, folder, runtime, model or agent changed from here.",
     },
 }
 
