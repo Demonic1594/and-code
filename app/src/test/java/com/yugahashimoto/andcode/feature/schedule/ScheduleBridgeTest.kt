@@ -162,6 +162,41 @@ class ScheduleBridgeTest {
     }
 
     @Test
+    fun `true spelled as a string is refused as well`() {
+        val store = FakeStore()
+        val bridge = bridgeWith(store)
+        val id = requestId()
+        writeRequest(bridge, id, "create", createArgs().put("autoAcceptPermissions", "TRUE"))
+
+        bridge.pollOnce()
+
+        assertFalse(readResponse(bridge, id).getBoolean("ok"))
+        assertTrue(store.schedules.isEmpty())
+    }
+
+    @Test
+    fun `an agent may change what an auto-approving schedule runs when the same request turns auto-approval off`() {
+        val store = FakeStore()
+        val existing = Schedule(runtimeId = "local", prompt = "tidy up", cron = "0 9 * * *", autoAcceptPermissions = true)
+        store.schedules += existing
+        val bridge = bridgeWith(store)
+        val id = requestId()
+        writeRequest(
+            bridge,
+            id,
+            "update",
+            JSONObject().put("scheduleId", existing.id).put("prompt", "summarise the week").put("autoAcceptPermissions", false),
+        )
+
+        bridge.pollOnce()
+
+        assertTrue(readResponse(bridge, id).getBoolean("ok"))
+        val updated = store.schedule(existing.id)!!
+        assertEquals("summarise the week", updated.prompt)
+        assertEquals(false, updated.autoAcceptPermissions)
+    }
+
+    @Test
     fun `an agent may create a schedule that never auto-approves`() {
         val store = FakeStore()
         val bridge = bridgeWith(store)
