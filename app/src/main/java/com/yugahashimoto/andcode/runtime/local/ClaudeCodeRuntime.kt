@@ -937,12 +937,44 @@ class ClaudeCodeRuntime(
      * falls back to the prompt itself.
      */
     fun summarizeTitle(prompt: String): String? {
-        val runtime = installedRuntimeProvider() ?: return null
-        if (!ClaudeCodeInstaller.isInstalledIn(runtime.rootfs)) return null
         val instruction =
             "Reply with a title of at most 6 words for a chat that starts with the following " +
                 "message. Reply with the title only, no quotes, no punctuation at the end, in the " +
                 "same language as the message.\n\n" + prompt.take(TITLE_PROMPT_LIMIT)
+        return askOnce(TITLE_SYSTEM_PROMPT, instruction, TITLE_TIMEOUT_SECONDS)
+            ?.lineSequence()
+            ?.map { it.trim().trim('"') }
+            ?.firstOrNull { it.isNotEmpty() }
+            ?.takeIf { it.length <= TITLE_MAX_LENGTH }
+    }
+
+    /** Whether Claude Code is installed, so [writeCommitMessage] can be offered. */
+    fun canAskOnce(): Boolean = installedRuntimeProvider()?.let { ClaudeCodeInstaller.isInstalledIn(it.rootfs) } == true
+
+    /**
+     * Asks Claude for a commit message, the same way as [summarizeTitle]: one call on the fastest
+     * model, with no tools and no MCP servers, so the diff in [instruction] can only be read, never
+     * acted on. The raw reply, or null on any failure.
+     */
+    fun writeCommitMessage(
+        systemPrompt: String,
+        instruction: String,
+    ): String? = askOnce(systemPrompt, instruction, COMMIT_MESSAGE_TIMEOUT_SECONDS)
+
+    /**
+     * One `claude --print` call in the sandbox on the fastest model, with its system prompt replaced
+     * and no tools or MCP servers: none of Claude Code's agent setup is needed, which cuts the call
+     * from the full agent prompt plus every MCP tool schema to a few hundred tokens. Arguments are
+     * passed directly rather than through a shell, so the text needs no quoting. Returns the output
+     * of a successful call, or null.
+     */
+    private fun askOnce(
+        systemPrompt: String,
+        instruction: String,
+        timeoutSeconds: Long,
+    ): String? {
+        val runtime = installedRuntimeProvider() ?: return null
+        if (!ClaudeCodeInstaller.isInstalledIn(runtime.rootfs)) return null
         val process =
             runCatching {
                 ProcessBuilder(
@@ -950,9 +982,6 @@ class ClaudeCodeRuntime(
                         runtime = runtime,
                         workspaceHostDir = File(runtimeDirectory, "workspace").apply { mkdirs() },
                         workingDirectory = "/workspace",
-                        // A one-line title needs none of Claude Code's agent setup. Replacing its
-                        // system prompt and skipping the MCP servers cuts this call from the full
-                        // agent prompt plus every MCP tool schema to a few hundred tokens.
                         arguments =
                             listOf(
                                 "--print",
@@ -962,7 +991,7 @@ class ClaudeCodeRuntime(
                                 "",
                                 "--strict-mcp-config",
                                 "--system-prompt",
-                                TITLE_SYSTEM_PROMPT,
+                                systemPrompt,
                                 instruction,
                             ),
                         pty = false,
@@ -982,16 +1011,11 @@ class ClaudeCodeRuntime(
                     .start()
             }.getOrNull() ?: return null
         val output = runCatching { process.inputStream.bufferedReader().readText() }.getOrNull()
-        if (!process.waitFor(TITLE_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)) {
+        if (!process.waitFor(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)) {
             endProcessTree(process)
             return null
         }
-        if (process.exitValue() != 0) return null
-        return output
-            ?.lineSequence()
-            ?.map { it.trim().trim('"') }
-            ?.firstOrNull { it.isNotEmpty() }
-            ?.takeIf { it.length <= TITLE_MAX_LENGTH }
+        return output.takeIf { process.exitValue() == 0 }
     }
 
     /**
@@ -1079,6 +1103,9 @@ class ClaudeCodeRuntime(
         private const val CONTROL_TIMEOUT_MILLIS = 10_000L
         const val TITLE_MAX_LENGTH = 60
         const val TITLE_TIMEOUT_SECONDS = 45L
+
+        /** A diff takes longer to read than a first message, on a phone's network. */
+        const val COMMIT_MESSAGE_TIMEOUT_SECONDS = 90L
         const val WORKSPACE_COMMAND_TIMEOUT_SECONDS = 60L
         const val INTERRUPTED_TOOL_ERROR = "Claude Code session ended before the tool result was received"
 

@@ -184,6 +184,93 @@ class GitViewModelTest {
         }
 
     @Test
+    fun `a written message describes the staged change and lands in the box`() =
+        runTest(dispatcher) {
+            File(repo, "a.txt").writeText("two\n")
+            File(repo, "new.txt").writeText("n\n")
+            sh("git add a.txt")
+            var asked: CommitMessageRequest? = null
+            val viewModel =
+                GitViewModel(client, repo.absolutePath) { request ->
+                    asked = request
+                    CommitMessageResult.Written("Change a")
+                }
+            advanceUntilIdle()
+
+            viewModel.writeCommitMessage()
+            advanceUntilIdle()
+
+            assertEquals("Change a", viewModel.state.value.commitMessage)
+            assertEquals(false, viewModel.state.value.writingMessage)
+            val request = requireNotNull(asked)
+            assertTrue(request.diff.contains("+two"))
+            assertTrue("staged only", request.untracked.isEmpty())
+            assertEquals(listOf("first"), request.recentSubjects.filter(String::isNotBlank))
+        }
+
+    @Test
+    fun `with nothing staged the message covers every change and names new files`() =
+        runTest(dispatcher) {
+            File(repo, "a.txt").writeText("two\n")
+            File(repo, "new.txt").writeText("n\n")
+            var asked: CommitMessageRequest? = null
+            val viewModel =
+                GitViewModel(client, repo.absolutePath) { request ->
+                    asked = request
+                    CommitMessageResult.Written("Change things")
+                }
+            advanceUntilIdle()
+
+            viewModel.writeCommitMessage()
+            advanceUntilIdle()
+
+            assertTrue(requireNotNull(asked).diff.contains("+two"))
+            assertEquals(listOf("new.txt"), asked!!.untracked)
+        }
+
+    @Test
+    fun `a message typed while one is being written is kept`() =
+        runTest(dispatcher) {
+            File(repo, "a.txt").writeText("two\n")
+            val viewModel = GitViewModel(client, repo.absolutePath) { CommitMessageResult.Written("Written") }
+            advanceUntilIdle()
+
+            viewModel.writeCommitMessage()
+            viewModel.setCommitMessage("typed meanwhile")
+            advanceUntilIdle()
+
+            assertEquals("typed meanwhile", viewModel.state.value.commitMessage)
+        }
+
+    @Test
+    fun `a writer that is missing or fails says so, and a clean tree asks nothing`() =
+        runTest(dispatcher) {
+            var calls = 0
+            val clean =
+                GitViewModel(client, repo.absolutePath) {
+                    calls++
+                    CommitMessageResult.Failed
+                }
+            advanceUntilIdle()
+            clean.writeCommitMessage()
+            advanceUntilIdle()
+            assertEquals(0, calls)
+
+            File(repo, "a.txt").writeText("two\n")
+            val unavailable = GitViewModel(client, repo.absolutePath) { CommitMessageResult.Unavailable }
+            val failed = GitViewModel(client, repo.absolutePath) { CommitMessageResult.Failed }
+            advanceUntilIdle()
+            unavailable.writeCommitMessage()
+            failed.writeCommitMessage()
+            advanceUntilIdle()
+
+            assertEquals(GitViewModel.ERROR_WRITER_UNAVAILABLE, unavailable.state.value.error)
+            assertEquals(GitViewModel.ERROR_WRITER_FAILED, failed.state.value.error)
+            assertEquals("", failed.state.value.commitMessage)
+            assertEquals(false, GitViewModel(client, repo.absolutePath).state.value.canWriteMessage)
+        }
+
+    @Test
     fun `loading more history twice does not repeat a page`() =
         runTest(dispatcher) {
             repeat(GitClient.LOG_PAGE + 5) { sh("git commit -q --allow-empty -m c$it") }

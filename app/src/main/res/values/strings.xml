@@ -1441,6 +1441,9 @@
     <string name="git_discard_body">The uncommitted changes to %1$s will be lost. A new file will be deleted.</string>
     <string name="git_done_discard">Changes discarded</string>
     <string name="git_invalid_branch">Branch names cannot start with -</string>
+    <string name="git_write_message">Write the message with AI</string>
+    <string name="git_write_message_unavailable">Install Claude Code in AndCode to have it write commit messages.</string>
+    <string name="git_write_message_failed">Claude Code could not write a message. Check that it is signed in, or write the message yourself.</string>
     <string name="git_commit_suggest_one">Update %1$s</string>
     <string name="git_commit_suggest_two">Update %1$s and %2$s</string>
     <plurals name="git_commit_suggest_many">

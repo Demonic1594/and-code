@@ -1430,6 +1430,9 @@
     <string name="git_discard_body">Les modifications non committées de %1$s seront perdues. Un nouveau fichier sera supprimé.</string>
     <string name="git_done_discard">Modifications annulées</string>
     <string name="git_invalid_branch">Un nom de branche ne peut pas commencer par -</string>
+    <string name="git_write_message">Rédiger le message avec l’IA</string>
+    <string name="git_write_message_unavailable">Installez Claude Code dans AndCode pour qu’il rédige les messages de commit.</string>
+    <string name="git_write_message_failed">Claude Code n’a pas pu rédiger le message. Vérifiez qu’il est connecté, ou rédigez-le vous-même.</string>
     <string name="git_commit_suggest_one">Mettre à jour %1$s</string>
     <string name="git_commit_suggest_two">Mettre à jour %1$s et %2$s</string>
     <plurals name="git_commit_suggest_many">

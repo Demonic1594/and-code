@@ -1449,6 +1449,9 @@
     <string name="git_discard_body">Незакоммиченные изменения в %1$s будут потеряны. Новый файл будет удалён.</string>
     <string name="git_done_discard">Изменения отменены</string>
     <string name="git_invalid_branch">Имя ветки не может начинаться с -</string>
+    <string name="git_write_message">Написать сообщение с помощью ИИ</string>
+    <string name="git_write_message_unavailable">Установите Claude Code в AndCode, чтобы он писал сообщения коммитов.</string>
+    <string name="git_write_message_failed">Claude Code не смог написать сообщение. Проверьте, выполнен ли вход, или напишите сообщение сами.</string>
     <string name="git_commit_suggest_one">Обновить %1$s</string>
     <string name="git_commit_suggest_two">Обновить %1$s и %2$s</string>
     <plurals name="git_commit_suggest_many">

@@ -43,6 +43,10 @@ data class GitUiState(
     /** The commit being written; kept here so opening a diff or switching tabs does not lose it. */
     val commitMessage: String = "",
     val amend: Boolean = false,
+    /** Whether this device has an agent that can write a commit message; the screen shows the button only then. */
+    val canWriteMessage: Boolean = false,
+    /** A commit message is being written from the changes. */
+    val writingMessage: Boolean = false,
 )
 
 /**
@@ -53,8 +57,9 @@ data class GitUiState(
 class GitViewModel(
     private val client: GitClient,
     directory: String,
+    private val messageWriter: CommitMessageWriter? = null,
 ) : ViewModel() {
-    private val mutableState = MutableStateFlow(GitUiState(directory = directory))
+    private val mutableState = MutableStateFlow(GitUiState(directory = directory, canWriteMessage = messageWriter != null))
     val state: StateFlow<GitUiState> = mutableState.asStateFlow()
 
     private val directory get() = mutableState.value.directory
@@ -141,6 +146,47 @@ class GitViewModel(
             val message = client.lastCommitMessage(directory).getOrDefault("").trim()
             mutableState.update {
                 if (asked != request || !it.amend || it.commitMessage.isNotBlank()) it else it.copy(commitMessage = message)
+            }
+        }
+    }
+
+    /**
+     * Asks [messageWriter] for a message describing what Commit would commit (the staged changes, or
+     * every change when nothing is staged). It fills the box only if the user has not typed in it
+     * meanwhile; the message is a suggestion to edit, never committed on its own.
+     */
+    fun writeCommitMessage() {
+        val writer = messageWriter ?: return
+        val current = mutableState.value
+        if (current.writingMessage || current.loading || current.running != null) return
+        val typed = current.commitMessage
+        mutableState.update { it.copy(writingMessage = true, error = null, done = null) }
+        viewModelScope.launch {
+            val result =
+                try {
+                    val status = client.status(directory).getOrThrow()
+                    if (status.changes.isEmpty()) {
+                        null
+                    } else {
+                        writer.write(client.commitMessageRequest(directory, status).getOrThrow())
+                    }
+                } catch (cancel: CancellationException) {
+                    throw cancel
+                } catch (error: Exception) {
+                    CommitMessageResult.Failed
+                }
+            mutableState.update {
+                val unchanged = it.commitMessage == typed
+                when (result) {
+                    null -> it.copy(writingMessage = false)
+                    is CommitMessageResult.Written ->
+                        it.copy(
+                            writingMessage = false,
+                            commitMessage = if (unchanged) result.message else it.commitMessage,
+                        )
+                    CommitMessageResult.Unavailable -> it.copy(writingMessage = false, error = ERROR_WRITER_UNAVAILABLE)
+                    CommitMessageResult.Failed -> it.copy(writingMessage = false, error = ERROR_WRITER_FAILED)
+                }
             }
         }
     }
@@ -295,5 +341,9 @@ class GitViewModel(
     companion object {
         /** Marker the screen swaps for its localized "invalid name" message. */
         const val ERROR_INVALID_REF = "\u0000invalid-ref"
+
+        /** Markers for the localized "no agent can write it" and "it could not be written" messages. */
+        const val ERROR_WRITER_UNAVAILABLE = "\u0000writer-unavailable"
+        const val ERROR_WRITER_FAILED = "\u0000writer-failed"
     }
 }

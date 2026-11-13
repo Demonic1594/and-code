@@ -1412,6 +1412,9 @@
     <string name="git_discard_body">%1$s への未コミットの変更は失われます。新規ファイルの場合は削除されます。</string>
     <string name="git_done_discard">変更を破棄しました</string>
     <string name="git_invalid_branch">ブランチ名は「-」で始められません</string>
+    <string name="git_write_message">AIでメッセージを書く</string>
+    <string name="git_write_message_unavailable">コミットメッセージを書いてもらうには、AndCode で Claude Code をインストールしてください。</string>
+    <string name="git_write_message_failed">Claude Code がメッセージを書けませんでした。サインイン済みか確認するか、メッセージを自分で書いてください。</string>
     <string name="git_commit_suggest_one">%1$s を更新</string>
     <string name="git_commit_suggest_two">%1$s と %2$s を更新</string>
     <plurals name="git_commit_suggest_many">

@@ -1392,6 +1392,9 @@
     <string name="git_discard_body">%1$s 中未提交的更改将丢失。如果是新文件，将被删除。</string>
     <string name="git_done_discard">已放弃更改</string>
     <string name="git_invalid_branch">分支名称不能以 - 开头</string>
+    <string name="git_write_message">用 AI 撰写提交信息</string>
+    <string name="git_write_message_unavailable">在 AndCode 中安装 Claude Code 后，即可由它撰写提交信息。</string>
+    <string name="git_write_message_failed">Claude Code 未能撰写提交信息。请确认已登录，或自行填写。</string>
     <string name="git_commit_suggest_one">更新 %1$s</string>
     <string name="git_commit_suggest_two">更新 %1$s 和 %2$s</string>
     <plurals name="git_commit_suggest_many">

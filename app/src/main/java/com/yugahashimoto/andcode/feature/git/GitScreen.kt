@@ -37,11 +37,13 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.AccountTree
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -102,6 +104,7 @@ class GitScreenActions(
     val onUnstageAll: () -> Unit = {},
     val onDiscard: (GitFileChange) -> Unit = {},
     val onCommitMessageChange: (String) -> Unit = {},
+    val onWriteCommitMessage: () -> Unit = {},
     val onAmendChange: (Boolean) -> Unit = {},
     val onCommit: () -> Unit = {},
     val onFetch: () -> Unit = {},
@@ -344,6 +347,8 @@ private fun ResultBanner(
     val message =
         when {
             state.error == GitViewModel.ERROR_INVALID_REF -> stringResource(R.string.git_invalid_branch)
+            state.error == GitViewModel.ERROR_WRITER_UNAVAILABLE -> stringResource(R.string.git_write_message_unavailable)
+            state.error == GitViewModel.ERROR_WRITER_FAILED -> stringResource(R.string.git_write_message_failed)
             state.error != null -> state.error
             else ->
                 when (state.done) {
@@ -395,6 +400,23 @@ private fun ChangesTab(
                     value = message,
                     onValueChange = actions.onCommitMessageChange,
                     placeholder = { Text(stringResource(R.string.git_commit_message_label)) },
+                    trailingIcon =
+                        if (state.canWriteMessage) {
+                            {
+                                if (state.writingMessage) {
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                } else {
+                                    IconButton(
+                                        onClick = actions.onWriteCommitMessage,
+                                        enabled = !busy && !state.loading && status.changes.isNotEmpty(),
+                                    ) {
+                                        Icon(Icons.Outlined.AutoAwesome, contentDescription = stringResource(R.string.git_write_message))
+                                    }
+                                }
+                            }
+                        } else {
+                            null
+                        },
                     minLines = 2,
                     maxLines = 6,
                     modifier = Modifier.fillMaxWidth(),
