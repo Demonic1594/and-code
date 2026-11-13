@@ -122,7 +122,11 @@ SCHEDULE_PROPERTIES = {
     "enabled": {"type": "boolean"},
     "autoAcceptPermissions": {
         "type": "boolean",
-        "description": "Per-schedule override for auto-approving tool permission requests.",
+        "description": (
+            "Only false is accepted: a schedule never auto-approves tool calls. Only the user can turn "
+            "auto-approval on, in the AndCode app. Changing the prompt, agent, project or model of a "
+            "schedule the user set to auto-approve turns its auto-approval off."
+        ),
     },
 }
 

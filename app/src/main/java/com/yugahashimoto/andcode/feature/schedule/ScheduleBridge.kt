@@ -210,6 +210,7 @@ class ScheduleBridge(
     }
 
     private fun buildScheduleFromArgs(args: JSONObject): Schedule {
+        refuseAutoApproval(args)
         val (oneTimeAt, cron) = resolveTrigger(args)
         return Schedule(
             name = args.optString("name", "").trim(),
@@ -230,6 +231,7 @@ class ScheduleBridge(
         existing: Schedule,
         args: JSONObject,
     ): Schedule {
+        refuseAutoApproval(args)
         var oneTimeAt = existing.oneTimeAt
         var cron = existing.cron
         if (hasValue(args, "cron") && hasValue(args, "oneTimeAt")) {
@@ -245,20 +247,60 @@ class ScheduleBridge(
             cron = null
         }
         if (oneTimeAt == null && cron == null) throw IllegalArgumentException("schedule needs a trigger: oneTimeAt or cron")
-        return existing.copy(
-            name = args.optString("name", existing.name).trim(),
-            runtimeId = if (hasValue(args, "runtimeId")) requiredString(args, "runtimeId") else existing.runtimeId,
-            workspacePath = if (hasValue(args, "workspacePath")) args.optString("workspacePath") else existing.workspacePath,
-            providerId = if (args.has("providerId")) optionalString(args, "providerId") else existing.providerId,
-            modelId = if (args.has("modelId")) optionalString(args, "modelId") else existing.modelId,
-            agentId = if (args.has("agentId")) optionalString(args, "agentId") else existing.agentId,
-            prompt = if (args.has("prompt")) requiredString(args, "prompt") else existing.prompt,
-            oneTimeAt = oneTimeAt,
-            cron = cron,
-            enabled = if (args.has("enabled")) args.getBoolean("enabled") else existing.enabled,
-            autoAcceptPermissions =
-                if (args.has("autoAcceptPermissions")) optionalBoolean(args, "autoAcceptPermissions") else existing.autoAcceptPermissions,
-        )
+        val updated =
+            existing.copy(
+                name = args.optString("name", existing.name).trim(),
+                runtimeId = if (hasValue(args, "runtimeId")) requiredString(args, "runtimeId") else existing.runtimeId,
+                workspacePath = if (hasValue(args, "workspacePath")) args.optString("workspacePath") else existing.workspacePath,
+                providerId = if (args.has("providerId")) optionalString(args, "providerId") else existing.providerId,
+                modelId = if (args.has("modelId")) optionalString(args, "modelId") else existing.modelId,
+                agentId = if (args.has("agentId")) optionalString(args, "agentId") else existing.agentId,
+                prompt = if (args.has("prompt")) requiredString(args, "prompt") else existing.prompt,
+                oneTimeAt = oneTimeAt,
+                cron = cron,
+                enabled = if (args.has("enabled")) args.getBoolean("enabled") else existing.enabled,
+                autoAcceptPermissions =
+                    if (args.has(
+                            "autoAcceptPermissions",
+                        )
+                    ) {
+                        optionalBoolean(args, "autoAcceptPermissions")
+                    } else {
+                        existing.autoAcceptPermissions
+                    },
+            )
+        // Auto-approval the user turned on covers the run they set up. An agent that rewrites what the
+        // schedule runs (its prompt, agent, project or model) would otherwise get its own prompt run
+        // with every tool call approved, so the schedule goes back to the app's default.
+        return if (updated.autoAcceptPermissions == true && changesWhatRuns(existing, updated)) {
+            updated.copy(autoAcceptPermissions = null)
+        } else {
+            updated
+        }
+    }
+
+    private fun changesWhatRuns(
+        before: Schedule,
+        after: Schedule,
+    ): Boolean =
+        before.prompt != after.prompt ||
+            before.runtimeId != after.runtimeId ||
+            before.workspacePath != after.workspacePath ||
+            before.providerId != after.providerId ||
+            before.modelId != after.modelId ||
+            before.agentId != after.agentId
+
+    /**
+     * Requests come from the agent, which must not grant itself unattended runs that approve every
+     * tool call: only the schedules screen turns auto-approval on. Turning it off is allowed.
+     */
+    private fun refuseAutoApproval(args: JSONObject) {
+        if (optionalBoolean(args, "autoAcceptPermissions") == true) {
+            throw IllegalArgumentException(
+                "autoAcceptPermissions can only be turned on by the user in the AndCode app (Schedules); " +
+                    "leave it out or set it to false",
+            )
+        }
     }
 
     /** Resolves the trigger pair; exactly one of oneTimeAt/cron must be present. */
