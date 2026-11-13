@@ -1433,6 +1433,7 @@
     <string name="git_write_message">Escribir el mensaje con IA</string>
     <string name="git_write_message_unavailable">Instala Claude Code en AndCode para que escriba los mensajes del commit.</string>
     <string name="git_write_message_failed">Claude Code no pudo escribir el mensaje. Comprueba que ha iniciado sesión o escríbelo tú.</string>
+    <string name="chat_use_issue">Usar la issue #%1$d: %2$s</string>
     <string name="git_commit_suggest_one">Actualizar %1$s</string>
     <string name="git_commit_suggest_two">Actualizar %1$s y %2$s</string>
     <plurals name="git_commit_suggest_many">

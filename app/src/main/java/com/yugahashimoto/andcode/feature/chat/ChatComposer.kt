@@ -90,8 +90,6 @@ import com.yugahashimoto.andcode.core.api.OpenCodeSkill
 import com.yugahashimoto.andcode.core.api.PromptAttachment
 import com.yugahashimoto.andcode.core.api.selectablePrimaryAgents
 import com.yugahashimoto.andcode.data.settings.SavedPrompt
-import com.yugahashimoto.andcode.feature.workspace.GitHubAutoAttachChips
-import com.yugahashimoto.andcode.feature.workspace.GitHubReference
 import com.yugahashimoto.andcode.runtime.local.AntigravityPermissionMode
 import com.yugahashimoto.andcode.runtime.local.ClaudePermissionMode
 import com.yugahashimoto.andcode.runtime.local.SystemPromptPreset
@@ -153,7 +151,9 @@ internal fun ChatComposer(
     slashSkills: List<OpenCodeSkill>,
     savedPrompts: List<SavedPrompt>,
     onSlashCommandSelect: (SlashSuggestion) -> Unit,
-    githubRefs: List<GitHubReference>,
+    /** Issues linked in the draft, read from GitHub; each is offered as a chip that puts the issue in. */
+    linkedIssues: List<IssueThread>,
+    onUseIssue: (IssueThread) -> Unit,
     pullRequests: List<ChatPullRequest>,
     onOpenUrl: (String) -> Unit,
     onDismissPullRequest: (String) -> Unit,
@@ -255,9 +255,9 @@ internal fun ChatComposer(
             modifier = Modifier.padding(bottom = 6.dp),
         )
 
-        GitHubAutoAttachChips(
-            references = githubRefs,
-            onAttach = {},
+        LinkedIssueChips(
+            issues = linkedIssues,
+            onUse = onUseIssue,
             modifier = Modifier.padding(bottom = Spacing.xs),
         )
 

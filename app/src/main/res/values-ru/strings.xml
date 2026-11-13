@@ -1452,6 +1452,7 @@
     <string name="git_write_message">Написать сообщение с помощью ИИ</string>
     <string name="git_write_message_unavailable">Установите Claude Code в AndCode, чтобы он писал сообщения коммитов.</string>
     <string name="git_write_message_failed">Claude Code не смог написать сообщение. Проверьте, выполнен ли вход, или напишите сообщение сами.</string>
+    <string name="chat_use_issue">Использовать issue #%1$d: %2$s</string>
     <string name="git_commit_suggest_one">Обновить %1$s</string>
     <string name="git_commit_suggest_two">Обновить %1$s и %2$s</string>
     <plurals name="git_commit_suggest_many">

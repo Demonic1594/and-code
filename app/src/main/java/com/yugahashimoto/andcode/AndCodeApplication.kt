@@ -255,6 +255,9 @@ class AndCodeApplication : Application() {
         private set
 
     lateinit var claudeCodeRuntime: ClaudeCodeRuntime
+
+    /** GitHub's REST API with the connected account's token, read per request. */
+    lateinit var githubApi: GitHubApiClient
         private set
 
     lateinit var claudeCodeTarget: ClaudeCodeTarget
@@ -385,9 +388,10 @@ class AndCodeApplication : Application() {
                 service = GitHubStarService(client = httpClient, tokenProvider = { settings.githubToken }),
                 scope = applicationScope,
             )
+        githubApi = GitHubApiClient(token = { settings.githubToken }, client = httpClient)
         pullRequestStatusRepository =
             PullRequestStatusRepository(
-                api = GitHubApiClient(token = { settings.githubToken }, client = httpClient),
+                api = githubApi,
                 scope = applicationScope,
             )
         val runtimeDirectory = File(filesDir, "runtime")

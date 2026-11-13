@@ -272,7 +272,7 @@ Ranked by value to a phone user against the cost of building it. The **Status** 
 | 20 | Spec-driven templates (requirements → design → tasks) | Kiro | Later |
 | 21 | Agent tasks inbox across sessions | GitHub Mobile, Jules | Shipped: Inbox (approvals, running, finished unread, inline reply) |
 | 22 | Preview button for dev servers started by the agent | Replit, Bolt, Lovable | Later |
-| 23 | Issue URL → chat entry point | Copilot, Factory, OpenHands | Later |
+| 23 | Issue URL → chat entry point | Copilot, Factory, OpenHands | Shipped: a pasted issue link offers a chip that puts the issue and its comments in the message |
 
 ## Round 2: how our new features compare
 

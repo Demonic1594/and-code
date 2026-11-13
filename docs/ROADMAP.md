@@ -31,8 +31,7 @@ Update this file in the same PR that starts, finishes or drops an item.
 
 - Codex's usage figure and compact action, read from its app-server (harness plan, item 6).
 - From the landscape doc: saved prompts kept as files in the
-  repository, one worktree per chat, best-of-N attempts, E2E relay pairing, spec-driven templates
-  and an issue-to-chat entry point.
+  repository, one worktree per chat, best-of-N attempts, E2E relay pairing and spec-driven templates.
 - Extend "approve from notification" beyond the cases it covers today.
 - A per-model memory of the thinking level.
 - Device-side test runs for the Git and chat fixes, so they stop depending on a manual check.
