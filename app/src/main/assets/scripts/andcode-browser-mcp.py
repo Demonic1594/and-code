@@ -21,6 +21,8 @@ import os
 import socket
 import struct
 import sys
+import time
+import urllib.parse
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -465,10 +467,26 @@ def ref_expression(ref: object, action: str) -> str:
     ) % (number, action)
 
 
+NOT_WEB_URL = "only http:// and https:// addresses can be opened in the Guest Browser"
+
+
+def is_web_url(url) -> bool:
+    """Whether [url] is an http(s) address with a host: never file:, content:, javascript: or data:."""
+    if not isinstance(url, str):
+        return False
+    parts = urllib.parse.urlsplit(url.strip())
+    return parts.scheme.lower() in ("http", "https") and bool(parts.hostname)
+
+
 def tool_show(args: dict) -> str:
-    url = args["url"]
+    url = args.get("url")
+    if not is_web_url(url):
+        return NOT_WEB_URL
     COMMAND_FILE.parent.mkdir(parents=True, exist_ok=True)
-    COMMAND_FILE.write_text(json.dumps({"action": "open", "url": url}), encoding="utf-8")
+    # The app opens only a command stamped in the last few minutes, so a command file that came with
+    # a cloned repository never opens a page by itself.
+    command = {"action": "open", "url": url, "createdAtMs": int(time.time() * 1000)}
+    COMMAND_FILE.write_text(json.dumps(command), encoding="utf-8")
     return f"requested the app to open {url}"
 
 
@@ -483,6 +501,10 @@ def tool_status(args: dict) -> str:
 
 
 def tool_navigate(args: dict) -> str:
+    # The page runs inside the app: a file: or content: address could show the agent files the app
+    # can read, and a javascript: one would run in whatever page is open.
+    if not is_web_url(args.get("url")):
+        return NOT_WEB_URL
     page = _session().open_page_session()
     try:
         page.call("Page.navigate", url=args["url"])

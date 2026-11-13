@@ -330,6 +330,34 @@ class BrowserMcpScriptTest {
     }
 
     @Test
+    fun `only http and https addresses are opened or navigated to`() {
+        val answer =
+            run(
+                """
+                import os, tempfile
+                os.chdir(tempfile.mkdtemp())
+                def fail():
+                    raise AssertionError("no page should be opened")
+                m._session = fail
+                for url in ["file:///data/data/x", "content://media/1", "javascript:alert(1)", "data:text/html,hi",
+                            "http://", "", None, 5]:
+                    print(m.tool_navigate({"url": url}) == m.NOT_WEB_URL, m.tool_show({"url": url}) == m.NOT_WEB_URL)
+                print(os.path.exists(".and-code/browser-command.json"))
+                print(m.tool_show({"url": "http://127.0.0.1:5173/"}))
+                import json
+                written = json.load(open(".and-code/browser-command.json"))
+                print(written["url"], isinstance(written["createdAtMs"], int))
+                """.trimIndent(),
+            )
+
+        assertEquals(
+            List(8) { "True True" }.joinToString("\n") +
+                "\nFalse\nrequested the app to open http://127.0.0.1:5173/\nhttp://127.0.0.1:5173/ True",
+            answer,
+        )
+    }
+
+    @Test
     fun `clicking a handle that left the page says to read again`() {
         val answer =
             run(

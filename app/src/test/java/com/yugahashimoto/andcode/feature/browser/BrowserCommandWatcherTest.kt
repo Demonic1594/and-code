@@ -105,7 +105,7 @@ class BrowserCommandWatcherTest {
         assertNull(consume("/workspace/project"))
         assertTrue(file.exists())
 
-        file.writeText("{\"action\":\"open\",\"url\":\"http://127.0.0.1:8080/\"}")
+        file.writeText("{\"action\":\"open\",\"url\":\"http://127.0.0.1:8080/\",\"createdAtMs\":$NOW}")
         assertEquals("http://127.0.0.1:8080/", consume("/workspace/project"))
         assertFalse(file.exists())
     }
@@ -172,7 +172,8 @@ class BrowserCommandWatcherTest {
         path: String?,
         agent: LocalAgent? = LocalAgent.CODEX,
         mounts: DeviceStorage.Mounts = DeviceStorage.Mounts.None,
-    ): String? = consumeBrowserOpenCommand(path, agent, runtimeDirectory, mounts)
+        now: Long = NOW,
+    ): String? = consumeBrowserOpenCommand(path, agent, runtimeDirectory, mounts) { now }
 
     private fun command(
         relativeDirectory: String,
@@ -182,9 +183,45 @@ class BrowserCommandWatcherTest {
     private fun writeCommand(
         directory: File,
         url: String = "https://www.google.com/",
+        createdAtMs: Long? = NOW,
     ): File =
         File(directory, ".and-code/browser-command.json").apply {
             parentFile!!.mkdirs()
-            writeText("{\"action\":\"open\",\"url\":\"$url\"}")
+            val stamp = createdAtMs?.let { ",\"createdAtMs\":$it" }.orEmpty()
+            writeText("{\"action\":\"open\",\"url\":\"$url\"$stamp}")
         }
+
+    @Test
+    fun `a command without the time it was written is never opened, and is left in place`() {
+        val file = writeCommand(File(runtimeDirectory, "workspace/project"), createdAtMs = null)
+
+        assertNull(consume("/workspace/project"))
+        assertTrue("a file that came with a cloned repository is not deleted", file.exists())
+    }
+
+    @Test
+    fun `a command older than a few minutes, such as one committed to a repository, is not opened`() {
+        val file = writeCommand(File(runtimeDirectory, "workspace/project"), createdAtMs = NOW - 5 * 60_000L - 1)
+
+        assertNull(consume("/workspace/project"))
+        assertTrue(file.exists())
+    }
+
+    @Test
+    fun `a command stamped in the future is not opened`() {
+        writeCommand(File(runtimeDirectory, "workspace/project"), createdAtMs = NOW + 60_000L + 1)
+
+        assertNull(consume("/workspace/project"))
+    }
+
+    @Test
+    fun `a command written a moment ago is opened`() {
+        writeCommand(File(runtimeDirectory, "workspace/project"), createdAtMs = NOW - 5 * 60_000L)
+
+        assertEquals("https://www.google.com/", consume("/workspace/project"))
+    }
+
+    private companion object {
+        const val NOW = 1_800_000_000_000L
+    }
 }

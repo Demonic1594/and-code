@@ -405,6 +405,10 @@ private fun WebView.configure(
     // Guest pages (dev servers, dashboards, tool UIs) are interactive web apps that need JS.
     settings.javaScriptEnabled = true
     settings.domStorageEnabled = true
+    // Pages are web pages: a file: or content: address (typed, linked from a page, or asked for by an
+    // agent) must not show the app's own files or the phone's media. Off by default only from API 30.
+    settings.allowFileAccess = false
+    settings.allowContentAccess = false
     // Media may play, with sound, without a tap first, also in a cross-origin embed (a YouTube player
     // the page unmutes); the agent drives pages nobody taps. With the default, a muted embed asked to
     // unmute pauses instead.
