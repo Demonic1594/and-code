@@ -75,5 +75,7 @@ class IssuePromptTest {
         assertFalse(prompt.contains("comment 5\n"))
         assertTrue(prompt.contains("comment 25"))
         assertTrue(IssuePrompt.build(thread(body = "")).contains("(no description)"))
+        val partial = IssuePrompt.build(thread(comments = comments).copy(moreComments = true))
+        assertTrue(partial.contains("the last 20 of the first 25; the rest are on GitHub"))
     }
 }

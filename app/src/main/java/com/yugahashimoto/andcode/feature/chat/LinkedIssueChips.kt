@@ -41,7 +41,12 @@ internal fun rememberLinkedIssues(
     LaunchedEffect(links) {
         if (lookup == null || links.all { it in asked }) return@LaunchedEffect
         delay(ISSUE_LOOKUP_DEBOUNCE_MS)
-        links.filter(asked::add).forEach { ref -> lookup(ref)?.let { threads[ref] = it } }
+        // Marked asked only once answered: a lookup cut short by the next edit is asked again.
+        links.filterNot(asked::contains).forEach { ref ->
+            val thread = lookup(ref)
+            asked += ref
+            thread?.let { threads[ref] = it }
+        }
     }
     return links.mapNotNull(threads::get)
 }

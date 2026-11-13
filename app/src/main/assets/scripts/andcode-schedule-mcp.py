@@ -123,9 +123,10 @@ SCHEDULE_PROPERTIES = {
     "autoAcceptPermissions": {
         "type": "boolean",
         "description": (
-            "Only false is accepted: a schedule never auto-approves tool calls. Only the user can turn "
-            "auto-approval on, in the AndCode app. Changing the prompt, agent, project or model of a "
-            "schedule the user set to auto-approve turns its auto-approval off."
+            "Only false (never auto-approve) is accepted; left out, the schedule follows the app's "
+            "auto-approve setting. Only the user can turn auto-approval on for a schedule, in the "
+            "AndCode app. Changing the prompt, agent, project or model of a schedule the user set to "
+            "auto-approve puts it back on the app's setting."
         ),
     },
 }

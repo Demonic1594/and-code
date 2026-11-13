@@ -25,6 +25,8 @@ data class IssueThread(
     val labels: List<String>,
     /** Oldest first. */
     val comments: List<IssueComment>,
+    /** Only the first comments were read (a long thread); the rest are on GitHub. */
+    val moreComments: Boolean = false,
 )
 
 /**
@@ -92,7 +94,13 @@ object IssuePrompt {
             if (shown.isNotEmpty()) {
                 appendLine()
                 val skipped = thread.comments.count { it.body.isNotBlank() } - shown.size
-                appendLine(if (skipped > 0) "## Comments (the latest $MAX_COMMENTS; $skipped earlier ones left out)" else "## Comments")
+                appendLine(
+                    when {
+                        thread.moreComments -> "## Comments (the last $MAX_COMMENTS of the first ${thread.comments.size}; the rest are on GitHub)"
+                        skipped > 0 -> "## Comments (the latest $MAX_COMMENTS; $skipped earlier ones left out)"
+                        else -> "## Comments"
+                    },
+                )
                 shown.forEach { comment ->
                     appendLine()
                     appendLine("${comment.author}:")

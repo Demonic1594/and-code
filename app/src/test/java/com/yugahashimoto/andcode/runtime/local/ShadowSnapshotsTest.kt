@@ -129,6 +129,61 @@ class ShadowSnapshotsTest {
         }
 
     @Test
+    fun `excluded folders at the top of the workspace are not searched for nested repositories`() =
+        runBlocking {
+            val root = temp.newFolder("snapshot-root")
+            val snapshots = ShadowSnapshots(shell(), Dispatchers.Unconfined, root = root.path)
+            assumeTrue("git is needed for these tests", gitAvailable())
+            val workspace = temp.newFolder("ws-top")
+            File(workspace, "node_modules/pkg").mkdirs()
+            git(File(workspace, "node_modules/pkg"), "init", "-q")
+            File(workspace, "src/lib").mkdirs()
+            git(File(workspace, "src/lib"), "init", "-q")
+            git(workspace, "init", "-q")
+
+            requireNotNull(snapshots.snapshot(workspace.path))
+
+            val exclude = File(ShadowSnapshots.gitDir(root.path, workspace.path), "info/exclude").readLines()
+            assertTrue(exclude.contains("/src/lib/"))
+            assertFalse("node_modules is pruned, not searched", exclude.any { it.startsWith("/node_modules/") })
+            assertFalse("the workspace's own .git is not a nested repository", exclude.contains("/"))
+        }
+
+    @Test
+    fun `a snapshot from before nested repositories were left out still restores`() =
+        runBlocking {
+            val root = temp.newFolder("legacy-root")
+            val snapshots = ShadowSnapshots(shell(), Dispatchers.Unconfined, root = root.path)
+            assumeTrue("git is needed for these tests", gitAvailable())
+            val workspace = temp.newFolder("ws-legacy")
+            File(workspace, "top.txt").writeText("a\n")
+            File(workspace, "libs/app").mkdirs()
+            File(workspace, "libs/app/main.js").writeText("b\n")
+            git(File(workspace, "libs/app"), "init", "-q")
+            git(File(workspace, "libs/app"), "add", "-A")
+            git(File(workspace, "libs/app"), "commit", "-qm", "init")
+            requireNotNull(snapshots.snapshot(workspace.path))
+            // The old way: no nested repositories in the exclude list, so git stores a link to it.
+            val dir = ShadowSnapshots.gitDir(root.path, workspace.path)
+            File(dir, "info/exclude").writeText(ShadowSnapshots.EXCLUDED.joinToString("\n", postfix = "\n"))
+            val g = ShadowSnapshots.git(root.path, workspace.path)
+            val legacy =
+                shell()(
+                    "$g add -A -- ':/' 2>/dev/null; c=$($g commit-tree \"$($g write-tree)\" -m old); " +
+                        "$g update-ref \"refs/snapshots/${'$'}c\" \"${'$'}c\"; $g ls-tree -r ${'$'}c | grep -q '^160000 ' && printf '%s' \"${'$'}c\"",
+                    30,
+                    4000,
+                )
+                    .output.trim()
+            assertTrue("the old snapshot holds a link to the nested repository", legacy.matches(Regex("[0-9a-f]{40}")))
+            File(workspace, "top.txt").writeText("changed\n")
+
+            assertTrue(snapshots.restoreChecked(workspace.path, legacy) is RestoreResult.Restored)
+            assertEquals("a\n", File(workspace, "top.txt").readText())
+            assertEquals("b\n", File(workspace, "libs/app/main.js").readText())
+        }
+
+    @Test
     fun `restore refuses rather than delete ignored files in the way`() =
         runBlocking {
             val (snapshots, workspace) = fixture()

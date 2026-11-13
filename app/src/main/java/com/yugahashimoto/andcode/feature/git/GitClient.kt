@@ -189,7 +189,12 @@ class GitClient(
     ): Result<CommitMessageRequest> {
         val staged = status.staged.isNotEmpty()
         val cached = if (staged) "--cached " else ""
-        val stat = exec(git(directory, "diff --no-color --no-ext-diff $cached-M --stat=120")).getOrElse { return Result.failure(it) }
+        // Capped like the diff: the whole prompt goes to the CLI as one argument, which Linux limits to 128 KiB.
+        val stat =
+            withContext(ioDispatcher) {
+                run(git(directory, "diff --no-color --no-ext-diff $cached-M --stat=120"), DEFAULT_TIMEOUT_SECONDS, COMMIT_MESSAGE_STAT)
+            }
+        if (stat.exitCode != 0) return Result.failure(WorkspaceShellException(stat.output.trim().ifEmpty { "exit code ${stat.exitCode}" }))
         val diff =
             withContext(ioDispatcher) {
                 run(git(directory, "diff --no-color --no-ext-diff $cached-M -U3"), DEFAULT_TIMEOUT_SECONDS, COMMIT_MESSAGE_DIFF)
@@ -198,7 +203,7 @@ class GitClient(
         val subjects = if (status.noCommits) emptyList() else exec(git(directory, "log -n 10 --format=%s")).getOrDefault("").lines()
         return Result.success(
             CommitMessageRequest(
-                stat = stat,
+                stat = stat.output.trim(),
                 diff = diff.output,
                 diffTruncated = diff.truncated,
                 untracked = if (staged) emptyList() else status.changes.filter { it.untracked }.map { it.path },
@@ -400,6 +405,9 @@ class GitClient(
 
         /** About 6,000 tokens of diff: plenty to describe a change, and cheap on the fastest model. */
         val COMMIT_MESSAGE_DIFF = GitOutputWindow(maxCharacters = 24_000, keepStart = true)
+
+        /** The file list of a change touching hundreds of files is cut too, keeping its end, which says how many changed. */
+        val COMMIT_MESSAGE_STAT = GitOutputWindow(maxCharacters = 8_000, keepStart = false)
 
         private val STATUS_CODE = Regex("[ACDMRTUXB]|[RC][0-9]{1,3}")
 

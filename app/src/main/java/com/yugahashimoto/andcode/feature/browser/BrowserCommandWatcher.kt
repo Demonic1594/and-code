@@ -16,13 +16,15 @@ private const val POLL_INTERVAL_MILLIS = 1000L
 
 /**
  * Watches the active workspace for a browser command written by the in-guest agent
- * (`.and-code/browser-command.json`, e.g. `{"action":"open","url":"http://127.0.0.1:8080/"}`)
- * and opens the guest browser at the requested URL so the user can watch and join in.
+ * (`.and-code/browser-command.json`, e.g.
+ * `{"action":"open","url":"http://127.0.0.1:8080/","createdAtMs":1800000000000}`) and opens the guest
+ * browser at the requested URL so the user can watch and join in. Only a command stamped in the last
+ * few minutes opens (see [consumeBrowserOpenCommand]), so one that came with a cloned repository does not.
  *
  * Only polls while [foreground] is `true`: opening a browser nobody is looking at achieves nothing,
  * and a composition outlives the activity being stopped, so without the gate this read the disk
  * every second for as long as the process was alive. A command written while the app was away is
- * opened as soon as it returns.
+ * opened as soon as it returns, if that is within those few minutes.
  *
  * [foreground] keys the effect, so it must be a reference that stays the same across recompositions
  * (the app's own `StateFlow` is); a flow built inline would restart the watcher, and its immediate

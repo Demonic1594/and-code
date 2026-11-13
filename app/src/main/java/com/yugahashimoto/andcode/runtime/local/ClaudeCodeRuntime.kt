@@ -1010,11 +1010,16 @@ class ClaudeCodeRuntime(
                     }
                     .start()
             }.getOrNull() ?: return null
-        val output = runCatching { process.inputStream.bufferedReader().readText() }.getOrNull()
+        // Read on its own thread: reading to the end blocks until the process exits, so waiting here
+        // is what lets the time limit end a call that hangs (offline, or waiting on a sign-in).
+        var output: String? = null
+        val reader = Thread { output = runCatching { process.inputStream.bufferedReader().readText() }.getOrNull() }.apply { start() }
         if (!process.waitFor(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)) {
             endProcessTree(process)
+            reader.join(READER_JOIN_MILLIS)
             return null
         }
+        reader.join(READER_JOIN_MILLIS)
         return output.takeIf { process.exitValue() == 0 }
     }
 
@@ -1106,6 +1111,9 @@ class ClaudeCodeRuntime(
 
         /** A diff takes longer to read than a first message, on a phone's network. */
         const val COMMIT_MESSAGE_TIMEOUT_SECONDS = 90L
+
+        /** How long the reader may take to hand over what the ended process wrote. */
+        private const val READER_JOIN_MILLIS = 5_000L
         const val WORKSPACE_COMMAND_TIMEOUT_SECONDS = 60L
         const val INTERRUPTED_TOOL_ERROR = "Claude Code session ended before the tool result was received"
 

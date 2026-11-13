@@ -305,8 +305,8 @@ class ShadowSnapshots(
                 // as a bare link, without its files, and refuses one without a commit outright, which
                 // failed the whole snapshot. Those are left out, as the restore dialog says; their own
                 // git holds their history. Glob characters in a path are escaped so it matches itself.
-                "{ printf '%s\\n' $exclude; (cd ${WorkspaceShell.quote(workspace)} && find . -mindepth 2 " +
-                    "\\( $prunedNames \\) -prune -o -name .git -prune -print 2>/dev/null) | " +
+                "{ printf '%s\\n' $exclude; (cd ${WorkspaceShell.quote(workspace)} && find . " +
+                    "\\( -path ./.git -o $prunedNames \\) -prune -o -name .git -prune -print 2>/dev/null) | " +
                     "sed -e 's/[][*?\\\\!#]/\\\\&/g' -e 's|^\\./|/|' -e 's|/\\.git${'$'}|/|'; } > $dir/info/exclude",
                 // `:/` is the top of the work tree, wherever the shell happens to be.
                 // Files tracked before an ignore rule matched them stay tracked; drop them so a later

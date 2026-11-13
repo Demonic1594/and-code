@@ -255,6 +255,7 @@ class AndCodeApplication : Application() {
         private set
 
     lateinit var claudeCodeRuntime: ClaudeCodeRuntime
+        private set
 
     /** GitHub's REST API with the connected account's token, read per request. */
     lateinit var githubApi: GitHubApiClient

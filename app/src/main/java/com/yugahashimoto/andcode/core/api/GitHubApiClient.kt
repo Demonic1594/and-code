@@ -138,7 +138,7 @@ class GitHubApiClient(
                     }
                 val comments =
                     runCatching {
-                        client.newCall(buildRequest("$base/comments?per_page=100")).execute().use { response ->
+                        client.newCall(buildRequest("$base/comments?per_page=$COMMENTS_PAGE")).execute().use { response ->
                             if (!response.isSuccessful) {
                                 emptyList()
                             } else {
@@ -154,6 +154,7 @@ class GitHubApiClient(
                     state = issue.state,
                     labels = issue.labels.map { it.name },
                     comments = comments.map { IssueComment(it.user?.login.orEmpty(), it.body.orEmpty()) },
+                    moreComments = comments.size >= COMMENTS_PAGE,
                 )
             } catch (_: Exception) {
                 null
@@ -192,6 +193,11 @@ class GitHubApiClient(
     private data class GitHubSearchResult(
         val items: List<GitHubIssue> = emptyList(),
     )
+
+    private companion object {
+        /** GitHub's largest page; a longer thread is marked as only partly read. */
+        const val COMMENTS_PAGE = 100
+    }
 
     @Serializable
     private data class GitHubUser(
