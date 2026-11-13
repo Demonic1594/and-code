@@ -1013,7 +1013,13 @@ class ClaudeCodeRuntime(
         // Read on its own thread: reading to the end blocks until the process exits, so waiting here
         // is what lets the time limit end a call that hangs (offline, or waiting on a sign-in).
         var output: String? = null
-        val reader = Thread { output = runCatching { process.inputStream.bufferedReader().readText() }.getOrNull() }.apply { start() }
+        // A daemon, so a grandchild that keeps the pipe open past the process tree's end never keeps
+        // the app's process alive.
+        val reader =
+            Thread { output = runCatching { process.inputStream.bufferedReader().readText() }.getOrNull() }.apply {
+                isDaemon = true
+                start()
+            }
         if (!process.waitFor(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)) {
             endProcessTree(process)
             reader.join(READER_JOIN_MILLIS)
