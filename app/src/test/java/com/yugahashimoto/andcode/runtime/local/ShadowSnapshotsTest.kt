@@ -81,6 +81,53 @@ class ShadowSnapshotsTest {
             assertEquals("new\n", File(workspace, "added.txt").readText())
         }
 
+    private fun git(
+        directory: File,
+        vararg args: String,
+    ) {
+        val command = listOf("git", "-C", directory.path, "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false") + args
+        assertEquals(0, ProcessBuilder(command).redirectErrorStream(true).start().waitFor())
+    }
+
+    @Test
+    fun `a nested repository with no commit yet does not stop the snapshot`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            File(workspace, "a.txt").writeText("one\n")
+            val before = requireNotNull(snapshots.snapshot(workspace.path))
+            File(workspace, "a.txt").writeText("two\n")
+            File(workspace, "app").mkdirs()
+            git(File(workspace, "app"), "init", "-q")
+            File(workspace, "app/main.js").writeText("hello\n")
+
+            val after = requireNotNull(snapshots.snapshot(workspace.path))
+
+            val changes = requireNotNull(snapshots.diff(workspace.path, before, after))
+            assertEquals(listOf("a.txt"), changes.map { it.displayPath })
+        }
+
+    @Test
+    fun `a nested repository with commits is left out of snapshots and left alone by a restore`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            File(workspace, "top.txt").writeText("a\n")
+            File(workspace, "libs/app").mkdirs()
+            File(workspace, "libs/app/main.js").writeText("b\n")
+            git(File(workspace, "libs/app"), "init", "-q")
+            git(File(workspace, "libs/app"), "add", "-A")
+            git(File(workspace, "libs/app"), "commit", "-qm", "init")
+            val before = requireNotNull(snapshots.snapshot(workspace.path))
+            File(workspace, "top.txt").writeText("changed\n")
+            File(workspace, "libs/app/main.js").writeText("changed\n")
+            val after = requireNotNull(snapshots.snapshot(workspace.path))
+
+            assertEquals(listOf("top.txt"), requireNotNull(snapshots.diff(workspace.path, before, after)).map { it.displayPath })
+            assertTrue(snapshots.restoreChecked(workspace.path, before) is RestoreResult.Restored)
+            assertEquals("a\n", File(workspace, "top.txt").readText())
+            assertEquals("the nested repository keeps its own state", "changed\n", File(workspace, "libs/app/main.js").readText())
+            assertTrue(File(workspace, "libs/app/.git").isDirectory)
+        }
+
     @Test
     fun `restore refuses rather than delete ignored files in the way`() =
         runBlocking {
