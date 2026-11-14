@@ -491,7 +491,8 @@ def tool_show(args: dict) -> str:
     # user came back is dropped rather than opened.
     command = {"action": "open", "url": url, "createdAtMs": int(time.time() * 1000)}
     # Written beside it and renamed over it, so the app never reads half a command.
-    partial = COMMAND_FILE.with_name(COMMAND_FILE.name + ".partial")
+    # One per server: each agent runs its own, and two could ask at once.
+    partial = COMMAND_FILE.with_name(f"{COMMAND_FILE.name}.{os.getpid()}.partial")
     partial.write_text(json.dumps(command), encoding="utf-8")
     os.replace(partial, COMMAND_FILE)
     return f"requested the app to open {url}"

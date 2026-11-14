@@ -3,7 +3,9 @@ package com.yugahashimoto.andcode.runtime.local
 import java.io.File
 import java.io.InputStream
 import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.nio.file.StandardCopyOption
+import java.nio.file.StandardOpenOption
 
 /**
  * Puts [content] at [target], in a guest rootfs, as an executable script: written to a temporary file
@@ -17,7 +19,10 @@ internal fun replaceGuestScript(
 ) {
     val temporary = File.createTempFile(".${target.name}.", ".tmp", target.parentFile)
     try {
-        temporary.outputStream().use { content.copyTo(it) }
+        // Not through a link the guest may have swapped in for the new file meanwhile.
+        Files
+            .newOutputStream(temporary.toPath(), StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING, LinkOption.NOFOLLOW_LINKS)
+            .use { content.copyTo(it) }
         temporary.setReadable(true, false)
         temporary.setExecutable(true, false)
         Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)

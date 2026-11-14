@@ -38,12 +38,14 @@ internal fun consumeBrowserOpenCommand(
         val path = commandFile.toPath()
         if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return null
         // Only a small file of its own: a link could point at one of this app's files, and a big file
-        // would be read again every second.
-        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || Files.size(path) > MAX_COMMAND_BYTES) {
+        // would be read again every second. Opened without following a link, and read no further than
+        // the limit, so swapping one in after the check does not get around it.
+        val bytes = if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) readAtMost(path, MAX_COMMAND_BYTES + 1) else null
+        if (bytes == null || bytes.size > MAX_COMMAND_BYTES) {
             commandFile.delete()
             return null
         }
-        val command = JSONObject(commandFile.readText())
+        val command = JSONObject(bytes.decodeToString())
         val url = command.optString("url")
         val uri = runCatching { URI(url) }.getOrNull()
         val createdAtMs = command.optLong("createdAtMs", 0L)
@@ -51,13 +53,29 @@ internal fun consumeBrowserOpenCommand(
         val valid =
             fresh && command.optString("action") == "open" &&
                 uri?.scheme?.lowercase() in setOf("http", "https") && !uri?.host.isNullOrBlank()
-        // The agent writes this file directly, so one that does not parse may be half written and is
-        // read again on the next poll. A complete one is used once and removed, whether it opens or
+        // A guest script from before writes it in place rather than renaming it there, so one that does
+        // not parse may be half written and is read again on the next poll. A complete one is used once and removed, whether it opens or
         // not (a request from long before the user came back, say); if it cannot be removed, it is
         // not opened, so it never opens twice.
         url.takeIf { commandFile.delete() && valid }
     }.getOrNull()
 }
+
+/** Up to [limit] bytes of the file at [path], opened without following a link. */
+private fun readAtMost(
+    path: java.nio.file.Path,
+    limit: Int,
+): ByteArray =
+    Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS).use { input ->
+        val buffer = ByteArray(limit)
+        var read = 0
+        while (read < limit) {
+            val count = input.read(buffer, read, limit - read)
+            if (count < 0) break
+            read += count
+        }
+        buffer.copyOf(read)
+    }
 
 /**
  * How long an agent's command waits to be opened. The watcher only reads it while the app is on
@@ -66,7 +84,7 @@ internal fun consumeBrowserOpenCommand(
 private const val MAX_COMMAND_AGE_MILLIS = 5 * 60_000L
 
 /** Far more than any command (an address and a time), far less than a file worth reading every second. */
-private const val MAX_COMMAND_BYTES = 16 * 1024L
+private const val MAX_COMMAND_BYTES = 16 * 1024
 
 /** The guest reads the same kernel clock; this only absorbs the write and read landing apart. */
 private const val MAX_CLOCK_SKEW_MILLIS = 60_000L
