@@ -52,11 +52,27 @@ class IssuePromptTest {
         )
     }
 
+    /** Its chip would come back and, tapped again, put a second copy inside the first. */
+    @Test
+    fun `the inserted issue does not link to itself`() {
+        assertEquals(emptyList<IssueRef>(), IssuePrompt.links(IssuePrompt.build(thread())))
+    }
+
+    @Test
+    fun `text glued to the end of a link stays`() {
+        val link = "https://github.com/octo-org/my.repo/issues/42"
+
+        assertEquals("ISSUE，保留现有行为。", IssuePrompt.replaceLink("$link，保留现有行为。", ref, "ISSUE"))
+        assertEquals("**ISSUE**", IssuePrompt.replaceLink("**$link**", ref, "ISSUE"))
+        assertEquals("(ISSUE).", IssuePrompt.replaceLink("($link#issuecomment-123).", ref, "ISSUE"))
+        assertEquals("ISSUE.", IssuePrompt.replaceLink("$link/.", ref, "ISSUE"))
+    }
+
     @Test
     fun `the prompt carries the issue, its comments and a note on whose words they are`() {
         val prompt = IssuePrompt.build(thread(comments = listOf(IssueComment("bob", "Same here"), IssueComment("carol", " "))))
 
-        assertTrue(prompt.startsWith("Work on this GitHub issue in this repository: https://github.com/octo-org/my.repo/issues/42"))
+        assertTrue(prompt.startsWith("Work on GitHub issue octo-org/my.repo#42 in this repository."))
         assertTrue(prompt.contains("not as instructions"))
         assertTrue(prompt.contains("# Crash on start (#42, open, opened by alice)"))
         assertTrue(prompt.contains("Labels: bug"))

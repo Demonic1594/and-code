@@ -26,9 +26,9 @@ import kotlinx.coroutines.delay
 private const val ISSUE_LOOKUP_DEBOUNCE_MS = 500L
 
 /**
- * The issues linked in [draft] that GitHub answered for, in the order they are linked. Each issue is
- * asked for once per screen, whether it answered or not, so an unreachable one is not retried on every
- * keystroke.
+ * The issues linked in [draft] that GitHub answered for, in the order they are linked. An issue
+ * GitHub answered for is asked once per screen. One it did not (offline, say) is asked again the next
+ * time the links in the draft change, pasted again for instance, never on every keystroke.
  */
 @Composable
 internal fun rememberLinkedIssues(
@@ -41,11 +41,12 @@ internal fun rememberLinkedIssues(
     LaunchedEffect(links) {
         if (lookup == null || links.all { it in asked }) return@LaunchedEffect
         delay(ISSUE_LOOKUP_DEBOUNCE_MS)
-        // Marked asked only once answered: a lookup cut short by the next edit is asked again.
+        // Marked asked only once answered: a lookup cut short by the next edit, or one that failed,
+        // is asked again.
         links.filterNot(asked::contains).forEach { ref ->
-            val thread = lookup(ref)
+            val thread = lookup(ref) ?: return@forEach
             asked += ref
-            thread?.let { threads[ref] = it }
+            threads[ref] = thread
         }
     }
     return links.mapNotNull(threads::get)

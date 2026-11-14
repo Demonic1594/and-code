@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.feature.git
 
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeCommandResult
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -240,6 +241,49 @@ class GitViewModelTest {
             advanceUntilIdle()
 
             assertEquals("typed meanwhile", viewModel.state.value.commitMessage)
+        }
+
+    @Test
+    fun `a message written before the staging changed is not used`() =
+        runTest(dispatcher) {
+            File(repo, "a.txt").writeText("two\n")
+            File(repo, "b.txt").writeText("b\n")
+            sh("git add a.txt")
+            val gate = CompletableDeferred<CommitMessageResult>()
+            val viewModel = GitViewModel(client, repo.absolutePath) { gate.await() }
+            advanceUntilIdle()
+
+            viewModel.writeCommitMessage()
+            advanceUntilIdle()
+            viewModel.stageAll()
+            advanceUntilIdle()
+            gate.complete(CommitMessageResult.Written("Change a"))
+            advanceUntilIdle()
+
+            assertEquals("", viewModel.state.value.commitMessage)
+            assertEquals(false, viewModel.state.value.writingMessage)
+        }
+
+    /** The amended commit keeps what it had; a message for only the new change would describe half of it. */
+    @Test
+    fun `no message is written for an amend`() =
+        runTest(dispatcher) {
+            File(repo, "a.txt").writeText("two\n")
+            var calls = 0
+            val viewModel =
+                GitViewModel(client, repo.absolutePath) {
+                    calls++
+                    CommitMessageResult.Written("Fix typo")
+                }
+            advanceUntilIdle()
+            viewModel.setAmend(true)
+            advanceUntilIdle()
+
+            viewModel.writeCommitMessage()
+            advanceUntilIdle()
+
+            assertEquals(0, calls)
+            assertEquals("first", viewModel.state.value.commitMessage.trim())
         }
 
     @Test

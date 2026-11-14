@@ -73,6 +73,9 @@ class GitViewModel(
     /** Bumped by each diff, commit or amend request, so only the latest answer is shown. */
     private var request = 0
 
+    /** Bumped by each operation on the repository, so a message written before one is not used. */
+    private var operations = 0
+
     init {
         refresh()
     }
@@ -152,14 +155,18 @@ class GitViewModel(
 
     /**
      * Asks [messageWriter] for a message describing what Commit would commit (the staged changes, or
-     * every change when nothing is staged). It fills the box only if the user has not typed in it
-     * meanwhile; the message is a suggestion to edit, never committed on its own.
+     * every change when nothing is staged). It fills the box only if the user has not typed in it, and
+     * nothing was staged, discarded, stashed or checked out, meanwhile; the message is a suggestion to
+     * edit, never committed on its own. Not for an amend: the commit keeps what it had, and a message
+     * for the new change alone would describe half of it.
      */
     fun writeCommitMessage() {
         val writer = messageWriter ?: return
         val current = mutableState.value
-        if (current.writingMessage || current.loading || current.running != null) return
+        val busy = current.writingMessage || current.loading || current.running != null
+        if (busy || current.amend) return
         val typed = current.commitMessage
+        val asked = operations
         mutableState.update { it.copy(writingMessage = true, error = null, done = null) }
         viewModelScope.launch {
             val result =
@@ -176,7 +183,7 @@ class GitViewModel(
                     CommitMessageResult.Failed
                 }
             mutableState.update {
-                val unchanged = it.commitMessage == typed
+                val unchanged = it.commitMessage == typed && operations == asked && !it.amend
                 when (result) {
                     null -> it.copy(writingMessage = false)
                     is CommitMessageResult.Written ->
@@ -310,6 +317,7 @@ class GitViewModel(
         action: suspend () -> Result<String>,
     ) {
         if (mutableState.value.running != null) return
+        operations++
         mutableState.update { it.copy(running = operation, done = null, error = null) }
         viewModelScope.launch {
             val result =
