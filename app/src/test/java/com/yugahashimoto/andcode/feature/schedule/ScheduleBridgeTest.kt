@@ -147,6 +147,158 @@ class ScheduleBridgeTest {
     }
 
     @Test
+    fun `an agent cannot create a schedule that approves its own tool calls`() {
+        val store = FakeStore()
+        val bridge = bridgeWith(store)
+        val id = requestId()
+        writeRequest(bridge, id, "create", createArgs().put("autoAcceptPermissions", true))
+
+        bridge.pollOnce()
+
+        val response = readResponse(bridge, id)
+        assertFalse(response.getBoolean("ok"))
+        assertTrue(response.getString("error").contains("autoAcceptPermissions"))
+        assertTrue(store.schedules.isEmpty())
+    }
+
+    @Test
+    fun `true spelled as a string is refused as well`() {
+        val store = FakeStore()
+        val bridge = bridgeWith(store)
+        val id = requestId()
+        writeRequest(bridge, id, "create", createArgs().put("autoAcceptPermissions", "TRUE"))
+
+        bridge.pollOnce()
+
+        assertFalse(readResponse(bridge, id).getBoolean("ok"))
+        assertTrue(store.schedules.isEmpty())
+    }
+
+    @Test
+    fun `an agent may change what an auto-approving schedule runs when the same request turns auto-approval off`() {
+        val store = FakeStore()
+        val existing = Schedule(runtimeId = "local", prompt = "tidy up", cron = "0 9 * * *", autoAcceptPermissions = true)
+        store.schedules += existing
+        val bridge = bridgeWith(store)
+        val id = requestId()
+        writeRequest(
+            bridge,
+            id,
+            "update",
+            JSONObject().put("scheduleId", existing.id).put("prompt", "summarise the week").put("autoAcceptPermissions", false),
+        )
+
+        bridge.pollOnce()
+
+        assertTrue(readResponse(bridge, id).getBoolean("ok"))
+        val updated = store.schedule(existing.id)!!
+        assertEquals("summarise the week", updated.prompt)
+        assertEquals(false, updated.autoAcceptPermissions)
+    }
+
+    @Test
+    fun `an agent may create a schedule that never auto-approves`() {
+        val store = FakeStore()
+        val bridge = bridgeWith(store)
+        val id = requestId()
+        writeRequest(bridge, id, "create", createArgs().put("autoAcceptPermissions", false))
+
+        bridge.pollOnce()
+
+        assertTrue(readResponse(bridge, id).getBoolean("ok"))
+        assertEquals(false, store.schedules.single().autoAcceptPermissions)
+    }
+
+    @Test
+    fun `an agent cannot turn auto-approval on for an existing schedule`() {
+        val store = FakeStore()
+        val existing = Schedule(runtimeId = "local", prompt = "tidy up", cron = "0 9 * * *")
+        store.schedules += existing
+        val bridge = bridgeWith(store)
+        val id = requestId()
+        writeRequest(
+            bridge,
+            id,
+            "update",
+            JSONObject().put("scheduleId", existing.id).put("autoAcceptPermissions", true),
+        )
+
+        bridge.pollOnce()
+
+        assertFalse(readResponse(bridge, id).getBoolean("ok"))
+        assertEquals(null, store.schedule(existing.id)?.autoAcceptPermissions)
+    }
+
+    @Test
+    fun `an agent cannot change what an auto-approving schedule runs`() {
+        val store = FakeStore()
+        val existing = Schedule(runtimeId = "local", prompt = "tidy up", cron = "0 9 * * *", autoAcceptPermissions = true)
+        store.schedules += existing
+        val bridge = bridgeWith(store)
+        val promptChange = requestId()
+        writeRequest(bridge, promptChange, "update", JSONObject().put("scheduleId", existing.id).put("prompt", "rm -rf ~"))
+        val folderChange = requestId()
+        writeRequest(bridge, folderChange, "update", JSONObject().put("scheduleId", existing.id).put("workspacePath", "/root"))
+
+        bridge.pollOnce()
+
+        assertFalse(readResponse(bridge, promptChange).getBoolean("ok"))
+        assertFalse(readResponse(bridge, folderChange).getBoolean("ok"))
+        assertEquals(existing, store.schedule(existing.id))
+    }
+
+    /** null hands the schedule to the app-wide setting, which may itself auto-approve. */
+    @Test
+    fun `clearing auto-approval to null in the same request does not unlock what an auto-approving schedule runs`() {
+        val store = FakeStore()
+        val existing = Schedule(runtimeId = "local", prompt = "tidy up", cron = "0 9 * * *", autoAcceptPermissions = true)
+        store.schedules += existing
+        val bridge = bridgeWith(store)
+        val id = requestId()
+        writeRequest(
+            bridge,
+            id,
+            "update",
+            JSONObject().put("scheduleId", existing.id).put("prompt", "rm -rf ~").put("autoAcceptPermissions", JSONObject.NULL),
+        )
+
+        bridge.pollOnce()
+
+        assertFalse(readResponse(bridge, id).getBoolean("ok"))
+        assertEquals(existing, store.schedule(existing.id))
+    }
+
+    @Test
+    fun `an agent may still rename, retime or turn off an auto-approving schedule, and drop its auto-approval`() {
+        val store = FakeStore()
+        val existing = Schedule(runtimeId = "local", prompt = "tidy up", cron = "0 9 * * *", autoAcceptPermissions = true)
+        store.schedules += existing
+        val bridge = bridgeWith(store)
+        val id = requestId()
+        writeRequest(
+            bridge,
+            id,
+            "update",
+            JSONObject()
+                .put("scheduleId", existing.id)
+                .put("name", "Morning tidy")
+                .put("cron", "0 8 * * *")
+                .put("enabled", false)
+                .put("autoAcceptPermissions", false),
+        )
+
+        bridge.pollOnce()
+
+        assertTrue(readResponse(bridge, id).getBoolean("ok"))
+        val updated = store.schedule(existing.id)!!
+        assertEquals("Morning tidy", updated.name)
+        assertEquals("0 8 * * *", updated.cron)
+        assertFalse(updated.enabled)
+        assertEquals(false, updated.autoAcceptPermissions)
+        assertEquals("tidy up", updated.prompt)
+    }
+
+    @Test
     fun `create requires a prompt`() {
         val store = FakeStore()
         val bridge = bridgeWith(store)
