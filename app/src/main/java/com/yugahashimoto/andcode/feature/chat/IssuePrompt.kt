@@ -57,6 +57,7 @@ object IssuePrompt {
      */
     private const val LINK_TAIL = """(?:[/?#][A-Za-z0-9_~%=&/?#.+-]*(?<![.?#]))?"""
 
+    /** The issues linked in [text] that are not in it already (see [isInserted]), at most three. */
     fun links(text: String): List<IssueRef> =
         ISSUE_LINK.findAll(text)
             .mapNotNull { match ->
@@ -64,6 +65,7 @@ object IssuePrompt {
                 number.toIntOrNull()?.let { IssueRef(owner, repo, it) }
             }
             .distinct()
+            .filterNot { isInserted(text, it) }
             .take(MAX_LINKS)
             .toList()
 
