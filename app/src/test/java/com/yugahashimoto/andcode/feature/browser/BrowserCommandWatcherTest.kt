@@ -138,16 +138,37 @@ class BrowserCommandWatcherTest {
 
     @Test
     fun `a command stamped in the future is not opened`() {
-        command("environment/rootfs", createdAtMs = NOW + 60_000L + 1)
+        val file = command("environment/rootfs", createdAtMs = NOW + 60_000L + 1)
 
         assertNull(consume("/workspace/project"))
+        assertFalse(file.exists())
     }
 
     @Test
     fun `a command written a moment ago is opened`() {
-        command("environment/rootfs", createdAtMs = NOW - 5 * 60_000L)
+        val file = command("environment/rootfs", createdAtMs = NOW - 5 * 60_000L)
 
         assertEquals("https://www.google.com/", consume("/workspace/project"))
+        assertFalse(file.exists())
+    }
+
+    /** The guest could point it at one of the app's own files, or one too big to read every second. */
+    @Test
+    fun `a command that is a link, or too big to be one, is dropped unread`() {
+        val appFile =
+            temporaryFolder.newFile("shared_prefs.xml").apply {
+                writeText("{\"action\":\"open\",\"url\":\"https://x.example/\",\"createdAtMs\":$NOW}")
+            }
+        val link = File(File(runtimeDirectory, "environment/rootfs"), BROWSER_COMMAND_PATH).apply { parentFile!!.mkdirs() }
+        java.nio.file.Files.createSymbolicLink(link.toPath(), appFile.toPath())
+
+        assertNull(consume("/workspace/project"))
+        assertFalse(java.nio.file.Files.exists(link.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS))
+        assertTrue(appFile.exists())
+
+        val big = command("environment/rootfs").apply { appendText(" ".repeat(70_000)) }
+        assertNull(consume("/workspace/project"))
+        assertFalse(big.exists())
     }
 
     /**

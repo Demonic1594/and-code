@@ -4,6 +4,8 @@ import com.yugahashimoto.andcode.runtime.LocalAgent
 import org.json.JSONObject
 import java.io.File
 import java.net.URI
+import java.nio.file.Files
+import java.nio.file.LinkOption
 
 /**
  * Where the guest's browser tool (andcode-browser-mcp.py) leaves its command, relative to the rootfs.
@@ -33,7 +35,14 @@ internal fun consumeBrowserOpenCommand(
                 .takeIf { agent == LocalAgent.ANTIGRAVITY && it.isDirectory }
                 ?: File(runtimeDirectory, "environment/rootfs")
         val commandFile = File(rootfs, BROWSER_COMMAND_PATH)
-        if (!commandFile.isFile) return null
+        val path = commandFile.toPath()
+        if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return null
+        // Only a small file of its own: a link could point at one of this app's files, and a big file
+        // would be read again every second.
+        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || Files.size(path) > MAX_COMMAND_BYTES) {
+            commandFile.delete()
+            return null
+        }
         val command = JSONObject(commandFile.readText())
         val url = command.optString("url")
         val uri = runCatching { URI(url) }.getOrNull()
@@ -55,6 +64,9 @@ internal fun consumeBrowserOpenCommand(
  * screen, so this also drops a request made long before the user came back.
  */
 private const val MAX_COMMAND_AGE_MILLIS = 5 * 60_000L
+
+/** Far more than any command (an address and a time), far less than a file worth reading every second. */
+private const val MAX_COMMAND_BYTES = 16 * 1024L
 
 /** The guest reads the same kernel clock; this only absorbs the write and read landing apart. */
 private const val MAX_CLOCK_SKEW_MILLIS = 60_000L

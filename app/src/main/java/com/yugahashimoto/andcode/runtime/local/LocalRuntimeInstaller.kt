@@ -290,12 +290,17 @@ class LocalRuntimeInstaller(
      * [rootfs], once per process. Every local agent passes through [installedRuntime], whereas the full
      * re-seed runs only when OpenCode's server starts: without this, a phone running Claude Code or
      * Antigravity alone would keep the scripts of the version it was installed with after an update,
-     * and a browser tool that writes where this app no longer looks. An update starts a new process,
-     * and the first agent of a process starts after this, so no running script is rewritten under it.
+     * and a browser tool that writes where this app no longer looks. An update starts a new process.
+     * Each script is replaced by a rename, so one already running keeps its own copy. Callers that come
+     * while the copy runs wait for it, and a copy that fails is tried again by the next one.
      */
     private fun refreshHelperScriptsOnce(rootfs: File) {
-        if (refreshedScriptRootfs.add(rootfs.absolutePath)) {
-            runCatching { installAndroidHelperScripts(rootfs) }
+        val key = rootfs.absolutePath
+        if (key in refreshedScriptRootfs) return
+        synchronized(refreshedScriptRootfs) {
+            if (key !in refreshedScriptRootfs && runCatching { installAndroidHelperScripts(rootfs) }.isSuccess) {
+                refreshedScriptRootfs += key
+            }
         }
     }
 
@@ -705,11 +710,7 @@ class LocalRuntimeInstaller(
             "andcode-run.py" to "andcode-run",
         ).forEach {
                 (assetName, scriptName) ->
-            val scriptFile = File(binDir, scriptName)
-            context.assets.open("scripts/$assetName").use { input ->
-                scriptFile.outputStream().use { output -> input.copyTo(output) }
-            }
-            scriptFile.setExecutable(true, false)
+            context.assets.open("scripts/$assetName").use { input -> replaceGuestScript(File(binDir, scriptName), input) }
         }
     }
 

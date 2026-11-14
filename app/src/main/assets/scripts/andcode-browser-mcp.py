@@ -490,7 +490,10 @@ def tool_show(args: dict) -> str:
     # The app opens only a command stamped in the last few minutes, so one left from long before the
     # user came back is dropped rather than opened.
     command = {"action": "open", "url": url, "createdAtMs": int(time.time() * 1000)}
-    COMMAND_FILE.write_text(json.dumps(command), encoding="utf-8")
+    # Written beside it and renamed over it, so the app never reads half a command.
+    partial = COMMAND_FILE.with_name(COMMAND_FILE.name + ".partial")
+    partial.write_text(json.dumps(command), encoding="utf-8")
+    os.replace(partial, COMMAND_FILE)
     return f"requested the app to open {url}"
 
 
