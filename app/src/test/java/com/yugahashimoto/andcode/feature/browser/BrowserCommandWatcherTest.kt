@@ -1,6 +1,5 @@
 package com.yugahashimoto.andcode.feature.browser
 
-import com.yugahashimoto.andcode.core.storage.DeviceStorage
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
@@ -27,9 +26,9 @@ class BrowserCommandWatcherTest {
     private val runtimeDirectory by lazy { temporaryFolder.newFolder("runtime") }
 
     @Test
-    fun `each Alpine agent consumes the command from the guest rootfs`() {
+    fun `each Alpine agent consumes the command from the guest home`() {
         listOf(LocalAgent.OPEN_CODE, LocalAgent.CLAUDE_CODE, LocalAgent.CODEX).forEach { agent ->
-            val file = command("environment/rootfs/root/project")
+            val file = command("environment/rootfs")
 
             assertEquals("https://www.google.com/", consume("/root/project", agent))
             assertFalse(file.exists())
@@ -38,19 +37,17 @@ class BrowserCommandWatcherTest {
     }
 
     @Test
-    fun `nested workspace commands are read from the bind mount`() {
-        val file = command("workspace/team/project")
-        val decoy = command("environment/rootfs/workspace/team/project", "https://example.com/decoy")
+    fun `the command is consumed whichever local folder is open`() {
+        val file = command("environment/rootfs")
 
-        assertEquals("https://www.google.com/", consume("/workspace/team/project"))
+        assertEquals("https://www.google.com/", consume("/sdcard/Download/project"))
         assertFalse(file.exists())
-        assertTrue(decoy.exists())
     }
 
     @Test
     fun `Antigravity consumes only the command in its Debian rootfs`() {
-        val file = command("environment/antigravity-rootfs/root/project")
-        val alpine = command("environment/rootfs/root/project", "https://example.com/alpine")
+        val file = command("environment/antigravity-rootfs")
+        val alpine = command("environment/rootfs", "https://example.com/alpine")
 
         assertEquals("https://www.google.com/", consume("/root/project", LocalAgent.ANTIGRAVITY))
         assertFalse(file.exists())
@@ -59,59 +56,31 @@ class BrowserCommandWatcherTest {
 
     @Test
     fun `Antigravity falls back to the shared rootfs when Debian is absent`() {
-        val file = command("environment/rootfs/root/project")
+        val file = command("environment/rootfs")
 
         assertEquals("https://www.google.com/", consume("/root/project", LocalAgent.ANTIGRAVITY))
         assertFalse(file.exists())
     }
 
+    /** Where commands used to go, and where a cloned or pulled repository can put one. */
     @Test
-    fun `commands in device storage use the mounted host directory`() {
-        val shared = temporaryFolder.newFolder("shared")
-        val file = writeCommand(File(shared, "Download/project"))
-        val mounts = DeviceStorage.Mounts(sharedStorage = shared)
+    fun `a command inside the workspace is never opened`() {
+        val inRootfs = writeCommand(File(runtimeDirectory, "environment/rootfs/root/project/.and-code"), "https://phishing.example/")
+        val inWorkspace = writeCommand(File(runtimeDirectory, "workspace/project/.and-code"), "https://phishing.example/")
 
-        assertEquals("https://www.google.com/", consume("/sdcard/Download/project", mounts = mounts))
-        assertFalse(file.exists())
-    }
-
-    @Test
-    fun `unmounted device storage does not consume a rootfs decoy`() {
-        val file = command("environment/rootfs/sdcard/Download/project")
-
-        assertNull(consume("/sdcard/Download/project"))
-        assertTrue(file.exists())
+        assertNull(consume("/root/project"))
+        assertNull(consume("/workspace/project"))
+        assertTrue(inRootfs.exists())
+        assertTrue(inWorkspace.exists())
     }
 
     @Test
     fun `remote runtimes and absent workspaces leave local commands untouched`() {
-        val file = command("workspace/project")
+        val file = command("environment/rootfs")
 
         assertNull(consume("/workspace/project", agent = null))
         assertNull(consume(null))
         assertTrue(file.exists())
-    }
-
-    /** A cloned repository can carry `.and-code/browser-command.json`; only one the agent writes counts. */
-    @Test
-    fun `a command already there when the watching started is dropped without opening`() {
-        val file = command("environment/rootfs/root/project", url = "https://phishing.example/")
-        val watchingSince = System.currentTimeMillis()
-        file.setLastModified(watchingSince - 60_000)
-
-        assertNull(consumeBrowserOpenCommand("/root/project", LocalAgent.CODEX, runtimeDirectory, DeviceStorage.Mounts.None, watchingSince))
-        assertFalse("a stale command is removed, so it cannot fire later", file.exists())
-    }
-
-    @Test
-    fun `a command written after the watching started is opened`() {
-        val watchingSince = System.currentTimeMillis() - 1_000
-        command("environment/rootfs/root/project")
-
-        assertEquals(
-            "https://www.google.com/",
-            consumeBrowserOpenCommand("/root/project", LocalAgent.CODEX, runtimeDirectory, DeviceStorage.Mounts.None, watchingSince),
-        )
     }
 
     @Test
@@ -121,7 +90,7 @@ class BrowserCommandWatcherTest {
 
     @Test
     fun `partially written command is retried after the writer completes it`() {
-        val file = command("workspace/project")
+        val file = command("environment/rootfs")
         file.writeText("{\"action\":\"open\",\"url\":")
 
         assertNull(consume("/workspace/project"))
@@ -134,7 +103,7 @@ class BrowserCommandWatcherTest {
 
     @Test
     fun `unsupported actions and invalid URLs do not open the browser`() {
-        val file = command("workspace/project")
+        val file = command("environment/rootfs")
         listOf(
             "{\"action\":\"close\",\"url\":\"https://example.com/\"}",
             "{\"action\":\"open\",\"url\":\"javascript:alert(1)\"}",
@@ -146,14 +115,6 @@ class BrowserCommandWatcherTest {
             assertNull(consume("/workspace/project"))
             assertTrue(file.exists())
         }
-    }
-
-    @Test
-    fun `workspace traversal does not consume a command outside its mount`() {
-        val file = command("outside")
-
-        assertNull(consume("/workspace/../outside"))
-        assertTrue(file.exists())
     }
 
     /**
@@ -193,19 +154,19 @@ class BrowserCommandWatcherTest {
     private fun consume(
         path: String?,
         agent: LocalAgent? = LocalAgent.CODEX,
-        mounts: DeviceStorage.Mounts = DeviceStorage.Mounts.None,
-    ): String? = consumeBrowserOpenCommand(path, agent, runtimeDirectory, mounts)
+    ): String? = consumeBrowserOpenCommand(path, agent, runtimeDirectory)
 
+    /** A command in the guest home of the rootfs at [rootfs], relative to the runtime directory. */
     private fun command(
-        relativeDirectory: String,
+        rootfs: String,
         url: String = "https://www.google.com/",
-    ): File = writeCommand(File(runtimeDirectory, relativeDirectory), url)
+    ): File = writeCommand(File(runtimeDirectory, rootfs).resolve(BROWSER_COMMAND_PATH).parentFile!!, url)
 
     private fun writeCommand(
         directory: File,
         url: String = "https://www.google.com/",
     ): File =
-        File(directory, ".and-code/browser-command.json").apply {
+        File(directory, "browser-command.json").apply {
             parentFile!!.mkdirs()
             writeText("{\"action\":\"open\",\"url\":\"$url\"}")
         }

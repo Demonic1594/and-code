@@ -24,7 +24,9 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-COMMAND_FILE = Path(".and-code") / "browser-command.json"
+# In the guest's home, outside every workspace, so a cloned or pulled repository cannot carry one;
+# the app reads it from there (BROWSER_COMMAND_PATH in BrowserOpenCommand.kt).
+COMMAND_FILE = Path("/root/.local/share/and-code/browser-command.json")
 # Logged to the page console before each action; the app shows "An agent is controlling this page".
 AGENT_ACTIVITY_MARKER = "andcode:agent-control"
 
@@ -492,11 +494,11 @@ def web_url(url: object) -> str:
 
 
 def tool_navigate(args: dict) -> str:
-    web_url(args.get("url"))
+    url = web_url(args.get("url"))
     page = _session().open_page_session()
     try:
-        page.call("Page.navigate", url=args["url"])
-        return f"navigated to {args['url']}"
+        page.call("Page.navigate", url=url)
+        return f"navigated to {url}"
     finally:
         page.close()
 

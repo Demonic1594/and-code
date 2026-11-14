@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
-import com.yugahashimoto.andcode.core.storage.DeviceStorage
 import com.yugahashimoto.andcode.core.util.pollWhileActive
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import kotlinx.coroutines.Dispatchers
@@ -13,12 +12,11 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 private const val POLL_INTERVAL_MILLIS = 1000L
-private const val MTIME_SLACK_MILLIS = 2000L
 
 /**
- * Watches the active workspace for a browser command written by the in-guest agent
- * (`.and-code/browser-command.json`, e.g. `{"action":"open","url":"http://127.0.0.1:8080/"}`)
- * and opens the guest browser at the requested URL so the user can watch and join in.
+ * Watches for a browser command written by an in-guest agent ([BROWSER_COMMAND_PATH], e.g.
+ * `{"action":"open","url":"http://127.0.0.1:8080/"}`) and opens the guest browser at the requested
+ * URL so the user can watch and join in.
  *
  * Only polls while [foreground] is `true`: opening a browser nobody is looking at achieves nothing,
  * and a composition outlives the activity being stopped, so without the gate this read the disk
@@ -40,16 +38,9 @@ fun GuestBrowserCommandWatcher(
     val openUrl by rememberUpdatedState(onOpenUrl)
     LaunchedEffect(workspacePath, agent, runtimeDirectory, foreground) {
         if (workspacePath == null || agent == null) return@LaunchedEffect
-        // A command older than this was not written by the agent working here (see consumeBrowserOpenCommand);
-        // the slack covers file systems that keep modification times to the second or two.
-        val watchingSince = System.currentTimeMillis() - MTIME_SLACK_MILLIS
         watchBrowserCommands(
             active = foreground,
-            poll = {
-                withContext(Dispatchers.IO) {
-                    consumeBrowserOpenCommand(workspacePath, agent, runtimeDirectory, DeviceStorage.mounts(), watchingSince)
-                }
-            },
+            poll = { withContext(Dispatchers.IO) { consumeBrowserOpenCommand(workspacePath, agent, runtimeDirectory) } },
             onOpenUrl = { url -> openUrl(url) },
         )
     }

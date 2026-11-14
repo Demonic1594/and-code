@@ -373,6 +373,14 @@ class BrowserMcpScriptTest {
         assertEquals(List(8) { "refused" }.joinToString("\n") + "\nHTTPS://example.com/", answer)
     }
 
+    /** Outside the workspace, so no repository can carry one; the app reads the same place. */
+    @Test
+    fun `browser_show leaves its command where the app looks for it`() {
+        val answer = run("print(m.COMMAND_FILE)")
+
+        assertEquals("/$BROWSER_COMMAND_PATH", answer)
+    }
+
     @Test
     fun `a click with neither a handle nor both coordinates says what to pass`() {
         val answer =
