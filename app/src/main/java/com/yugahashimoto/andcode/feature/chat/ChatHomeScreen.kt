@@ -270,7 +270,7 @@ fun ChatHomeScreen(
         mutableStateOf(TextFieldValue(""))
     }
     val input = inputValue.text
-    val linkedIssues = rememberLinkedIssues(input, issueLookup)
+    val linkedIssues = rememberLinkedIssues(input, issueLookup).filterNot { IssuePrompt.isInserted(input, it.ref) }
     val listState = rememberLazyListState()
     var showModelPicker by remember { mutableStateOf(false) }
     val errorKind = classifyChatError(state.error)

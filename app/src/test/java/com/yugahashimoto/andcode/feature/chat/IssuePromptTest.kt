@@ -66,6 +66,19 @@ class IssuePromptTest {
         assertEquals("**ISSUE**", IssuePrompt.replaceLink("**$link**", ref, "ISSUE"))
         assertEquals("(ISSUE).", IssuePrompt.replaceLink("($link#issuecomment-123).", ref, "ISSUE"))
         assertEquals("ISSUE.", IssuePrompt.replaceLink("$link/.", ref, "ISSUE"))
+        assertEquals("Can you fix ISSUE?", IssuePrompt.replaceLink("Can you fix $link?", ref, "ISSUE"))
+        assertEquals("ISSUE?.", IssuePrompt.replaceLink("$link?.", ref, "ISSUE"))
+        assertEquals("ISSUE", IssuePrompt.replaceLink("$link?q=1", ref, "ISSUE"))
+    }
+
+    /** Its own text can link to the issue again (a comment quoting it), which must not bring the chip back. */
+    @Test
+    fun `an issue already put in the draft is known as such`() {
+        val draft = "Please look. " + IssuePrompt.build(thread(body = "Dup of https://github.com/octo-org/my.repo/issues/42"))
+
+        assertTrue(IssuePrompt.isInserted(draft, ref))
+        assertFalse(IssuePrompt.isInserted("see https://github.com/octo-org/my.repo/issues/42", ref))
+        assertFalse(IssuePrompt.isInserted(draft, IssueRef("octo-org", "my.repo", 4)))
     }
 
     @Test

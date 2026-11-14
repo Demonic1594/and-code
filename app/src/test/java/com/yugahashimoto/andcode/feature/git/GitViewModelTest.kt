@@ -264,6 +264,24 @@ class GitViewModelTest {
             assertEquals(false, viewModel.state.value.writingMessage)
         }
 
+    @Test
+    fun `a message that lands after amend was turned on is not used`() =
+        runTest(dispatcher) {
+            File(repo, "a.txt").writeText("two\n")
+            val gate = CompletableDeferred<CommitMessageResult>()
+            val viewModel = GitViewModel(client, repo.absolutePath) { gate.await() }
+            advanceUntilIdle()
+
+            viewModel.writeCommitMessage()
+            advanceUntilIdle()
+            viewModel.setAmend(true)
+            advanceUntilIdle()
+            gate.complete(CommitMessageResult.Written("Fix typo"))
+            advanceUntilIdle()
+
+            assertEquals("first", viewModel.state.value.commitMessage.trim())
+        }
+
     /** The amended commit keeps what it had; a message for only the new change would describe half of it. */
     @Test
     fun `no message is written for an amend`() =

@@ -155,9 +155,10 @@ class GitViewModel(
 
     /**
      * Asks [messageWriter] for a message describing what Commit would commit (the staged changes, or
-     * every change when nothing is staged). It fills the box only if the user has not typed in it, and
-     * nothing was staged, discarded, stashed or checked out, meanwhile; the message is a suggestion to
-     * edit, never committed on its own. Not for an amend: the commit keeps what it had, and a message
+     * every change when nothing is staged). It fills the box only if, meanwhile, the user has not typed
+     * in it, turned amend on, or run any git operation (staging or checking out could change what it
+     * describes; the rest are counted too, to be safe); the message is a suggestion to edit, never
+     * committed on its own. Not for an amend: the commit keeps what it had, and a message
      * for the new change alone would describe half of it.
      */
     fun writeCommitMessage() {
