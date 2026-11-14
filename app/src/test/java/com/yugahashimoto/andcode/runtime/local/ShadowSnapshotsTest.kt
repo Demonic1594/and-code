@@ -250,6 +250,149 @@ class ShadowSnapshotsTest {
             assertEquals("i1\n", File(inner, "i.txt").readText())
         }
 
+    /** The workspace's rules count inside a nested repository too, as they do for the project's own files. */
+    @Test
+    fun `a file the workspace ignores inside a nested repository stays out and does not block restores`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            File(workspace, ".gitignore").writeText(".env\n")
+            val app = File(workspace, "app").apply { mkdirs() }
+            gitIn(app, "init", "-q")
+            File(app, "main.js").writeText("one\n")
+
+            val before = assertNotNullAnd(snapshots.snapshot(workspace.path))
+            File(app, ".env").writeText("TOKEN=1\n")
+            File(app, "main.js").writeText("two\n")
+            val after = assertNotNullAnd(snapshots.snapshot(workspace.path))
+
+            val changes = requireNotNull(snapshots.diff(workspace.path, before, after))
+            assertEquals(listOf("app/main.js"), changes.map { it.displayPath })
+            assertTrue(snapshots.restoreChecked(workspace.path, before) is RestoreResult.Restored)
+            assertEquals("one\n", File(app, "main.js").readText())
+            assertEquals("TOKEN=1\n", File(app, ".env").readText())
+        }
+
+    @Test
+    fun `a repository the workspace ignores inside a nested one does not stop the snapshot`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            File(workspace, ".gitignore").writeText("scratch/\n")
+            val outer = File(workspace, "outer").apply { mkdirs() }
+            gitIn(outer, "init", "-q")
+            File(outer, "o.txt").writeText("o1\n")
+            val inner = File(outer, "scratch/tool").apply { mkdirs() }
+            gitIn(inner, "init", "-q")
+            File(inner, "t.txt").writeText("t\n")
+
+            val before = assertNotNullAnd(snapshots.snapshot(workspace.path))
+            File(outer, "o.txt").writeText("o2\n")
+            val after = assertNotNullAnd(snapshots.snapshot(workspace.path))
+
+            val changes = requireNotNull(snapshots.diff(workspace.path, before, after))
+            assertEquals(listOf("outer/o.txt"), changes.map { it.displayPath })
+        }
+
+    @Test
+    fun `a nested repository named like a glob leaves the folders it would match alone`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            val odd = File(workspace, "lib[1]").apply { mkdirs() }
+            gitIn(odd, "init", "-q")
+            File(odd, "x.txt").writeText("x1\n")
+            val plain = File(workspace, "lib1").apply { mkdirs() }
+            File(plain, "a.txt").writeText("a1\n")
+
+            val before = assertNotNullAnd(snapshots.snapshot(workspace.path))
+            File(odd, "x.txt").writeText("x2\n")
+            File(plain, "a.txt").writeText("a2\n")
+            val after = assertNotNullAnd(snapshots.snapshot(workspace.path))
+
+            val changes = requireNotNull(snapshots.diff(workspace.path, before, after))
+            assertEquals(setOf("lib[1]/x.txt", "lib1/a.txt"), changes.map { it.displayPath }.toSet())
+        }
+
+    @Test
+    fun `a nested index lock left by a killed snapshot does not block later ones`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            val app = File(workspace, "app").apply { mkdirs() }
+            gitIn(app, "init", "-q")
+            File(app, "main.js").writeText("one\n")
+            requireNotNull(snapshots.snapshot(workspace.path))
+            val dir = File(ShadowSnapshots.gitDir(File(temp.root, "snapshots").path, workspace.path))
+            val index = requireNotNull(dir.listFiles { f -> f.name.startsWith("andcode-nested-index-") }).single()
+            val lock = File(dir, "${index.name}.lock")
+            lock.writeText("")
+            lock.setLastModified(System.currentTimeMillis() - 10 * 60 * 1000)
+            File(app, "main.js").writeText("two\n")
+
+            assertNotNull(snapshots.snapshot(workspace.path))
+        }
+
+    @Test
+    fun `the index of a nested repository that is gone is removed`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            val app = File(workspace, "app").apply { mkdirs() }
+            gitIn(app, "init", "-q")
+            File(app, "main.js").writeText("one\n")
+            requireNotNull(snapshots.snapshot(workspace.path))
+            val dir = File(ShadowSnapshots.gitDir(File(temp.root, "snapshots").path, workspace.path))
+            File(app, ".git").deleteRecursively()
+
+            requireNotNull(snapshots.snapshot(workspace.path))
+            assertEquals(emptyList<String>(), dir.list()!!.filter { it.startsWith("andcode-nested-index-") })
+        }
+
+    /**
+     * Snapshots taken before nested repositories were followed hold a link where their files are
+     * now; restoring one must leave those files alone, as it did then, rather than delete them.
+     */
+    @Test
+    fun `restoring a snapshot that holds a nested repository as a link keeps its files`() =
+        runBlocking {
+            val (snapshots, workspace) = fixture()
+            val lib = File(workspace, "libs/core").apply { mkdirs() }
+            gitIn(lib, "init", "-q")
+            File(lib, "core.kt").writeText("val x = 1\n")
+            gitIn(lib, "add", ".")
+            gitIn(lib, "commit", "-qm", "init")
+            File(workspace, "top.txt").writeText("old\n")
+            val nestedCommit = gitOutput(lib, "rev-parse", "HEAD")
+            val shadow = "--git-dir=" + ShadowSnapshots.gitDir(File(temp.root, "snapshots").path, workspace.path)
+            requireNotNull(snapshots.snapshot(workspace.path))
+            // The old shape: top.txt as a file, libs/core as a link to the nested commit.
+            val index = File(temp.root, "old-index").path
+            val env = mapOf("GIT_INDEX_FILE" to index)
+            val blob = gitOutput(workspace, shadow, "--work-tree=" + workspace.path, "hash-object", "-w", "top.txt")
+            gitOutput(workspace, shadow, "update-index", "--add", "--cacheinfo", "100644,$blob,top.txt", env = env)
+            gitOutput(workspace, shadow, "update-index", "--add", "--cacheinfo", "160000,$nestedCommit,libs/core", env = env)
+            val tree = gitOutput(workspace, shadow, "write-tree", env = env)
+            val old = gitOutput(workspace, shadow, "commit-tree", tree, "-m", "old", env = env)
+            gitOutput(workspace, shadow, "update-ref", "refs/snapshots/$old", old)
+            File(workspace, "top.txt").writeText("new\n")
+            File(lib, "core.kt").writeText("val x = 2\n")
+
+            assertTrue(snapshots.restoreChecked(workspace.path, old) is RestoreResult.Restored)
+            assertEquals("old\n", File(workspace, "top.txt").readText())
+            assertEquals("val x = 2\n", File(lib, "core.kt").readText())
+        }
+
+    private fun gitOutput(
+        dir: File,
+        vararg args: String,
+        env: Map<String, String> = emptyMap(),
+    ): String {
+        val builder =
+            ProcessBuilder(listOf("git", "-c", "user.name=t", "-c", "user.email=t@t") + args)
+                .directory(dir)
+        builder.environment().putAll(env)
+        val process = builder.start()
+        val output = process.inputStream.bufferedReader().readText().trim()
+        assertEquals("git ${args.joinToString(" ")}", 0, process.waitFor())
+        return output
+    }
+
     private fun assertNotNullAnd(value: String?): String {
         assertNotNull("the snapshot was taken", value)
         return value!!

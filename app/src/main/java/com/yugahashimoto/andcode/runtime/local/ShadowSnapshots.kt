@@ -156,14 +156,15 @@ class ShadowSnapshots(
             val ws = WorkspaceShell.quote(workspace)
             val result =
                 run(
-                    // A snapshot from before a path was ignored still holds it (a `.env` added before
-                    // its rule): checking it out would overwrite the ignored file there now, so refuse,
-                    // naming it. One that is not there is simply written back.
-                    "ignored=$($git ls-tree -r --name-only $target | $git check-ignore --no-index --stdin | " +
+                    linksKeptScript(git, gitDir(root, workspace), target, before) +
+                        // A snapshot from before a path was ignored still holds it (a `.env` added before
+                        // its rule): checking it out would overwrite the ignored file there now, so refuse,
+                        // naming it. One that is not there is simply written back.
+                        "ignored=$($git ls-tree -r --name-only \"${'$'}t\" | $git check-ignore --no-index --stdin | " +
                         "while IFS= read -r p; do if [ -e $ws/\"${'$'}p\" ] || [ -L $ws/\"${'$'}p\" ]; then " +
                         "printf '%s\\n' \"${'$'}p\"; break; fi; done); " +
                         "if [ -n \"${'$'}ignored\" ]; then printf '$REFUSED_PREFIX%s\\n' \"${'$'}ignored\"; exit $REFUSED_EXIT; fi; " +
-                        "$git checkout -q --no-overwrite-ignore --detach $target",
+                        "$git checkout -q --no-overwrite-ignore --detach \"${'$'}t\"",
                     RESTORE_TIMEOUT_SECONDS,
                     SMALL_OUTPUT,
                 )
@@ -184,6 +185,28 @@ class ShadowSnapshots(
             if (rollback.exitCode != 0) return@withContext RestoreResult.Failed
             if (refusedPath != null || result.exitCode == REFUSED_EXIT) RestoreResult.Refused(refusedPath) else RestoreResult.Failed
         }
+    }
+
+    /**
+     * Sets `t` to what a restore checks out: [target] itself, or, when it holds nested repositories
+     * as links (snapshots from before their files were followed), [target] with the files each of
+     * them has in [before] in place of its link. Checking out the link would delete those files,
+     * which that snapshot never held; this way they are left as they are, as they were then.
+     */
+    private fun linksKeptScript(
+        git: String,
+        dir: String,
+        target: String,
+        before: String,
+    ): String {
+        val index = "GIT_INDEX_FILE=" + WorkspaceShell.quote("$dir/andcode-restore-index")
+        return "t=$target; if $git ls-tree -r $target | grep -q '^160000 '; then " +
+            "rm -f ${WorkspaceShell.quote("$dir/andcode-restore-index")}; $index $git read-tree $target || exit 1; " +
+            "$git ls-tree -r $target | grep '^160000 ' | cut -f2- | while IFS= read -r p; do " +
+            "if [ \"$($git cat-file -t \"$before:${'$'}p\" 2>/dev/null)\" = tree ]; then " +
+            "$index $git ls-files -z -- \":(top,literal)${'$'}p\" | $index $git update-index -z --force-remove --stdin && " +
+            "$index $git read-tree --prefix=\"${'$'}p/\" \"$before:${'$'}p\" || exit 1; fi; done || exit 1; " +
+            "t=$($index $git commit-tree \"$($index $git write-tree)\" -m restore) || exit 1; fi; "
     }
 
     /**
@@ -292,18 +315,15 @@ class ShadowSnapshots(
             return listOf(
                 "set -e",
                 // A lock left by a command that was killed at its time limit would fail every later one.
-                "find $dir -maxdepth 1 -name index.lock -mmin +1 -delete 2>/dev/null || true",
+                "find $dir -maxdepth 1 -name '*.lock' -mmin +1 -delete 2>/dev/null || true",
                 "if [ ! -d $dir ]; then mkdir -p $dir && git init -q --bare $dir && git --git-dir=$dir config core.bare false" +
                     " && printf '%s\\n' $exclude > $dir/info/exclude; fi",
-                // `:/` is the top of the work tree, wherever the shell happens to be.
-                // Files tracked before an ignore rule matched them stay tracked; drop them so a later
-                // restore never writes over what the project now ignores.
-                "if [ -n \"$(${git(root, workspace)} ls-files -ci --exclude-standard)\" ]; then ${git(root, workspace)} ls-files -z -ci" +
-                    " --exclude-standard | ${git(
-                        root,
-                        workspace,
-                    )} rm -q -r --cached --ignore-unmatch --pathspec-from-file=- --pathspec-file-nul; fi",
                 *nestedRepositoriesScript(root, workspace).toTypedArray(),
+                // Files tracked before an ignore rule matched them stay tracked; drop them so a later
+                // restore never writes over what the project now ignores. After the nested repositories
+                // are grafted in, so the workspace's rules count inside them too.
+                "if [ -n \"$($git ls-files -ci --exclude-standard)\" ]; then $git ls-files -z -ci" +
+                    " --exclude-standard | $git rm -q -r --cached --ignore-unmatch --pathspec-from-file=- --pathspec-file-nul; fi",
                 // Which workspace this history is for, so it can be deleted once that folder is gone.
                 "printf '%s' ${WorkspaceShell.quote(workspace)} > $dir/$WORKSPACE_FILE",
                 // Histories from before snapshots stood alone were one chain: give its newest commits
@@ -340,29 +360,48 @@ class ShadowSnapshots(
             val ws = WorkspaceShell.quote(workspace)
             val pruned =
                 EXCLUDED.filter { it.endsWith("/") }.joinToString(" -o ") { "-name ${WorkspaceShell.quote(it.trimEnd('/'))}" }
+            val all = WorkspaceShell.quote("$dir/andcode-nested-all")
             val list = WorkspaceShell.quote("$dir/andcode-nested")
+            val inner = WorkspaceShell.quote("$dir/andcode-nested-inner")
+            val keep = WorkspaceShell.quote("$dir/andcode-nested-keep")
             val pathspecs = WorkspaceShell.quote("$dir/andcode-pathspecs")
+            val quotedDir = WorkspaceShell.quote(dir)
             val nestedGit =
-                "git --git-dir=${WorkspaceShell.quote(dir)} -c core.quotepath=off -c core.hooksPath=/dev/null -c gc.auto=0"
+                "git --git-dir=$quotedDir -c core.quotepath=off -c core.hooksPath=/dev/null -c gc.auto=0"
+            val nested = "GIT_INDEX_FILE=\"${'$'}idx\" $nestedGit --work-tree=$ws/\"${'$'}n\""
+
+            // Pathspecs that leave the folders listed in [from] out (`literal`: names are not globs).
+            fun excluding(from: String) =
+                "{ printf '%s\\n' ':/'; while IFS= read -r m; do printf ':(top,literal,exclude)%s/\\n' \"${'$'}m\"; " +
+                    "done < $from; } > $pathspecs"
             return listOf(
                 // Relative paths of nested repositories (a `.git` folder or file below the top), shallow first.
                 "(cd $ws && find . -mindepth 1 \\( $pruned \\) -prune -o -name .git -prune -print) | " +
-                    "sed -e 's|^\\./||' -e 's|/\\.git$||' | grep -Fvx .git | " +
-                    "while IFS= read -r n; do $git check-ignore -q -- \"${'$'}n/\" || printf '%s\\n' \"${'$'}n\"; done | sort > $list",
-                "{ printf '%s\\n' ':/'; while IFS= read -r n; do printf ':(top,exclude)%s/\\n' \"${'$'}n\"; done < $list; } > $pathspecs",
+                    "sed -e 's|^\\./||' -e 's|/\\.git$||' | grep -Fvx .git | sort > $all",
+                // Those the workspace does not ignore (a name split by a newline matches no folder).
+                "while IFS= read -r n; do [ -d $ws/\"${'$'}n\" ] || continue; " +
+                    "$git check-ignore -q -- \"${'$'}n/\" || printf '%s\\n' \"${'$'}n\"; done < $all > $list",
+                excluding(list),
                 "$git add -A --pathspec-from-file=$pathspecs",
+                ": > $keep",
                 "while IFS= read -r n; do " +
-                    // The repositories nested inside this one, relative to it, are added on their own turn.
-                    "{ printf '%s\\n' ':/'; " +
-                    "awk -v p=\"${'$'}n/\" 'index(${'$'}0, p) == 1 { print substr(${'$'}0, length(p) + 1) }' $list | " +
-                    "while IFS= read -r m; do printf ':(top,exclude)%s/\\n' \"${'$'}m\"; done; } > $pathspecs; " +
-                    "idx=${WorkspaceShell.quote("$dir/andcode-nested-index-")}$(printf '%s' \"${'$'}n\" | cksum | cut -d' ' -f1); " +
-                    "t=$(GIT_INDEX_FILE=\"${'$'}idx\" $nestedGit --work-tree=$ws/\"${'$'}n\" add -A --pathspec-from-file=$pathspecs && " +
-                    "GIT_INDEX_FILE=\"${'$'}idx\" $nestedGit --work-tree=$ws/\"${'$'}n\" write-tree); " +
+                    // Every repository inside this one, ignored or not, is left to its own turn (or out).
+                    "p=\"${'$'}n/\" awk 'index(${'$'}0, ENVIRON[\"p\"]) == 1 { print substr(${'$'}0, length(ENVIRON[\"p\"]) + 1) }' " +
+                    "$all > $inner; ${excluding(inner)}; " +
+                    "name=andcode-nested-index-$(printf '%s' \"${'$'}n\" | cksum | cut -d' ' -f1); idx=$quotedDir/\"${'$'}name\"; " +
+                    "printf '%s\\n' \"${'$'}name\" >> $keep; " +
+                    // What the index still holds from before one of those was a repository of its own.
+                    "while IFS= read -r m; do $nested ls-files -z -- \":(top,literal)${'$'}m\"; done < $inner | " +
+                    "$nested update-index -z --force-remove --stdin; " +
+                    "t=$($nested add -A --pathspec-from-file=$pathspecs && $nested write-tree); " +
                     // Whatever the folder held before (a link, or the files of an earlier snapshot) goes first.
-                    "$git ls-files -z -- \"${'$'}n\" | $git update-index -z --force-remove --stdin; " +
+                    "$git ls-files -z -- \":(top,literal)${'$'}n\" | $git update-index -z --force-remove --stdin; " +
                     "$git read-tree --prefix=\"${'$'}n/\" \"${'$'}t\"; " +
                     "done < $list",
+                // The indexes of repositories that are gone, or now ignored.
+                "for f in $quotedDir/andcode-nested-index-*; do [ -e \"${'$'}f\" ] || continue; " +
+                    "case \"${'$'}f\" in *.lock) continue ;; esac; " +
+                    "grep -Fqx -- \"${'$'}{f##*/}\" $keep || rm -f \"${'$'}f\"; done",
             )
         }
 
