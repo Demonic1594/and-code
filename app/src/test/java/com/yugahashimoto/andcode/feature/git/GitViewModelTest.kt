@@ -276,10 +276,12 @@ class GitViewModelTest {
             advanceUntilIdle()
             viewModel.setAmend(true)
             advanceUntilIdle()
+            // Back to the empty box the message was asked for, so only amend can keep it out.
+            viewModel.setCommitMessage("")
             gate.complete(CommitMessageResult.Written("Fix typo"))
             advanceUntilIdle()
 
-            assertEquals("first", viewModel.state.value.commitMessage.trim())
+            assertEquals("", viewModel.state.value.commitMessage)
         }
 
     /** The amended commit keeps what it had; a message for only the new change would describe half of it. */

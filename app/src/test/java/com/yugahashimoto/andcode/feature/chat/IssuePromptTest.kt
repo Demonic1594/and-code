@@ -77,6 +77,12 @@ class IssuePromptTest {
         val draft = "Please look. " + IssuePrompt.build(thread(body = "Dup of https://github.com/octo-org/my.repo/issues/42"))
 
         assertTrue(IssuePrompt.isInserted(draft, ref))
+        val others = (1..3).joinToString(" ") { "https://github.com/a/b/issues/$it" }
+        assertEquals(
+            "an inserted issue takes none of the three chips",
+            (1..3).map { IssueRef("a", "b", it) },
+            IssuePrompt.links("$draft $others"),
+        )
         assertFalse(IssuePrompt.isInserted("see https://github.com/octo-org/my.repo/issues/42", ref))
         assertFalse(IssuePrompt.isInserted(draft, IssueRef("octo-org", "my.repo", 4)))
     }
