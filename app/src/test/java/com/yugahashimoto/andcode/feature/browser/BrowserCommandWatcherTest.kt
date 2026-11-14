@@ -1,6 +1,5 @@
 package com.yugahashimoto.andcode.feature.browser
 
-import com.yugahashimoto.andcode.core.storage.DeviceStorage
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
@@ -27,9 +26,9 @@ class BrowserCommandWatcherTest {
     private val runtimeDirectory by lazy { temporaryFolder.newFolder("runtime") }
 
     @Test
-    fun `each Alpine agent consumes the command from the guest rootfs`() {
+    fun `each Alpine agent consumes the command from the guest home`() {
         listOf(LocalAgent.OPEN_CODE, LocalAgent.CLAUDE_CODE, LocalAgent.CODEX).forEach { agent ->
-            val file = command("environment/rootfs/root/project")
+            val file = command("environment/rootfs")
 
             assertEquals("https://www.google.com/", consume("/root/project", agent))
             assertFalse(file.exists())
@@ -38,19 +37,17 @@ class BrowserCommandWatcherTest {
     }
 
     @Test
-    fun `nested workspace commands are read from the bind mount`() {
-        val file = command("workspace/team/project")
-        val decoy = command("environment/rootfs/workspace/team/project", "https://example.com/decoy")
+    fun `the command is consumed whichever local folder is open`() {
+        val file = command("environment/rootfs")
 
-        assertEquals("https://www.google.com/", consume("/workspace/team/project"))
+        assertEquals("https://www.google.com/", consume("/sdcard/Download/project"))
         assertFalse(file.exists())
-        assertTrue(decoy.exists())
     }
 
     @Test
     fun `Antigravity consumes only the command in its Debian rootfs`() {
-        val file = command("environment/antigravity-rootfs/root/project")
-        val alpine = command("environment/rootfs/root/project", "https://example.com/alpine")
+        val file = command("environment/antigravity-rootfs")
+        val alpine = command("environment/rootfs", "https://example.com/alpine")
 
         assertEquals("https://www.google.com/", consume("/root/project", LocalAgent.ANTIGRAVITY))
         assertFalse(file.exists())
@@ -59,33 +56,30 @@ class BrowserCommandWatcherTest {
 
     @Test
     fun `Antigravity falls back to the shared rootfs when Debian is absent`() {
-        val file = command("environment/rootfs/root/project")
+        val file = command("environment/rootfs")
 
         assertEquals("https://www.google.com/", consume("/root/project", LocalAgent.ANTIGRAVITY))
         assertFalse(file.exists())
     }
 
+    /**
+     * Where commands used to go, and where a cloned or pulled repository can put one, even one stamped
+     * a moment ago by a bot that keeps the file fresh.
+     */
     @Test
-    fun `commands in device storage use the mounted host directory`() {
-        val shared = temporaryFolder.newFolder("shared")
-        val file = writeCommand(File(shared, "Download/project"))
-        val mounts = DeviceStorage.Mounts(sharedStorage = shared)
+    fun `a command inside the workspace is never opened, however fresh`() {
+        val inRootfs = writeCommand(File(runtimeDirectory, "environment/rootfs/root/project/.and-code"), "https://phishing.example/")
+        val inWorkspace = writeCommand(File(runtimeDirectory, "workspace/project/.and-code"), "https://phishing.example/")
 
-        assertEquals("https://www.google.com/", consume("/sdcard/Download/project", mounts = mounts))
-        assertFalse(file.exists())
-    }
-
-    @Test
-    fun `unmounted device storage does not consume a rootfs decoy`() {
-        val file = command("environment/rootfs/sdcard/Download/project")
-
-        assertNull(consume("/sdcard/Download/project"))
-        assertTrue(file.exists())
+        assertNull(consume("/root/project"))
+        assertNull(consume("/workspace/project"))
+        assertTrue("the user's checkout is left as it is", inRootfs.exists())
+        assertTrue(inWorkspace.exists())
     }
 
     @Test
     fun `remote runtimes and absent workspaces leave local commands untouched`() {
-        val file = command("workspace/project")
+        val file = command("environment/rootfs")
 
         assertNull(consume("/workspace/project", agent = null))
         assertNull(consume(null))
@@ -99,7 +93,7 @@ class BrowserCommandWatcherTest {
 
     @Test
     fun `partially written command is retried after the writer completes it`() {
-        val file = command("workspace/project")
+        val file = command("environment/rootfs")
         file.writeText("{\"action\":\"open\",\"url\":")
 
         assertNull(consume("/workspace/project"))
@@ -111,27 +105,70 @@ class BrowserCommandWatcherTest {
     }
 
     @Test
-    fun `unsupported actions and invalid URLs do not open the browser`() {
-        val file = command("workspace/project")
+    fun `unsupported actions and invalid URLs do not open the browser and are dropped`() {
         listOf(
-            "{\"action\":\"close\",\"url\":\"https://example.com/\"}",
-            "{\"action\":\"open\",\"url\":\"javascript:alert(1)\"}",
-            "{\"action\":\"open\",\"url\":\"file:///root/private\"}",
-            "{\"action\":\"open\",\"url\":\"https://\"}",
-            "{\"action\":\"open\",\"url\":\"\"}",
+            "{\"action\":\"close\",\"url\":\"https://example.com/\",\"createdAtMs\":$NOW}",
+            "{\"action\":\"open\",\"url\":\"javascript:alert(1)\",\"createdAtMs\":$NOW}",
+            "{\"action\":\"open\",\"url\":\"file:///root/private\",\"createdAtMs\":$NOW}",
+            "{\"action\":\"open\",\"url\":\"https://\",\"createdAtMs\":$NOW}",
+            "{\"action\":\"open\",\"url\":\"\",\"createdAtMs\":$NOW}",
         ).forEach { text ->
-            file.writeText(text)
+            val file = command("environment/rootfs").apply { writeText(text) }
             assertNull(consume("/workspace/project"))
-            assertTrue(file.exists())
+            assertFalse(text, file.exists())
         }
     }
 
     @Test
-    fun `workspace traversal does not consume a command outside its mount`() {
-        val file = command("outside")
+    fun `a command without the time it was written is not opened`() {
+        val file = command("environment/rootfs", createdAtMs = null)
 
-        assertNull(consume("/workspace/../outside"))
-        assertTrue(file.exists())
+        assertNull(consume("/workspace/project"))
+        assertFalse(file.exists())
+    }
+
+    /** One the agent asked for long before the user came back, or before switching to its agent. */
+    @Test
+    fun `a command older than a few minutes is dropped unopened`() {
+        val file = command("environment/rootfs", createdAtMs = NOW - 5 * 60_000L - 1)
+
+        assertNull(consume("/workspace/project"))
+        assertFalse(file.exists())
+    }
+
+    @Test
+    fun `a command stamped in the future is not opened`() {
+        val file = command("environment/rootfs", createdAtMs = NOW + 60_000L + 1)
+
+        assertNull(consume("/workspace/project"))
+        assertFalse(file.exists())
+    }
+
+    @Test
+    fun `a command written a moment ago is opened`() {
+        val file = command("environment/rootfs", createdAtMs = NOW - 5 * 60_000L)
+
+        assertEquals("https://www.google.com/", consume("/workspace/project"))
+        assertFalse(file.exists())
+    }
+
+    /** The guest could point it at one of the app's own files, or one too big to read every second. */
+    @Test
+    fun `a command that is a link, or too big to be one, is dropped unread`() {
+        val appFile =
+            temporaryFolder.newFile("shared_prefs.xml").apply {
+                writeText("{\"action\":\"open\",\"url\":\"https://x.example/\",\"createdAtMs\":$NOW}")
+            }
+        val link = File(File(runtimeDirectory, "environment/rootfs"), BROWSER_COMMAND_PATH).apply { parentFile!!.mkdirs() }
+        java.nio.file.Files.createSymbolicLink(link.toPath(), appFile.toPath())
+
+        assertNull(consume("/workspace/project"))
+        assertFalse(java.nio.file.Files.exists(link.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS))
+        assertTrue(appFile.exists())
+
+        val big = command("environment/rootfs").apply { appendText(" ".repeat(70_000)) }
+        assertNull(consume("/workspace/project"))
+        assertFalse(big.exists())
     }
 
     /**
@@ -171,55 +208,26 @@ class BrowserCommandWatcherTest {
     private fun consume(
         path: String?,
         agent: LocalAgent? = LocalAgent.CODEX,
-        mounts: DeviceStorage.Mounts = DeviceStorage.Mounts.None,
         now: Long = NOW,
-    ): String? = consumeBrowserOpenCommand(path, agent, runtimeDirectory, mounts) { now }
+    ): String? = consumeBrowserOpenCommand(path, agent, runtimeDirectory) { now }
 
+    /** A command in the guest home of the rootfs at [rootfs], relative to the runtime directory. */
     private fun command(
-        relativeDirectory: String,
+        rootfs: String,
         url: String = "https://www.google.com/",
-    ): File = writeCommand(File(runtimeDirectory, relativeDirectory), url)
+        createdAtMs: Long? = NOW,
+    ): File = writeCommand(File(File(runtimeDirectory, rootfs), BROWSER_COMMAND_PATH).parentFile!!, url, createdAtMs)
 
     private fun writeCommand(
         directory: File,
         url: String = "https://www.google.com/",
         createdAtMs: Long? = NOW,
     ): File =
-        File(directory, ".and-code/browser-command.json").apply {
+        File(directory, "browser-command.json").apply {
             parentFile!!.mkdirs()
             val stamp = createdAtMs?.let { ",\"createdAtMs\":$it" }.orEmpty()
             writeText("{\"action\":\"open\",\"url\":\"$url\"$stamp}")
         }
-
-    @Test
-    fun `a command without the time it was written is never opened, and is left in place`() {
-        val file = writeCommand(File(runtimeDirectory, "workspace/project"), createdAtMs = null)
-
-        assertNull(consume("/workspace/project"))
-        assertTrue("a file that came with a cloned repository is not deleted", file.exists())
-    }
-
-    @Test
-    fun `a command older than a few minutes, such as one committed to a repository, is not opened`() {
-        val file = writeCommand(File(runtimeDirectory, "workspace/project"), createdAtMs = NOW - 5 * 60_000L - 1)
-
-        assertNull(consume("/workspace/project"))
-        assertTrue(file.exists())
-    }
-
-    @Test
-    fun `a command stamped in the future is not opened`() {
-        writeCommand(File(runtimeDirectory, "workspace/project"), createdAtMs = NOW + 60_000L + 1)
-
-        assertNull(consume("/workspace/project"))
-    }
-
-    @Test
-    fun `a command written a moment ago is opened`() {
-        writeCommand(File(runtimeDirectory, "workspace/project"), createdAtMs = NOW - 5 * 60_000L)
-
-        assertEquals("https://www.google.com/", consume("/workspace/project"))
-    }
 
     private companion object {
         const val NOW = 1_800_000_000_000L

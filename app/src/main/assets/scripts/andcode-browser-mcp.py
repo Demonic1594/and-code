@@ -3,8 +3,9 @@
 
 Bridges the agent to the in-app Guest Browser of the AndCode Android app:
 
-- ``browser_show`` asks the app (via a command file in the active workspace) to
-  open the guest browser so the user can watch and operate the page.
+- ``browser_show`` asks the app (via a command file in the guest home, never in
+  a project, so a cloned repository cannot carry one) to open the guest browser
+  so the user can watch and operate the page.
 - The remaining tools drive the same WebView over CDP. While the Guest Browser is
   open with "Let agents control this browser" on, the app enables WebView
   debugging, which exposes ``webview_devtools_remote_<pid>`` as a Linux abstract
@@ -26,7 +27,9 @@ import urllib.parse
 from pathlib import Path
 from urllib.parse import urlparse
 
-COMMAND_FILE = Path(".and-code") / "browser-command.json"
+# In the guest home, outside every workspace: a command file in the project could come with a cloned
+# or pulled repository. The app reads it from here (BROWSER_COMMAND_PATH in BrowserOpenCommand.kt).
+COMMAND_FILE = Path("/root/.local/share/and-code/browser-command.json")
 # Logged to the page console before each action; the app shows "An agent is controlling this page".
 AGENT_ACTIVITY_MARKER = "andcode:agent-control"
 
@@ -482,11 +485,16 @@ def tool_show(args: dict) -> str:
     url = args.get("url")
     if not is_web_url(url):
         return NOT_WEB_URL
+    url = url.strip()
     COMMAND_FILE.parent.mkdir(parents=True, exist_ok=True)
-    # The app opens only a command stamped in the last few minutes, so a command file that came with
-    # a cloned repository never opens a page by itself.
+    # The app opens only a command stamped in the last few minutes, so one left from long before the
+    # user came back is dropped rather than opened.
     command = {"action": "open", "url": url, "createdAtMs": int(time.time() * 1000)}
-    COMMAND_FILE.write_text(json.dumps(command), encoding="utf-8")
+    # Written beside it and renamed over it, so the app never reads half a command.
+    # One per server: each agent runs its own, and two could ask at once.
+    partial = COMMAND_FILE.with_name(f"{COMMAND_FILE.name}.{os.getpid()}.partial")
+    partial.write_text(json.dumps(command), encoding="utf-8")
+    os.replace(partial, COMMAND_FILE)
     return f"requested the app to open {url}"
 
 

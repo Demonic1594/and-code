@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
-import com.yugahashimoto.andcode.core.storage.DeviceStorage
 import com.yugahashimoto.andcode.core.util.pollWhileActive
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import kotlinx.coroutines.Dispatchers
@@ -15,11 +14,10 @@ import java.io.File
 private const val POLL_INTERVAL_MILLIS = 1000L
 
 /**
- * Watches the active workspace for a browser command written by the in-guest agent
- * (`.and-code/browser-command.json`, e.g.
+ * Watches for a browser command written by an in-guest agent ([BROWSER_COMMAND_PATH], e.g.
  * `{"action":"open","url":"http://127.0.0.1:8080/","createdAtMs":1800000000000}`) and opens the guest
  * browser at the requested URL so the user can watch and join in. Only a command stamped in the last
- * few minutes opens (see [consumeBrowserOpenCommand]), so one that came with a cloned repository does not.
+ * few minutes opens (see [consumeBrowserOpenCommand]).
  *
  * Only polls while [foreground] is `true`: opening a browser nobody is looking at achieves nothing,
  * and a composition outlives the activity being stopped, so without the gate this read the disk
@@ -43,11 +41,7 @@ fun GuestBrowserCommandWatcher(
         if (workspacePath == null || agent == null) return@LaunchedEffect
         watchBrowserCommands(
             active = foreground,
-            poll = {
-                withContext(Dispatchers.IO) {
-                    consumeBrowserOpenCommand(workspacePath, agent, runtimeDirectory, DeviceStorage.mounts())
-                }
-            },
+            poll = { withContext(Dispatchers.IO) { consumeBrowserOpenCommand(workspacePath, agent, runtimeDirectory) } },
             onOpenUrl = { url -> openUrl(url) },
         )
     }
