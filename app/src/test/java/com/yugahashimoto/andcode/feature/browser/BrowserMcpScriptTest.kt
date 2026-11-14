@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.feature.browser
 
+import com.yugahashimoto.andcode.runtime.LocalAgent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -329,23 +330,43 @@ class BrowserMcpScriptTest {
         assertEquals("refused", injected)
     }
 
+    /** Outside every workspace, so no repository can carry one; the app reads the same file. */
+    @Test
+    fun `browser_show leaves a command the app opens, in the guest home`() {
+        val runtime = folder.newFolder("runtime")
+        val home = File(File(runtime, "environment/rootfs"), BROWSER_COMMAND_PATH)
+        val answer =
+            run(
+                """
+                print(m.COMMAND_FILE)
+                from pathlib import Path
+                m.COMMAND_FILE = Path(r'''${home.absolutePath}''')
+                print(m.tool_show({"url": " http://127.0.0.1:5173/ "}))
+                """.trimIndent(),
+            )
+
+        assertEquals("/$BROWSER_COMMAND_PATH\nrequested the app to open http://127.0.0.1:5173/", answer)
+        assertEquals("http://127.0.0.1:5173/", consumeBrowserOpenCommand("/root/project", LocalAgent.CLAUDE_CODE, runtime))
+    }
+
     @Test
     fun `only http and https addresses are opened or navigated to`() {
         val answer =
             run(
                 """
                 import os, tempfile
-                os.chdir(tempfile.mkdtemp())
+                from pathlib import Path
+                m.COMMAND_FILE = Path(tempfile.mkdtemp()) / "browser-command.json"
                 def fail():
                     raise AssertionError("no page should be opened")
                 m._session = fail
                 for url in ["file:///data/data/x", "content://media/1", "javascript:alert(1)", "data:text/html,hi",
                             "http://", "", None, 5]:
                     print(m.tool_navigate({"url": url}) == m.NOT_WEB_URL, m.tool_show({"url": url}) == m.NOT_WEB_URL)
-                print(os.path.exists(".and-code/browser-command.json"))
+                print(m.COMMAND_FILE.exists())
                 print(m.tool_show({"url": "http://127.0.0.1:5173/"}))
                 import json
-                written = json.load(open(".and-code/browser-command.json"))
+                written = json.load(open(m.COMMAND_FILE))
                 print(written["url"], isinstance(written["createdAtMs"], int))
                 """.trimIndent(),
             )

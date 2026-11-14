@@ -279,9 +279,25 @@ class LocalRuntimeInstaller(
                 File(active, "antigravity-rootfs").takeIf { metadata.has(LocalAgent.ANTIGRAVITY) && it.isDirectory },
             )
         }?.also { installed ->
-            ensureAndCodeAgentContext(installed.rootfs, context)
-            installed.antigravityRootfs?.let { ensureAndCodeAgentContext(it, context) }
+            listOfNotNull(installed.rootfs, installed.antigravityRootfs).forEach { rootfs ->
+                ensureAndCodeAgentContext(rootfs, context)
+                refreshHelperScriptsOnce(rootfs)
+            }
         }
+
+    /**
+     * Copies this app version's guest scripts (the browser and schedule MCP servers among them) into
+     * [rootfs], once per process. Every local agent passes through [installedRuntime], whereas the full
+     * re-seed runs only when OpenCode's server starts: without this, a phone running Claude Code or
+     * Antigravity alone would keep the scripts of the version it was installed with after an update,
+     * and a browser tool that writes where this app no longer looks. An update starts a new process,
+     * and the first agent of a process starts after this, so no running script is rewritten under it.
+     */
+    private fun refreshHelperScriptsOnce(rootfs: File) {
+        if (refreshedScriptRootfs.add(rootfs.absolutePath)) {
+            runCatching { installAndroidHelperScripts(rootfs) }
+        }
+    }
 
     /** Metadata of the active install, without requiring the command suite to be extractable. */
     fun installedMetadata(): LocalRuntimeMetadata? =
@@ -709,6 +725,9 @@ class LocalRuntimeInstaller(
     }
 
     internal companion object {
+        /** The rootfs folders whose guest scripts this process has refreshed (see refreshHelperScriptsOnce). */
+        private val refreshedScriptRootfs: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
         private const val METADATA_FILE = "metadata.json"
         private const val BROWSER_MCP_NAME = "and-code-browser"
         private const val BROWSER_MCP_BIN = "/usr/local/bin/andcode-browser-mcp.py"
