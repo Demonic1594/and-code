@@ -170,7 +170,8 @@ class ShadowSnapshotsTest {
             val legacy =
                 shell()(
                     "$g add -A -- ':/' 2>/dev/null; c=$($g commit-tree \"$($g write-tree)\" -m old); " +
-                        "$g update-ref \"refs/snapshots/${'$'}c\" \"${'$'}c\"; $g ls-tree -r ${'$'}c | grep -q '^160000 ' && printf '%s' \"${'$'}c\"",
+                        "$g update-ref \"refs/snapshots/${'$'}c\" \"${'$'}c\"; " +
+                        "$g ls-tree -r ${'$'}c | grep -q '^160000 ' && printf '%s' \"${'$'}c\"",
                     30,
                     4000,
                 )

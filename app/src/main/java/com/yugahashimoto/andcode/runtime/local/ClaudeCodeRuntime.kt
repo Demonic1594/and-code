@@ -973,8 +973,7 @@ class ClaudeCodeRuntime(
         instruction: String,
         timeoutSeconds: Long,
     ): String? {
-        val runtime = installedRuntimeProvider() ?: return null
-        if (!ClaudeCodeInstaller.isInstalledIn(runtime.rootfs)) return null
+        val runtime = installedRuntimeProvider()?.takeIf { ClaudeCodeInstaller.isInstalledIn(it.rootfs) } ?: return null
         val process =
             runCatching {
                 ProcessBuilder(
