@@ -1487,6 +1487,10 @@
     <string name="git_discard_body">ستُفقد التغييرات غير المُلتزَم بها في %1$s. وإن كان ملفًا جديدًا فسيُحذف.</string>
     <string name="git_done_discard">تم تجاهل التغييرات</string>
     <string name="git_invalid_branch">لا يمكن أن يبدأ اسم الفرع بـ -</string>
+    <string name="git_write_message">اكتب الرسالة بالذكاء الاصطناعي</string>
+    <string name="git_write_message_unavailable">ثبّت Claude Code في AndCode ليكتب رسائل الالتزام.</string>
+    <string name="git_write_message_failed">تعذّر على Claude Code كتابة الرسالة. تحقّق من تسجيل الدخول، أو اكتب الرسالة بنفسك.</string>
+    <string name="chat_use_issue">استخدم المشكلة #%1$d: %2$s</string>
     <string name="git_commit_suggest_one">تحديث %1$s</string>
     <string name="git_commit_suggest_two">تحديث %1$s و%2$s</string>
     <plurals name="git_commit_suggest_many">

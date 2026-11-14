@@ -623,8 +623,8 @@ fun AndCodeApp(
         }
     }
 
-    // Lets the in-guest agent pop the guest browser open for the user by dropping a command
-    // file into the active workspace (see GuestBrowserCommandWatcher).
+    // Lets the in-guest agent pop the guest browser open for the user by leaving a command file in
+    // the guest home (see GuestBrowserCommandWatcher).
     GuestBrowserCommandWatcher(
         workspacePath = chatState.sessionDirectory ?: chatState.selectedWorkspacePath,
         agent = selectedRuntime?.agent,

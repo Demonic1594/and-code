@@ -159,7 +159,9 @@ class ShadowSnapshots(
                     // A snapshot from before a path was ignored still holds it (a `.env` added before
                     // its rule): checking it out would overwrite the ignored file there now, so refuse,
                     // naming it. One that is not there is simply written back.
-                    "ignored=$($git ls-tree -r --name-only $target | $git check-ignore --no-index --stdin | " +
+                    // Links to nested repositories (mode 160000, in snapshots from before those were left
+                    // out) hold no files to write back, so they are not checked.
+                    "ignored=$($git ls-tree -r $target | grep -v '^160000 ' | cut -f2- | $git check-ignore --no-index --stdin | " +
                         "while IFS= read -r p; do if [ -e $ws/\"${'$'}p\" ] || [ -L $ws/\"${'$'}p\" ]; then " +
                         "printf '%s\\n' \"${'$'}p\"; break; fi; done); " +
                         "if [ -n \"${'$'}ignored\" ]; then printf '$REFUSED_PREFIX%s\\n' \"${'$'}ignored\"; exit $REFUSED_EXIT; fi; " +
@@ -288,13 +290,24 @@ class ShadowSnapshots(
         ): String {
             val dir = WorkspaceShell.quote(gitDir(root, workspace))
             val exclude = EXCLUDED.joinToString(" ") { WorkspaceShell.quote(it) }
+            // Excluded folders are not searched for nested repositories either: node_modules alone can
+            // hold thousands of folders.
+            val prunedNames =
+                EXCLUDED.filter { it.endsWith("/") }.joinToString(" -o ") { "-name ${WorkspaceShell.quote(it.trimEnd('/'))}" }
             val git = git(root, workspace)
             return listOf(
                 "set -e",
                 // A lock left by a command that was killed at its time limit would fail every later one.
                 "find $dir -maxdepth 1 -name index.lock -mmin +1 -delete 2>/dev/null || true",
-                "if [ ! -d $dir ]; then mkdir -p $dir && git init -q --bare $dir && git --git-dir=$dir config core.bare false" +
-                    " && printf '%s\\n' $exclude > $dir/info/exclude; fi",
+                "if [ ! -d $dir ]; then mkdir -p $dir && git init -q --bare $dir && git --git-dir=$dir config core.bare false; fi",
+                // Rewritten every time: the excluded folders, then each git repository inside the
+                // workspace (a clone, or a `git init` the agent ran). Git would store one with commits
+                // as a bare link, without its files, and refuses one without a commit outright, which
+                // failed the whole snapshot. Those are left out, as the restore dialog says; their own
+                // git holds their history. Glob characters in a path are escaped so it matches itself.
+                "{ printf '%s\\n' $exclude; (cd ${WorkspaceShell.quote(workspace)} && find . " +
+                    "\\( -path ./.git -o $prunedNames \\) -prune -o -name .git -prune -print 2>/dev/null) | " +
+                    "sed -e 's/[][*?\\\\!#]/\\\\&/g' -e 's|^\\./|/|' -e 's|/\\.git${'$'}|/|'; } > $dir/info/exclude",
                 // `:/` is the top of the work tree, wherever the shell happens to be.
                 // Files tracked before an ignore rule matched them stay tracked; drop them so a later
                 // restore never writes over what the project now ignores.

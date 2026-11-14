@@ -43,6 +43,10 @@ data class GitUiState(
     /** The commit being written; kept here so opening a diff or switching tabs does not lose it. */
     val commitMessage: String = "",
     val amend: Boolean = false,
+    /** Whether this device has an agent that can write a commit message; the screen shows the button only then. */
+    val canWriteMessage: Boolean = false,
+    /** A commit message is being written from the changes. */
+    val writingMessage: Boolean = false,
 )
 
 /**
@@ -53,8 +57,9 @@ data class GitUiState(
 class GitViewModel(
     private val client: GitClient,
     directory: String,
+    private val messageWriter: CommitMessageWriter? = null,
 ) : ViewModel() {
-    private val mutableState = MutableStateFlow(GitUiState(directory = directory))
+    private val mutableState = MutableStateFlow(GitUiState(directory = directory, canWriteMessage = messageWriter != null))
     val state: StateFlow<GitUiState> = mutableState.asStateFlow()
 
     private val directory get() = mutableState.value.directory
@@ -67,6 +72,9 @@ class GitViewModel(
 
     /** Bumped by each diff, commit or amend request, so only the latest answer is shown. */
     private var request = 0
+
+    /** Bumped by each operation on the repository, so a message written before one is not used. */
+    private var operations = 0
 
     init {
         refresh()
@@ -141,6 +149,52 @@ class GitViewModel(
             val message = client.lastCommitMessage(directory).getOrDefault("").trim()
             mutableState.update {
                 if (asked != request || !it.amend || it.commitMessage.isNotBlank()) it else it.copy(commitMessage = message)
+            }
+        }
+    }
+
+    /**
+     * Asks [messageWriter] for a message describing what Commit would commit (the staged changes, or
+     * every change when nothing is staged). It fills the box only if, meanwhile, the user has not typed
+     * in it, turned amend on, or run any git operation (staging or checking out could change what it
+     * describes; the rest are counted too, to be safe); the message is a suggestion to edit, never
+     * committed on its own. Not for an amend: the commit keeps what it had, and a message
+     * for the new change alone would describe half of it.
+     */
+    fun writeCommitMessage() {
+        val writer = messageWriter ?: return
+        val current = mutableState.value
+        val busy = current.writingMessage || current.loading || current.running != null
+        if (busy || current.amend) return
+        val typed = current.commitMessage
+        val asked = operations
+        mutableState.update { it.copy(writingMessage = true, error = null, done = null) }
+        viewModelScope.launch {
+            val result =
+                try {
+                    val status = client.status(directory).getOrThrow()
+                    if (status.changes.isEmpty()) {
+                        null
+                    } else {
+                        writer.write(client.commitMessageRequest(directory, status).getOrThrow())
+                    }
+                } catch (cancel: CancellationException) {
+                    throw cancel
+                } catch (error: Exception) {
+                    CommitMessageResult.Failed
+                }
+            mutableState.update {
+                val unchanged = it.commitMessage == typed && operations == asked && !it.amend
+                when (result) {
+                    null -> it.copy(writingMessage = false)
+                    is CommitMessageResult.Written ->
+                        it.copy(
+                            writingMessage = false,
+                            commitMessage = if (unchanged) result.message else it.commitMessage,
+                        )
+                    CommitMessageResult.Unavailable -> it.copy(writingMessage = false, error = ERROR_WRITER_UNAVAILABLE)
+                    CommitMessageResult.Failed -> it.copy(writingMessage = false, error = ERROR_WRITER_FAILED)
+                }
             }
         }
     }
@@ -264,6 +318,7 @@ class GitViewModel(
         action: suspend () -> Result<String>,
     ) {
         if (mutableState.value.running != null) return
+        operations++
         mutableState.update { it.copy(running = operation, done = null, error = null) }
         viewModelScope.launch {
             val result =
@@ -295,5 +350,9 @@ class GitViewModel(
     companion object {
         /** Marker the screen swaps for its localized "invalid name" message. */
         const val ERROR_INVALID_REF = "\u0000invalid-ref"
+
+        /** Markers for the localized "no agent can write it" and "it could not be written" messages. */
+        const val ERROR_WRITER_UNAVAILABLE = "\u0000writer-unavailable"
+        const val ERROR_WRITER_FAILED = "\u0000writer-failed"
     }
 }

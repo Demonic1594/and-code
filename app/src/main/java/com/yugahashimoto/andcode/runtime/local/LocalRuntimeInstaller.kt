@@ -279,9 +279,30 @@ class LocalRuntimeInstaller(
                 File(active, "antigravity-rootfs").takeIf { metadata.has(LocalAgent.ANTIGRAVITY) && it.isDirectory },
             )
         }?.also { installed ->
-            ensureAndCodeAgentContext(installed.rootfs, context)
-            installed.antigravityRootfs?.let { ensureAndCodeAgentContext(it, context) }
+            listOfNotNull(installed.rootfs, installed.antigravityRootfs).forEach { rootfs ->
+                ensureAndCodeAgentContext(rootfs, context)
+                refreshHelperScriptsOnce(rootfs)
+            }
         }
+
+    /**
+     * Copies this app version's guest scripts (the browser and schedule MCP servers among them) into
+     * [rootfs], once per process. Every local agent passes through [installedRuntime], whereas the full
+     * re-seed runs only when OpenCode's server starts: without this, a phone running Claude Code or
+     * Antigravity alone would keep the scripts of the version it was installed with after an update,
+     * and a browser tool that writes where this app no longer looks. An update starts a new process.
+     * Each script is replaced by a rename, so one already running keeps its own copy. Callers that come
+     * while the copy runs wait for it, and a copy that fails is tried again by the next one.
+     */
+    private fun refreshHelperScriptsOnce(rootfs: File) {
+        val key = rootfs.absolutePath
+        if (key in refreshedScriptRootfs) return
+        synchronized(refreshedScriptRootfs) {
+            if (key !in refreshedScriptRootfs && runCatching { installAndroidHelperScripts(rootfs) }.isSuccess) {
+                refreshedScriptRootfs += key
+            }
+        }
+    }
 
     /** Metadata of the active install, without requiring the command suite to be extractable. */
     fun installedMetadata(): LocalRuntimeMetadata? =
@@ -689,11 +710,7 @@ class LocalRuntimeInstaller(
             "andcode-run.py" to "andcode-run",
         ).forEach {
                 (assetName, scriptName) ->
-            val scriptFile = File(binDir, scriptName)
-            context.assets.open("scripts/$assetName").use { input ->
-                scriptFile.outputStream().use { output -> input.copyTo(output) }
-            }
-            scriptFile.setExecutable(true, false)
+            context.assets.open("scripts/$assetName").use { input -> replaceGuestScript(File(binDir, scriptName), input) }
         }
     }
 
@@ -709,6 +726,9 @@ class LocalRuntimeInstaller(
     }
 
     internal companion object {
+        /** The rootfs folders whose guest scripts this process has refreshed (see refreshHelperScriptsOnce). */
+        private val refreshedScriptRootfs: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
         private const val METADATA_FILE = "metadata.json"
         private const val BROWSER_MCP_NAME = "and-code-browser"
         private const val BROWSER_MCP_BIN = "/usr/local/bin/andcode-browser-mcp.py"

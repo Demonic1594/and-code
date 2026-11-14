@@ -1,5 +1,8 @@
 package com.yugahashimoto.andcode.core.api
 
+import com.yugahashimoto.andcode.feature.chat.IssueComment
+import com.yugahashimoto.andcode.feature.chat.IssueRef
+import com.yugahashimoto.andcode.feature.chat.IssueThread
 import com.yugahashimoto.andcode.feature.workspace.GitHubReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -119,6 +122,45 @@ class GitHubApiClient(
             }
         }
 
+    /**
+     * An issue and the comments under it (the first 100, oldest first), for starting a chat from it.
+     * Null when GitHub cannot be reached, the issue is private to an account the app is not signed
+     * in to, or the response is unusable; comments that cannot be read leave the issue without them.
+     */
+    suspend fun getIssueThread(ref: IssueRef): IssueThread? =
+        withContext(Dispatchers.IO) {
+            try {
+                val base = "$baseUrl/repos/${ref.owner}/${ref.repo}/issues/${ref.number}"
+                val issue =
+                    client.newCall(buildRequest(base)).execute().use { response ->
+                        if (!response.isSuccessful) return@withContext null
+                        json.decodeFromString<GitHubIssueDetail>(response.body?.string().orEmpty())
+                    }
+                val comments =
+                    runCatching {
+                        client.newCall(buildRequest("$base/comments?per_page=$COMMENTS_PAGE")).execute().use { response ->
+                            if (!response.isSuccessful) {
+                                emptyList()
+                            } else {
+                                json.decodeFromString<List<GitHubComment>>(response.body?.string().orEmpty())
+                            }
+                        }
+                    }.getOrDefault(emptyList())
+                IssueThread(
+                    ref = ref,
+                    title = issue.title,
+                    author = issue.user?.login.orEmpty(),
+                    body = issue.body.orEmpty(),
+                    state = issue.state,
+                    labels = issue.labels.map { it.name },
+                    comments = comments.map { IssueComment(it.user?.login.orEmpty(), it.body.orEmpty()) },
+                    moreComments = comments.size >= COMMENTS_PAGE,
+                )
+            } catch (_: Exception) {
+                null
+            }
+        }
+
     private fun buildRequest(url: String): Request =
         Request.Builder()
             .url(url)
@@ -150,6 +192,36 @@ class GitHubApiClient(
     @Serializable
     private data class GitHubSearchResult(
         val items: List<GitHubIssue> = emptyList(),
+    )
+
+    private companion object {
+        /** GitHub's largest page; a longer thread is marked as only partly read. */
+        const val COMMENTS_PAGE = 100
+    }
+
+    @Serializable
+    private data class GitHubUser(
+        val login: String = "",
+    )
+
+    @Serializable
+    private data class GitHubLabel(
+        val name: String = "",
+    )
+
+    @Serializable
+    private data class GitHubIssueDetail(
+        val title: String = "",
+        val body: String? = null,
+        val state: String = "open",
+        val user: GitHubUser? = null,
+        val labels: List<GitHubLabel> = emptyList(),
+    )
+
+    @Serializable
+    private data class GitHubComment(
+        val body: String? = null,
+        val user: GitHubUser? = null,
     )
 
     @Serializable

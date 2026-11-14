@@ -146,6 +146,7 @@ internal fun ChatRoute(
     ) {
         ChatHomeScreen(
             repositoryUrl = repositoryUrl,
+            issueLookup = app.githubApi::getIssueThread,
             // No runtime given: the lifecycle looks the chat's owner up, so a runtime switched while
             // the dialog was open cannot pair this chat with another agent.
             onRenameChat = { id, title -> actions.onRenameChat(id, null, title) },

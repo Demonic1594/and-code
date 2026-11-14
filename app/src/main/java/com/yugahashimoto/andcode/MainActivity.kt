@@ -147,6 +147,12 @@ class MainActivity : FragmentActivity() {
         LaunchedEffect(preferences.biometricLockEnabled) {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                 setRecentsScreenshotEnabled(!preferences.biometricLockEnabled)
+            } else if (preferences.biometricLockEnabled) {
+                // Before Android 13 the only way to keep the chats out of the recents thumbnail; it
+                // also blocks screenshots of the app while the lock is on.
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+            } else {
+                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
             }
         }
         // One lambda for the life of the screen, reading the latest settings: a new one on every

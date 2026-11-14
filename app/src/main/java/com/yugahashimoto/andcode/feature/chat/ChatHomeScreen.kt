@@ -89,7 +89,6 @@ import com.yugahashimoto.andcode.core.api.OpenCodeProvider
 import com.yugahashimoto.andcode.core.api.PromptAttachment
 import com.yugahashimoto.andcode.core.api.orderThinkingLevels
 import com.yugahashimoto.andcode.data.settings.SavedPrompt
-import com.yugahashimoto.andcode.feature.workspace.GitHubReference
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import com.yugahashimoto.andcode.runtime.PermissionResponse
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
@@ -220,7 +219,8 @@ fun ChatHomeScreen(
     subagents: List<SubagentInfo> = emptyList(),
     onSubagentClick: (String) -> Unit = {},
     onReturnToParentSession: () -> Unit = {},
-    githubRefs: List<GitHubReference> = emptyList(),
+    /** Reads a GitHub issue linked in the draft, to offer it as a chip; null where GitHub is not used. */
+    issueLookup: (suspend (IssueRef) -> IssueThread?)? = null,
     onOpenUrl: (String) -> Unit = {},
     /** The chat's repository on GitHub, when its folder was cloned from there; offered in the ⋮ menu. */
     repositoryUrl: String? = null,
@@ -270,6 +270,7 @@ fun ChatHomeScreen(
         mutableStateOf(TextFieldValue(""))
     }
     val input = inputValue.text
+    val linkedIssues = rememberLinkedIssues(input, issueLookup)
     val listState = rememberLazyListState()
     var showModelPicker by remember { mutableStateOf(false) }
     val errorKind = classifyChatError(state.error)
@@ -994,7 +995,11 @@ fun ChatHomeScreen(
                             inputValue = TextFieldValue(completed, TextRange(completed.length))
                             showSlashCommands = false
                         },
-                        githubRefs = githubRefs,
+                        linkedIssues = linkedIssues,
+                        onUseIssue = { thread ->
+                            val replaced = IssuePrompt.replaceLink(inputValue.text, thread.ref, IssuePrompt.build(thread))
+                            inputValue = TextFieldValue(replaced, TextRange(replaced.length))
+                        },
                         pullRequests = state.pullRequests,
                         onOpenUrl = onOpenUrl,
                         onDismissPullRequest = onDismissPullRequest,

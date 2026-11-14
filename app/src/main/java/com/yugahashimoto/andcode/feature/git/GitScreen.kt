@@ -37,11 +37,13 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.AccountTree
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -102,6 +104,7 @@ class GitScreenActions(
     val onUnstageAll: () -> Unit = {},
     val onDiscard: (GitFileChange) -> Unit = {},
     val onCommitMessageChange: (String) -> Unit = {},
+    val onWriteCommitMessage: () -> Unit = {},
     val onAmendChange: (Boolean) -> Unit = {},
     val onCommit: () -> Unit = {},
     val onFetch: () -> Unit = {},
@@ -336,6 +339,16 @@ private fun CountPill(
     }
 }
 
+/** [error] as the banner shows it: the view model's markers become their localized messages. */
+@Composable
+private fun errorText(error: String): String =
+    when (error) {
+        GitViewModel.ERROR_INVALID_REF -> stringResource(R.string.git_invalid_branch)
+        GitViewModel.ERROR_WRITER_UNAVAILABLE -> stringResource(R.string.git_write_message_unavailable)
+        GitViewModel.ERROR_WRITER_FAILED -> stringResource(R.string.git_write_message_failed)
+        else -> error
+    }
+
 @Composable
 private fun ResultBanner(
     state: GitUiState,
@@ -343,8 +356,7 @@ private fun ResultBanner(
 ) {
     val message =
         when {
-            state.error == GitViewModel.ERROR_INVALID_REF -> stringResource(R.string.git_invalid_branch)
-            state.error != null -> state.error
+            state.error != null -> errorText(state.error)
             else ->
                 when (state.done) {
                     GitOperation.COMMIT -> stringResource(R.string.git_done_commit)
@@ -395,6 +407,7 @@ private fun ChangesTab(
                     value = message,
                     onValueChange = actions.onCommitMessageChange,
                     placeholder = { Text(stringResource(R.string.git_commit_message_label)) },
+                    trailingIcon = writeMessageButton(state, actions.onWriteCommitMessage),
                     minLines = 2,
                     maxLines = 6,
                     modifier = Modifier.fillMaxWidth(),
@@ -1100,4 +1113,25 @@ private fun GitNotice(text: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm),
     )
+}
+
+/**
+ * The commit box's button that has Claude Code write the message, a spinner while it does; none on a
+ * device without Claude Code. Off while git is busy, during an amend, and with nothing to commit.
+ */
+private fun writeMessageButton(
+    state: GitUiState,
+    onClick: () -> Unit,
+): (@Composable () -> Unit)? {
+    if (!state.canWriteMessage) return null
+    val enabled = state.running == null && !state.loading && !state.amend && state.status?.changes?.isNotEmpty() == true
+    return {
+        if (state.writingMessage) {
+            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+        } else {
+            IconButton(onClick = onClick, enabled = enabled) {
+                Icon(Icons.Outlined.AutoAwesome, contentDescription = stringResource(R.string.git_write_message))
+            }
+        }
+    }
 }

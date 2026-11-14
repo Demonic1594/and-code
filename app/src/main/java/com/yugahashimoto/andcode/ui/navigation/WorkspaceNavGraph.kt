@@ -31,6 +31,7 @@ import com.yugahashimoto.andcode.feature.workspace.isOpenable
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import com.yugahashimoto.andcode.runtime.RuntimeType
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
+import com.yugahashimoto.andcode.runtime.local.ClaudeCommitMessageWriter
 import com.yugahashimoto.andcode.ui.ViewModelFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -216,6 +217,7 @@ fun NavGraphBuilder.workspaceNavGraph(
                                     app.commandRunner.runShell(command, timeout, window.maxCharacters, window.keepStart)
                                 },
                                 workspace.path,
+                                ClaudeCommitMessageWriter(app.claudeCodeRuntime),
                             )
                         },
                 )
@@ -232,6 +234,7 @@ fun NavGraphBuilder.workspaceNavGraph(
                         onUnstageAll = gitViewModel::unstageAll,
                         onDiscard = gitViewModel::discard,
                         onCommitMessageChange = gitViewModel::setCommitMessage,
+                        onWriteCommitMessage = gitViewModel::writeCommitMessage,
                         onAmendChange = gitViewModel::setAmend,
                         onCommit = gitViewModel::commit,
                         onFetch = gitViewModel::fetch,

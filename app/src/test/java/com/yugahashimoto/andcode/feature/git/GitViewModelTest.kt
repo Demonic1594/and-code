@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.feature.git
 
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeCommandResult
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -181,6 +182,156 @@ class GitViewModelTest {
             viewModel.setAmend(true)
             advanceUntilIdle()
             assertEquals("mine", viewModel.state.value.commitMessage)
+        }
+
+    @Test
+    fun `a written message describes the staged change and lands in the box`() =
+        runTest(dispatcher) {
+            File(repo, "a.txt").writeText("two\n")
+            File(repo, "new.txt").writeText("n\n")
+            sh("git add a.txt")
+            var asked: CommitMessageRequest? = null
+            val viewModel =
+                GitViewModel(client, repo.absolutePath) { request ->
+                    asked = request
+                    CommitMessageResult.Written("Change a")
+                }
+            advanceUntilIdle()
+
+            viewModel.writeCommitMessage()
+            advanceUntilIdle()
+
+            assertEquals("Change a", viewModel.state.value.commitMessage)
+            assertEquals(false, viewModel.state.value.writingMessage)
+            val request = requireNotNull(asked)
+            assertTrue(request.diff.contains("+two"))
+            assertTrue("staged only", request.untracked.isEmpty())
+            assertEquals(listOf("first"), request.recentSubjects.filter(String::isNotBlank))
+        }
+
+    @Test
+    fun `with nothing staged the message covers every change and names new files`() =
+        runTest(dispatcher) {
+            File(repo, "a.txt").writeText("two\n")
+            File(repo, "new.txt").writeText("n\n")
+            var asked: CommitMessageRequest? = null
+            val viewModel =
+                GitViewModel(client, repo.absolutePath) { request ->
+                    asked = request
+                    CommitMessageResult.Written("Change things")
+                }
+            advanceUntilIdle()
+
+            viewModel.writeCommitMessage()
+            advanceUntilIdle()
+
+            assertTrue(requireNotNull(asked).diff.contains("+two"))
+            assertEquals(listOf("new.txt"), asked!!.untracked)
+        }
+
+    @Test
+    fun `a message typed while one is being written is kept`() =
+        runTest(dispatcher) {
+            File(repo, "a.txt").writeText("two\n")
+            val viewModel = GitViewModel(client, repo.absolutePath) { CommitMessageResult.Written("Written") }
+            advanceUntilIdle()
+
+            viewModel.writeCommitMessage()
+            viewModel.setCommitMessage("typed meanwhile")
+            advanceUntilIdle()
+
+            assertEquals("typed meanwhile", viewModel.state.value.commitMessage)
+        }
+
+    @Test
+    fun `a message written before the staging changed is not used`() =
+        runTest(dispatcher) {
+            File(repo, "a.txt").writeText("two\n")
+            File(repo, "b.txt").writeText("b\n")
+            sh("git add a.txt")
+            val gate = CompletableDeferred<CommitMessageResult>()
+            val viewModel = GitViewModel(client, repo.absolutePath) { gate.await() }
+            advanceUntilIdle()
+
+            viewModel.writeCommitMessage()
+            advanceUntilIdle()
+            viewModel.stageAll()
+            advanceUntilIdle()
+            gate.complete(CommitMessageResult.Written("Change a"))
+            advanceUntilIdle()
+
+            assertEquals("", viewModel.state.value.commitMessage)
+            assertEquals(false, viewModel.state.value.writingMessage)
+        }
+
+    @Test
+    fun `a message that lands after amend was turned on is not used`() =
+        runTest(dispatcher) {
+            File(repo, "a.txt").writeText("two\n")
+            val gate = CompletableDeferred<CommitMessageResult>()
+            val viewModel = GitViewModel(client, repo.absolutePath) { gate.await() }
+            advanceUntilIdle()
+
+            viewModel.writeCommitMessage()
+            advanceUntilIdle()
+            viewModel.setAmend(true)
+            advanceUntilIdle()
+            // Back to the empty box the message was asked for, so only amend can keep it out.
+            viewModel.setCommitMessage("")
+            gate.complete(CommitMessageResult.Written("Fix typo"))
+            advanceUntilIdle()
+
+            assertEquals("", viewModel.state.value.commitMessage)
+        }
+
+    /** The amended commit keeps what it had; a message for only the new change would describe half of it. */
+    @Test
+    fun `no message is written for an amend`() =
+        runTest(dispatcher) {
+            File(repo, "a.txt").writeText("two\n")
+            var calls = 0
+            val viewModel =
+                GitViewModel(client, repo.absolutePath) {
+                    calls++
+                    CommitMessageResult.Written("Fix typo")
+                }
+            advanceUntilIdle()
+            viewModel.setAmend(true)
+            advanceUntilIdle()
+
+            viewModel.writeCommitMessage()
+            advanceUntilIdle()
+
+            assertEquals(0, calls)
+            assertEquals("first", viewModel.state.value.commitMessage.trim())
+        }
+
+    @Test
+    fun `a writer that is missing or fails says so, and a clean tree asks nothing`() =
+        runTest(dispatcher) {
+            var calls = 0
+            val clean =
+                GitViewModel(client, repo.absolutePath) {
+                    calls++
+                    CommitMessageResult.Failed
+                }
+            advanceUntilIdle()
+            clean.writeCommitMessage()
+            advanceUntilIdle()
+            assertEquals(0, calls)
+
+            File(repo, "a.txt").writeText("two\n")
+            val unavailable = GitViewModel(client, repo.absolutePath) { CommitMessageResult.Unavailable }
+            val failed = GitViewModel(client, repo.absolutePath) { CommitMessageResult.Failed }
+            advanceUntilIdle()
+            unavailable.writeCommitMessage()
+            failed.writeCommitMessage()
+            advanceUntilIdle()
+
+            assertEquals(GitViewModel.ERROR_WRITER_UNAVAILABLE, unavailable.state.value.error)
+            assertEquals(GitViewModel.ERROR_WRITER_FAILED, failed.state.value.error)
+            assertEquals("", failed.state.value.commitMessage)
+            assertEquals(false, GitViewModel(client, repo.absolutePath).state.value.canWriteMessage)
         }
 
     @Test
