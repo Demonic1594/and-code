@@ -6,7 +6,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yugahashimoto.andcode.core.api.ConnectionQualityMonitor
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
-import com.yugahashimoto.andcode.core.api.OpenCodeFileChange
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
 import com.yugahashimoto.andcode.core.api.PromptAttachment
 import com.yugahashimoto.andcode.core.api.PromptRequest
@@ -30,7 +29,6 @@ import com.yugahashimoto.andcode.runtime.local.StagedSystemPrompt
 import com.yugahashimoto.andcode.runtime.local.VideoAttachmentHelper
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -238,6 +236,9 @@ class ChatViewModel(
     private val pullRequestBadges = PullRequestBadges(viewModelScope, _uiState, pullRequestStatuses)
 
     private val contextUsage = ContextUsage(backend, viewModelScope, _uiState, priceCatalog)
+
+    private val restorePoints =
+        RestorePoints(viewModelScope, _uiState, turnSnapshots, restoreFailedMessage, restoreRefusedMessage) { drainHeldPrompts() }
 
     private val permissions = ChatPermissions(backend, viewModelScope, _uiState, onPermissionResolved)
 
@@ -869,42 +870,13 @@ class ChatViewModel(
 
     private fun canRewind(currentBackend: OpenCodeBackend?): Boolean = (currentBackend as? RuntimeTarget)?.capabilities?.checkpoints == true
 
-    /**
-     * The restore or undo still rewriting files. Kept apart from [ChatUiState.isRestoringFiles],
-     * which a chat switch clears for the screen: the files are still being rewritten, so nothing may
-     * be sent until it ends, from whichever chat.
-     */
-    private var restoreJob: Job? = null
-
-    private val restoreInFlight: Boolean
-        get() = _uiState.value.isRestoringFiles || restoreJob?.isActive == true
-
-    /**
-     * Called last by the restore or undo coroutine: it is still active at that point, so it lets go
-     * of [restoreJob] first, or the prompts held for it would see a restore in flight and stay held.
-     */
-    private suspend fun finishRestoreJob() {
-        val self = currentCoroutineContext()[Job]
-        if (restoreJob === self) restoreJob = null
-        drainHeldPrompts()
-    }
-
-    /**
-     * Messages shown while offline, before they were sent. When they do go out they are sent again as
-     * new messages, so counting the placeholders would number every later turn one too high.
-     */
-    private val offlinePlaceholders = mutableSetOf<String>()
-
-    /** [messages] without the offline placeholders, as the turn numbers count them. */
-    private fun sentMessages(messages: List<ChatMessage>): List<ChatMessage> = messages.filterNot { it.id in offlinePlaceholders }
-
     /** How many of the user's messages went out before the one being sent: its turn number. */
-    private fun sentTurns(): Int = keepRewind(_uiState.value).count { it.isUser && it.id !in offlinePlaceholders }
+    private fun sentTurns(): Int = restorePoints.sentTurns(keepRewind(_uiState.value))
 
     /** Project files for the `@` mention being typed in the composer. */
     val fileMentions =
         FileMentionSearch(viewModelScope) { query ->
-            val directory = snapshotDirectory()
+            val directory = restorePoints.snapshotDirectory()
             val currentBackend = backend
             if (directory == null || currentBackend == null) {
                 emptyList()
@@ -919,88 +891,19 @@ class ChatViewModel(
             }
         }
 
-    /** The folder the chat's snapshots are taken of: the session's, else the one picked for it. */
-    private fun snapshotDirectory(sessionDirectory: String? = null): String? =
-        _uiState.value.sessionDirectory ?: sessionDirectory ?: _uiState.value.selectedWorkspacePath
-
     /** Whether the files can be put back to how they were before [messageId], a message of the user's. */
-    fun canRestoreFiles(messageId: String): Boolean {
-        val state = _uiState.value
-        val sessionId = state.sessionId
-        val isUserMessage = state.messages.any { it.id == messageId && it.isUser }
-        val turn = turnOf(sentMessages(state.messages), messageId)
-        return turnSnapshots != null && sessionId != null && isUserMessage && turn != null &&
-            turnSnapshots.has(sessionId, turn)
-    }
+    fun canRestoreFiles(messageId: String): Boolean = restorePoints.canRestoreFiles(messageId)
 
     /**
      * Puts the workspace's files back to how they were before [messageId], from the snapshot taken
      * when it was sent. The messages stay: only files change. [undoFileRestore] takes it back.
      */
-    fun restoreFilesTo(messageId: String) {
-        val state = _uiState.value
-        val snapshots = turnSnapshots
-        val sessionId = state.sessionId
-        val directory = snapshotDirectory()
-        val turn = turnOf(sentMessages(state.messages), messageId)
-        if (snapshots == null || sessionId == null) return
-        if (directory == null || turn == null) return
-        if (state.isRunning || restoreInFlight) return
-        _uiState.update { it.copy(isRestoringFiles = true) }
-        restoreJob =
-            viewModelScope.launch {
-                val result = snapshotCall<RestoreResult>(RestoreResult.Failed) { snapshots.restore(sessionId, turn, directory) }
-                _uiState.update {
-                    when {
-                        // The chat changed meanwhile: its Undo must not appear in another one.
-                        it.sessionId != sessionId -> it.copy(isRestoringFiles = false)
-                        result is RestoreResult.Restored ->
-                            it.copy(isRestoringFiles = false, fileRestore = FileRestore(sessionId, directory, result.token))
-                        // Nothing changed, and saying which file is in the way tells the user what to move.
-                        result is RestoreResult.Refused -> it.copy(isRestoringFiles = false, error = restoreRefusedMessage(result.path))
-                        else -> it.copy(isRestoringFiles = false, error = restoreFailedMessage)
-                    }
-                }
-                finishRestoreJob()
-            }
-    }
+    fun restoreFilesTo(messageId: String) = restorePoints.restoreFilesTo(messageId)
 
     /** Takes the last [restoreFilesTo] back: the files return to how they were just before it. */
-    fun undoFileRestore() {
-        val snapshots = turnSnapshots ?: return
-        val restore = _uiState.value.fileRestore ?: return
-        val busy = restoreInFlight || _uiState.value.isRunning
-        if (busy || restore.sessionId != _uiState.value.sessionId) return
-        _uiState.update { it.copy(isRestoringFiles = true) }
-        restoreJob =
-            viewModelScope.launch {
-                val undone = snapshotCall(false) { snapshots.undoRestore(restore.directory, restore.token) }
-                _uiState.update {
-                    when {
-                        undone -> it.copy(isRestoringFiles = false, fileRestore = null)
-                        it.sessionId != restore.sessionId -> it.copy(isRestoringFiles = false)
-                        else -> it.copy(isRestoringFiles = false, error = restoreFailedMessage)
-                    }
-                }
-                finishRestoreJob()
-            }
-    }
+    fun undoFileRestore() = restorePoints.undoFileRestore()
 
-    fun dismissFileRestore() {
-        _uiState.update { it.copy(fileRestore = null) }
-    }
-
-    /** The changes of the turn [patch] belongs to, from its snapshots; empty when there are none. */
-    private suspend fun snapshotChanges(
-        sessionId: String,
-        patch: ChatPart.Patch,
-    ): List<OpenCodeFileChange> {
-        val snapshots = turnSnapshots ?: return emptyList()
-        val directory = snapshotDirectory() ?: return emptyList()
-        val turn = turnOf(sentMessages(_uiState.value.messages), patch.messageId) ?: return emptyList()
-        val changes = snapshotCall(null) { snapshots.turnChanges(sessionId, turn, directory) }.orEmpty()
-        return changesForPatch(changes, patch.files)
-    }
+    fun dismissFileRestore() = restorePoints.dismissFileRestore()
 
     /**
      * Picks up a rewind the session already carries - one made on another device, or before the app
@@ -1056,29 +959,6 @@ class ChatViewModel(
             drainHeldPrompts()
         }
     }
-
-    /** Best effort: a turn without a snapshot only loses its restore point, never the message. */
-    private suspend fun recordTurnSnapshot(
-        sessionId: String,
-        turn: Int,
-        sessionDirectory: String?,
-    ) {
-        val directory = snapshotDirectory(sessionDirectory) ?: return
-        snapshotCall(Unit) { turnSnapshots?.record(sessionId, turn, directory) }
-    }
-
-    /** A snapshot call that fails gives [fallback]; leaving the screen still cancels it. */
-    private suspend fun <T> snapshotCall(
-        fallback: T,
-        block: suspend () -> T,
-    ): T =
-        try {
-            block()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Exception) {
-            fallback
-        }
 
     /** Sends what queued up while a rewind or file restore was landing, now that things are settled. */
     private fun drainHeldPrompts() {
@@ -1222,7 +1102,7 @@ class ChatViewModel(
                 } else {
                     emptyList()
                 }
-            val changes = fromRuntime.ifEmpty { snapshotChanges(sessionId, patch) }
+            val changes = fromRuntime.ifEmpty { restorePoints.snapshotChanges(sessionId, patch) }
             // A dialog dismissed and reopened on a different patch while this fetch was still in
             // flight must not have its answer land on the wrong card.
             _uiState.update {
@@ -1358,7 +1238,7 @@ class ChatViewModel(
     ) {
         // A rewind or its undo in flight decides which messages the next one follows; the screen
         // holds the composer until it lands.
-        if (_uiState.value.isRewinding || restoreInFlight) return
+        if (_uiState.value.isRewinding || restorePoints.inFlight) return
         val normalized = text.trim()
         // Whether this send takes, and afterwards clears, what is in the composer.
         val usesComposer = fromComposer && held == null
@@ -1429,7 +1309,7 @@ class ChatViewModel(
                     attachments = pendingAttachments,
                     imagePreviews = pendingPreviews,
                 )
-            offlinePlaceholders += userMessage.id
+            restorePoints.markOffline(userMessage.id)
             _uiState.update {
                 it.copy(
                     messages = keepRewind(it) + userMessage,
@@ -1542,7 +1422,7 @@ class ChatViewModel(
                     contextUsage.refresh(targetSessionId)
                 }
                 if (interrupting) interruptRunningTurn(currentBackend, targetSessionId)
-                recordTurnSnapshot(targetSessionId, turnAtSend, session?.directory)
+                restorePoints.recordTurnSnapshot(targetSessionId, turnAtSend, session?.directory)
                 currentBackend.sendMessage(
                     targetSessionId,
                     PromptRequest(
@@ -1690,7 +1570,7 @@ class ChatViewModel(
         arguments: String,
         sendNow: Boolean = false,
     ) {
-        if (_uiState.value.isRewinding || restoreInFlight) return
+        if (_uiState.value.isRewinding || restorePoints.inFlight) return
         val currentBackend = backend
         if (currentBackend == null) {
             _uiState.update { it.copy(error = "OpenCode connection is not configured") }
@@ -1708,7 +1588,7 @@ class ChatViewModel(
                     isUser = true,
                     parts = listOf(ChatPart.Text(id = UUID.randomUUID().toString(), text = displayText)),
                 )
-            offlinePlaceholders += userMessage.id
+            restorePoints.markOffline(userMessage.id)
             _uiState.update {
                 it.copy(
                     messages = keepRewind(it) + userMessage,
@@ -1797,7 +1677,7 @@ class ChatViewModel(
                 }
 
                 if (interrupting) interruptRunningTurn(currentBackend, targetSessionId)
-                recordTurnSnapshot(targetSessionId, turnAtSend, session?.directory)
+                restorePoints.recordTurnSnapshot(targetSessionId, turnAtSend, session?.directory)
 
                 // The command endpoint on OpenCode runs the whole turn before answering, so it is
                 // fired in its own coroutine: the poll loop below (and the SSE stream) drive the UI
@@ -2492,7 +2372,7 @@ class ChatViewModel(
      */
     private fun drainQueue() {
         // Held, not dropped: send() refuses while a rewind lands, and the rewind drains after.
-        if (_uiState.value.isRewinding || restoreInFlight) return
+        if (_uiState.value.isRewinding || restorePoints.inFlight) return
         val queued = messageQueue.value
         val next = queued.indexOfFirst { it.sessionId == _uiState.value.sessionId }
         if (next >= 0) {
@@ -2505,7 +2385,7 @@ class ChatViewModel(
     }
 
     private fun drainOfflineQueue() {
-        if (_uiState.value.isRewinding || restoreInFlight) return
+        if (_uiState.value.isRewinding || restorePoints.inFlight) return
         val (open, others) = offlineMessageQueue.value.partition { it.sessionId == _uiState.value.sessionId }
         if (open.isEmpty()) return
         offlineMessageQueue.value = others
@@ -2594,7 +2474,7 @@ class ChatViewModel(
     fun sendQueuedPromptNow(id: String) {
         if (!_uiState.value.canSendQueuedNow) return
         val prompt = messageQueue.value.firstOrNull { it.id == id } ?: return
-        if (_uiState.value.isRewinding || restoreInFlight) return
+        if (_uiState.value.isRewinding || restorePoints.inFlight) return
         removeQueuedPrompt(id)
         sendQueued(prompt, sendNow = true)
     }
