@@ -392,8 +392,8 @@
     <ID>ReturnCount:ChatViewModel.kt$ChatViewModel$fun editLastUserMessage()</ID>
     <ID>ReturnCount:ChatViewModel.kt$ChatViewModel$private fun handleEvent(event: OpenCodeEvent)</ID>
     <ID>ReturnCount:ChatViewModel.kt$ChatViewModel$private fun send( text: String, fromComposer: Boolean, /** Interrupts a running turn even where prompts otherwise queue; see [sendQueuedPromptNow]. */ sendNow: Boolean = false, /** * A held prompt going out, with its own attachments. It never reads or clears the composer, * where the user may be writing the next message. */ held: QueuedPrompt? = null, )</ID>
-    <ID>ReturnCount:ChatViewModel.kt$internal fun extractReasoningText( topLevelText: String?, state: Map&lt;String, JsonElement&gt;, ): String</ID>
-    <ID>ReturnCount:ChatViewModel.kt$private fun formatToolInput(input: JsonElement?): String?</ID>
+    <ID>ReturnCount:ChatTranscript.kt$internal fun extractReasoningText( topLevelText: String?, state: Map&lt;String, JsonElement&gt;, ): String</ID>
+    <ID>ReturnCount:ChatTranscript.kt$private fun formatToolInput(input: JsonElement?): String?</ID>
     <ID>ReturnCount:ClaudeCodeRuntime.kt$ClaudeCodeRuntime$fun runInWorkspace( directory: String, script: String, timeoutSeconds: Long = WORKSPACE_COMMAND_TIMEOUT_SECONDS, ): String?</ID>
     <ID>ReturnCount:ClaudeCodeRuntime.kt$ClaudeCodeRuntime$fun summarizeTitle(prompt: String): String?</ID>
     <ID>ReturnCount:GitClient.kt$GitClient.Companion$internal fun parseNameStatus(output: String): NameStatus</ID>
