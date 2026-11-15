@@ -141,13 +141,6 @@ internal const val RESYNC_AFTER_AWAY_MS = 10_000L
  */
 internal const val STALL_RECHECK_INTERVAL_MS = 300_000L
 
-/** One refresh of the meter: tokens in the window, the window's size when the agent reported it (else 0), and the totals. */
-private data class ContextReading(
-    val used: Long,
-    val window: Long,
-    val usage: SessionUsage?,
-)
-
 private data class QueuedPrompt(
     val text: String,
     val attachments: List<PromptAttachment>,
@@ -274,6 +267,8 @@ class ChatViewModel(
     val workspaceTitleSource: StateFlow<String> = _workspaceTitleSource.asStateFlow()
 
     private val pullRequestBadges = PullRequestBadges(viewModelScope, _uiState, pullRequestStatuses)
+
+    private val contextUsage = ContextUsage(backend, viewModelScope, _uiState, priceCatalog)
 
     private val modelSelection =
         ModelSelection(_uiState, onCodexFastModeChanged, initialCodexFastMode, onClaudeUltracodeChanged, initialClaudeUltracode)
@@ -662,47 +657,6 @@ class ChatViewModel(
         }
     }
 
-    private fun refreshContextUsage(sessionId: String) {
-        val currentBackend = backend ?: return
-        // Captured for staleness: a fetch for chat A landing after the switch to chat B wrote
-        // A's usage into B, and B's >=90% reading then fired summarizeSession against B.
-        val generation = _uiState.value.chatGeneration
-        viewModelScope.launch {
-            runCatching {
-                // The indicator (and the >=90% summarize gate below) must read the context
-                // window's occupancy, which only the last assistant message's usage reports:
-                // `input + cache.read` of that single LLM call. The session endpoint aggregates
-                // the same fields over every turn of the session - with prompt caching each turn
-                // re-reads the whole prefix, so that sum grows by roughly a window per turn and
-                // reached "800k/1.0M" within minutes of real usage. Summed lifetime tokens made
-                // shouldSummarizeBeforePrompt fire before every prompt, and each summarize turn
-                // then added another window's worth to the sum: a self-amplifying loop. The
-                // session number is therefore only a fallback for sessions whose messages carry
-                // no tokens at all (there it is ~0 anyway), never the primary source.
-                val messages = currentBackend.listMessages(sessionId)
-                val usage = summarizeSessionUsage(messages, priceCatalog())
-                // An agent that reports its window's fill itself (Codex) is taken at its word.
-                val reported = runCatching { currentBackend.contextUsage(sessionId) }.getOrNull()
-                val used =
-                    reported?.usedTokens
-                        ?: messages
-                            .asReversed()
-                            .firstNotNullOfOrNull { message ->
-                                message.info.tokens?.contextUsed
-                                    ?.takeIf { !message.info.role.equals("user", ignoreCase = true) }
-                            }
-                        ?: currentBackend.session(sessionId).tokens?.contextUsed
-                        ?: 0L
-                ContextReading(used, reported?.windowTokens ?: 0L, usage)
-            }.onSuccess { reading ->
-                if (_uiState.value.chatGeneration != generation) return@onSuccess
-                _uiState.update {
-                    it.copy(contextTokensUsed = reading.used, contextWindow = reading.window, sessionUsage = reading.usage)
-                }
-            }
-        }
-    }
-
     /**
      * Shows a chat's new name in the header when that chat is the one open. Renames come from outside
      * (the drawer or the ⋮ menu, through the chat lifecycle), and an on-device runtime sends no event
@@ -804,7 +758,7 @@ class ChatViewModel(
                             )
                         }
                     }
-                    if (_uiState.value.chatGeneration == generation) refreshContextUsage(sessionId)
+                    if (_uiState.value.chatGeneration == generation) contextUsage.refresh(sessionId)
                 }
                 .onFailure { error ->
                     if (_uiState.value.chatGeneration != generation) return@onFailure
@@ -1371,50 +1325,16 @@ class ChatViewModel(
     }
 
     /** Asks the agent how this chat's context window is split, for the sheet the context meter opens. */
-    fun showContextBreakdown() {
-        val currentBackend = backend ?: return
-        val sessionId = _uiState.value.sessionId
-        _uiState.update { it.copy(contextBreakdown = ContextBreakdownState.Loading) }
-        viewModelScope.launch {
-            val breakdown = sessionId?.let { runCatching { currentBackend.contextBreakdown(it) }.getOrNull() }
-            _uiState.update { state ->
-                // Closed meanwhile, or the composer moved to another chat: the answer is not wanted,
-                // and a sheet still waiting on it is closed rather than left spinning.
-                if (state.sessionId != sessionId) {
-                    state.copy(contextBreakdown = ContextBreakdownState.Hidden)
-                } else if (state.contextBreakdown != ContextBreakdownState.Loading) {
-                    state
-                } else {
-                    state.copy(contextBreakdown = breakdown?.let(ContextBreakdownState::Shown) ?: ContextBreakdownState.Unavailable)
-                }
-            }
-        }
-    }
+    fun showContextBreakdown() = contextUsage.showBreakdown()
 
-    fun hideContextBreakdown() {
-        _uiState.update { it.copy(contextBreakdown = ContextBreakdownState.Hidden) }
-    }
+    fun hideContextBreakdown() = contextUsage.hideBreakdown()
 
     /**
      * Has the agent compact the open chat now, from the context window sheet. Not while a turn runs:
      * the compaction is a turn of its own, which the agent would refuse to start beside another. The
      * sheet closes; the chat then shows the compaction running, and the meter refreshes when it ends.
      */
-    fun compactContext() {
-        val currentBackend = backend ?: return
-        val state = _uiState.value
-        val sessionId = state.sessionId ?: return
-        if (!state.compactAvailable || state.isRunning) return
-        _uiState.update { it.copy(contextBreakdown = ContextBreakdownState.Hidden) }
-        viewModelScope.launch {
-            runCatching { currentBackend.compactSession(sessionId) }
-                .onFailure { error ->
-                    if (_uiState.value.sessionId == sessionId) {
-                        _uiState.update { it.copy(error = error.safeMessage("Could not compact the conversation")) }
-                    }
-                }
-        }
-    }
+    fun compactContext() = contextUsage.compact()
 
     /**
      * Re-fetches [sessionId]'s transcript from the backend and reconciles it into
@@ -1659,7 +1579,7 @@ class ChatViewModel(
                             modelId = requireNotNull(modelAtSend),
                         )
                     }
-                    refreshContextUsage(targetSessionId)
+                    contextUsage.refresh(targetSessionId)
                 }
                 if (interrupting) interruptRunningTurn(currentBackend, targetSessionId)
                 recordTurnSnapshot(targetSessionId, turnAtSend, session?.directory)
@@ -1776,7 +1696,7 @@ class ChatViewModel(
                             }
                             // Refresh after the final assistant message is persisted. The
                             // pre-send refresh only contains the previous turn's tokens.
-                            refreshContextUsage(targetSessionId)
+                            contextUsage.refresh(targetSessionId)
                             // The idle handler is the usual drainer, but this settle bypassed
                             // it; without draining here, a queued prompt stranded until some
                             // LATER turn happened to end with an idle event.
@@ -2002,7 +1922,7 @@ class ChatViewModel(
                                     isThinking = false,
                                 )
                             }
-                            refreshContextUsage(targetSessionId)
+                            contextUsage.refresh(targetSessionId)
                             drainQueue()
                         }
                 }
@@ -2747,7 +2667,7 @@ class ChatViewModel(
                 isThinking = false,
             )
         }
-        refreshContextUsage(sessionId)
+        contextUsage.refresh(sessionId)
         refreshMessages(sessionId, retainedIds)
         onSessionCreated()
         drainQueue()
