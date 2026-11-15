@@ -240,6 +240,8 @@ class ChatViewModel(
     private val restorePoints =
         RestorePoints(viewModelScope, _uiState, turnSnapshots, restoreFailedMessage, restoreRefusedMessage) { drainHeldPrompts() }
 
+    private val previews = ChatPreviews(backend, viewModelScope, _uiState, turnSnapshots, restorePoints)
+
     private val permissions = ChatPermissions(backend, viewModelScope, _uiState, onPermissionResolved)
 
     private val questions = ChatQuestions(backend, viewModelScope, _uiState, onQuestionResolved)
@@ -1082,87 +1084,18 @@ class ChatViewModel(
      * ever non-empty when the event stream already reported real changes, so an empty diff response
      * in that situation is itself the "can't diff here" signal rather than "nothing changed".
      */
-    fun openPatchDiff(patch: ChatPart.Patch) {
-        _uiState.update { it.copy(patchDiff = PatchDiffState.Loading(patch.id, patch.files)) }
-        val currentBackend = backend
-        val sessionId = _uiState.value.sessionId
-        val runtime = currentBackend as? RuntimeTarget
-        val diffCapable = runtime?.capabilities?.diffCapable == true
-        if (sessionId == null || (!diffCapable && turnSnapshots == null)) {
-            _uiState.update { it.copy(patchDiff = PatchDiffState.Unavailable(patch.id, patch.files)) }
-            return
-        }
-        val directory = _uiState.value.sessionDirectory
-        viewModelScope.launch {
-            // The runtime's own diff when it has one; otherwise, or when it has nothing to say (a
-            // folder that is not a git repository), the turn's snapshots.
-            val fromRuntime =
-                if (diffCapable) {
-                    snapshotCall(emptyList()) { runtime?.sessionDiff(sessionId, directory, patch.messageId).orEmpty() }
-                } else {
-                    emptyList()
-                }
-            val changes = fromRuntime.ifEmpty { restorePoints.snapshotChanges(sessionId, patch) }
-            // A dialog dismissed and reopened on a different patch while this fetch was still in
-            // flight must not have its answer land on the wrong card.
-            _uiState.update {
-                if (it.patchDiff?.partId != patch.id) return@update it
-                it.copy(
-                    patchDiff =
-                        if (changes.isEmpty()) {
-                            PatchDiffState.Unavailable(patch.id, patch.files)
-                        } else {
-                            PatchDiffState.Loaded(patch.id, patch.files, changes)
-                        },
-                )
-            }
-        }
-    }
+    fun openPatchDiff(patch: ChatPart.Patch) = previews.openPatchDiff(patch)
 
     /**
      * Opens [artifact] in the preview: reads the file - from the chat's workspace when it lies in
      * it, else from its own folder - and shows it as what it is: a page, a drawing, a document, a
      * picture. See [collectArtifacts] and [artifactReadPair].
      */
-    fun openArtifact(artifact: Artifact.File) {
-        _uiState.update { it.copy(artifactPreview = ArtifactPreviewState.Loading(artifact)) }
-        val currentBackend = backend
-        val directory = _uiState.value.sessionDirectory ?: _uiState.value.selectedWorkspacePath
-        if (currentBackend == null || directory == null) {
-            _uiState.update { it.copy(artifactPreview = ArtifactPreviewState.Failed(artifact, null)) }
-            return
-        }
-        viewModelScope.launch {
-            val read = artifactReadPair(artifact.path, directory)
-            val result = runCatching { currentBackend.readFile(read.first, read.second) }
-            _uiState.update {
-                // Dismissed, or another artifact opened, while the file was on its way.
-                if (it.artifactPreview?.artifact != artifact) return@update it
-                it.copy(
-                    artifactPreview =
-                        result.fold(
-                            onSuccess = { file ->
-                                ArtifactPreviewState.Loaded(
-                                    artifact = artifact,
-                                    content = file.content,
-                                    base64 = file.encoding == "base64" || file.type == "binary",
-                                )
-                            },
-                            // The runtime's own words when it has some; otherwise the screen says it.
-                            onFailure = { error -> ArtifactPreviewState.Failed(artifact, error.message?.takeIf { it.isNotBlank() }) },
-                        ),
-                )
-            }
-        }
-    }
+    fun openArtifact(artifact: Artifact.File) = previews.openArtifact(artifact)
 
-    fun dismissArtifact() {
-        _uiState.update { it.copy(artifactPreview = null) }
-    }
+    fun dismissArtifact() = previews.dismissArtifact()
 
-    fun dismissPatchDiff() {
-        _uiState.update { it.copy(patchDiff = null) }
-    }
+    fun dismissPatchDiff() = previews.dismissPatchDiff()
 
     /** Asks the agent how this chat's context window is split, for the sheet the context meter opens. */
     fun showContextBreakdown() = contextUsage.showBreakdown()
