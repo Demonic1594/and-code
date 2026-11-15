@@ -312,8 +312,8 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
-    implementation("org.apache.commons:commons-compress:1.27.1")
-    implementation("org.tukaani:xz:1.9")
+    implementation("org.apache.commons:commons-compress:1.28.0")
+    implementation("org.tukaani:xz:1.12")
 
     // Markdown parsing for the chat and Markdown previews (CommonMark plus GitHub's extensions).
     // Only the parser: the app renders the result itself. Keep every commonmark artifact on one version.
@@ -342,8 +342,8 @@ dependencies {
     implementation("com.alphacephei:vosk-android:0.3.75")
 
     // DI
-    implementation("io.insert-koin:koin-android:4.0.1")
-    implementation("io.insert-koin:koin-androidx-compose:4.0.1")
+    implementation("io.insert-koin:koin-android:4.0.4")
+    implementation("io.insert-koin:koin-androidx-compose:4.0.4")
 
     // Room
     implementation("androidx.room:room-runtime:2.8.5")
