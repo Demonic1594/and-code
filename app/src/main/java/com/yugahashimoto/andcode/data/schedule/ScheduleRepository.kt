@@ -81,6 +81,21 @@ class ScheduleRepository(context: Context) {
         }
     }
 
+    /**
+     * Sets or clears [id]'s "added/changed by an agent" marker without counting as an edit: the
+     * schedule keeps its place in the list, and in fallback mode no legacy mark is needed, since
+     * the marker says nothing about what runs.
+     */
+    @Synchronized
+    fun setAgentChange(
+        id: String,
+        change: ScheduleAgentChange?,
+    ) {
+        if (schedule(id)?.agentChange == change) return
+        mutableSchedules.update { current -> current.withAgentChange(id, change) }
+        persistSchedules()
+    }
+
     /** Records that a run started and returns the persisted run for later updates. */
     @Synchronized
     fun recordRunStarted(

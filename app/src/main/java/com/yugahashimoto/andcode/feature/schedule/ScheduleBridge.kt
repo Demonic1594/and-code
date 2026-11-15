@@ -3,6 +3,7 @@ package com.yugahashimoto.andcode.feature.schedule
 import com.yugahashimoto.andcode.core.util.pollWhileActive
 import com.yugahashimoto.andcode.data.schedule.CronExpression
 import com.yugahashimoto.andcode.data.schedule.Schedule
+import com.yugahashimoto.andcode.data.schedule.ScheduleAgentChange
 import com.yugahashimoto.andcode.data.schedule.ScheduleRepository
 import com.yugahashimoto.andcode.data.schedule.ScheduleRun
 import kotlinx.coroutines.flow.Flow
@@ -34,6 +35,12 @@ interface ScheduleStore {
     fun runNow(id: String): Boolean
 
     fun nextFireAt(schedule: Schedule): Instant?
+
+    /** Sets or clears [id]'s "added/changed by an agent" marker; not an edit of the schedule. */
+    fun setAgentChange(
+        id: String,
+        change: ScheduleAgentChange?,
+    )
 }
 
 /**
@@ -73,6 +80,11 @@ class AppScheduleStore(
     override fun runNow(id: String): Boolean = manager.runNow(id)
 
     override fun nextFireAt(schedule: Schedule): Instant? = manager.nextFireAt(schedule)
+
+    override fun setAgentChange(
+        id: String,
+        change: ScheduleAgentChange?,
+    ) = repository.setAgentChange(id, change)
 }
 
 /**
@@ -83,10 +95,17 @@ class AppScheduleStore(
  * writes a request under `pending/<id>.json` inside [workspaceDir]/.and-code/schedule-bridge (the
  * guest sees the same tree at `/workspace/.and-code/schedule-bridge`) and [pollOnce]/[run] pick it
  * up, execute it through [ScheduleStore], and write `responses/<id>.json` for the server to read.
+ *
+ * Nothing here asks the user first, so whatever adds to what runs - a new schedule, a change to what
+ * or when one runs, turning one on - is told to them through [notifier] and marked on the schedule
+ * ([Schedule.agentChange]), with a warning when the runs will not ask for approval ([approvals]).
+ * Deleting gets a quieter notice; turning off and renaming only take away, and are not told.
  */
 class ScheduleBridge(
     private val workspaceDir: File,
     private val store: ScheduleStore,
+    private val notifier: ScheduleChangeNotifier,
+    private val approvals: ScheduleApprovalSettings,
     private val pollIntervalMillis: Long = POLL_INTERVAL_MILLIS,
     private val staleAfterMillis: Long = STALE_AFTER_MILLIS,
     private val clock: () -> Long = System::currentTimeMillis,
@@ -175,39 +194,31 @@ class ScheduleBridge(
             }
             "create" -> {
                 refuseAutoAcceptGrant(args)
-                val built = buildScheduleFromArgs(args)
+                val built = buildScheduleFromArgs(args).copy(agentChange = ScheduleAgentChange.CREATED)
                 store.upsert(built)
-                ok("schedule", scheduleJson(store.schedule(built.id) ?: built))
+                val stored = store.schedule(built.id) ?: built
+                tellUser(AgentScheduleChangeKind.CREATED, stored)
+                // Told either way: without a notification, the marker in the Schedules screen says it.
+                ok("schedule" to scheduleJson(stored), USER_NOTIFIED to true)
             }
-            "update" -> {
-                val id = requiredString(args, "scheduleId")
-                val existing = store.schedule(id) ?: throw IllegalArgumentException("schedule not found: $id")
-                refuseAutoAcceptGrant(args)
-                val updated = applyScheduleArgs(existing, args)
-                // Only an explicit false unlocks it: null hands the schedule to the app-wide setting, which may
-                // itself auto-approve.
-                if (existing.autoAcceptPermissions == true && updated.autoAcceptPermissions != false && updated.changesWhatRuns(existing)) {
-                    throw IllegalArgumentException(
-                        "this schedule approves its own tool calls, so only the user can change what it runs; " +
-                            "set autoAcceptPermissions to false in the same request, or ask the user to edit it in the Schedules screen",
-                    )
-                }
-                store.upsert(updated)
-                ok("schedule", scheduleJson(store.schedule(id) ?: updated))
-            }
+            "update" -> update(args)
             "delete" -> {
                 val id = requiredString(args, "scheduleId")
-                if (store.schedule(id) == null) throw IllegalArgumentException("schedule not found: $id")
+                val existing = store.schedule(id) ?: throw IllegalArgumentException("schedule not found: $id")
                 store.delete(id)
-                ok("id" to id, "deleted" to true)
+                // No schedule is left to carry a marker, so only a notification that was shown counts.
+                val told = tellUser(AgentScheduleChangeKind.DELETED, existing)
+                ok("id" to id, "deleted" to true, USER_NOTIFIED to told)
             }
             "setEnabled" -> {
                 val id = requiredString(args, "scheduleId")
                 if (!args.has("enabled")) throw IllegalArgumentException("enabled is required")
                 val enabled = args.getBoolean("enabled")
-                if (store.schedule(id) == null) throw IllegalArgumentException("schedule not found: $id")
+                val existing = store.schedule(id) ?: throw IllegalArgumentException("schedule not found: $id")
                 store.setEnabled(id, enabled)
-                ok("id" to id, "enabled" to enabled)
+                val turnedOn = enabled && !existing.enabled
+                if (turnedOn) markChanged(existing)
+                ok("id" to id, "enabled" to enabled, USER_NOTIFIED to turnedOn)
             }
             "runNow" -> {
                 val id = requiredString(args, "scheduleId")
@@ -233,10 +244,59 @@ class ScheduleBridge(
         }
     }
 
-    /** What a run does, as opposed to its name, timing or whether it is on. */
-    private fun Schedule.changesWhatRuns(before: Schedule): Boolean =
-        runtimeId != before.runtimeId || workspacePath != before.workspacePath || providerId != before.providerId ||
-            modelId != before.modelId || agentId != before.agentId || prompt != before.prompt
+    private fun update(args: JSONObject): JSONObject {
+        val id = requiredString(args, "scheduleId")
+        val existing = store.schedule(id) ?: throw IllegalArgumentException("schedule not found: $id")
+        refuseAutoAcceptGrant(args)
+        val updated = applyScheduleArgs(existing, args)
+        // Only an explicit false unlocks it: null hands the schedule to the app-wide setting, which may
+        // itself auto-approve.
+        if (existing.autoAcceptPermissions == true && updated.autoAcceptPermissions != false && updated.changesWhatRuns(existing)) {
+            throw IllegalArgumentException(
+                "this schedule approves its own tool calls, so only the user can change what it runs; " +
+                    "set autoAcceptPermissions to false in the same request, or ask the user to edit it in the Schedules screen",
+            )
+        }
+        val told = updated.addsToWhatRuns(existing, approvals.appAutoApproves)
+        if (!told) {
+            store.upsert(updated)
+            return ok("schedule" to scheduleJson(store.schedule(id) ?: updated), USER_NOTIFIED to false)
+        }
+        // A schedule the user has not looked at since an agent added it still reads "added".
+        val marked = updated.copy(agentChange = existing.agentChange ?: ScheduleAgentChange.CHANGED)
+        store.upsert(marked)
+        val stored = store.schedule(id) ?: marked
+        tellUser(AgentScheduleChangeKind.CHANGED, stored)
+        return ok("schedule" to scheduleJson(stored), USER_NOTIFIED to true)
+    }
+
+    /** Marks a schedule an agent turned on, keeping an "added" mark the user has not seen, and says so. */
+    private fun markChanged(before: Schedule) {
+        store.setAgentChange(before.id, before.agentChange ?: ScheduleAgentChange.CHANGED)
+        tellUser(AgentScheduleChangeKind.CHANGED, store.schedule(before.id) ?: before.copy(enabled = true))
+    }
+
+    /**
+     * Tells the user what an agent did, returning whether a notification was shown. The change has
+     * already happened by now, so a notification that cannot be posted must not turn the reply into
+     * an error: the agent would think it failed and try again. The marker on a new or changed
+     * schedule is already stored either way.
+     */
+    private fun tellUser(
+        kind: AgentScheduleChangeKind,
+        schedule: Schedule,
+    ): Boolean =
+        runCatching {
+            val live = kind != AgentScheduleChangeKind.DELETED
+            notifier.notify(
+                AgentScheduleNotice(
+                    kind = kind,
+                    schedule = schedule,
+                    nextRunAt = if (live && schedule.enabled) store.nextFireAt(schedule) else null,
+                    runsWithoutAsking = live && schedule.runsWithoutAsking(approvals),
+                ),
+            )
+        }.getOrDefault(false)
 
     private fun buildScheduleFromArgs(args: JSONObject): Schedule {
         val (oneTimeAt, cron) = resolveTrigger(args)
@@ -408,6 +468,14 @@ class ScheduleBridge(
     companion object {
         /** Path under the workspace (guest-visible at /workspace) where the MCP server writes. */
         const val BRIDGE_RELATIVE_PATH = ".and-code/schedule-bridge"
+
+        /**
+         * In a reply to a change: whether the user was told about it, so the agent does not imply it
+         * happened unseen. Always true for a new or changed schedule, which is marked in the
+         * Schedules screen even when no notification can be shown; for a delete, only when one was.
+         */
+        const val USER_NOTIFIED = "userNotified"
+
         const val POLL_INTERVAL_MILLIS = 800L
         const val STALE_AFTER_MILLIS = 15 * 60_000L
 

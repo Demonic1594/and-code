@@ -277,7 +277,8 @@ class ScheduleExecutionService : Service() {
         run: ScheduleRun,
         state: ScheduleExecutionState,
     ) {
-        val autoAccept = schedule.autoAcceptPermissions ?: app.settings.autoAcceptPermissions
+        // The same rule the schedule bridge warns the user by when an agent sets a schedule up.
+        val autoAccept = schedule.autoApproves(app.settings.autoAcceptPermissions)
         state.markProgress()
         // Subscribe before sending: fast runtimes can emit idle during sendMessage itself.
         val watcher: Deferred<ScheduleCompletion> =

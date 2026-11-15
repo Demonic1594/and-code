@@ -40,5 +40,10 @@ class ScheduleViewModel(
         manager.runNow(scheduleId)
     }
 
+    /** The user has opened [scheduleId], so an agent's "added/changed" marker on it has done its job. */
+    fun acknowledgeAgentChange(scheduleId: String) {
+        repository.setAgentChange(scheduleId, null)
+    }
+
     fun runsFor(scheduleId: String): List<ScheduleRun> = repository.runs.value.filter { it.scheduleId == scheduleId }
 }

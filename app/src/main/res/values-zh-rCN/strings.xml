@@ -1102,6 +1102,16 @@
     <string name="schedule_notification_starting">正在开始计划运行…</string>
     <string name="schedule_notification_running">运行中</string>
     <string name="notification_channel_schedules">计划运行</string>
+    <string name="notification_channel_schedule_agent_changes">智能体更改的计划</string>
+    <string name="notification_channel_schedule_agent_changes_description">当智能体未经询问就添加、更改或删除计划时</string>
+    <string name="notification_schedule_agent_created_title">智能体添加了计划：%1$s</string>
+    <string name="notification_schedule_agent_changed_title">智能体更改了计划：%1$s</string>
+    <string name="notification_schedule_agent_deleted_title">智能体删除了计划：%1$s</string>
+    <string name="notification_schedule_agent_off">已关闭：开启前不会运行</string>
+    <string name="notification_schedule_agent_no_next_run">没有即将进行的运行</string>
+    <string name="notification_schedule_agent_will_not_ask">⚠ 其运行在使用工具前不会请求你的批准</string>
+    <string name="schedule_agent_marker_created">由智能体添加</string>
+    <string name="schedule_agent_marker_changed">由智能体更改</string>
     <string name="schedule_model_unset">默认模型</string>
     <string name="schedule_workspace_unset">无工作区</string>
     <string name="schedule_agent_unset">未设置代理</string>

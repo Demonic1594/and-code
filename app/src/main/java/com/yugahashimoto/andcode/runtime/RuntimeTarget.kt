@@ -101,6 +101,17 @@ interface RuntimeTarget : OpenCodeBackend {
         get() = RuntimeCapabilities()
 
     /**
+     * True when a session [createSession] opens now would run every tool without asking anyone,
+     * because the runtime's default permission mode is full access (or its equivalent).
+     *
+     * Kept next to each target's createSession, which picks that mode, so the two cannot drift: a
+     * scheduled run opens its session through createSession, and the schedules feature reads this
+     * to warn the user when a schedule an agent set up will not ask.
+     */
+    val sessionsSkipApproval: Boolean
+        get() = false
+
+    /**
      * Fires when this target's model catalog changed without anything reloading it, so the app
      * reloads the providers. Claude Code learns from a turn whether the account has Workflow, which
      * decides whether its models offer Ultracode.

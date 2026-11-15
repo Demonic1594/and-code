@@ -146,6 +146,10 @@ class ClaudeCodeTarget(
         )
     val defaultPermissionMode: StateFlow<ClaudePermissionMode> = mutableDefaultPermissionMode.asStateFlow()
 
+    /** [createSession] records every session with [defaultPermissionMode]; full access is `bypassPermissions`. */
+    override val sessionsSkipApproval: Boolean
+        get() = mutableDefaultPermissionMode.value == ClaudePermissionMode.FULL_ACCESS
+
     /**
      * Applies [mode] to new sessions, and to [sessionId] when one is given.
      *

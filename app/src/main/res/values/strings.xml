@@ -1174,6 +1174,16 @@
     <string name="schedule_notification_starting">Starting scheduled run…</string>
     <string name="schedule_notification_running">Running</string>
     <string name="notification_channel_schedules">Scheduled runs</string>
+    <string name="notification_channel_schedule_agent_changes">Schedules changed by agents</string>
+    <string name="notification_channel_schedule_agent_changes_description">When an agent adds, changes or deletes a schedule without asking you</string>
+    <string name="notification_schedule_agent_created_title">An agent added a schedule: %1$s</string>
+    <string name="notification_schedule_agent_changed_title">An agent changed a schedule: %1$s</string>
+    <string name="notification_schedule_agent_deleted_title">An agent deleted a schedule: %1$s</string>
+    <string name="notification_schedule_agent_off">Off: it will not run until it is turned on</string>
+    <string name="notification_schedule_agent_no_next_run">No run coming up</string>
+    <string name="notification_schedule_agent_will_not_ask">⚠ Its runs will not ask you before using tools</string>
+    <string name="schedule_agent_marker_created">Added by an agent</string>
+    <string name="schedule_agent_marker_changed">Changed by an agent</string>
     <string name="schedule_model_unset">Default model</string>
     <string name="schedule_workspace_unset">No workspace</string>
     <string name="schedule_agent_unset">Agent not set</string>

@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -55,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.data.schedule.Schedule
+import com.yugahashimoto.andcode.data.schedule.ScheduleAgentChange
 import com.yugahashimoto.andcode.data.schedule.ScheduleRun
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import com.yugahashimoto.andcode.ui.runtimeAgentIcon
@@ -331,6 +333,7 @@ private fun ScheduleRow(
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
                 )
+                schedule.agentChange?.let { AgentChangeMarker(it) }
                 Text(
                     text = listOfNotNull(project, scheduleTimingLabel(context, schedule)).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
@@ -380,6 +383,36 @@ private fun ScheduleRow(
                 onDelete = onDelete,
             )
         }
+    }
+}
+
+/**
+ * "Added by an agent" / "Changed by an agent": an agent's change, made without asking, that the user
+ * has not opened since. It is the notification's stand-in when notifications are off or were missed.
+ */
+@Composable
+private fun AgentChangeMarker(change: ScheduleAgentChange) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(
+            Icons.Default.SmartToy,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.tertiary,
+            modifier = Modifier.size(12.dp),
+        )
+        Text(
+            text =
+                stringResource(
+                    when (change) {
+                        ScheduleAgentChange.CREATED -> R.string.schedule_agent_marker_created
+                        ScheduleAgentChange.CHANGED -> R.string.schedule_agent_marker_changed
+                    },
+                ),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.tertiary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

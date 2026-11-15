@@ -1156,6 +1156,16 @@
     <string name="schedule_notification_starting">スケジュール実行を開始しています…</string>
     <string name="schedule_notification_running">実行中</string>
     <string name="notification_channel_schedules">スケジュール実行</string>
+    <string name="notification_channel_schedule_agent_changes">エージェントによるスケジュール変更</string>
+    <string name="notification_channel_schedule_agent_changes_description">エージェントが確認なしでスケジュールを追加・変更・削除したとき</string>
+    <string name="notification_schedule_agent_created_title">エージェントがスケジュールを追加しました: %1$s</string>
+    <string name="notification_schedule_agent_changed_title">エージェントがスケジュールを変更しました: %1$s</string>
+    <string name="notification_schedule_agent_deleted_title">エージェントがスケジュールを削除しました: %1$s</string>
+    <string name="notification_schedule_agent_off">オフ: オンにするまで実行されません</string>
+    <string name="notification_schedule_agent_no_next_run">予定されている実行はありません</string>
+    <string name="notification_schedule_agent_will_not_ask">⚠ この実行はツールを使う前に承認を求めません</string>
+    <string name="schedule_agent_marker_created">エージェントが追加</string>
+    <string name="schedule_agent_marker_changed">エージェントが変更</string>
     <string name="schedule_model_unset">デフォルトモデル</string>
     <string name="schedule_workspace_unset">ワークスペースなし</string>
     <string name="schedule_agent_unset">エージェント未設定</string>

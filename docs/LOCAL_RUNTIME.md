@@ -222,6 +222,11 @@ OpenCodeがOAuthの `auto` 方式を返した場合、Androidはブラウザを�
 - 書き込み系はスケジューリングUIと同じく暗号化リポジトリとアラーム（`ScheduleManager`）を通るため、変更はアプリのスケジュール画面へ即反映される
 - 提供ツール: `schedule_list` / `schedule_get` / `schedule_runs` / `schedule_create` / `schedule_update` / `schedule_delete` / `schedule_set_enabled` / `schedule_run_now`
 - エージェントは `autoAcceptPermissions` を有効（true）にできない。スケジュールごとの自動承認をオンにできるのはスケジュール画面のユーザーだけで、そうしたスケジュールのプロンプト・フォルダ・ランタイム・モデル・エージェントもブリッジからは変えられない（同じリクエストで `false` にした場合を除く。null では不可）。名前・時刻・有効/無効の変更と、自動承認を切ることはできる。なお `autoAcceptPermissions` を省略または null にしたスケジュールはアプリ全体の自動承認設定に従うため、その設定がオンならエージェントが作ったスケジュールも自動承認で動く
+- ブリッジはユーザーに確認せず実行するため、実行内容を増やす変更は事後にユーザーへ知らせる。対象は `create`、実行内容か実行時刻を変える `update`（プロンプト・ランタイム・フォルダ・プロバイダ・モデル・エージェント・cron/`oneTimeAt`）、オフからオンへの切り替え（`update` の `enabled` と `schedule_set_enabled`）、自動承認をオンにしているアプリ設定へ任せる変更（`false` から null）。専用の通知チャンネル「エージェントによるスケジュール変更」に、スケジュール名・ランタイム・フォルダ・次回実行時刻を出し、実行が承認を求めない場合は警告行を付ける。承認を求めないのは、スケジュールの `autoAcceptPermissions`（null ならアプリ全体の設定）がオンのとき、または実行先ランタイムの既定の権限モードがフルアクセス（Claude Code の `bypassPermissions`、Antigravity の `--dangerously-skip-permissions`）のとき。判定は `ScheduleExecutionService` と同じ `Schedule.autoApproves` と、各ターゲットが `createSession` の隣で公開する `RuntimeTarget.sessionsSkipApproval` を使うので、警告と実際の動作はずれない。通知をタップするとスケジュール画面でそのスケジュールを開く
+- 通知が許可されていない（Android 13 以降で POST_NOTIFICATIONS がない）場合も変更そのものは行われる。代わりにスケジュール一覧の該当行に「エージェントが追加」「エージェントが変更」の印が付き、スケジュールに保存される（`Schedule.agentChange`）。ユーザーがそのスケジュールを開くか編集すると消える。一覧のスイッチでオン/オフを切り替えただけでは消えない
+- 削除は実行内容を減らすだけだが、元に戻せず印を付ける行も残らないため、音とヘッドアップなしの控えめな通知を出す（タップでスケジュール一覧を開く）。オフへの切り替えと名前の変更は通知しない
+- `create`・`update`・`schedule_set_enabled`・`delete` の応答には `userNotified` が入り、MCPツールの説明にもユーザーへ通知されることを書いてある。エージェントが変更を「気づかれずに行われた」かのように伝えないようにするため。追加・変更は通知が出せなくても一覧の印で伝わるので常に true、削除は通知を実際に出せたときだけ true
+- #129 で「対象外」としていたランタイムの選び方（フルアクセスにしたランタイムへの登録）は、上の警告付き通知でユーザーに見えるようになった。拒否はしない
 
 ## 組み込みターミナル
 
