@@ -25,7 +25,6 @@ import com.yugahashimoto.andcode.data.settings.DraftStore
 import com.yugahashimoto.andcode.runtime.OpenCodeBackend
 import com.yugahashimoto.andcode.runtime.PermissionResponse
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
-import com.yugahashimoto.andcode.runtime.local.StagedSystemPrompt
 import com.yugahashimoto.andcode.runtime.local.VideoAttachmentHelper
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -236,6 +235,8 @@ class ChatViewModel(
     private val pullRequestBadges = PullRequestBadges(viewModelScope, _uiState, pullRequestStatuses)
 
     private val voice = ChatVoice(_uiState)
+
+    private val systemPrompt = SystemPromptDraft(_uiState, onApplySystemPrompt)
 
     private val contextUsage = ContextUsage(backend, viewModelScope, _uiState, priceCatalog)
 
@@ -790,42 +791,7 @@ class ChatViewModel(
      * Recorded on the session when there is one, and held as [ChatUiState.draftSystemPrompt] until
      * the first message creates one when there is not.
      */
-    fun selectSystemPrompt(presetId: String?) {
-        val sessionId = _uiState.value.sessionId
-        if (sessionId == null) {
-            _uiState.update { it.copy(draftSystemPrompt = StagedSystemPrompt(presetId)) }
-            return
-        }
-        onApplySystemPrompt(sessionId, presetId)
-    }
-
-    /**
-     * Writes the preset [draft] onto the session this send just created, and consumes it.
-     *
-     * Called inside the send's own coroutine, before the turn is dispatched, because the send path
-     * reads the session's preset when it builds the process arguments - doing this from a
-     * recomposition instead would race the message it is meant to accompany.
-     *
-     * Only the chat's identity is captured by the caller, not the choice itself: a preset belongs to
-     * a session, not to a turn - `ClaudeCodeTarget` reads one `promptId` off the session record for
-     * every turn it sends - so while the session is still being created there is one choice to make
-     * about it, and the last tap before it exists is that choice. Reading the draft here is what
-     * makes the chip's answer and the session's answer the same thing.
-     *
-     * [generation] is what the caller does capture. If the composer has moved to another chat since,
-     * the session this send just created belongs to that chat, and the abandoned chat's preset would
-     * be applied to a conversation it was never chosen for - so it is dropped instead. The draft is
-     * consumed only once applied, so a failed `createSession` leaves it in place for the retry.
-     */
-    private fun applyDraftSystemPrompt(
-        sessionId: String,
-        generation: Long,
-    ) {
-        if (_uiState.value.chatGeneration != generation) return
-        val draft = _uiState.value.draftSystemPrompt ?: return
-        onApplySystemPrompt(sessionId, draft.id)
-        _uiState.update { it.copy(draftSystemPrompt = null) }
-    }
+    fun selectSystemPrompt(presetId: String?) = systemPrompt.selectSystemPrompt(presetId)
 
     fun newSession() {
         dropNewChatPrompts()
@@ -1173,7 +1139,7 @@ class ChatViewModel(
 
         // Which chat asked, captured here because the coroutine below does not begin until the
         // dispatcher runs it - long enough for another chat to have been started. See
-        // applyDraftSystemPrompt.
+        // SystemPromptDraft.applyDraftSystemPrompt.
         val draftGeneration = _uiState.value.chatGeneration
         viewModelScope.launch {
             // Captured once the target session is known so onFailure below can tell whether the
@@ -1194,7 +1160,7 @@ class ChatViewModel(
                 val targetSessionId = existingSessionId ?: requireNotNull(session).id
                 capturedSessionId = targetSessionId
                 if (session != null) {
-                    applyDraftSystemPrompt(session.id, draftGeneration)
+                    systemPrompt.applyDraftSystemPrompt(session.id, draftGeneration)
                     _uiState.update {
                         it.copy(
                             sessionId = session.id,
@@ -1458,7 +1424,7 @@ class ChatViewModel(
                 val targetSessionId = existingSessionId ?: requireNotNull(session).id
                 capturedSessionId = targetSessionId
                 if (session != null) {
-                    applyDraftSystemPrompt(session.id, draftGeneration)
+                    systemPrompt.applyDraftSystemPrompt(session.id, draftGeneration)
                     _uiState.update {
                         it.copy(
                             sessionId = session.id,
