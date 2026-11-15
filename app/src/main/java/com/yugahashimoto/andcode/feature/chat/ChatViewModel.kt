@@ -165,24 +165,6 @@ private data class QueuedPrompt(
     val id: String = UUID.randomUUID().toString(),
 )
 
-/**
- * The `serviceTier` a prompt carries for a model whose fast tier is [fastTier], given the user's
- * [fastMode] choice: null when the model has no fast tier or the choice still follows the model's
- * default (Codex decides), the tier when fast mode is on, and `"default"` when it was turned off on a
- * model that would otherwise run fast.
- */
-internal fun codexServiceTier(
-    fastTier: String?,
-    fastMode: Boolean?,
-): String? {
-    fastTier ?: return null
-    return when (fastMode) {
-        null -> null
-        true -> fastTier
-        false -> "default"
-    }
-}
-
 class ChatViewModel(
     private val backend: OpenCodeBackend? = null,
     private val eventFlow: Flow<OpenCodeEvent>? = null,
@@ -293,6 +275,9 @@ class ChatViewModel(
 
     private val pullRequestBadges = PullRequestBadges(viewModelScope, _uiState, pullRequestStatuses)
 
+    private val modelSelection =
+        ModelSelection(_uiState, onCodexFastModeChanged, initialCodexFastMode, onClaudeUltracodeChanged, initialClaudeUltracode)
+
     /**
      * Sessions whose idles currently belong to a run this chat interrupted rather than to the prompt
      * sent in its place.
@@ -309,22 +294,6 @@ class ChatViewModel(
 
     private var eventJob: Job? = null
     private var tts: TextToSpeech? = null
-    private var contextLimit: Long = 0L
-
-    /** Codex fast-mode user choice; null follows the selected model's own default. */
-    private var codexFastMode: Boolean? = initialCodexFastMode
-
-    /** The user's ultracode choice; it applies only while the selected model supports it. */
-    private var claudeUltracode: Boolean = initialClaudeUltracode
-
-    /** Whether the selected model can run in ultracode. */
-    private var selectedUltracodeAvailable: Boolean = false
-
-    /** The selected model's Codex fast tier id, or null when that model offers no fast mode. */
-    private var selectedFastServiceTier: String? = null
-
-    /** Whether the selected model's Codex fast tier is on by default. */
-    private var selectedFastByDefault: Boolean = false
     private var recoveringTransiently = false
     private val streamedParts = mutableMapOf<String, LinkedHashMap<String, ChatPart>>()
 
@@ -598,75 +567,24 @@ class ChatViewModel(
         fastByDefault: Boolean = false,
         fastDescription: String? = null,
         ultracodeAvailable: Boolean = false,
-    ) {
-        this.contextLimit = contextLimit
-        selectedFastServiceTier = fastServiceTier
-        selectedFastByDefault = fastByDefault
-        selectedUltracodeAvailable = ultracodeAvailable
-        _uiState.update {
-            val modelChanged = providerId != it.selectedProviderId || modelId != it.selectedModelId
-            it.copy(
-                selectedProviderId = providerId,
-                selectedModelId = modelId,
-                selectedAgentId = agentId,
-                // A reasoning-effort variant belongs to the model that offered it, not to the chat
-                // session, so carrying it across a model switch can silently apply an effort the new
-                // model never listed - AntigravityModels.cliArgs in particular reads a leftover
-                // variant straight off whatever provider set it last, for any model whose id has no
-                // effort baked in.
-                selectedVariant = if (modelChanged) null else it.selectedVariant,
-                fastModeDescription = fastDescription,
-            )
-        }
-        refreshFastMode()
-        refreshUltracode()
-    }
-
-    private fun refreshUltracode() {
-        _uiState.update {
-            it.copy(
-                ultracodeAvailable = selectedUltracodeAvailable,
-                ultracodeEnabled = selectedUltracodeAvailable && claudeUltracode,
-            )
-        }
-    }
+    ) = modelSelection.selectConfiguration(
+        providerId,
+        modelId,
+        agentId,
+        contextLimit,
+        fastServiceTier,
+        fastByDefault,
+        fastDescription,
+        ultracodeAvailable,
+    )
 
     /** Sets the Claude Code ultracode choice and persists it. It takes effect from the next message. */
-    fun setUltracode(enabled: Boolean) {
-        claudeUltracode = enabled
-        onClaudeUltracodeChanged(enabled)
-        refreshUltracode()
-    }
-
-    /**
-     * Derives the three fast-mode fields from the model and the user's choice. Fast mode exists only
-     * for a model that lists a fast tier, so every other model reads as unavailable.
-     */
-    private fun refreshFastMode() {
-        val available = selectedFastServiceTier != null
-        _uiState.update {
-            it.copy(
-                fastModeAvailable = available,
-                fastModeEnabled = available && (codexFastMode ?: selectedFastByDefault),
-            )
-        }
-    }
+    fun setUltracode(enabled: Boolean) = modelSelection.setUltracode(enabled)
 
     /**
      * Sets the Codex fast-mode choice and persists it. Passing null returns to the model's default.
      */
-    fun setFastMode(enabled: Boolean?) {
-        codexFastMode = enabled
-        onCodexFastModeChanged(enabled)
-        refreshFastMode()
-    }
-
-    /**
-     * The `serviceTier` for a prompt on the selected model: null when fast mode is unavailable or
-     * still follows the default (Codex then chooses), the model's fast tier when the user turned it
-     * on, and `"default"` when they turned it off on a model that would otherwise be fast.
-     */
-    private fun serviceTierForPrompt(): String? = codexServiceTier(selectedFastServiceTier, codexFastMode)
+    fun setFastMode(enabled: Boolean?) = modelSelection.setFastMode(enabled)
 
     fun setAutoAcceptPermissions(enabled: Boolean) {
         _uiState.update { it.copy(autoAcceptPermissions = enabled) }
@@ -1575,7 +1493,7 @@ class ChatViewModel(
         val modelAtSend = _uiState.value.selectedModelId
         val agentAtSend = _uiState.value.selectedAgentId
         val variantAtSend = _uiState.value.selectedVariant
-        val ultracodeAtSend = selectedUltracodeAvailable && claudeUltracode
+        val ultracodeAtSend = modelSelection.ultracodeForPrompt
         val pendingPreviewsByFilename =
             pendingAttachments
                 .filter { it.mime.startsWith("image/") }
@@ -1733,7 +1651,7 @@ class ChatViewModel(
                     adoptHeldPrompts(session.id, draftGeneration)
                     onSessionCreated()
                 }
-                if (existingSessionId != null && shouldSummarizeBeforePrompt()) {
+                if (existingSessionId != null && modelSelection.shouldSummarizeBeforePrompt()) {
                     runCatching {
                         currentBackend.summarizeSession(
                             sessionId = targetSessionId,
@@ -1754,7 +1672,7 @@ class ChatViewModel(
                         agent = agentAtSend,
                         variant = variantAtSend,
                         attachments = modelAttachments,
-                        serviceTier = serviceTierForPrompt(),
+                        serviceTier = modelSelection.serviceTierForPrompt(),
                         ultracode = ultracodeAtSend,
                     ),
                 )
@@ -2146,14 +2064,6 @@ class ChatViewModel(
             messages.any { it.info.role != "user" && it.info.id !in messageIdsBeforeSend }
         return answeredThisPrompt && newest.time.completed != null
     }
-
-    /**
-     * Measured against the model's listed limit only, never [ChatUiState.contextWindow]: an agent that
-     * reports its own window (Codex) compacts on its own, and is compacted on request from the sheet.
-     */
-    private fun shouldSummarizeBeforePrompt(): Boolean =
-        contextLimit > 0L &&
-            _uiState.value.contextTokensUsed.toDouble() / contextLimit.toDouble() >= 0.9
 
     fun respondToPermission(
         permissionId: String,
