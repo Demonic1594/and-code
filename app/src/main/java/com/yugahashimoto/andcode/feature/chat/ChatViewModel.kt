@@ -240,6 +240,16 @@ class ChatViewModel(
     private val restorePoints =
         RestorePoints(viewModelScope, _uiState, turnSnapshots, restoreFailedMessage, restoreRefusedMessage) { drainHeldPrompts() }
 
+    private val rewind =
+        ChatRewind(
+            backend = backend,
+            scope = viewModelScope,
+            uiState = _uiState,
+            rewindNothingMessage = rewindNothingMessage,
+            reportError = { reportError(it) },
+            onSettled = { drainHeldPrompts() },
+        )
+
     private val previews = ChatPreviews(backend, viewModelScope, _uiState, turnSnapshots, restorePoints)
 
     private val permissions = ChatPermissions(backend, viewModelScope, _uiState, onPermissionResolved)
@@ -697,7 +707,7 @@ class ChatViewModel(
             )
         }
         if (parent == null) resolveParentSession(sessionId)
-        refreshRewind(sessionId)
+        rewind.refreshRewind(sessionId)
         questions.refreshPendingQuestions(sessionId)
         // Captured after the generation bump above: the history fetch below is async, and a
         // quick switch to another chat must not land THIS chat's transcript under THAT one's
@@ -856,24 +866,8 @@ class ChatViewModel(
         }
     }
 
-    /**
-     * Messages a rewind hid when the next message made it permanent. The runtime drops them as it
-     * takes that message, but a transcript fetched in between can still carry them, and they must
-     * not come back.
-     */
-    private val discardedByRewind = mutableSetOf<String>()
-
-    /** The transcript a new message is appended to: a pending rewind becomes permanent here. */
-    private fun keepRewind(state: ChatUiState): List<ChatMessage> {
-        val from = state.rewoundFrom ?: return state.messages
-        discardedByRewind += state.messages.dropWhile { it.id != from }.map { it.id }
-        return state.visibleMessages
-    }
-
-    private fun canRewind(currentBackend: OpenCodeBackend?): Boolean = (currentBackend as? RuntimeTarget)?.capabilities?.checkpoints == true
-
     /** How many of the user's messages went out before the one being sent: its turn number. */
-    private fun sentTurns(): Int = restorePoints.sentTurns(keepRewind(_uiState.value))
+    private fun sentTurns(): Int = restorePoints.sentTurns(rewind.keepRewind(_uiState.value))
 
     /** Project files for the `@` mention being typed in the composer. */
     val fileMentions =
@@ -908,19 +902,6 @@ class ChatViewModel(
     fun dismissFileRestore() = restorePoints.dismissFileRestore()
 
     /**
-     * Picks up a rewind the session already carries - one made on another device, or before the app
-     * was last closed - so the chat hides what the runtime will drop on the next message.
-     */
-    private fun refreshRewind(sessionId: String) {
-        val currentBackend = backend ?: return
-        if (!canRewind(currentBackend)) return
-        viewModelScope.launch {
-            val revert = runCatching { currentBackend.session(sessionId) }.getOrNull()?.revert
-            _uiState.update { if (it.sessionId == sessionId) it.copy(rewoundFrom = revert?.messageId) else it }
-        }
-    }
-
-    /**
      * Rewinds the chat to just before [messageId], a message of the user's: the runtime restores
      * the files the chat changed from then on, and the message and every later one are hidden. Its
      * text goes back into the composer, ready to send again as it was or changed.
@@ -929,38 +910,10 @@ class ChatViewModel(
      * when the runtime drops the rewound messages for good. See
      * [com.yugahashimoto.andcode.runtime.RuntimeCapabilities.checkpoints] for which runtimes can.
      */
-    fun rewindTo(messageId: String) {
-        val currentBackend = backend ?: return
-        val state = _uiState.value
-        val sessionId = state.sessionId ?: return
-        if (state.isRunning || state.isRewinding || !canRewind(currentBackend)) return
-        val message = state.messages.firstOrNull { it.id == messageId && it.isUser } ?: return
-        _uiState.update { it.copy(isRewinding = true) }
-        viewModelScope.launch {
-            runCatching { currentBackend.revertSession(sessionId, messageId) }
-                .onSuccess {
-                    // The session says where the rewind really landed; trust that over the request.
-                    // One that answers with no rewind at all rewound nothing (a message the runtime
-                    // never stored, say), and saying the files are back would be untrue. Only a
-                    // session that cannot be read at all falls back to the request.
-                    val session = runCatching { currentBackend.session(sessionId) }
-                    val landed = if (session.isSuccess) session.getOrNull()?.revert?.messageId else messageId
-                    _uiState.update {
-                        when {
-                            it.sessionId != sessionId -> it.copy(isRewinding = false)
-                            landed == null -> it.copy(isRewinding = false, error = rewindNothingMessage)
-                            else -> it.copy(isRewinding = false, rewoundFrom = landed, editDraft = message.text)
-                        }
-                    }
-                }
-                .onFailure { error ->
-                    if (error is CancellationException) throw error
-                    _uiState.update { it.copy(isRewinding = false) }
-                    if (_uiState.value.sessionId == sessionId) reportError(error)
-                }
-            drainHeldPrompts()
-        }
-    }
+    fun rewindTo(messageId: String) = rewind.rewindTo(messageId)
+
+    /** Takes a rewind back: the files return to how the chat left them, and so do the messages. */
+    fun undoRewind() = rewind.undoRewind()
 
     /** Sends what queued up while a rewind or file restore was landing, now that things are settled. */
     private fun drainHeldPrompts() {
@@ -969,31 +922,6 @@ class ChatViewModel(
             drainOfflineQueue()
         } else if (!state.isRunning) {
             drainQueue()
-        }
-    }
-
-    /** Takes a rewind back: the files return to how the chat left them, and so do the messages. */
-    fun undoRewind() {
-        val currentBackend = backend ?: return
-        val state = _uiState.value
-        val sessionId = state.sessionId ?: return
-        if (state.rewoundFrom == null || state.isRewinding) return
-        _uiState.update { it.copy(isRewinding = true) }
-        viewModelScope.launch {
-            runCatching { currentBackend.unrevertSession(sessionId) }
-                .onSuccess {
-                    // Whatever a failed send marked as gone is back on the server now.
-                    discardedByRewind.clear()
-                    _uiState.update {
-                        if (it.sessionId == sessionId) it.copy(isRewinding = false, rewoundFrom = null) else it.copy(isRewinding = false)
-                    }
-                }
-                .onFailure { error ->
-                    if (error is CancellationException) throw error
-                    _uiState.update { it.copy(isRewinding = false) }
-                    if (_uiState.value.sessionId == sessionId) reportError(error)
-                }
-            drainHeldPrompts()
         }
     }
 
@@ -1245,7 +1173,7 @@ class ChatViewModel(
             restorePoints.markOffline(userMessage.id)
             _uiState.update {
                 it.copy(
-                    messages = keepRewind(it) + userMessage,
+                    messages = rewind.keepRewind(it) + userMessage,
                     rewoundFrom = null,
                     offlineQueue = it.offlineQueue + outgoingText,
                     isOfflineQueued = true,
@@ -1291,7 +1219,7 @@ class ChatViewModel(
             )
         _uiState.update {
             it.copy(
-                messages = keepRewind(it) + userMessage,
+                messages = rewind.keepRewind(it) + userMessage,
                 rewoundFrom = null,
                 // Undoing a restore after the agent has worked again would throw that work away.
                 fileRestore = null,
@@ -1524,7 +1452,7 @@ class ChatViewModel(
             restorePoints.markOffline(userMessage.id)
             _uiState.update {
                 it.copy(
-                    messages = keepRewind(it) + userMessage,
+                    messages = rewind.keepRewind(it) + userMessage,
                     rewoundFrom = null,
                     fileRestore = null,
                     offlineQueue = it.offlineQueue + displayText,
@@ -1560,7 +1488,7 @@ class ChatViewModel(
             )
         _uiState.update {
             it.copy(
-                messages = keepRewind(it) + userMessage,
+                messages = rewind.keepRewind(it) + userMessage,
                 rewoundFrom = null,
                 // A command changes files like any message: an Undo offered past it would undo its work.
                 fileRestore = null,
@@ -2144,12 +2072,7 @@ class ChatViewModel(
             }
             is OpenCodeEvent.SessionCreated -> Unit
             // A rewind made permanent, or made or undone elsewhere (another device, the TUI).
-            is OpenCodeEvent.SessionUpdated -> {
-                val session = event.session
-                if (session.id == _uiState.value.sessionId && canRewind(backend)) {
-                    _uiState.update { if (it.isRewinding) it else it.copy(rewoundFrom = session.revert?.messageId) }
-                }
-            }
+            is OpenCodeEvent.SessionUpdated -> rewind.onSessionUpdated(event.session)
             is OpenCodeEvent.Unknown -> Unit
         }
     }
@@ -2229,7 +2152,7 @@ class ChatViewModel(
     }
 
     private fun toUiMessage(message: OpenCodeMessage): ChatMessage? {
-        if (message.info.id in discardedByRewind) return null
+        if (rewind.isDiscarded(message.info.id)) return null
         messageRoles[message.info.id] = message.info.role
         return toChatMessage(message)
     }
