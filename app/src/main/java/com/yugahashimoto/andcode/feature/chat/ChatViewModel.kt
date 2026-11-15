@@ -11,7 +11,6 @@ import com.yugahashimoto.andcode.core.api.OpenCodeMessage
 import com.yugahashimoto.andcode.core.api.PermissionRequest
 import com.yugahashimoto.andcode.core.api.PromptAttachment
 import com.yugahashimoto.andcode.core.api.PromptRequest
-import com.yugahashimoto.andcode.core.api.PullRequestRef
 import com.yugahashimoto.andcode.core.api.QuestionPrompt
 import com.yugahashimoto.andcode.core.api.QuestionRequest
 import com.yugahashimoto.andcode.core.api.RunActivity
@@ -43,7 +42,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
@@ -142,9 +140,6 @@ internal const val RESYNC_AFTER_AWAY_MS = 10_000L
  * warning down and returns to [STALL_CHECK_INTERVAL_MS], and the card's own button probes now.
  */
 internal const val STALL_RECHECK_INTERVAL_MS = 300_000L
-
-/** Floor between transcript scans for pull request links, so streaming does not drive them. */
-private const val PULL_REQUEST_SCAN_THROTTLE_MS = 300L
 
 /** One refresh of the meter: tokens in the window, the window's size when the agent reported it (else 0), and the totals. */
 private data class ContextReading(
@@ -296,16 +291,7 @@ class ChatViewModel(
     private val _workspaceTitleSource = MutableStateFlow("title")
     val workspaceTitleSource: StateFlow<String> = _workspaceTitleSource.asStateFlow()
 
-    private val pullRequestRefs = MutableStateFlow<List<PullRequestRef>>(emptyList())
-
-    /**
-     * Pull requests the user hid with [dismissPullRequest]. Scanning re-derives the refs from the
-     * transcript on every message change, so without this set every refetch would put the dismissed
-     * badge back. Like [dismissedQuestionIds] it is cleared when the composer moves to another chat:
-     * the dismissal belongs to the chat it was made in, and opening a chat is an explicit act of
-     * attention that offers its badges again.
-     */
-    private val dismissedPullRequestKeys = mutableSetOf<String>()
+    private val pullRequestBadges = PullRequestBadges(viewModelScope, _uiState, pullRequestStatuses)
 
     /**
      * Sessions whose idles currently belong to a run this chat interrupted rather than to the prompt
@@ -409,7 +395,7 @@ class ChatViewModel(
     private var lastIdleSettledAtMillis = 0L
 
     init {
-        pullRequestStatuses?.let(::trackPullRequests)
+        pullRequestStatuses?.let(pullRequestBadges::track)
         streamErrorFlow?.let { flow ->
             viewModelScope.launch { flow.collect { streamError = it } }
         }
@@ -564,42 +550,10 @@ class ChatViewModel(
     }
 
     /**
-     * Keeps the pull request badges above the composer in step with the transcript.
-     *
-     * Scanning is conflated rather than run per update: a streaming answer rewrites the message
-     * list many times a second, and the links it contains do not change that fast. State and links
-     * are combined separately so a badge appears the moment its link is printed, then fills in with
-     * the diff size and state once GitHub answers.
-     */
-    private fun trackPullRequests(statuses: PullRequestStatusRepository) {
-        viewModelScope.launch {
-            uiState
-                .map { it.messages }
-                .distinctUntilChanged()
-                .conflate()
-                .collect { messages ->
-                    val refs = pullRequestRefsIn(messages).filterNot { it.key in dismissedPullRequestKeys }
-                    pullRequestRefs.value = refs
-                    statuses.track(refs)
-                    delay(PULL_REQUEST_SCAN_THROTTLE_MS)
-                }
-        }
-        viewModelScope.launch {
-            combine(pullRequestRefs, statuses.statuses) { refs, byKey ->
-                refs.map { ref -> ChatPullRequest(ref, byKey[ref.key]) }
-            }
-                .distinctUntilChanged()
-                .collect { pullRequests -> _uiState.update { it.copy(pullRequests = pullRequests) } }
-        }
-    }
-
-    /**
      * Refetches any pull request state that has gone stale. The chat screen calls this on a timer
      * while it is on screen, so a badge follows a pull request that is merged or closed elsewhere.
      */
-    fun refreshPullRequests() {
-        pullRequestStatuses?.track(pullRequestRefs.value)
-    }
+    fun refreshPullRequests() = pullRequestBadges.refresh()
 
     /**
      * Hides one pull request's badges above the composer. Nothing server-side tracks this — the
@@ -607,10 +561,7 @@ class ChatViewModel(
      * local "stop showing me this": the ref is dropped here, which also stops the periodic refresh
      * from fetching its state, and stays dismissed for as long as this chat is open.
      */
-    fun dismissPullRequest(key: String) {
-        dismissedPullRequestKeys += key
-        pullRequestRefs.value = pullRequestRefs.value.filterNot { it.key == key }
-    }
+    fun dismissPullRequest(key: String) = pullRequestBadges.dismiss(key)
 
     /**
      * Loads the backend's slash commands and skills so the composer's `/` popup can offer them.
@@ -879,7 +830,7 @@ class ChatViewModel(
         // Opening the chat is an explicit act of attention, so questions the user hid earlier are
         // offered again rather than staying suppressed by a stale dismissal.
         dismissedQuestionIds.clear()
-        dismissedPullRequestKeys.clear()
+        pullRequestBadges.forgetDismissals()
         _uiState.update {
             it.copy(
                 sessionId = sessionId,
@@ -1033,7 +984,7 @@ class ChatViewModel(
         transcriptGeneration++
         messageRoles.clear()
         dismissedQuestionIds.clear()
-        dismissedPullRequestKeys.clear()
+        pullRequestBadges.forgetDismissals()
         pendingInterrupts.clear()
         lastIdleSettledSessionId = null
         _uiState.update {
