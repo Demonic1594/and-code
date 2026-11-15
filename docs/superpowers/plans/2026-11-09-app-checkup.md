@@ -67,9 +67,11 @@ each fix that changes what the user sees lists a device check in its PR.
   content under the bars on screens that do not pad for them yet; that needs a device to check.
 - **18 outdated dependencies** (lint's `GradleDependency`). Updating them is its own change, with
   its own risk, and is not part of a checkup.
-- **Large files.** `ChatViewModel.kt` is about 4,000 lines and `OpenCodeV2ApiClient.kt` 1,700. Both
-  are covered by many tests; splitting them is a refactor with no change for the user, and is left
-  until a change needs it.
+- **Large files.** `ChatViewModel.kt` was about 4,000 lines. Its first split
+  (`2026-11-14-chat-viewmodel-split.md`) moved thirteen pieces into their own files and left it at
+  about 2,300; that plan lists the rest. `OpenCodeV2ApiClient.kt` (1,700 lines) is covered by many
+  tests; splitting it is a refactor with no change for the user, and is left until a change needs
+  it.
 - **The other 498 detekt baseline entries** (long methods, long parameter lists, complexity). They
   shrink as the code they point at is changed.
 - **`UsableSpace`** (11): the free-space checks before an install are estimates, and
