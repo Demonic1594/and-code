@@ -3,7 +3,7 @@
   <ManuallySuppressedIssues></ManuallySuppressedIssues>
   <CurrentIssues>
     <ID>ComplexCondition:AndroidSetupScreen.kt$runtimeStatus is LocalRuntimeStatus.Broken || claude.install is ClaudeInstallStatus.Failed || antigravity.error != null || codex.install is CodexInstallStatus.Failed || fullDevelopmentToolsInstallFailed</ID>
-    <ID>ComplexCondition:ChatViewModel.kt$ChatViewModel$(chatPart is ChatPart.Reasoning &amp;&amp; chatPart.text.isBlank()) || (chatPart is ChatPart.Text &amp;&amp; chatPart.text.isBlank())</ID>
+    <ID>ComplexCondition:ChatStreaming.kt$(chatPart is ChatPart.Reasoning &amp;&amp; chatPart.text.isBlank()) || (chatPart is ChatPart.Text &amp;&amp; chatPart.text.isBlank())</ID>
     <ID>ComplexCondition:ChatViewModel.kt$ChatViewModel$isStillActive() &amp;&amp; stillOwnsRun() &amp;&amp; (sessionCompleted || pollFinished == null)</ID>
     <ID>ComplexCondition:CodeViewerScreen.kt$findOpen &amp;&amp; !state.isLoading &amp;&amp; state.error == null &amp;&amp; !state.isBinary</ID>
     <ID>ComplexCondition:DevToolsStore.kt$DevToolsStore$last != null &amp;&amp; entry.level !in UNMERGED &amp;&amp; last.level == entry.level &amp;&amp; last.source == entry.source &amp;&amp; last.depth == entry.depth &amp;&amp; last.frame == entry.frame &amp;&amp; last.args == entry.args</ID>
@@ -376,7 +376,6 @@
     <ID>NestedBlockDepth:Artifacts.kt$fun collectArtifacts(messages: List&lt;ChatMessage&gt;): List&lt;Artifact&gt;</ID>
     <ID>NestedBlockDepth:AssistantActivityGroup.kt$fun groupConversationTimeline(messages: List&lt;ChatMessage&gt;): List&lt;TimelineEntry&gt;</ID>
     <ID>NestedBlockDepth:AttachmentImporter.kt$AttachmentImporter$private fun reencodeSampled( bytes: ByteArray, filename: String, ): PromptAttachment?</ID>
-    <ID>NestedBlockDepth:ChatViewModel.kt$ChatViewModel$private fun handleEvent(event: OpenCodeEvent)</ID>
     <ID>NestedBlockDepth:CodexInstaller.kt$CodexInstaller$internal fun extractBinaries( tarball: File, targetTriple: String, binDir: File, names: List&lt;String&gt; = INSTALLED_BINARIES, )</ID>
     <ID>NestedBlockDepth:EditorOps.kt$EditorOps$fun moveCursor( value: TextFieldValue, direction: Direction, ): TextFieldValue</ID>
     <ID>NestedBlockDepth:RuntimeArchive.kt$RuntimeArchive$fun extractDebianPackage( input: InputStream, destination: File, )</ID>

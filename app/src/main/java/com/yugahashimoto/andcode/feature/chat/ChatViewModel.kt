@@ -2714,30 +2714,7 @@ class ChatViewModel(
                 val partId = part.id ?: messageId
                 val chatPart = part.toChatPart(messageId) ?: return
                 val messageParts = streamedParts.getOrPut(messageId) { linkedMapOf() }
-                // Deltas can arrive before the part event that introduces them (see issue #26924):
-                // they are accumulated under the same part id, and the late snapshot must not wipe
-                // them out with its own (often empty) initial text.
-                val mergedPart =
-                    when (val existing = messageParts[partId]) {
-                        is ChatPart.Text ->
-                            when {
-                                chatPart is ChatPart.Text && chatPart.text.isBlank() && existing.text.isNotBlank() -> existing
-                                // An early delta was stored as Text (deltas carry no part type) but
-                                // the snapshot reveals it was reasoning: keep the accumulated text.
-                                chatPart is ChatPart.Reasoning && chatPart.text.isBlank() && existing.text.isNotBlank() ->
-                                    chatPart.copy(text = existing.text)
-                                else -> chatPart
-                            }
-                        is ChatPart.Reasoning ->
-                            if ((chatPart is ChatPart.Reasoning && chatPart.text.isBlank()) ||
-                                (chatPart is ChatPart.Text && chatPart.text.isBlank())
-                            ) {
-                                if (existing.text.isNotBlank()) existing else chatPart
-                            } else {
-                                chatPart
-                            }
-                        else -> chatPart
-                    }
+                val mergedPart = mergeStreamedPart(messageParts[partId], chatPart)
                 messageParts[partId] = mergedPart
                 updateStreamingMessage(messageId, messageParts.values.toList())
             }
@@ -2748,20 +2725,7 @@ class ChatViewModel(
                 if (event.sessionId != activeSession || (event.field != "text" && event.field != "reasoning")) return
                 connectionMonitor.recordStreamTokens(event.mergeCount)
                 val messageParts = streamedParts.getOrPut(event.messageId) { linkedMapOf() }
-                val updatedPart =
-                    when (val existing = messageParts[event.partId]) {
-                        is ChatPart.Text -> existing.copy(text = existing.text + event.delta)
-                        is ChatPart.Reasoning -> existing.copy(text = existing.text + event.delta)
-                        // A delta can outrun the part event that introduces it; start the part here
-                        // rather than dropping the text on the floor.
-                        null ->
-                            if (event.field == "reasoning") {
-                                ChatPart.Reasoning(event.partId, event.delta)
-                            } else {
-                                ChatPart.Text(event.partId, event.delta)
-                            }
-                        else -> return
-                    }
+                val updatedPart = appendStreamedDelta(messageParts[event.partId], event) ?: return
                 messageParts[event.partId] = updatedPart
                 updateStreamingMessage(event.messageId, messageParts.values.toList())
             }
@@ -2957,52 +2921,7 @@ class ChatViewModel(
         messageId: String,
         parts: List<ChatPart>,
     ) {
-        _uiState.update { state ->
-            val index = state.messages.indexOfFirst { it.id == messageId }
-            if (index >= 0) {
-                val existing = state.messages[index]
-                val updated =
-                    state.messages.toMutableList().apply {
-                        this[index] =
-                            existing.copy(
-                                parts = parts,
-                                isStreaming = !existing.isUser,
-                            )
-                    }
-                return@update state.copy(
-                    messages = updated,
-                    isRunning = true,
-                    isThinking = false,
-                    retry = null,
-                    runActivity = state.runActivity.takeUnless { it == RunActivity.Compacting },
-                )
-            }
-
-            val incomingText = parts.filterIsInstance<ChatPart.Text>().joinToString("") { it.text }
-            val userEchoIndex = state.messages.indexOfLast { it.isUser && it.text == incomingText }
-            if (incomingText.isNotBlank() && userEchoIndex >= 0) {
-                val updated =
-                    state.messages.toMutableList().apply {
-                        this[userEchoIndex] = this[userEchoIndex].copy(id = messageId)
-                    }
-                return@update state.copy(messages = updated)
-            }
-
-            state.copy(
-                messages =
-                    state.messages +
-                        ChatMessage(
-                            id = messageId,
-                            isUser = false,
-                            parts = parts,
-                            isStreaming = true,
-                        ),
-                isRunning = true,
-                isThinking = false,
-                retry = null,
-                runActivity = state.runActivity.takeUnless { it == RunActivity.Compacting },
-            )
-        }
+        _uiState.update { state -> withStreamedParts(state, messageId, parts) }
     }
 
     private fun toUiMessage(message: OpenCodeMessage): ChatMessage? {
