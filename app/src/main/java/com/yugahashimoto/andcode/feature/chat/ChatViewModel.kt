@@ -235,6 +235,8 @@ class ChatViewModel(
 
     private val pullRequestBadges = PullRequestBadges(viewModelScope, _uiState, pullRequestStatuses)
 
+    private val voice = ChatVoice(_uiState)
+
     private val contextUsage = ContextUsage(backend, viewModelScope, _uiState, priceCatalog)
 
     private val restorePoints =
@@ -274,7 +276,6 @@ class ChatViewModel(
     private val offlineMessageQueue = MutableStateFlow<List<QueuedPrompt>>(emptyList())
 
     private var eventJob: Job? = null
-    private var tts: TextToSpeech? = null
     private var recoveringTransiently = false
     private val streamedParts = mutableMapOf<String, LinkedHashMap<String, ChatPart>>()
 
@@ -2157,65 +2158,19 @@ class ChatViewModel(
         return toChatMessage(message)
     }
 
-    fun setTTS(textToSpeech: TextToSpeech) {
-        tts = textToSpeech
-    }
+    fun setTTS(textToSpeech: TextToSpeech) = voice.setTTS(textToSpeech)
 
-    fun startListening() {
-        _uiState.update {
-            it.copy(
-                isListening = true,
-                isSpeechProcessing = false,
-                partialText = "",
-                error = null,
-            )
-        }
-    }
+    fun startListening() = voice.startListening()
 
-    fun updateSpeechPartial(text: String) {
-        _uiState.update {
-            it.copy(
-                isListening = true,
-                isSpeechProcessing = false,
-                partialText = text,
-            )
-        }
-    }
+    fun updateSpeechPartial(text: String) = voice.updateSpeechPartial(text)
 
-    fun showSpeechProcessing() {
-        _uiState.update {
-            it.copy(
-                isListening = false,
-                isSpeechProcessing = true,
-                partialText = it.partialText,
-            )
-        }
-    }
+    fun showSpeechProcessing() = voice.showSpeechProcessing()
 
-    fun reportSpeechError(message: String) {
-        _uiState.update {
-            it.copy(
-                isListening = false,
-                isSpeechProcessing = false,
-                error = message,
-            )
-        }
-    }
+    fun reportSpeechError(message: String) = voice.reportSpeechError(message)
 
-    fun stopListening() {
-        _uiState.update {
-            it.copy(
-                isListening = false,
-                isSpeechProcessing = false,
-                partialText = it.partialText,
-            )
-        }
-    }
+    fun stopListening() = voice.stopListening()
 
-    fun stopSpeaking() {
-        tts?.stop()
-        _uiState.update { it.copy(isSpeaking = false) }
-    }
+    fun stopSpeaking() = voice.stopSpeaking()
 
     fun copyMessageContent(messageId: String): String? {
         return _uiState.value.messages.firstOrNull { it.id == messageId }?.text
@@ -2361,8 +2316,7 @@ class ChatViewModel(
         // Preview bitmaps are deliberately not recycled here either: the composition that draws
         // them can outlive the ViewModel during teardown, and the GC reclaims them anyway.
         eventJob?.cancel()
-        tts?.stop()
-        tts = null
+        voice.shutDown()
         super.onCleared()
     }
 
