@@ -86,6 +86,15 @@ remote PC runtime the buttons stay hidden.
 The command runner now mounts `/workspace` the same way the agents see it. The terminal can reach
 it too.
 
+Files AndCode itself writes or reads in the Linux environment, the workspace and the Claude Code
+approval folder (agent configs and MCP registrations, the GitHub token store, API keys, the guest
+scripts, schedule and `andcode-run` requests and replies, `startup-commands.json`, attachments)
+never go through a symbolic link: an agent could otherwise point one at the app's own private files.
+A config you replaced with a link of your own (dotfiles, say) is left as it is rather than merged
+into, so AndCode's MCP servers are not added to that agent until it is a plain file again. Deleting
+the runtime, a project or a chat's attachments, and carrying your home folder over on a reinstall,
+remove or copy a link itself, never what it points at.
+
 ## Browser and DevTools
 
 | Feature | Where | Notes |

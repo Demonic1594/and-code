@@ -11,6 +11,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.nio.file.Files
 
 class CustomProviderStoreTest {
     @get:Rule
@@ -189,6 +190,22 @@ class CustomProviderStoreTest {
 
         memory.store.syncToRuntime(rootfs)
         assertEquals(after, Json.parseToJsonElement(configFile.readText()).jsonObject)
+    }
+
+    @Test
+    fun `a linked opencode json is refused, not merged into the app's file`() {
+        val rootfs = temp.newFolder("linked-rootfs")
+        val appFile = File(temp.newFolder("files"), "app-state.json").apply { writeText("{\"appSecret\":\"do-not-leak\"}") }
+        val configFile = File(rootfs, "root/.config/opencode/opencode.json")
+        configFile.parentFile.mkdirs()
+        Files.createSymbolicLink(configFile.toPath(), appFile.toPath())
+        val memory = memoryStore()
+        memory.store.upsert(CustomProviderDefinition("acme", "Acme", "https://acme.example/v1", listOf("acme-large")))
+
+        assertThrows(java.io.IOException::class.java) { memory.store.syncToRuntime(rootfs) }
+
+        assertEquals("{\"appSecret\":\"do-not-leak\"}", appFile.readText())
+        assertTrue(Files.isSymbolicLink(configFile.toPath()))
     }
 
     private fun memoryStore(): MemoryProviderStore {

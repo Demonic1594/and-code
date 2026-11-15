@@ -150,6 +150,8 @@ OSの制約として、他アプリの`Android/data`と`Android/obb`は全ファ
 - OpenCode更新では公式GitHub Release APIの対象assetだけを選び、HTTPS URL・サイズ・`sha256:` digestを必須とする
 - 不一致のファイルは展開・有効化しない
 - アーカイブ内のパストラバーサルと危険なシンボリックリンクを拒否する
+- ゲストが書き込めるツリー（rootfs、`/workspace`、Claude Codeの承認ブリッジ）内でアプリ自身が読み書きするファイルは、すべて`GuestFiles`を通す。`SecureDirectoryStream`でルートから1段ずつ`O_NOFOLLOW`で開き（`openat`/`renameat`/`unlinkat`）、途中のフォルダを含めシンボリックリンクを一切たどらない。書き込みは一時ファイル＋renameで、末尾のリンクは置き換える。マージ対象の設定ファイルがリンクなら読まずにそのまま残す（そのエージェントへのMCP登録は行われない）。ゲストが書いた要求ファイルはサイズ上限付きで読み、Claudeブリッジは要求IDがファイル名と一致するものだけを扱う
+- ランタイム・プロジェクト・添付の削除と、再インストール時のホームディレクトリ引き継ぎは、リンクをたどらずリンク自体を削除・コピーする（`File.deleteRecursively`/`copyRecursively`はリンク先のフォルダへ入るため使わない）
 - OpenCodeサーバーは`127.0.0.1`だけへbindする
 - ランタイムはアプリ専用ストレージへ保存する
 - ランタイムログへAPIキー、パスワード、Authorizationヘッダーを記録しない

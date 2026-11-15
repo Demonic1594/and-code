@@ -63,4 +63,24 @@ class AntigravityAttachmentTest {
             listOf(PromptAttachment("notes.txt", "text/plain", "data:text/plain;base64,dGVzdA==")),
         )
     }
+
+    /** The workspace is the guest's: a linked attachments folder must not take the file into the app's own. */
+    @Test
+    fun `an attachment never lands through a folder the guest linked`() {
+        val appFolder = folder.newFolder("shared_prefs")
+        folder.root.resolve("workspace").mkdirs()
+        java.nio.file.Files.createSymbolicLink(folder.root.resolve("workspace/.andcode-attachments").toPath(), appFolder.toPath())
+
+        runCatching {
+            prepareAntigravityPrompt(
+                folder.root,
+                "session",
+                1,
+                "Describe",
+                listOf(PromptAttachment("a.png", "image/png", "data:image/png;base64,AQ==")),
+            )
+        }
+
+        assertEquals(emptyList<String>(), appFolder.list()!!.toList())
+    }
 }

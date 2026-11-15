@@ -92,4 +92,16 @@ class ApprovalLogTest {
         assertEquals("""{"query":"kotlin"}""", summary("""{"query":"kotlin"}"""))
         assertEquals(200, summary("""{"command":"${"x".repeat(500)}"}""").length)
     }
+
+    /** The log sits in the bridge folder the guest writes; a link there must not be appended to. */
+    @Test
+    fun `the history is never written through a link the guest planted`() {
+        val bridgeRoot = File(folder.root, "claude-bridge").apply { mkdirs() }
+        val prefs = File(folder.newFolder("shared_prefs"), "settings.xml").apply { writeText("<map/>") }
+        java.nio.file.Files.createSymbolicLink(File(bridgeRoot, ApprovalLog.APP_FILE).toPath(), prefs.toPath())
+
+        ApprovalLog(bridgeRoot, now = { clock++ }).record("Bash", "ls", allowed = true, how = ApprovalLog.PHONE)
+
+        assertEquals("<map/>", prefs.readText())
+    }
 }

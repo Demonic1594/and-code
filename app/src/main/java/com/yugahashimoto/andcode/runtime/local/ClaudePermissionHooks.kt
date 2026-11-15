@@ -162,6 +162,10 @@ object ClaudePermissionHooks {
     /**
      * Writes the hook script and merges settings into [rootfs].
      *
+     * Both go through [GuestFiles]: the guest can make either path, or a folder above it, a link to
+     * one of this app's own files. A linked script is replaced; a linked `settings.json` is left
+     * alone rather than read and merged into, and the hook then counts as not installed.
+     *
      * @return true when the guest is ready for interactive approvals.
      */
     fun installInto(
@@ -169,13 +173,10 @@ object ClaudePermissionHooks {
         hookScript: String,
     ): Boolean {
         return runCatching {
-            val scriptFile = File(rootfs, HOOK_RELATIVE).apply { parentFile?.mkdirs() }
-            scriptFile.writeText(hookScript)
-            scriptFile.setExecutable(true, false)
-            val settingsFile = File(rootfs, SETTINGS_RELATIVE).apply { parentFile?.mkdirs() }
-            val existing = settingsFile.takeIf { it.isFile }?.readText()
-            settingsFile.writeText(mergeSettingsJson(existing))
-            scriptFile.isFile && settingsFile.isFile
+            GuestFiles.write(rootfs, HOOK_RELATIVE, hookScript, GuestFiles.EXECUTABLE)
+            val existing = GuestFiles.readText(rootfs, SETTINGS_RELATIVE)
+            GuestFiles.write(rootfs, SETTINGS_RELATIVE, mergeSettingsJson(existing))
+            GuestFiles.isRegularFile(rootfs, HOOK_RELATIVE) && GuestFiles.isRegularFile(rootfs, SETTINGS_RELATIVE)
         }.getOrDefault(false)
     }
 
@@ -184,24 +185,17 @@ object ClaudePermissionHooks {
      *
      * An app update ships a new script, but the guest keeps the old one until a runtime start
      * provisions it again, which a user of Claude Code alone may never trigger. Only a changed script
-     * is written, so a running Claude Code never sees the file rewritten under it for nothing.
+     * is written, so a running Claude Code never sees the file rewritten under it for nothing; and it
+     * is written aside and renamed in, so a hook starting meanwhile never runs half a script.
      */
     fun refreshScript(
         rootfs: File,
         hookScript: String,
     ) {
         runCatching {
-            val scriptFile = File(rootfs, HOOK_RELATIVE)
-            if (!scriptFile.isFile || scriptFile.readText() == hookScript) return
-            // Written aside and renamed in, so a hook starting meanwhile never runs half a script.
-            val written = File(scriptFile.parentFile, ".${scriptFile.name}.tmp")
-            written.writeText(hookScript)
-            written.setExecutable(true, false)
-            if (!written.renameTo(scriptFile)) {
-                scriptFile.writeText(hookScript)
-                written.delete()
-            }
-            scriptFile.setExecutable(true, false)
+            val current = GuestFiles.readText(rootfs, HOOK_RELATIVE) ?: return
+            if (current == hookScript) return
+            GuestFiles.write(rootfs, HOOK_RELATIVE, hookScript, GuestFiles.EXECUTABLE)
         }
     }
 
@@ -210,13 +204,11 @@ object ClaudePermissionHooks {
      * reads that call as a permission request and would put an approval card up instead.
      */
     fun supportsChecks(rootfs: File): Boolean =
-        runCatching { File(rootfs, HOOK_RELATIVE).readText().contains(CHECK_MODE_MARKER) }.getOrDefault(false)
+        runCatching { GuestFiles.readText(rootfs, HOOK_RELATIVE)?.contains(CHECK_MODE_MARKER) == true }.getOrDefault(false)
 
     fun isInstalled(rootfs: File): Boolean {
-        val script = File(rootfs, HOOK_RELATIVE)
-        val settings = File(rootfs, SETTINGS_RELATIVE)
-        if (!script.isFile) return false
-        val text = settings.takeIf { it.isFile }?.readText().orEmpty()
+        if (!GuestFiles.isRegularFile(rootfs, HOOK_RELATIVE)) return false
+        val text = runCatching { GuestFiles.readText(rootfs, SETTINGS_RELATIVE) }.getOrNull().orEmpty()
         return text.contains(HOOK_MARKER)
     }
 }

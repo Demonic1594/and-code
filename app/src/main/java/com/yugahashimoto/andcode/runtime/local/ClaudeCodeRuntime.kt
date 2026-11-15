@@ -561,7 +561,7 @@ class ClaudeCodeRuntime(
         todos.remove(sessionId)
         messageStore.remove(sessionId)
         installedRuntimeProvider()?.rootfs?.let { rootfs ->
-            AgentTranscriptFiles.deleteClaude(File(rootfs, "root/.claude"), listOfNotNull(sessionId, resumeId))
+            AgentTranscriptFiles.deleteClaude(rootfs, listOfNotNull(sessionId, resumeId))
         }
     }
 

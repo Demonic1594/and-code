@@ -1,12 +1,6 @@
 package com.yugahashimoto.andcode.runtime.local
 
 import java.io.File
-import java.io.IOException
-import java.nio.file.FileVisitResult
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.SimpleFileVisitor
-import java.nio.file.attribute.BasicFileAttributes
 
 /**
  * Removes what an agent CLI itself saved about a conversation, so deleting a chat in AndCode
@@ -16,85 +10,64 @@ import java.nio.file.attribute.BasicFileAttributes
  * folders in its home directory. Only entries whose name is the id itself, or the id followed by
  * `.` or `-` (`<id>.jsonl`, `<id>-agent-1.json`), are touched, and only ids made of the
  * characters a UUID uses: anything else could match a file that belongs to another conversation.
+ * Each is found and removed through [GuestFiles], relative to the rootfs, which never follows a
+ * link on the way or inside it: these folders are the guest's, and `File.deleteRecursively` would
+ * walk into a linked folder.
  */
 object AgentTranscriptFiles {
-    /** Claude Code under `~/.claude`: transcripts per project folder, plus todo, file-history and env state. */
+    private const val CLAUDE_HOME = "root/.claude"
+    private const val GEMINI_HOME = "root/.gemini"
+
+    /** Claude Code under the guest's `~/.claude`: transcripts per project folder, plus todo, file-history and env state. */
     fun deleteClaude(
-        claudeHome: File,
+        rootfs: File,
         conversationIds: Collection<String>,
     ): Int {
-        val projectFolders = File(claudeHome, "projects").listFiles(File::isDirectory).orEmpty().toList()
-        val folders = projectFolders + listOf("todos", "file-history", "session-env", "debug").map { File(claudeHome, it) }
-        return deleteMatching(folders, conversationIds)
+        val projectFolders =
+            runCatching { GuestFiles.listFolders(rootfs, "$CLAUDE_HOME/projects") }
+                .getOrDefault(emptyList())
+                .map { "$CLAUDE_HOME/projects/$it" }
+        val folders = projectFolders + listOf("todos", "file-history", "session-env", "debug").map { "$CLAUDE_HOME/$it" }
+        return deleteMatching(rootfs, folders, conversationIds)
     }
 
     /**
-     * Antigravity under `~/.gemini`. The CLI's layout is not documented; community notes put the
-     * conversations and their "brain" folders under `antigravity-cli/` (and `antigravity/` for the
-     * desktop build that shares the home directory), so each of those is checked.
+     * Antigravity under the guest's `~/.gemini`. The CLI's layout is not documented; community notes
+     * put the conversations and their "brain" folders under `antigravity-cli/` (and `antigravity/`
+     * for the desktop build that shares the home directory), so each of those is checked.
      */
     fun deleteAntigravity(
-        geminiHome: File,
+        rootfs: File,
         conversationIds: Collection<String>,
     ): Int {
         val folders =
             listOf("antigravity-cli", "antigravity").flatMap { product ->
-                listOf("conversations", "brain").map { File(File(geminiHome, product), it) }
+                listOf("conversations", "brain").map { "$GEMINI_HOME/$product/$it" }
             }
-        return deleteMatching(folders, conversationIds)
+        return deleteMatching(rootfs, folders, conversationIds)
     }
 
+    /**
+     * Deletes the entries of [folders] (relative to [root]) that belong to [conversationIds]. Every
+     * step is relative to [root], so a folder the guest made a link (`todos` pointing at this app's
+     * data, with an "id" such as `shared_prefs` taken from the CLI's own output) is never listed
+     * or deleted through.
+     */
     internal fun deleteMatching(
-        folders: Collection<File>,
+        root: File,
+        folders: Collection<String>,
         conversationIds: Collection<String>,
     ): Int {
         val ids = conversationIds.filter(::isSafeId).toSet()
         if (ids.isEmpty()) return 0
         var deleted = 0
         folders.forEach { folder ->
-            folder.listFiles().orEmpty().forEach { entry ->
-                if (ids.any { id -> belongsTo(entry.name, id) } && deleteTree(entry.toPath())) deleted++
+            runCatching { GuestFiles.listNames(root, folder) }.getOrDefault(emptyList()).forEach { name ->
+                if (ids.any { id -> belongsTo(name, id) } && GuestFiles.deleteTree(root, "$folder/$name")) deleted++
             }
         }
         return deleted
     }
-
-    /**
-     * Deletes [root] and everything under it without following symbolic links: a link is removed
-     * itself, never what it points at, so a link inside a transcript folder cannot reach the
-     * workspace. (`File.deleteRecursively` follows links into directories.)
-     */
-    private fun deleteTree(root: Path): Boolean =
-        runCatching {
-            Files.walkFileTree(
-                root,
-                object : SimpleFileVisitor<Path>() {
-                    override fun visitFile(
-                        file: Path,
-                        attrs: BasicFileAttributes,
-                    ): FileVisitResult {
-                        Files.deleteIfExists(file)
-                        return FileVisitResult.CONTINUE
-                    }
-
-                    // One unreadable file must not stop the rest of the folder from going; the
-                    // folder itself then stays and the delete reports false.
-                    override fun visitFileFailed(
-                        file: Path,
-                        exc: IOException,
-                    ): FileVisitResult = FileVisitResult.CONTINUE
-
-                    override fun postVisitDirectory(
-                        dir: Path,
-                        exc: IOException?,
-                    ): FileVisitResult {
-                        Files.deleteIfExists(dir)
-                        return FileVisitResult.CONTINUE
-                    }
-                },
-            )
-            true
-        }.getOrDefault(false)
 
     private fun belongsTo(
         name: String,

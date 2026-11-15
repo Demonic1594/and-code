@@ -15,6 +15,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.nio.file.Files
 import java.util.UUID
 
 class ClaudePermissionBridgeTest {
@@ -603,5 +604,70 @@ class ClaudePermissionBridgeTest {
             }
 
         assertEquals(listOf(listOf("my-audit"), listOf(ClaudePermissionHooks.BLOCK_CHECK_COMMAND)), commands)
+    }
+
+    private fun guestRequest(
+        requestId: String,
+        command: String = "git status",
+    ) = ClaudePermissionBridge.Request(
+        requestId = requestId,
+        androidSessionId = "session-1",
+        kind = ClaudePermissionBridge.Kind.PERMISSION,
+        toolName = "Bash",
+        toolInputJson = """{"command":"$command"}""",
+        permissionLabel = "Bash",
+    )
+
+    /**
+     * The guest writes the pending files, id included, and the reply's path is built from that id:
+     * one naming another path must not put the reply among the app's own files.
+     */
+    @Test
+    fun `a request whose id is a path is ignored and never answered`() {
+        val bridgeRoot = File(folder.root, "claude-bridge")
+        val appFolder = folder.newFolder("shared_prefs")
+        val bridge = ClaudePermissionBridge(bridgeRoot)
+        val escapingId = "../../shared_prefs/settings"
+        File(bridgeRoot, "pending/${UUID.randomUUID()}.json").writeText(
+            """{"kind":"permission","requestId":"$escapingId","androidSessionId":"s","toolName":"Bash",""" +
+                """"toolInput":{"command":"ls"},"permissionLabel":"Bash"}""",
+        )
+
+        assertEquals(emptyList<ClaudePermissionBridge.Request>(), bridge.pollPending())
+        assertFalse(bridge.respond(escapingId, PermissionResponse.ONCE, remember = false))
+
+        assertEquals(emptyList<String>(), appFolder.list()!!.toList())
+    }
+
+    @Test
+    fun `a reply is never written through a link the guest planted`() {
+        val bridgeRoot = File(folder.root, "claude-bridge")
+        val prefs = File(folder.newFolder("shared_prefs"), "settings.xml").apply { writeText("<map/>") }
+        val bridge = ClaudePermissionBridge(bridgeRoot)
+        val requestId = UUID.randomUUID().toString()
+        bridge.writeGuestRequest(guestRequest(requestId))
+        bridge.pollPending()
+        Files.createSymbolicLink(File(bridgeRoot, "responses/$requestId.json.tmp").toPath(), prefs.toPath())
+
+        assertTrue(bridge.respond(requestId, PermissionResponse.ONCE, remember = false))
+
+        assertEquals("<map/>", prefs.readText())
+        assertEquals("allow", bridge.readResponse(requestId)!!.decision)
+    }
+
+    @Test
+    fun `a remembered rule is never written through a link the guest planted`() {
+        val bridgeRoot = File(folder.root, "claude-bridge")
+        val prefs = File(folder.newFolder("shared_prefs"), "settings.xml").apply { writeText("<map/>") }
+        val bridge = ClaudePermissionBridge(bridgeRoot)
+        val requestId = UUID.randomUUID().toString()
+        bridge.writeGuestRequest(guestRequest(requestId))
+        bridge.pollPending()
+        Files.createSymbolicLink(File(bridgeRoot, "always-rules.json.tmp").toPath(), prefs.toPath())
+
+        assertTrue(bridge.respond(requestId, PermissionResponse.ALWAYS, remember = true))
+
+        assertEquals("<map/>", prefs.readText())
+        assertTrue(bridge.isAlwaysAllowed("Bash", """{"command":"git status"}"""))
     }
 }

@@ -11,6 +11,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.nio.file.Files
 
 class LocalProviderCredentialStoreTest {
     @get:Rule
@@ -163,6 +164,25 @@ class LocalProviderCredentialStoreTest {
         }
 
         assertEquals("not-json", authFile.readText())
+    }
+
+    /**
+     * An agent can make `auth.json` a link to a JSON file of the app's own; the sync must not read it
+     * in, merge the keys into it, and hand the result back to the guest.
+     */
+    @Test
+    fun `a linked auth file is refused, not read back into the guest`() {
+        val rootfs = temp.newFolder("linked-rootfs")
+        val appFile = File(temp.newFolder("files"), "app-state.json").apply { writeText("{\"appSecret\":\"do-not-leak\"}") }
+        val authFile = File(rootfs, "root/.local/share/opencode/auth.json")
+        authFile.parentFile.mkdirs()
+        Files.createSymbolicLink(authFile.toPath(), appFile.toPath())
+        val memory = memoryStore(mapOf("openai" to "sk-123"), setOf("openai"))
+
+        assertThrows(java.io.IOException::class.java) { memory.store.syncToRuntime(rootfs) }
+
+        assertEquals("{\"appSecret\":\"do-not-leak\"}", appFile.readText())
+        assertTrue("the link is left as it was", Files.isSymbolicLink(authFile.toPath()))
     }
 
     private fun memoryStore(

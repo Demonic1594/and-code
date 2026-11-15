@@ -172,12 +172,11 @@ class AttachmentImporter(
         check(attachment.url.startsWith("data:") && encoded.isNotEmpty()) {
             "Attachment has no inline content to copy"
         }
-        val directory =
-            File(workspaceDir, ATTACHMENT_DIRECTORY).apply {
-                check(mkdirs() || isDirectory) { "Cannot create attachment directory" }
-            }
-        val destination = uniqueDestination(directory, attachment.filename)
-        destination.writeBytes(Base64.decode(encoded, Base64.DEFAULT))
+        // Through GuestFiles: the workspace is the guest's, and a link it left on the way must not
+        // have the attachment land among this app's own files.
+        GuestFiles.createDirectories(workspaceDir, ATTACHMENT_DIRECTORY)
+        val destination = uniqueDestination(File(workspaceDir, ATTACHMENT_DIRECTORY), attachment.filename)
+        GuestFiles.write(workspaceDir, "$ATTACHMENT_DIRECTORY/${destination.name}", Base64.decode(encoded, Base64.DEFAULT))
         return destination
     }
 

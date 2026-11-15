@@ -414,11 +414,14 @@ class AntigravityRuntime(
         val record = records.remove(sessionId)
         val removed = record != null
         record?.conversationId?.let { conversationId ->
-            currentRootfs()?.let { AgentTranscriptFiles.deleteAntigravity(File(it, "root/.gemini"), listOf(conversationId)) }
+            currentRootfs()?.let { AgentTranscriptFiles.deleteAntigravity(it, listOf(conversationId)) }
         }
         messageStore.remove(sessionId)
         val safeSession = sessionId.replace(Regex("[^A-Za-z0-9._-]"), "_")
-        File(runtimeDirectory, "workspace/$ATTACHMENT_DIRECTORY/$safeSession").deleteRecursively()
+        // The workspace is the guest's: never follow a link it left among the attachments.
+        if (safeSession != "." && safeSession != "..") {
+            GuestFiles.deleteTree(File(runtimeDirectory, "workspace"), "$ATTACHMENT_DIRECTORY/$safeSession")
+        }
         persistRecords()
         persistMessages()
         return removed
@@ -619,10 +622,8 @@ internal fun prepareAntigravityPrompt(
 ): String {
     if (attachments.isEmpty()) return prompt
     val safeSession = sessionId.replace(Regex("[^A-Za-z0-9._-]"), "_")
-    val attachmentDir =
-        File(runtimeDirectory, "workspace/$ATTACHMENT_DIRECTORY/$safeSession/$turn").apply {
-            check(mkdirs() || isDirectory) { "Cannot create Antigravity attachment directory" }
-        }
+    val workspace = File(runtimeDirectory, "workspace")
+    val attachmentDir = "$ATTACHMENT_DIRECTORY/$safeSession/$turn"
     val references =
         attachments.mapIndexed { index, attachment ->
             require(attachment.mime.startsWith("image/") || attachment.mime == "application/pdf") {
@@ -635,9 +636,11 @@ internal fun prepareAntigravityPrompt(
             }
             require(encoded.length <= MAX_ANTIGRAVITY_ATTACHMENT_BASE64_CHARS) { "Antigravity attachment is too large" }
             val safeName = attachment.filename.replace(Regex("[^A-Za-z0-9._-]"), "_").ifBlank { "attachment-$index" }
-            val file = File(attachmentDir, "$index-$safeName")
-            file.writeBytes(Base64.getDecoder().decode(encoded))
-            "@/workspace/$ATTACHMENT_DIRECTORY/$safeSession/$turn/${file.name}"
+            // Through GuestFiles: the workspace is the guest's, and a link it left on the way must
+            // not have the attachment land among this app's own files.
+            val fileName = "$index-$safeName"
+            GuestFiles.write(workspace, "$attachmentDir/$fileName", Base64.getDecoder().decode(encoded))
+            "@/workspace/$attachmentDir/$fileName"
         }
     return (references + prompt).joinToString("\n")
 }

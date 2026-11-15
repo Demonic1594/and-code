@@ -10,9 +10,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import java.io.File
-import java.io.FileOutputStream
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 
 /** A provider OpenCode's built-in catalogue does not know about: an OpenAI-compatible endpoint. */
 @Serializable
@@ -75,10 +72,13 @@ class CustomProviderStore(
      * Merges stored definitions into the runtime's `opencode.json`, removing only the entries this
      * store previously wrote there itself (tracked via [loadSyncedIds]/[saveSyncedIds]) so a
      * provider defined some other way — or by hand-editing the file — is left untouched.
+     *
+     * Through [GuestFiles], so a guest that made the file or a folder above it a link to one of
+     * this app's own files gets a refusal (like an invalid file) instead of a merge into that file.
      */
     fun syncToRuntime(rootfs: File): File {
-        val configFile = File(rootfs, "root/.config/opencode/opencode.json")
-        val existingRoot = readExistingPayload(configFile)
+        val configFile = File(rootfs, OPENCODE_CONFIG_PATH)
+        val existingRoot = readExistingPayload(rootfs)
         val providers = (existingRoot["provider"] as? JsonObject)?.toMutableMap() ?: mutableMapOf()
 
         val current = definitions()
@@ -98,16 +98,16 @@ class CustomProviderStore(
 
         val updatedRoot = JsonObject(existingRoot + ("provider" to JsonObject(providers)))
         if (updatedRoot != existingRoot) {
-            writeAtomically(configFile, json.encodeToString(updatedRoot))
+            GuestFiles.write(rootfs, OPENCODE_CONFIG_PATH, json.encodeToString(updatedRoot), GuestFiles.OWNER_READ_WRITE)
         }
         saveSyncedIds(currentIds)
         return configFile
     }
 
-    private fun readExistingPayload(configFile: File): JsonObject {
-        if (!configFile.isFile) return JsonObject(emptyMap())
+    private fun readExistingPayload(rootfs: File): JsonObject {
+        val existing = GuestFiles.readText(rootfs, OPENCODE_CONFIG_PATH) ?: return JsonObject(emptyMap())
         return runCatching {
-            json.parseToJsonElement(configFile.readText()).jsonObject
+            json.parseToJsonElement(existing).jsonObject
         }.getOrElse { error ->
             throw IllegalStateException(
                 "Existing OpenCode opencode.json is invalid and was not modified",
@@ -116,34 +116,9 @@ class CustomProviderStore(
         }
     }
 
-    private fun writeAtomically(
-        destination: File,
-        content: String,
-    ) {
-        destination.parentFile?.mkdirs()
-        val temporary = File(destination.parentFile, "${destination.name}.tmp")
-        temporary.delete()
-        try {
-            FileOutputStream(temporary).use { output ->
-                output.write(content.toByteArray(Charsets.UTF_8))
-                output.fd.sync()
-            }
-            temporary.setReadable(true, true)
-            temporary.setWritable(true, true)
-            Files.move(
-                temporary.toPath(),
-                destination.toPath(),
-                StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING,
-            )
-            destination.setReadable(true, true)
-            destination.setWritable(true, true)
-        } finally {
-            temporary.delete()
-        }
-    }
-
     companion object {
+        private const val OPENCODE_CONFIG_PATH = "root/.config/opencode/opencode.json"
+
         private val defaultJson: Json =
             Json {
                 ignoreUnknownKeys = true

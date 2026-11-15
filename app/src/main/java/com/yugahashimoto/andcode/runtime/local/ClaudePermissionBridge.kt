@@ -115,11 +115,19 @@ class ClaudePermissionBridge(
         val project: String? = null,
     )
 
+    /**
+     * The bridge folder, which the guest sees and writes too. Every file in it goes through
+     * [GuestFiles], so a link the guest put there in place of a request, a reply, a rules file or a
+     * folder never has the app read or write one of its own files through it.
+     */
     private val root = hostRoot.apply { mkdirs() }
-    private val pendingDir = File(root, "pending").apply { mkdirs() }
-    private val responsesDir = File(root, "responses").apply { mkdirs() }
-    private val alwaysFile = File(root, "always-rules.json")
-    private val blockFile = File(root, BLOCK_RULES_FILE)
+
+    init {
+        runCatching {
+            GuestFiles.createDirectories(root, PENDING_DIR)
+            GuestFiles.createDirectories(root, RESPONSES_DIR)
+        }
+    }
 
     /** Kinds of calls (reading, editing files) the user allows without asking, in every project. */
     val toolClasses = ToolClassRules(root)
@@ -150,9 +158,8 @@ class ClaudePermissionBridge(
                 permissionLabel = request.permissionLabel.ifBlank { request.toolName },
                 cwd = request.cwd,
             )
-        val file = File(pendingDir, "${request.requestId}.json")
-        file.parentFile?.mkdirs()
-        file.writeText(json.encodeToString(stored))
+        require(isRequestId(request.requestId)) { "Not a request id: ${request.requestId}" }
+        GuestFiles.write(root, pendingPath(request.requestId), json.encodeToString(stored))
     }
 
     fun pollPending(): List<Request> {
@@ -173,12 +180,19 @@ class ClaudePermissionBridge(
      */
     fun pendingRequests(): List<Request> = readPendingFiles().map(::toRequest)
 
+    /**
+     * The requests waiting in `pending/`, each only when its `requestId` is the name of its own file:
+     * the id is what the reply's path is built from, and the guest writes these files, so an id such
+     * as `../../shared_prefs/x` would otherwise put the reply among the app's own files.
+     */
     private fun readPendingFiles(): List<StoredRequest> =
-        pendingDir
-            .listFiles().orEmpty()
-            .filter { it.extension == "json" }
+        runCatching { GuestFiles.listFiles(root, PENDING_DIR) }
+            .getOrDefault(emptyList())
+            .filter { it.name.endsWith(JSON_SUFFIX) }
             .sortedBy { it.name }
-            .mapNotNull { file -> runCatching { json.decodeFromString<StoredRequest>(file.readText()) }.getOrNull() }
+            .mapNotNull { entry ->
+                readStoredRequest(root, json, entry.name.removeSuffix(JSON_SUFFIX))
+            }
 
     private fun toRequest(stored: StoredRequest): Request =
         Request(
@@ -204,15 +218,13 @@ class ClaudePermissionBridge(
         /** Remembers the answer for every tool of the call's MCP server rather than this one tool. */
         wholeServer: Boolean = false,
     ): Boolean {
-        val pending = File(pendingDir, "$requestId.json")
-        if (!pending.isFile && !File(responsesDir, "$requestId.json").isFile) {
+        if (!isRequestId(requestId)) return false
+        val pendingExists = GuestFiles.isRegularFile(root, pendingPath(requestId))
+        if (!pendingExists && !GuestFiles.isRegularFile(root, responsePath(requestId))) {
             // Still allow writing if the guest already cleaned pending but we know the id.
-            if (!emitted.contains(requestId) && !pending.isFile) return false
+            if (!emitted.contains(requestId)) return false
         }
-        val storedRequest =
-            pending.takeIf { it.isFile }?.let {
-                runCatching { json.decodeFromString<StoredRequest>(it.readText()) }.getOrNull()
-            }
+        val storedRequest = readStoredRequest(root, json, requestId)
         // Blocked since it reached the approval sheet: an approval still refuses it.
         val blocked = storedRequest?.let { blockedBy(it.toolName, it.toolInput.toString()) }
         val decision =
@@ -245,6 +257,7 @@ class ClaudePermissionBridge(
         questionsJson: String,
         answers: Map<String, String>,
     ): Boolean {
+        if (!isRequestId(requestId)) return false
         val questions =
             runCatching { json.parseToJsonElement(questionsJson) }
                 .getOrDefault(JsonArray(emptyList()))
@@ -268,15 +281,13 @@ class ClaudePermissionBridge(
     }
 
     fun readResponse(requestId: String): StoredResponse? {
-        val file = File(responsesDir, "$requestId.json")
-        if (!file.isFile) return null
-        return runCatching { json.decodeFromString<StoredResponse>(file.readText()) }.getOrNull()
+        if (!isRequestId(requestId)) return null
+        val text = runCatching { GuestFiles.readText(root, responsePath(requestId), MAX_REQUEST_BYTES) }.getOrNull() ?: return null
+        return runCatching { json.decodeFromString<StoredResponse>(text) }.getOrNull()
     }
 
     fun readPending(requestId: String): Request? {
-        val file = File(pendingDir, "$requestId.json")
-        if (!file.isFile) return null
-        val stored = runCatching { json.decodeFromString<StoredRequest>(file.readText()) }.getOrNull() ?: return null
+        val stored = readStoredRequest(root, json, requestId) ?: return null
         return Request(
             requestId = stored.requestId,
             androidSessionId = stored.androidSessionId,
@@ -372,18 +383,12 @@ class ClaudePermissionBridge(
         return QuestionRequest(id = request.requestId, sessionId = request.androidSessionId, questions = questions)
     }
 
+    /** Written aside and renamed in by [GuestFiles], so the hook never reads half a reply. */
     private fun writeResponse(
         requestId: String,
         response: StoredResponse,
     ) {
-        responsesDir.mkdirs()
-        val file = File(responsesDir, "$requestId.json")
-        val tmp = File(responsesDir, "$requestId.json.tmp")
-        tmp.writeText(json.encodeToString(response))
-        if (!tmp.renameTo(file)) {
-            file.writeText(json.encodeToString(response))
-            tmp.delete()
-        }
+        GuestFiles.write(root, responsePath(requestId), json.encodeToString(response))
     }
 
     /** Keeps an always-allow rule for [stored] and returns its words (the tool's name for a tool-wide one), or null when none is kept. */
@@ -411,7 +416,7 @@ class ClaudePermissionBridge(
         val rule = AlwaysRule(toolName = stored.toolName, commandPrefix = prefix, project = projectOf(stored.cwd))
         if (existing.none { it.toolName == rule.toolName && it.commandPrefix == rule.commandPrefix && it.project == rule.project }) {
             existing += rule
-            writeRules(alwaysFile, existing)
+            writeRules(ALWAYS_RULES_FILE, existing)
         }
         return prefix ?: stored.toolName
     }
@@ -425,7 +430,7 @@ class ClaudePermissionBridge(
         val server = mcpServerOf(stored.toolName) ?: return null
         val rule = AlwaysRule(toolName = "$MCP_PREFIX$server$SERVER_WILDCARD", commandPrefix = null, project = projectOf(stored.cwd))
         val existing = loadAlwaysRules()
-        if (existing.none { it.toolName == rule.toolName && it.project == rule.project }) writeRules(alwaysFile, existing + rule)
+        if (existing.none { it.toolName == rule.toolName && it.project == rule.project }) writeRules(ALWAYS_RULES_FILE, existing + rule)
         return rule.toolName
     }
 
@@ -437,9 +442,9 @@ class ClaudePermissionBridge(
     @Synchronized
     fun block(text: String): Boolean {
         val words = ShellCommandRules.blockRuleFor(text) ?: return false
-        val existing = readRulesStrictly(blockFile) ?: return false
+        val existing = readRulesStrictly(BLOCK_RULES_FILE) ?: return false
         if (existing.none { it.toolName == SHELL_TOOL && it.commandPrefix == words }) {
-            writeRules(blockFile, existing + AlwaysRule(toolName = SHELL_TOOL, commandPrefix = words))
+            writeRules(BLOCK_RULES_FILE, existing + AlwaysRule(toolName = SHELL_TOOL, commandPrefix = words))
         }
         return true
     }
@@ -447,7 +452,7 @@ class ClaudePermissionBridge(
     /** Forgets [rule], whichever kind it is. */
     @Synchronized
     fun forget(rule: CommandRule) {
-        val file = if (rule.blocks) blockFile else alwaysFile
+        val file = if (rule.blocks) BLOCK_RULES_FILE else ALWAYS_RULES_FILE
         val existing = readRulesStrictly(file) ?: return
         val kept =
             existing.filterNot {
@@ -473,46 +478,43 @@ class ClaudePermissionBridge(
         toolName: String,
         command: String,
     ): CommandRule? =
-        readRules(blockFile)
+        readRules(BLOCK_RULES_FILE)
             .firstOrNull { rule ->
                 rule.toolName == toolName && !rule.commandPrefix.isNullOrBlank() && ShellCommandRules.blocks(rule.commandPrefix, command)
             }?.let { CommandRule(it.toolName, it.commandPrefix, blocks = true) }
 
     private fun writeRules(
-        file: File,
+        fileName: String,
         rules: List<AlwaysRule>,
     ) {
         // No file means no rules, and the hook leaves at once without one: an empty list must not
         // keep it reading (or, without jq, refusing) every command.
         if (rules.isEmpty()) {
-            file.delete()
-            mutableRules.value = loadRules()
-            return
-        }
-        val tmp = File(file.parentFile, "${file.name}.tmp")
-        tmp.writeText(json.encodeToString(AlwaysRulesFile(rules)))
-        if (!tmp.renameTo(file)) {
-            file.writeText(json.encodeToString(AlwaysRulesFile(rules)))
-            tmp.delete()
+            GuestFiles.delete(root, fileName)
+        } else {
+            GuestFiles.write(root, fileName, json.encodeToString(AlwaysRulesFile(rules)))
         }
         mutableRules.value = loadRules()
     }
 
     private fun loadRules(): List<CommandRule> =
-        readRules(blockFile).map { CommandRule(it.toolName, it.commandPrefix, blocks = true) } +
+        readRules(BLOCK_RULES_FILE).map { CommandRule(it.toolName, it.commandPrefix, blocks = true) } +
             loadAlwaysRules().map { CommandRule(it.toolName, it.commandPrefix, blocks = false, project = it.project) }
 
-    private fun loadAlwaysRules(): List<AlwaysRule> = readRules(alwaysFile)
+    private fun loadAlwaysRules(): List<AlwaysRule> = readRules(ALWAYS_RULES_FILE)
 
-    /** The rules in [file], or null when it exists but cannot be read, so it is never overwritten. */
-    private fun readRulesStrictly(file: File): List<AlwaysRule>? {
-        if (!file.exists()) return emptyList()
-        return runCatching { json.decodeFromString<AlwaysRulesFile>(file.readText()).rules }.getOrNull()
+    /**
+     * The rules in [fileName], or null when something is there that cannot be read (a link
+     * included), so it is never overwritten.
+     */
+    private fun readRulesStrictly(fileName: String): List<AlwaysRule>? {
+        val text = runCatching { GuestFiles.readText(root, fileName) }.getOrElse { return null } ?: return emptyList()
+        return runCatching { json.decodeFromString<AlwaysRulesFile>(text).rules }.getOrNull()
     }
 
-    private fun readRules(file: File): List<AlwaysRule> {
-        if (!file.isFile) return emptyList()
-        return runCatching { json.decodeFromString<AlwaysRulesFile>(file.readText()).rules }
+    private fun readRules(fileName: String): List<AlwaysRule> {
+        val text = runCatching { GuestFiles.readText(root, fileName) }.getOrNull() ?: return emptyList()
+        return runCatching { json.decodeFromString<AlwaysRulesFile>(text).rules }
             .getOrDefault(emptyList())
     }
 
@@ -612,4 +614,35 @@ private fun ApprovalLog.recordAnswer(
         how = if (blocked != null) ApprovalLog.BLOCK else ApprovalLog.PHONE,
         rule = blocked?.words ?: remembered,
     )
+}
+
+private const val ALWAYS_RULES_FILE = "always-rules.json"
+private const val PENDING_DIR = "pending"
+private const val RESPONSES_DIR = "responses"
+private const val JSON_SUFFIX = ".json"
+
+/** Far past any request or reply; a guest-written file larger than this is not read. */
+private const val MAX_REQUEST_BYTES = 1024L * 1024
+
+private fun pendingPath(requestId: String) = "$PENDING_DIR/$requestId$JSON_SUFFIX"
+
+private fun responsePath(requestId: String) = "$RESPONSES_DIR/$requestId$JSON_SUFFIX"
+
+/** A single plain file name: the hook makes ids from `/proc/sys/kernel/random/uuid`. */
+private fun isRequestId(id: String): Boolean = id.isNotEmpty() && id != "." && id != ".." && '/' !in id && '\u0000' !in id
+
+/**
+ * The pending request [requestId] in the bridge folder [root], or null when there is none, it
+ * cannot be read through [GuestFiles], or it names another id than its own file's.
+ */
+private fun readStoredRequest(
+    root: File,
+    json: Json,
+    requestId: String,
+): ClaudePermissionBridge.StoredRequest? {
+    if (!isRequestId(requestId)) return null
+    return runCatching { GuestFiles.readText(root, pendingPath(requestId), MAX_REQUEST_BYTES) }
+        .getOrNull()
+        ?.let { text -> runCatching { json.decodeFromString<ClaudePermissionBridge.StoredRequest>(text) }.getOrNull() }
+        ?.takeIf { it.requestId == requestId }
 }

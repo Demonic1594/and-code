@@ -212,8 +212,11 @@ private fun requireSameParent(vararg files: File) {
     require(parents.size == 1) { "Runtime activation directories must share one parent" }
 }
 
+/**
+ * Deletes a runtime environment folder, never following a link inside it: each holds a guest
+ * rootfs, where the guest can plant a link to this app's own data or to shared storage, and
+ * `File.deleteRecursively` walks into a linked folder.
+ */
 private fun deleteRecursivelyRequired(file: File) {
-    if (file.exists()) {
-        require(file.deleteRecursively()) { "Unable to delete ${file.name}" }
-    }
+    require(GuestFiles.deleteTree(file)) { "Unable to delete ${file.name}" }
 }

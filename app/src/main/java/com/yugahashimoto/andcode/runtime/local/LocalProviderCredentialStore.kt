@@ -8,9 +8,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import java.io.File
-import java.io.FileOutputStream
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 
 class LocalProviderCredentialStore(
     private val load: () -> Map<String, String>,
@@ -71,13 +68,19 @@ class LocalProviderCredentialStore(
 
     fun hasCredential(providerId: String): Boolean = !credentials()[providerId.trim()].isNullOrBlank()
 
+    /**
+     * Merges the managed providers' keys into the guest's `auth.json`, keeping every other entry.
+     *
+     * Through [GuestFiles]: the guest can make `auth.json`, or a folder above it, a link to one of
+     * this app's own files, which would otherwise be read in here and written back out with the
+     * keys merged into it. A linked `auth.json` is refused like an invalid one, and left alone.
+     */
     fun syncToRuntime(rootfs: File): File {
-        val authDir = File(rootfs, "root/.local/share/opencode").apply { mkdirs() }
-        val authFile = File(authDir, "auth.json")
+        val authFile = File(rootfs, AUTH_PATH)
         val managedIds = managedProviderIds()
         if (managedIds.isEmpty()) return authFile
 
-        val existingPayload = readExistingPayload(authFile)
+        val existingPayload = readExistingPayload(rootfs)
         val currentCredentials = credentials()
         val mutableEntries = existingPayload.toMutableMap()
         managedIds.forEach { providerId ->
@@ -92,14 +95,14 @@ class LocalProviderCredentialStore(
                     }
             }
         }
-        writeAtomically(authFile, json.encodeToString<JsonObject>(JsonObject(mutableEntries)))
+        GuestFiles.write(rootfs, AUTH_PATH, json.encodeToString<JsonObject>(JsonObject(mutableEntries)), GuestFiles.OWNER_READ_WRITE)
         return authFile
     }
 
-    private fun readExistingPayload(authFile: File): JsonObject {
-        if (!authFile.isFile) return JsonObject(emptyMap())
+    private fun readExistingPayload(rootfs: File): JsonObject {
+        val existing = GuestFiles.readText(rootfs, AUTH_PATH) ?: return JsonObject(emptyMap())
         return runCatching {
-            json.parseToJsonElement(authFile.readText()).jsonObject
+            json.parseToJsonElement(existing).jsonObject
         }.getOrElse { error ->
             throw IllegalStateException(
                 "Existing OpenCode auth.json is invalid and was not modified",
@@ -108,34 +111,9 @@ class LocalProviderCredentialStore(
         }
     }
 
-    private fun writeAtomically(
-        destination: File,
-        content: String,
-    ) {
-        destination.parentFile?.mkdirs()
-        val temporary = File(destination.parentFile, "${destination.name}.tmp")
-        temporary.delete()
-        try {
-            FileOutputStream(temporary).use { output ->
-                output.write(content.toByteArray(Charsets.UTF_8))
-                output.fd.sync()
-            }
-            temporary.setReadable(true, true)
-            temporary.setWritable(true, true)
-            Files.move(
-                temporary.toPath(),
-                destination.toPath(),
-                StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING,
-            )
-            destination.setReadable(true, true)
-            destination.setWritable(true, true)
-        } finally {
-            temporary.delete()
-        }
-    }
-
     companion object {
+        private const val AUTH_PATH = "root/.local/share/opencode/auth.json"
+
         private val defaultJson: Json =
             Json {
                 ignoreUnknownKeys = true

@@ -8,6 +8,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.LinkOption
 
 /**
  * Kinds of Claude Code tool calls the user lets run without asking, in every project: reading
@@ -17,7 +19,8 @@ import java.io.IOException
  * `.claude` or the bridge, through which an edit could let commands run unasked.
  */
 class ToolClassRules(
-    root: File,
+    /** The bridge folder; the guest writes there too, hence [GuestFiles]. */
+    private val root: File,
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
     enum class Kind(
@@ -38,7 +41,6 @@ class ToolClassRules(
         val allow: List<String> = emptyList(),
     )
 
-    private val file = File(root, FILE_NAME)
     private val mutableAllowed = MutableStateFlow(load())
 
     /** The kinds allowed without asking. */
@@ -53,21 +55,17 @@ class ToolClassRules(
         if (next.isEmpty()) {
             // No file means nothing is allowed by kind, and the hook skips the check. One that cannot
             // be removed would keep allowing while the switch shows off: fail instead.
-            if (!file.delete() && file.exists()) throw IOException("could not remove ${file.path}")
+            GuestFiles.delete(root, FILE_NAME)
+            if (Files.exists(File(root, FILE_NAME).toPath(), LinkOption.NOFOLLOW_LINKS)) throw IOException("could not remove $FILE_NAME")
         } else {
-            val tmp = File(file.parentFile, "${file.name}.tmp")
-            tmp.writeText(json.encodeToString(Stored(next.map(Kind::key).sorted())))
-            if (!tmp.renameTo(file)) {
-                file.writeText(tmp.readText())
-                tmp.delete()
-            }
+            GuestFiles.write(root, FILE_NAME, json.encodeToString(Stored(next.map(Kind::key).sorted())))
         }
         mutableAllowed.value = next
     }
 
     private fun load(): Set<Kind> {
-        if (!file.isFile) return emptySet()
-        val keys = runCatching { json.decodeFromString<Stored>(file.readText()).allow }.getOrDefault(emptyList())
+        val text = runCatching { GuestFiles.readText(root, FILE_NAME) }.getOrNull() ?: return emptySet()
+        val keys = runCatching { json.decodeFromString<Stored>(text).allow }.getOrDefault(emptyList())
         return Kind.entries.filter { it.key in keys }.toSet()
     }
 

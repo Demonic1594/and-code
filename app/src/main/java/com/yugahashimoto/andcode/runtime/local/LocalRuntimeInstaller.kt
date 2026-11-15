@@ -93,7 +93,9 @@ class LocalRuntimeInstaller(
                     topLevelMetadata = File(runtimeDirectory, METADATA_FILE),
                 )
             }
-            staging.deleteRecursively()
+            // Never File.deleteRecursively: a staging left by a failed install holds guest files,
+            // links among them, and that walks into a linked folder.
+            GuestFiles.deleteTree(staging)
             staging.mkdirs()
 
             try {
@@ -236,7 +238,7 @@ class LocalRuntimeInstaller(
                     File(active, "antigravity-rootfs").takeIf { LocalAgent.ANTIGRAVITY in requestedAgents && it.isDirectory },
                 )
             } catch (error: Throwable) {
-                staging.deleteRecursively()
+                GuestFiles.deleteTree(staging)
                 throw error
             }
         }
@@ -410,13 +412,16 @@ class LocalRuntimeInstaller(
         }
     }
 
+    /**
+     * Copies the current guest home into the new rootfs. Through [GuestFiles.copyTree], which copies
+     * a link as a link: `copyRecursively` read through it, so a link the guest planted in its home
+     * pulled the file or folder it named - this app's own preferences, say - into the new guest.
+     */
     private fun carryOverHomeDirectory(
         currentRootfs: File,
         stagingRootfs: File,
     ) {
-        val currentHome = File(currentRootfs, "root")
-        if (!currentHome.isDirectory) return
-        runCatching { currentHome.copyRecursively(File(stagingRootfs, "root"), overwrite = true) }
+        runCatching { GuestFiles.copyTree(File(currentRootfs, "root"), File(stagingRootfs, "root")) }
     }
 
     private suspend fun download(
@@ -585,9 +590,11 @@ class LocalRuntimeInstaller(
         listOf(File(active, "rootfs"), File(active, "antigravity-rootfs"))
             .filter(File::isDirectory)
             .forEach { rootfs ->
-                installAndroidHelperScripts(rootfs)
-                provisionBrowserMcp(rootfs)
-                provisionScheduleMcp(rootfs)
+                // Each step on its own: one the guest blocked (a linked folder GuestFiles refuses)
+                // must not keep the others, or the other rootfs, from being provisioned.
+                runCatching { installAndroidHelperScripts(rootfs) }
+                runCatching { provisionBrowserMcp(rootfs) }
+                runCatching { provisionScheduleMcp(rootfs) }
                 provisionClaudePermissionHook(rootfs)
             }
     }
@@ -607,17 +614,17 @@ class LocalRuntimeInstaller(
      * Antigravity) so they all expose the same browser_* tools. User-added servers are kept.
      */
     private fun provisionBrowserMcp(rootfs: File) {
-        mergeJsonConfig(File(rootfs, "root/.config/opencode/opencode.json")) { root ->
+        mergeGuestJsonConfig(rootfs, "root/.config/opencode/opencode.json") { root ->
             val mcp = root.optJSONObject("mcp") ?: JSONObject()
             mcp.put(BROWSER_MCP_NAME, browserMcpEntry("opencode"))
             root.put("mcp", mcp)
         }
-        mergeJsonConfig(File(rootfs, "root/.claude.json")) { root ->
+        mergeGuestJsonConfig(rootfs, "root/.claude.json") { root ->
             val servers = root.optJSONObject("mcpServers") ?: JSONObject()
             servers.put(BROWSER_MCP_NAME, browserMcpEntry("claude"))
             root.put("mcpServers", servers)
         }
-        mergeJsonConfig(File(rootfs, "root/.gemini/config/mcp_config.json")) { root ->
+        mergeGuestJsonConfig(rootfs, "root/.gemini/config/mcp_config.json") { root ->
             val servers = root.optJSONObject("mcpServers") ?: JSONObject()
             servers.put(BROWSER_MCP_NAME, browserMcpEntry("antigravity"))
             root.put("mcpServers", servers)
@@ -645,17 +652,17 @@ class LocalRuntimeInstaller(
      * so they all expose the same schedule_* tools. User-added servers are kept.
      */
     private fun provisionScheduleMcp(rootfs: File) {
-        mergeJsonConfig(File(rootfs, "root/.config/opencode/opencode.json")) { root ->
+        mergeGuestJsonConfig(rootfs, "root/.config/opencode/opencode.json") { root ->
             val mcp = root.optJSONObject("mcp") ?: JSONObject()
             mcp.put(SCHEDULE_MCP_NAME, scheduleMcpEntry("opencode"))
             root.put("mcp", mcp)
         }
-        mergeJsonConfig(File(rootfs, "root/.claude.json")) { root ->
+        mergeGuestJsonConfig(rootfs, "root/.claude.json") { root ->
             val servers = root.optJSONObject("mcpServers") ?: JSONObject()
             servers.put(SCHEDULE_MCP_NAME, scheduleMcpEntry("claude"))
             root.put("mcpServers", servers)
         }
-        mergeJsonConfig(File(rootfs, "root/.gemini/config/mcp_config.json")) { root ->
+        mergeGuestJsonConfig(rootfs, "root/.gemini/config/mcp_config.json") { root ->
             val servers = root.optJSONObject("mcpServers") ?: JSONObject()
             servers.put(SCHEDULE_MCP_NAME, scheduleMcpEntry("antigravity"))
             root.put("mcpServers", servers)
@@ -678,27 +685,8 @@ class LocalRuntimeInstaller(
                     .put("timeout", SCHEDULE_MCP_TIMEOUT_MILLIS)
         }
 
-    private fun mergeJsonConfig(
-        file: File,
-        mutate: (JSONObject) -> Unit,
-    ) {
-        file.parentFile?.mkdirs()
-        val root =
-            if (file.isFile) {
-                runCatching { JSONObject(file.readText()) }.getOrNull() ?: JSONObject()
-            } else {
-                JSONObject()
-            }
-        val before = root.toString()
-        mutate(root)
-        if (root.toString() != before) {
-            file.writeText(root.toString(2) + "\n")
-        }
-    }
-
     private fun installAndroidHelperScripts(rootfs: File) {
-        val binDir = File(rootfs, "usr/local/bin").apply { mkdirs() }
-        File(binDir, "android-ui").delete()
+        GuestFiles.delete(rootfs, "usr/local/bin/android-ui")
         listOf(
             "android-vision.sh" to "android-vision",
             "android-screenshot.sh" to "android-screenshot",
@@ -710,7 +698,7 @@ class LocalRuntimeInstaller(
             "andcode-run.py" to "andcode-run",
         ).forEach {
                 (assetName, scriptName) ->
-            context.assets.open("scripts/$assetName").use { input -> replaceGuestScript(File(binDir, scriptName), input) }
+            context.assets.open("scripts/$assetName").use { input -> replaceGuestScript(rootfs, "usr/local/bin/$scriptName", input) }
         }
     }
 
@@ -718,11 +706,8 @@ class LocalRuntimeInstaller(
         alpineRootfs: File,
         debianRootfs: File,
     ) {
-        val source = File(alpineRootfs, "etc/ssl/certs/ca-certificates.crt")
-        if (!source.isFile) return
-        val destination = File(debianRootfs, "etc/ssl/certs/ca-certificates.crt")
-        destination.parentFile?.mkdirs()
-        source.copyTo(destination, overwrite = true)
+        val bundle = runCatching { GuestFiles.readBytes(alpineRootfs, CA_BUNDLE_PATH) }.getOrNull() ?: return
+        GuestFiles.write(debianRootfs, CA_BUNDLE_PATH, bundle)
     }
 
     internal companion object {
@@ -730,6 +715,7 @@ class LocalRuntimeInstaller(
         private val refreshedScriptRootfs: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
         private const val METADATA_FILE = "metadata.json"
+        private const val CA_BUNDLE_PATH = "etc/ssl/certs/ca-certificates.crt"
         private const val BROWSER_MCP_NAME = "and-code-browser"
         private const val BROWSER_MCP_BIN = "/usr/local/bin/andcode-browser-mcp.py"
         private const val BROWSER_MCP_TIMEOUT_MILLIS = 30000
@@ -782,5 +768,38 @@ class LocalRuntimeInstaller(
                 "gcompat",
                 "util-linux",
             )
+    }
+}
+
+/**
+ * Claude Code's `~/.claude.json` keeps a history per project and grows with use, so the cap is far
+ * past GuestFiles' default: a heavy user's file must still get AndCode's MCP servers.
+ */
+private const val MAX_AGENT_CONFIG_BYTES = 16L * 1024 * 1024
+
+/**
+ * Applies [mutate] to the JSON object in [relativePath] under [rootfs] and writes it back when that
+ * changed it; a missing or malformed file starts from an empty object.
+ *
+ * Through [GuestFiles]: the guest can make the file, or a folder above it, a link to one of this
+ * app's own files, which used to be read in here and written back with AndCode's entries merged in.
+ * Such a file is skipped instead, left exactly as it is, and false returned, so one agent's linked
+ * config does not keep the others from being registered.
+ */
+internal fun mergeGuestJsonConfig(
+    rootfs: File,
+    relativePath: String,
+    mutate: (JSONObject) -> Unit,
+): Boolean {
+    try {
+        val root =
+            GuestFiles.readText(rootfs, relativePath, MAX_AGENT_CONFIG_BYTES)?.let { runCatching { JSONObject(it) }.getOrNull() }
+                ?: JSONObject()
+        val before = root.toString()
+        mutate(root)
+        if (root.toString() != before) GuestFiles.write(rootfs, relativePath, root.toString(2) + "\n")
+        return true
+    } catch (refused: GuestPathRefusedException) {
+        return false
     }
 }
