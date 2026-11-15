@@ -105,7 +105,7 @@
     <ID>LongMethod:ChatMessageComponents.kt$@Composable fun PermissionCard( permission: PermissionRequest, /** Allows the call and every later one from its MCP server; offered only for an MCP tool. */ onAllowServer: ((String) -&gt; Unit)? = null, onPermission: (String, PermissionResponse, Boolean) -&gt; Unit, )</ID>
     <ID>LongMethod:ChatRunSettings.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun RunSettingsSheet( settings: RunSettings, actions: RunSettingsActions, onDismiss: () -&gt; Unit, )</ID>
     <ID>LongMethod:ChatViewModel.kt$ChatViewModel$fun sendSlashCommand( command: String, arguments: String, sendNow: Boolean = false, )</ID>
-    <ID>LongMethod:ChatViewModel.kt$ChatViewModel$fun submitQuestion(questionId: String)</ID>
+    <ID>LongMethod:ChatQuestions.kt$ChatQuestions$fun submitQuestion(questionId: String)</ID>
     <ID>LongMethod:ChatViewModel.kt$ChatViewModel$private fun handleEvent(event: OpenCodeEvent)</ID>
     <ID>LongMethod:ChatViewModel.kt$ChatViewModel$private fun send( text: String, fromComposer: Boolean, /** Interrupts a running turn even where prompts otherwise queue; see [sendQueuedPromptNow]. */ sendNow: Boolean = false, /** * A held prompt going out, with its own attachments. It never reads or clears the composer, * where the user may be writing the next message. */ held: QueuedPrompt? = null, )</ID>
     <ID>LongMethod:CodeEditor.kt$@Composable fun CodeEditor( value: TextFieldValue, onValueChange: (TextFieldValue) -&gt; Unit, language: CodeLanguage, palette: EditorPalette, state: CodeEditorState, modifier: Modifier = Modifier, fontSize: TextUnit = 13.sp, wrap: Boolean = false, readOnly: Boolean = false, matches: List&lt;IntRange&gt; = emptyList(), currentMatch: Int = -1, )</ID>

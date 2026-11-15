@@ -8,11 +8,8 @@ import com.yugahashimoto.andcode.core.api.ConnectionQualityMonitor
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
 import com.yugahashimoto.andcode.core.api.OpenCodeFileChange
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
-import com.yugahashimoto.andcode.core.api.PermissionRequest
 import com.yugahashimoto.andcode.core.api.PromptAttachment
 import com.yugahashimoto.andcode.core.api.PromptRequest
-import com.yugahashimoto.andcode.core.api.QuestionPrompt
-import com.yugahashimoto.andcode.core.api.QuestionRequest
 import com.yugahashimoto.andcode.core.api.RunActivity
 import com.yugahashimoto.andcode.core.api.sessionIdOrNull
 import com.yugahashimoto.andcode.core.diagnostics.RunSignals
@@ -50,32 +47,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
 
-data class PendingQuestionUi(
-    val request: QuestionRequest,
-    val selectedAnswers: List<List<String>>,
-    val isSubmitting: Boolean = false,
-    val error: String? = null,
-) {
-    val canSubmit: Boolean
-        get() =
-            request.questions.indices.all { index ->
-                val prompt = request.questions[index]
-                sanitizeQuestionAnswer(
-                    prompt = prompt,
-                    answers = selectedAnswers.getOrElse(index) { emptyList() },
-                    multiple = prompt.multiple,
-                ).isNotEmpty()
-            }
-
-    companion object {
-        fun from(request: QuestionRequest) =
-            PendingQuestionUi(
-                request = request,
-                selectedAnswers = request.questions.map { emptyList() },
-            )
-    }
-}
-
 internal const val RESPONSE_POLL_INTERVAL_MS = 3000L
 
 /**
@@ -104,8 +75,6 @@ private const val TRANSIENT_RECOVERY_MAX_BACKOFF_MS = 30_000L
 private const val TRANSIENT_RECOVERY_MAX_ATTEMPTS = 20
 private const val HEALTH_CHECK_ATTEMPTS = 15
 private const val HEALTH_CHECK_DELAY_MS = 2000L
-private const val PENDING_QUESTION_REFRESH_ATTEMPTS = 3
-private const val PENDING_QUESTION_REFRESH_RETRY_DELAY_MS = 3000L
 
 /**
  * How long a run may produce nothing before the chat stops taking it on faith and asks the runtime
@@ -270,6 +239,10 @@ class ChatViewModel(
 
     private val contextUsage = ContextUsage(backend, viewModelScope, _uiState, priceCatalog)
 
+    private val permissions = ChatPermissions(backend, viewModelScope, _uiState, onPermissionResolved)
+
+    private val questions = ChatQuestions(backend, viewModelScope, _uiState, onQuestionResolved)
+
     private val modelSelection =
         ModelSelection(_uiState, onCodexFastModeChanged, initialCodexFastMode, onClaudeUltracodeChanged, initialClaudeUltracode)
 
@@ -295,11 +268,6 @@ class ChatViewModel(
     /** Message id to role, learned from `message.updated`, so user echoes can be skipped. */
     private val messageRoles = mutableMapOf<String, String>()
 
-    /**
-     * Questions the user hid with [dismissQuestion]. A recovery fetch must not resurrect them:
-     * they are still open server-side, so without this every refetch would put the card back.
-     */
-    private val dismissedQuestionIds = mutableSetOf<String>()
     private val connectionMonitor = ConnectionQualityMonitor(viewModelScope, awaitForeground = awaitForeground)
 
     // The three fields below are read and written only from the main thread: every writer is either
@@ -365,15 +333,7 @@ class ChatViewModel(
         }
         // A permission answered from the notification (or the activity screen) never comes back
         // as an event, so without this the chat keeps showing a card for a settled request.
-        resolvedPermissionFlow?.let { flow ->
-            viewModelScope.launch {
-                flow.collect { permissionId ->
-                    _uiState.update { state ->
-                        state.copy(permissions = state.permissions.filterNot { it.id == permissionId })
-                    }
-                }
-            }
-        }
+        resolvedPermissionFlow?.let(permissions::followResolvedElsewhere)
         if (backend != null) {
             // The open chat's held prompts, for the queue above the composer: the queue itself is shared by
             // every chat this view model has shown.
@@ -701,7 +661,7 @@ class ChatViewModel(
         lastIdleSettledSessionId = null
         // Opening the chat is an explicit act of attention, so questions the user hid earlier are
         // offered again rather than staying suppressed by a stale dismissal.
-        dismissedQuestionIds.clear()
+        questions.forgetDismissals()
         pullRequestBadges.forgetDismissals()
         _uiState.update {
             it.copy(
@@ -735,7 +695,7 @@ class ChatViewModel(
         }
         if (parent == null) resolveParentSession(sessionId)
         refreshRewind(sessionId)
-        refreshPendingQuestions(sessionId)
+        questions.refreshPendingQuestions(sessionId)
         // Captured after the generation bump above: the history fetch below is async, and a
         // quick switch to another chat must not land THIS chat's transcript under THAT one's
         // title (the merge drops the other chat's unmatched bubbles).
@@ -855,7 +815,7 @@ class ChatViewModel(
         streamedParts.clear()
         transcriptGeneration++
         messageRoles.clear()
-        dismissedQuestionIds.clear()
+        questions.forgetDismissals()
         pullRequestBadges.forgetDismissals()
         pendingInterrupts.clear()
         lastIdleSettledSessionId = null
@@ -1989,213 +1949,32 @@ class ChatViewModel(
         permissionId: String,
         response: PermissionResponse,
         remember: Boolean,
-    ) = answerPermission(permissionId) { target, request ->
-        target.respondToPermission(request.sessionId, request.id, response, remember)
-    }
+    ) = permissions.respondToPermission(permissionId, response, remember)
 
     /** Allows [permissionId] and every later call of a tool from the same MCP server. */
-    fun allowMcpServer(permissionId: String) =
-        answerPermission(permissionId) { target, request -> target.allowMcpServer(request.sessionId, request.id) }
-
-    private fun answerPermission(
-        permissionId: String,
-        answer: suspend (OpenCodeBackend, PermissionRequest) -> Boolean,
-    ) {
-        val currentBackend = backend ?: return
-        val permission = _uiState.value.permissions.firstOrNull { it.id == permissionId } ?: return
-        viewModelScope.launch {
-            runCatching { answer(currentBackend, permission) }.onSuccess { accepted ->
-                if (accepted) {
-                    _uiState.update { state ->
-                        state.copy(permissions = state.permissions.filterNot { it.id == permissionId })
-                    }
-                    onPermissionResolved(permissionId)
-                } else {
-                    _uiState.update { it.copy(error = "OpenCode could not apply that permission response") }
-                }
-            }.onFailure { error ->
-                _uiState.update { it.copy(error = error.safeMessage("OpenCode operation failed")) }
-            }
-        }
-    }
+    fun allowMcpServer(permissionId: String) = permissions.allowMcpServer(permissionId)
 
     fun selectQuestionAnswer(
         questionId: String,
         questionIndex: Int,
         answer: String,
-    ) {
-        _uiState.update { state ->
-            state.copy(
-                pendingQuestions =
-                    state.pendingQuestions.map { pending ->
-                        if (pending.request.id != questionId) return@map pending
-                        val prompt = pending.request.questions.getOrNull(questionIndex) ?: return@map pending
-                        val updatedAnswers = pending.selectedAnswers.toMutableList()
-                        updatedAnswers[questionIndex] =
-                            updateQuestionAnswerSelection(
-                                prompt = prompt,
-                                current = pending.selectedAnswers.getOrElse(questionIndex) { emptyList() },
-                                answer = answer,
-                                multiple = prompt.multiple,
-                            )
-                        pending.copy(selectedAnswers = updatedAnswers, error = null)
-                    },
-            )
-        }
-    }
+    ) = questions.selectQuestionAnswer(questionId, questionIndex, answer)
 
-    fun submitQuestion(questionId: String) {
-        val currentBackend = backend ?: return
-        val pendingQuestion = _uiState.value.pendingQuestions.firstOrNull { it.request.id == questionId } ?: return
-        val answers =
-            pendingQuestion.request.questions.indices.map { index ->
-                val prompt = pendingQuestion.request.questions[index]
-                sanitizeQuestionAnswer(
-                    prompt = prompt,
-                    answers = pendingQuestion.selectedAnswers.getOrElse(index) { emptyList() },
-                    multiple = prompt.multiple,
-                )
-            }
-        if (answers.any { it.isEmpty() }) {
-            _uiState.update { state ->
-                state.copy(
-                    pendingQuestions =
-                        state.pendingQuestions.map { pending ->
-                            if (pending.request.id == questionId) {
-                                pending.copy(error = "Answer required")
-                            } else {
-                                pending
-                            }
-                        },
-                )
-            }
-            return
-        }
-
-        _uiState.update { state ->
-            state.copy(
-                pendingQuestions =
-                    state.pendingQuestions.map { pending ->
-                        if (pending.request.id == questionId) {
-                            pending.copy(isSubmitting = true, error = null)
-                        } else {
-                            pending
-                        }
-                    },
-            )
-        }
-
-        viewModelScope.launch {
-            runCatching {
-                currentBackend.answerQuestion(
-                    requestId = questionId,
-                    answers = answers,
-                    directory = pendingQuestion.workspaceDirectory(),
-                )
-            }.onSuccess { accepted ->
-                if (accepted) onQuestionResolved(questionId)
-                _uiState.update { state ->
-                    if (accepted) {
-                        state.copy(
-                            pendingQuestions = state.pendingQuestions.filterNot { it.request.id == questionId },
-                        )
-                    } else {
-                        state.copy(
-                            pendingQuestions =
-                                state.pendingQuestions.map { pending ->
-                                    if (pending.request.id == questionId) {
-                                        pending.copy(isSubmitting = false, error = "OpenCode question failed")
-                                    } else {
-                                        pending
-                                    }
-                                },
-                        )
-                    }
-                }
-            }.onFailure { error ->
-                _uiState.update { state ->
-                    state.copy(
-                        pendingQuestions =
-                            state.pendingQuestions.map { pending ->
-                                if (pending.request.id == questionId) {
-                                    pending.copy(isSubmitting = false, error = error.safeMessage("OpenCode operation failed"))
-                                } else {
-                                    pending
-                                }
-                            },
-                    )
-                }
-            }
-        }
-    }
-
-    /**
-     * The directory the question routes have to be scoped to. What the event stream reported is
-     * authoritative; the open session's own directory is the next best source; the selected
-     * workspace is the last fallback for the older per-instance `/event` stream, whose frames
-     * carry no directory.
-     */
-    private fun PendingQuestionUi.workspaceDirectory(): String? =
-        request.directory
-            ?: _uiState.value.sessionDirectory
-            ?: _uiState.value.selectedWorkspacePath
-
-    /**
-     * Recovers questions that are already waiting for an answer. A question reaches the chat as an
-     * event and nowhere else, so one asked while this client was not listening — in another chat,
-     * before the app opened the session, or across a dropped event stream — would otherwise leave
-     * the turn blocked with nothing on screen to unblock it.
-     *
-     * The question routes are scoped to the instance that owns the session, so the directory is
-     * resolved from the session itself: the workspace the composer happens to have selected often
-     * belongs to another project entirely, and querying with it finds nothing.
-     */
-    private fun refreshPendingQuestions(sessionId: String) {
-        val currentBackend = backend ?: return
-        viewModelScope.launch {
-            val directory =
-                runCatching { currentBackend.session(sessionId).directory }
-                    .getOrNull()
-                    ?: _uiState.value.selectedWorkspacePath
-            if (directory != null && _uiState.value.sessionId == sessionId) {
-                _uiState.update { it.copy(sessionDirectory = directory) }
-            }
-            var fetched: List<QuestionRequest>? = null
-            for (attempt in 0 until PENDING_QUESTION_REFRESH_ATTEMPTS) {
-                if (_uiState.value.sessionId != sessionId) return@launch
-                fetched = runCatching { currentBackend.pendingQuestions(directory) }.getOrNull()
-                if (fetched != null) break
-                if (attempt < PENDING_QUESTION_REFRESH_ATTEMPTS - 1) delay(PENDING_QUESTION_REFRESH_RETRY_DELAY_MS)
-            }
-            val pending = (fetched ?: return@launch).filter { it.sessionId == sessionId }
-            if (pending.isEmpty()) return@launch
-            _uiState.update { state ->
-                if (state.sessionId != sessionId) return@update state
-                val known = state.pendingQuestions.map { it.request.id }.toSet()
-                state.copy(
-                    pendingQuestions =
-                        state.pendingQuestions +
-                            pending
-                                .filterNot { it.id in known || it.id in dismissedQuestionIds }
-                                .map(PendingQuestionUi::from),
-                )
-            }
-        }
-    }
+    fun submitQuestion(questionId: String) = questions.submitQuestion(questionId)
 
     /**
      * Hides the question card and leaves the turn alone, so the user can ignore the question and
      * just keep typing. The request stays open on the OpenCode side; this only affects what the
      * chat shows.
      */
-    fun dismissQuestion(questionId: String) {
-        dismissedQuestionIds += questionId
-        _uiState.update { state ->
-            state.copy(
-                pendingQuestions = state.pendingQuestions.filterNot { it.request.id == questionId },
-            )
-        }
-    }
+    fun dismissQuestion(questionId: String) = questions.dismissQuestion(questionId)
+
+    /**
+     * Declines the question. OpenCode fails the waiting tool call with "the user dismissed this
+     * question", which the agent can react to — unlike [dismissQuestion], which only clears the
+     * card and leaves the request open.
+     */
+    fun cancelQuestion(questionId: String) = questions.cancelQuestion(questionId)
 
     /**
      * Closes the sticky todo bar for one `todowrite` update. Nothing server-side tracks this — the
@@ -2205,33 +1984,6 @@ class ChatViewModel(
      */
     fun dismissTodoBar(entryId: String) {
         _uiState.update { it.copy(dismissedTodoBarId = entryId) }
-    }
-
-    /**
-     * Declines the question. OpenCode fails the waiting tool call with "the user dismissed this
-     * question", which the agent can react to — unlike [dismissQuestion], which only clears the
-     * card and leaves the request open.
-     */
-    fun cancelQuestion(questionId: String) {
-        val pendingQuestion = _uiState.value.pendingQuestions.firstOrNull { it.request.id == questionId } ?: return
-        _uiState.update { state ->
-            state.copy(
-                pendingQuestions = state.pendingQuestions.filterNot { it.request.id == questionId },
-            )
-        }
-        val currentBackend = backend ?: return
-        viewModelScope.launch {
-            runCatching {
-                currentBackend.rejectQuestion(
-                    requestId = questionId,
-                    directory = pendingQuestion.workspaceDirectory(),
-                )
-            }.onSuccess { rejected ->
-                if (rejected) onQuestionResolved(questionId)
-            }.onFailure { error ->
-                _uiState.update { it.copy(error = error.safeMessage()) }
-            }
-        }
     }
 
     fun abort() {
@@ -2311,7 +2063,7 @@ class ChatViewModel(
                         applyResync(session, messages)
                     }
             }
-        refreshPendingQuestions(session)
+        questions.refreshPendingQuestions(session)
     }
 
     private fun applyResync(
@@ -2463,7 +2215,7 @@ class ChatViewModel(
                 // ones puts the card back, so answering it can get the run moving again. Only worth
                 // doing when the verdict is new: re-probing an unchanged one just costs requests.
                 if (diagnosis.reason == StallReason.NO_OUTPUT && previous != StallReason.NO_OUTPUT) {
-                    refreshPendingQuestions(sessionId)
+                    questions.refreshPendingQuestions(sessionId)
                 }
             }
         }
@@ -2510,51 +2262,9 @@ class ChatViewModel(
                 messageParts[event.partId] = updatedPart
                 updateStreamingMessage(event.messageId, messageParts.values.toList())
             }
-            is OpenCodeEvent.PermissionAsked -> {
-                if (_uiState.value.autoAcceptPermissions) {
-                    val request = event.request
-                    val autoBackend = backend ?: return
-                    viewModelScope.launch {
-                        runCatching {
-                            autoBackend.respondToPermission(
-                                request.sessionId,
-                                request.id,
-                                PermissionResponse.ONCE,
-                                false,
-                            )
-                        }.onSuccess { accepted ->
-                            if (accepted) onPermissionResolved(request.id)
-                        }
-                    }
-                    return
-                }
-                if (event.request.sessionId != activeSession) return
-                _uiState.update { state ->
-                    state.copy(
-                        permissions = state.permissions.filterNot { it.id == event.request.id } + event.request,
-                        isThinking = false,
-                    )
-                }
-            }
-            is OpenCodeEvent.QuestionAsked -> {
-                if (event.request.sessionId != activeSession) return
-                if (event.request.id in dismissedQuestionIds) return
-                _uiState.update { state ->
-                    state.copy(
-                        pendingQuestions =
-                            state.pendingQuestions
-                                .filterNot { it.request.id == event.request.id } + PendingQuestionUi.from(event.request),
-                        isThinking = false,
-                    )
-                }
-            }
-            is OpenCodeEvent.PermissionReplied -> {
-                // Answered elsewhere — another device, or the TUI. Drop the stale card.
-                if (event.sessionId != activeSession) return
-                _uiState.update { state ->
-                    state.copy(permissions = state.permissions.filterNot { it.id == event.requestId })
-                }
-            }
+            is OpenCodeEvent.PermissionAsked -> permissions.onPermissionAsked(event, activeSession)
+            is OpenCodeEvent.QuestionAsked -> questions.onQuestionAsked(event, activeSession)
+            is OpenCodeEvent.PermissionReplied -> permissions.onPermissionReplied(event, activeSession)
             is OpenCodeEvent.SessionStatusChanged -> {
                 // session.idle is deprecated in favour of session.status; treat idle the same way,
                 // and let a busy status pick up a run that was started from another client.
@@ -3017,67 +2727,5 @@ class ChatViewModel(
             drainOfflineQueue()
         }
         return refreshed
-    }
-}
-
-private fun updateQuestionAnswerSelection(
-    prompt: QuestionPrompt,
-    current: List<String>,
-    answer: String,
-    multiple: Boolean,
-): List<String> {
-    // Keep the raw text while the user is typing — trimming here would strip a trailing space
-    // the moment it's typed, since this feeds straight back into the (controlled) text field's
-    // value and silently joins words together. Trimming happens once, at submit time, in
-    // sanitizeQuestionAnswer.
-    val optionLabels = prompt.options.map { it.label }.toSet()
-    if (prompt.options.isEmpty()) {
-        return answer.takeIf { it.isNotEmpty() }?.let(::listOf).orEmpty()
-    }
-
-    val optionAnswers = current.filter { it in optionLabels }
-    val fallback = current.lastOrNull { it !in optionLabels }
-    if (answer in optionLabels) {
-        return if (multiple) {
-            val toggled =
-                if (answer in optionAnswers) {
-                    optionAnswers.filterNot { it == answer }
-                } else {
-                    optionAnswers + answer
-                }
-            toggled + listOfNotNull(fallback?.takeIf { it.isNotEmpty() })
-        } else {
-            listOf(answer)
-        }
-    }
-
-    val nextFallback = answer.takeIf { it.isNotEmpty() }
-    return if (multiple) {
-        optionAnswers + listOfNotNull(nextFallback)
-    } else {
-        listOfNotNull(nextFallback)
-    }
-}
-
-private fun sanitizeQuestionAnswer(
-    prompt: QuestionPrompt,
-    answers: List<String>,
-    multiple: Boolean,
-): List<String> {
-    val normalizedAnswers = answers.map(String::trim).filter { it.isNotEmpty() }
-    if (prompt.options.isEmpty()) {
-        return normalizedAnswers.take(1)
-    }
-
-    val optionLabels = prompt.options.map { it.label }.toSet()
-    val selectedOptions = normalizedAnswers.filter { it in optionLabels }.distinct()
-    // A prompt with `custom` off only accepts its own options, so never submit a typed answer.
-    val fallback = normalizedAnswers.lastOrNull { it !in optionLabels }?.takeIf { prompt.custom }
-    return if (multiple) {
-        selectedOptions + listOfNotNull(fallback)
-    } else {
-        selectedOptions.firstOrNull()?.let(::listOf)
-            ?: fallback?.let(::listOf)
-            ?: emptyList()
     }
 }
