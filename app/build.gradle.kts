@@ -281,9 +281,9 @@ dependencies {
 
     // Firebase (github flavor only - the fdroid flavor ships with no Firebase/Google Play
     // services code so it can be built from source by F-Droid's own build server).
-    // Still on the 33.6 line: the project is now on Kotlin 2.4, which reads the Kotlin 2.2
-    // metadata of the 34.x line, but moving Firebase is a separate change from the toolchain one.
-    "githubImplementation"(platform("com.google.firebase:firebase-bom:33.6.0"))
+    // The last 33.x release. 34.x is a major version (it drops the KTX modules) and is a change of
+    // its own.
+    "githubImplementation"(platform("com.google.firebase:firebase-bom:33.16.0"))
     "githubImplementation"("com.google.firebase:firebase-analytics")
     "githubImplementation"("com.google.firebase:firebase-crashlytics")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
