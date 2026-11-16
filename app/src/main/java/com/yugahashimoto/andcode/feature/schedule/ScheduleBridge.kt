@@ -6,6 +6,7 @@ import com.yugahashimoto.andcode.data.schedule.Schedule
 import com.yugahashimoto.andcode.data.schedule.ScheduleAgentChange
 import com.yugahashimoto.andcode.data.schedule.ScheduleRepository
 import com.yugahashimoto.andcode.data.schedule.ScheduleRun
+import com.yugahashimoto.andcode.runtime.SessionApproval
 import kotlinx.coroutines.flow.Flow
 import org.json.JSONArray
 import org.json.JSONObject
@@ -293,7 +294,7 @@ class ScheduleBridge(
                     kind = kind,
                     schedule = schedule,
                     nextRunAt = if (live && schedule.enabled) store.nextFireAt(schedule) else null,
-                    runsWithoutAsking = live && schedule.runsWithoutAsking(approvals),
+                    approval = if (live) schedule.runApproval(approvals) else SessionApproval.ASKS,
                 ),
             )
         }.getOrDefault(false)

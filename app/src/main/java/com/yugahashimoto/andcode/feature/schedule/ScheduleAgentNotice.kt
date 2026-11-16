@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.feature.schedule
 
 import com.yugahashimoto.andcode.data.schedule.Schedule
 import com.yugahashimoto.andcode.runtime.RuntimeRegistry
+import com.yugahashimoto.andcode.runtime.SessionApproval
 import java.time.Instant
 
 /**
@@ -16,17 +17,17 @@ interface ScheduleApprovalSettings {
     /** The app-wide auto-approve setting a schedule with no choice of its own follows. */
     val appAutoApproves: Boolean
 
-    /** See [com.yugahashimoto.andcode.runtime.RuntimeTarget.sessionsSkipApproval]. */
-    fun runtimeSkipsApproval(runtimeId: String): Boolean
+    /** See [com.yugahashimoto.andcode.runtime.RuntimeTarget.sessionApproval]. */
+    fun runtimeApproval(runtimeId: String): SessionApproval
 }
 
 /**
- * True when a run of this schedule, started now, would use tools without anyone being asked:
- * either the run answers approvals itself ([autoApproves]), or its runtime opens sessions in a mode
- * that never asks (full access).
+ * What a run of this schedule, started now, would ask before using tools. A run that answers
+ * approvals itself ([autoApproves]) never asks, whatever mode its runtime is in; otherwise it asks
+ * what a session its runtime opens now would.
  */
-fun Schedule.runsWithoutAsking(settings: ScheduleApprovalSettings): Boolean =
-    autoApproves(settings.appAutoApproves) || settings.runtimeSkipsApproval(runtimeId)
+fun Schedule.runApproval(settings: ScheduleApprovalSettings): SessionApproval =
+    if (autoApproves(settings.appAutoApproves)) SessionApproval.NEVER_ASKS else settings.runtimeApproval(runtimeId)
 
 /** What a run does, as opposed to its name, timing or whether it is on. */
 internal fun Schedule.changesWhatRuns(before: Schedule): Boolean =
@@ -53,7 +54,8 @@ class AppScheduleApprovalSettings(
 ) : ScheduleApprovalSettings {
     override val appAutoApproves: Boolean get() = appAutoApprovesSetting()
 
-    override fun runtimeSkipsApproval(runtimeId: String): Boolean = runtimes.target(runtimeId)?.sessionsSkipApproval == true
+    // A runtime that no longer exists cannot run the schedule at all, so there is nothing to warn about.
+    override fun runtimeApproval(runtimeId: String): SessionApproval = runtimes.target(runtimeId)?.sessionApproval ?: SessionApproval.ASKS
 }
 
 enum class AgentScheduleChangeKind { CREATED, CHANGED, DELETED }
@@ -62,14 +64,18 @@ enum class AgentScheduleChangeKind { CREATED, CHANGED, DELETED }
  * Something an agent did to a schedule through the bridge, without the user confirming it.
  *
  * [schedule] is the schedule as stored after the change (for [AgentScheduleChangeKind.DELETED], as
- * it was before). [nextRunAt] is null when it is off or has no run ahead.
+ * it was before). [nextRunAt] is null when it is off or has no run ahead. [approval] is what its
+ * runs would ask (always [SessionApproval.ASKS] for a deleted one, which runs nothing).
  */
 data class AgentScheduleNotice(
     val kind: AgentScheduleChangeKind,
     val schedule: Schedule,
     val nextRunAt: Instant?,
-    val runsWithoutAsking: Boolean,
-)
+    val approval: SessionApproval,
+) {
+    /** Nothing in its runs asks: the full ⚠ warning rather than the softer accept-edits one. */
+    val runsWithoutAsking: Boolean get() = approval == SessionApproval.NEVER_ASKS
+}
 
 /** Tells the user about an [AgentScheduleNotice]; an Android notification in the app. */
 fun interface ScheduleChangeNotifier {

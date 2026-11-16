@@ -1110,6 +1110,7 @@
     <string name="notification_schedule_agent_off">已关闭：开启前不会运行</string>
     <string name="notification_schedule_agent_no_next_run">没有即将进行的运行</string>
     <string name="notification_schedule_agent_will_not_ask">⚠ 其运行在使用工具前不会请求你的批准</string>
+    <string name="notification_schedule_agent_edits_unasked">编辑和命令会在不询问你的情况下运行</string>
     <string name="schedule_agent_marker_created">由智能体添加</string>
     <string name="schedule_agent_marker_changed">由智能体更改</string>
     <string name="schedule_model_unset">默认模型</string>

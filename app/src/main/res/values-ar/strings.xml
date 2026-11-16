@@ -1190,6 +1190,7 @@
     <string name="notification_schedule_agent_off">متوقف: لن يعمل حتى يتم تشغيله</string>
     <string name="notification_schedule_agent_no_next_run">لا يوجد تشغيل قادم</string>
     <string name="notification_schedule_agent_will_not_ask">⚠ لن تطلب تشغيلاته موافقتك قبل استخدام الأدوات</string>
+    <string name="notification_schedule_agent_edits_unasked">تُنفَّذ التعديلات والأوامر دون أن تُسأل</string>
     <string name="schedule_agent_marker_created">أضافه وكيل</string>
     <string name="schedule_agent_marker_changed">غيّره وكيل</string>
     <string name="schedule_model_unset">الطراز الافتراضي</string>

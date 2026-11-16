@@ -1164,6 +1164,7 @@
     <string name="notification_schedule_agent_off">オフ: オンにするまで実行されません</string>
     <string name="notification_schedule_agent_no_next_run">予定されている実行はありません</string>
     <string name="notification_schedule_agent_will_not_ask">⚠ この実行はツールを使う前に承認を求めません</string>
+    <string name="notification_schedule_agent_edits_unasked">ファイル編集とコマンドは確認なしで実行されます</string>
     <string name="schedule_agent_marker_created">エージェントが追加</string>
     <string name="schedule_agent_marker_changed">エージェントが変更</string>
     <string name="schedule_model_unset">デフォルトモデル</string>

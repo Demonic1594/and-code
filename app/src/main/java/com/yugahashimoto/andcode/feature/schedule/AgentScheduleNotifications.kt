@@ -12,6 +12,7 @@ import com.yugahashimoto.andcode.MainActivity
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.notification.RuntimeNotificationHelper
 import com.yugahashimoto.andcode.runtime.RuntimeRegistry
+import com.yugahashimoto.andcode.runtime.SessionApproval
 import com.yugahashimoto.andcode.ui.ShortcutDestination
 
 /**
@@ -63,7 +64,13 @@ class AgentScheduleNotifications(
                                 context.getString(R.string.schedule_next_run, dateTimeLabel(context, notice.nextRunAt.toEpochMilli()))
                             else -> context.getString(R.string.notification_schedule_agent_no_next_run)
                         }
-                    val warning = context.getString(R.string.notification_schedule_agent_will_not_ask).takeIf { notice.runsWithoutAsking }
+                    val warning =
+                        when (notice.approval) {
+                            SessionApproval.NEVER_ASKS -> context.getString(R.string.notification_schedule_agent_will_not_ask)
+                            SessionApproval.EDITS_AND_COMMANDS_PREAPPROVED ->
+                                context.getString(R.string.notification_schedule_agent_edits_unasked)
+                            SessionApproval.ASKS -> null
+                        }
                     builder(schedule.id, openSchedule = true)
                         .setContentTitle(context.getString(title, schedule.displayName))
                         // Collapsed, the warning is what matters most; expanded, everything is there.
@@ -140,14 +147,25 @@ class AgentScheduleNotifications(
         )
     }
 
-    private fun notificationId(scheduleId: String): Int = NOTIFICATION_ID_BASE + (scheduleId.hashCode() and NOTIFICATION_ID_MASK)
+    companion object {
+        private const val CHANNEL_ID = "andcode_schedule_agent_changes"
 
-    private companion object {
-        const val CHANNEL_ID = "andcode_schedule_agent_changes"
+        /**
+         * Takes down [scheduleId]'s notice once the user has opened the schedule: it has done its
+         * job, like the marker cleared at the same moment.
+         */
+        fun cancel(
+            context: Context,
+            scheduleId: String,
+        ) {
+            runCatching { NotificationManagerCompat.from(context).cancel(notificationId(scheduleId)) }
+        }
+
+        private fun notificationId(scheduleId: String): Int = NOTIFICATION_ID_BASE + (scheduleId.hashCode() and NOTIFICATION_ID_MASK)
 
         // Clear of RuntimeNotificationHelper's ranges (1M, 3M and 5M, each about a million wide)
         // and of LiveRunNotifier's 4_900_001.
-        const val NOTIFICATION_ID_BASE = 7_000_000
-        const val NOTIFICATION_ID_MASK = 0x000FFFFF
+        private const val NOTIFICATION_ID_BASE = 7_000_000
+        private const val NOTIFICATION_ID_MASK = 0x000FFFFF
     }
 }

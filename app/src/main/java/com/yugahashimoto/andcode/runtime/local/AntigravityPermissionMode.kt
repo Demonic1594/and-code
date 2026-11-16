@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.runtime.SessionApproval
 
 /**
  * How the official `agy` CLI handles tool permissions for a session.
@@ -26,6 +27,15 @@ enum class AntigravityPermissionMode(
         R.string.antigravity_permission_full_access_desc,
     ),
     ;
+
+    /** What a session in this mode asks before using tools; agy's accept-edits also runs commands unasked. */
+    val sessionApproval: SessionApproval
+        get() =
+            when (this) {
+                FULL_ACCESS -> SessionApproval.NEVER_ASKS
+                ACCEPT_EDITS -> SessionApproval.EDITS_AND_COMMANDS_PREAPPROVED
+                PLAN -> SessionApproval.ASKS
+            }
 
     /** The value persisted per session and round-tripped through [fromCliValue]. */
     val cliValue: String get() = name

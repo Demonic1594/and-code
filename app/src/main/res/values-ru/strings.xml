@@ -1158,6 +1158,7 @@
     <string name="notification_schedule_agent_off">Выключено: не запустится, пока его не включат</string>
     <string name="notification_schedule_agent_no_next_run">Ближайших запусков нет</string>
     <string name="notification_schedule_agent_will_not_ask">⚠ Его запуски не будут спрашивать вашего одобрения перед использованием инструментов</string>
+    <string name="notification_schedule_agent_edits_unasked">Правки и команды выполняются, не спрашивая вас</string>
     <string name="schedule_agent_marker_created">Добавлено агентом</string>
     <string name="schedule_agent_marker_changed">Изменено агентом</string>
     <string name="schedule_model_unset">Модель по умолчанию</string>

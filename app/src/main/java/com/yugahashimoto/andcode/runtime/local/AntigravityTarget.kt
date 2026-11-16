@@ -51,8 +51,8 @@ class AntigravityTarget(internal val runtime: AntigravityRuntime) : RuntimeTarge
     val defaultPermissionMode: StateFlow<AntigravityPermissionMode> = mutableDefaultPermissionMode.asStateFlow()
 
     /** [createSession] starts every session in [defaultPermissionMode]. */
-    override val sessionsSkipApproval: Boolean
-        get() = mutableDefaultPermissionMode.value == AntigravityPermissionMode.FULL_ACCESS
+    override val sessionApproval: SessionApproval
+        get() = mutableDefaultPermissionMode.value.sessionApproval
 
     /** Applies [mode] to new sessions, and to [sessionId] when one is given - same as Claude Code. */
     fun setPermissionMode(

@@ -1142,6 +1142,7 @@
     <string name="notification_schedule_agent_off">Desactivada: no se ejecutará hasta que se active</string>
     <string name="notification_schedule_agent_no_next_run">No hay ninguna ejecución próxima</string>
     <string name="notification_schedule_agent_will_not_ask">⚠ Sus ejecuciones no te pedirán aprobación antes de usar herramientas</string>
+    <string name="notification_schedule_agent_edits_unasked">Las ediciones y los comandos se ejecutan sin preguntarte</string>
     <string name="schedule_agent_marker_created">Añadida por un agente</string>
     <string name="schedule_agent_marker_changed">Cambiada por un agente</string>
     <string name="schedule_model_unset">Modelo por defecto</string>

@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.feature.schedule
 
 import com.yugahashimoto.andcode.data.schedule.Schedule
 import com.yugahashimoto.andcode.data.schedule.ScheduleAgentChange
+import com.yugahashimoto.andcode.runtime.SessionApproval
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -325,6 +326,49 @@ class ScheduleBridgeNoticeTest {
         runOne(bridge, "update", JSONObject().put("scheduleId", "s1").put("runtimeId", "antigravity"))
 
         assertTrue(notifier.notices.single().runsWithoutAsking)
+    }
+
+    /**
+     * Accept edits (Claude Code's default, Antigravity's too) runs edits and shell commands without
+     * asking: a softer warning than full access, never confused with it.
+     */
+    @Test
+    fun `a schedule on a runtime in accept-edits mode gets the softer warning`() {
+        val approvals = FakeApprovalSettings(acceptEditsRuntimes = setOf("claude-code"), fullAccessRuntimes = setOf("antigravity"))
+        val bridge = bridgeWith(FakeStore(), approvals = approvals)
+
+        runOne(bridge, "create", createArgs(runtimeId = "claude-code"))
+        runOne(bridge, "create", createArgs(runtimeId = "antigravity"))
+        runOne(bridge, "create", createArgs(runtimeId = "local"))
+
+        assertEquals(
+            listOf(SessionApproval.EDITS_AND_COMMANDS_PREAPPROVED, SessionApproval.NEVER_ASKS, SessionApproval.ASKS),
+            notifier.notices.map { it.approval },
+        )
+        assertEquals(listOf(false, true, false), notifier.notices.map { it.runsWithoutAsking })
+    }
+
+    /** A schedule that approves everything itself never asks, whatever mode its runtime is in. */
+    @Test
+    fun `auto-approval outranks the softer accept-edits warning`() {
+        val store = FakeStore()
+        store.schedules += existingSchedule(autoAcceptPermissions = true, runtimeId = "claude-code")
+        val bridge = bridgeWith(store, approvals = FakeApprovalSettings(acceptEditsRuntimes = setOf("claude-code")))
+
+        runOne(bridge, "update", JSONObject().put("scheduleId", "s1").put("cron", "0 5 * * *"))
+
+        assertEquals(SessionApproval.NEVER_ASKS, notifier.notices.single().approval)
+    }
+
+    @Test
+    fun `a deleted schedule carries no approval warning`() {
+        val store = FakeStore()
+        store.schedules += existingSchedule(runtimeId = "claude-code")
+        val bridge = bridgeWith(store, approvals = FakeApprovalSettings(fullAccessRuntimes = setOf("claude-code")))
+
+        runOne(bridge, "delete", JSONObject().put("scheduleId", "s1"))
+
+        assertEquals(SessionApproval.ASKS, notifier.notices.single().approval)
     }
 
     /** false to null hands the schedule to the app setting: with that on, its runs stop asking. */

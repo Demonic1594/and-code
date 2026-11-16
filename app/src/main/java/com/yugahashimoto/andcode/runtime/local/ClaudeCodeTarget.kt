@@ -27,6 +27,7 @@ import com.yugahashimoto.andcode.runtime.RuntimeCapabilities
 import com.yugahashimoto.andcode.runtime.RuntimeState
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import com.yugahashimoto.andcode.runtime.RuntimeType
+import com.yugahashimoto.andcode.runtime.SessionApproval
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -146,9 +147,9 @@ class ClaudeCodeTarget(
         )
     val defaultPermissionMode: StateFlow<ClaudePermissionMode> = mutableDefaultPermissionMode.asStateFlow()
 
-    /** [createSession] records every session with [defaultPermissionMode]; full access is `bypassPermissions`. */
-    override val sessionsSkipApproval: Boolean
-        get() = mutableDefaultPermissionMode.value == ClaudePermissionMode.FULL_ACCESS
+    /** [createSession] records every session with [defaultPermissionMode]. */
+    override val sessionApproval: SessionApproval
+        get() = mutableDefaultPermissionMode.value.sessionApproval(bridgeReady = runtime.permissionBridgeReady())
 
     /**
      * Applies [mode] to new sessions, and to [sessionId] when one is given.

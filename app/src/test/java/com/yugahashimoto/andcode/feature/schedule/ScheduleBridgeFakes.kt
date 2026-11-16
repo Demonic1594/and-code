@@ -3,6 +3,7 @@ package com.yugahashimoto.andcode.feature.schedule
 import com.yugahashimoto.andcode.data.schedule.Schedule
 import com.yugahashimoto.andcode.data.schedule.ScheduleAgentChange
 import com.yugahashimoto.andcode.data.schedule.ScheduleRun
+import com.yugahashimoto.andcode.runtime.SessionApproval
 import java.time.Instant
 
 /** In-memory [ScheduleStore] for the bridge tests ([ScheduleBridgeTest], [ScheduleBridgeNoticeTest]). */
@@ -70,10 +71,16 @@ internal class FakeScheduleNotifier : ScheduleChangeNotifier {
     }
 }
 
-/** The app-wide auto-approve setting, and which runtimes are in full-access mode. */
+/** The app-wide auto-approve setting, and which runtimes are in full-access or accept-edits mode. */
 internal class FakeApprovalSettings(
     override var appAutoApproves: Boolean = false,
     private val fullAccessRuntimes: Set<String> = emptySet(),
+    private val acceptEditsRuntimes: Set<String> = emptySet(),
 ) : ScheduleApprovalSettings {
-    override fun runtimeSkipsApproval(runtimeId: String): Boolean = runtimeId in fullAccessRuntimes
+    override fun runtimeApproval(runtimeId: String): SessionApproval =
+        when (runtimeId) {
+            in fullAccessRuntimes -> SessionApproval.NEVER_ASKS
+            in acceptEditsRuntimes -> SessionApproval.EDITS_AND_COMMANDS_PREAPPROVED
+            else -> SessionApproval.ASKS
+        }
 }

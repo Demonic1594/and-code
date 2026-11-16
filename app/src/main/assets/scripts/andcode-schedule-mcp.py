@@ -137,7 +137,8 @@ SCHEDULE_PROPERTIES = {
 USER_NOTICE = (
     " The user is told through an Android notification and an \"added/changed by an agent\" marker on the"
     " schedule in the Schedules screen, with a warning when its runs will not ask for approval"
-    " (auto-approval, or a runtime in full-access mode); the reply's userNotified says whether this call told them."
+    " (auto-approval, or a runtime in full-access mode) and a softer one when edits and commands run"
+    " unasked (accept-edits mode); the reply's userNotified says whether this call told them."
 )
 
 TOOLS = [

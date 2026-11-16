@@ -56,6 +56,7 @@ import com.yugahashimoto.andcode.feature.git.GitClient
 import com.yugahashimoto.andcode.feature.inbox.InboxViewModel
 import com.yugahashimoto.andcode.feature.onboarding.AndroidSetupScreen
 import com.yugahashimoto.andcode.feature.onboarding.OnboardingChoiceScreen
+import com.yugahashimoto.andcode.feature.schedule.AgentScheduleNotifications
 import com.yugahashimoto.andcode.feature.schedule.ScheduleViewModel
 import com.yugahashimoto.andcode.feature.settings.CodexSignInActions
 import com.yugahashimoto.andcode.feature.settings.CodexSignInViewModel
@@ -231,7 +232,9 @@ fun AndCodeApp(
             key = "schedules",
             factory =
                 ViewModelFactory {
-                    ScheduleViewModel(app.scheduleRepository, app.scheduleManager)
+                    ScheduleViewModel(app.scheduleRepository, app.scheduleManager) { scheduleId ->
+                        AgentScheduleNotifications.cancel(app, scheduleId)
+                    }
                 },
         )
 

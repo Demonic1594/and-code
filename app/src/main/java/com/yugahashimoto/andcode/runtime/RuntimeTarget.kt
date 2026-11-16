@@ -12,6 +12,18 @@ enum class RuntimeType {
     REMOTE,
 }
 
+/** How much a session asks the user before using a tool; see [RuntimeTarget.sessionApproval]. */
+enum class SessionApproval {
+    /** Whatever the mode does not already forbid reaches the app's approval prompt. */
+    ASKS,
+
+    /** File edits and shell commands run without asking (accept edits); other tools may still ask. */
+    EDITS_AND_COMMANDS_PREAPPROVED,
+
+    /** Nothing asks (full access, bypass, or every request answered automatically). */
+    NEVER_ASKS,
+}
+
 sealed interface RuntimeState {
     data object Disconnected : RuntimeState
 
@@ -101,15 +113,15 @@ interface RuntimeTarget : OpenCodeBackend {
         get() = RuntimeCapabilities()
 
     /**
-     * True when a session [createSession] opens now would run every tool without asking anyone,
-     * because the runtime's default permission mode is full access (or its equivalent).
+     * What a session [createSession] opens now would ask the user before using tools, from the
+     * runtime's default permission mode.
      *
      * Kept next to each target's createSession, which picks that mode, so the two cannot drift: a
      * scheduled run opens its session through createSession, and the schedules feature reads this
      * to warn the user when a schedule an agent set up will not ask.
      */
-    val sessionsSkipApproval: Boolean
-        get() = false
+    val sessionApproval: SessionApproval
+        get() = SessionApproval.ASKS
 
     /**
      * Fires when this target's model catalog changed without anything reloading it, so the app

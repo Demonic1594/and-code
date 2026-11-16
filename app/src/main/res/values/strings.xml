@@ -1182,6 +1182,7 @@
     <string name="notification_schedule_agent_off">Off: it will not run until it is turned on</string>
     <string name="notification_schedule_agent_no_next_run">No run coming up</string>
     <string name="notification_schedule_agent_will_not_ask">⚠ Its runs will not ask you before using tools</string>
+    <string name="notification_schedule_agent_edits_unasked">Edits and commands run without asking</string>
     <string name="schedule_agent_marker_created">Added by an agent</string>
     <string name="schedule_agent_marker_changed">Changed by an agent</string>
     <string name="schedule_model_unset">Default model</string>
