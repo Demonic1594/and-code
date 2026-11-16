@@ -42,10 +42,10 @@ baselineProfile {
 
 dependencies {
     implementation("androidx.benchmark:benchmark-macro-junit4:1.5.0")
-    implementation("androidx.test.ext:junit:1.2.1")
+    implementation("androidx.test.ext:junit:1.3.0")
     // @LargeTest; benchmark-macro 1.3 exposed it, 1.5 only brings the runner at run time.
     implementation("androidx.test:runner:1.7.0")
-    implementation("androidx.test.uiautomator:uiautomator:2.3.0")
+    implementation("androidx.test.uiautomator:uiautomator:2.4.1")
 }
 
 androidComponents {
