@@ -142,7 +142,7 @@ object IssuePrompt {
                 val skipped = thread.comments.count { it.body.isNotBlank() } - shown.size
                 val heading =
                     when {
-                        thread.moreComments -> labels.commentsPartial(MAX_COMMENTS, thread.comments.size)
+                        thread.moreComments -> labels.commentsPartial(shown.size, thread.comments.size)
                         skipped > 0 -> labels.commentsLatest(MAX_COMMENTS, skipped)
                         else -> labels.comments
                     }

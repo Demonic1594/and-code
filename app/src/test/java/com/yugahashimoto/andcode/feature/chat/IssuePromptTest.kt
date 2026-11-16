@@ -148,6 +148,15 @@ class IssuePromptTest {
         assertTrue(partial.contains("the last 20 of the first 25; the rest are on GitHub"))
     }
 
+    /** A long thread whose first page is mostly blank comments shows fewer than 20, and says so. */
+    @Test
+    fun `a partial thread counts only the comments it shows`() {
+        val comments = (1..100).map { IssueComment("u$it", if (it % 20 == 0) "comment $it" else " ") }
+        val prompt = IssuePrompt.build(thread(comments = comments).copy(moreComments = true), english)
+
+        assertTrue(prompt.contains("## Comments (the last 5 of the first 100; the rest are on GitHub)"))
+    }
+
     @Test
     fun `the fixed wording is the app language's, and what GitHub returned stays as it is`() {
         val prompt =
