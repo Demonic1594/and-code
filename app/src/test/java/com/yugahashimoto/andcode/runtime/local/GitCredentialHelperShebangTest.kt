@@ -9,7 +9,7 @@ class GitCredentialHelperShebangTest {
     fun `install writes bin-sh shebang not termux path`() {
         val root = createTempDirectory("git-shebang").toFile()
         try {
-            val helper = GitCredentialHelper(root) { "token" }
+            val helper = GitCredentialHelper(root)
             val file = helper.install()
             val content = file.readText()
             assertTrue(content.startsWith("#!/bin/sh"))

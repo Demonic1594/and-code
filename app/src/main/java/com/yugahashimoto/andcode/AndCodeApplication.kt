@@ -424,7 +424,7 @@ class AndCodeApplication : Application() {
                     runCatching { providerCredentials.syncToRuntime(installed.rootfs) }
                     runCatching { customProviders.syncToRuntime(installed.rootfs) }
                     runCatching {
-                        GitCredentialHelper(installed.rootfs) { settings.githubToken }.let { helper ->
+                        GitCredentialHelper(installed.rootfs).let { helper ->
                             if (settings.githubToken.isNullOrBlank()) helper.remove() else helper.install()
                         }
                     }

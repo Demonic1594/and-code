@@ -155,6 +155,7 @@ OSの制約として、他アプリの`Android/data`と`Android/obb`は全ファ
 - OpenCodeサーバーは`127.0.0.1`だけへbindする
 - ランタイムはアプリ専用ストレージへ保存する
 - ランタイムログへAPIキー、パスワード、Authorizationヘッダーを記録しない
+- GitHubトークンはゲスト内のファイルに書かない。gitへは認証ヘルパー`git-credential-opencode`が、環境変数`OPENCODE_GITHUB_TOKEN`（なければCodex用の`GH_TOKEN`）から渡す。以前のビルドが書いた`~/.git-credentials`は、次のランタイム起動時に`GuestFiles`経由で削除する
 - Androidアプリは危険操作を無条件に自動承認しない
 
 ## 追加済み（2026-07-19）

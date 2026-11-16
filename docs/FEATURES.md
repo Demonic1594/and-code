@@ -87,7 +87,7 @@ The command runner now mounts `/workspace` the same way the agents see it. The t
 it too.
 
 Files AndCode itself writes or reads in the Linux environment, the workspace and the Claude Code
-approval folder (agent configs and MCP registrations, the GitHub token store, API keys, the guest
+approval folder (agent configs and MCP registrations, the git credential helper and config, API keys, the guest
 scripts, schedule and `andcode-run` requests and replies, `startup-commands.json`, attachments)
 never go through a symbolic link: an agent could otherwise point one at the app's own private files.
 A config you replaced with a link of your own (dotfiles, say) is left as it is rather than merged
@@ -130,7 +130,7 @@ before they are deleted, so one an install creates again a moment later is left 
 | Local model presets | Settings → Agents → OpenCode → **Provider settings** → **Add custom provider** | **Ollama** and **LM Studio** presets fill in each one's usual local address; **Fetch models** tests the connection. |
 | Suggested MCP servers | Settings → Agents → an agent → **MCP servers** | A short list of servers worth adding (Context7, DeepWiki, Microsoft Learn, Sequential Thinking); **Add** opens the add form filled in, to confirm. One already added is not offered. |
 | Why an MCP server failed | Settings → Agents → an agent → **MCP servers** | A local server whose program (`npx`, `uvx`, …) is not installed in the Linux environment says so, with the Node.js install command when that is what is missing. |
-| GitHub personal access token | Settings → **GitHub / Git Operations** | A token is checked with GitHub before it is kept, and **Create a token** opens GitHub with the repo and workflow scopes ticked. A build without an OAuth client ID offers the token as the way in instead of a dead button; with one, both are there. A refused token is told apart from GitHub being unavailable. |
+| GitHub personal access token | Settings → **GitHub / Git Operations** | A token is checked with GitHub before it is kept, and **Create a token** opens GitHub with the repo and workflow scopes ticked. A build without an OAuth client ID offers the token as the way in instead of a dead button; with one, both are there. A refused token is told apart from GitHub being unavailable. Inside the Linux environment git gets it from a credential helper that reads it from the agent's environment (`OPENCODE_GITHUB_TOKEN`, or `GH_TOKEN` for Codex); it is never written to a file there, and a `~/.git-credentials` an older build left is deleted at the next runtime start. |
 
 ## Launcher and system
 
