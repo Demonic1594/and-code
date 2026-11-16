@@ -67,9 +67,11 @@ each fix that changes what the user sees lists a device check in its PR.
   content under the bars on screens that do not pad for them yet; that needs a device to check.
 - **Outdated dependencies.** Lint's `GradleDependency` listed 18; the dependency update PR took
   every one that fits this toolchain (Compose BOM 2025.07.00, activity-compose 1.10.1,
-  navigation-compose 2.8.9, Room 2.8.5, webkit 1.18.0, documentfile 1.1.0, Firebase BoM 33.16.0,
+  navigation-compose 2.8.9, webkit 1.18.0, documentfile 1.1.0, Firebase BoM 33.16.0,
   androidx.test ext-junit 1.3.0 and espresso 3.7.0), plus coroutines 1.10.2, serialization 1.8.1,
-  Koin 4.0.4, commons-compress 1.28.0 and xz 1.12. Lint still lists 12, all held back on purpose:
+  Koin 4.0.4, commons-compress 1.28.0 and xz 1.12. Room is gone instead of updated: its database
+  was never built, so it and the KSP setup it alone needed were removed. Lint still lists 12, all
+  held back on purpose:
   - AGP 8.5.2: core-ktx 1.16+, Lifecycle 2.9+ (its Compose artifacts), SavedState 1.3+ (pulls
     Lifecycle 2.9), Compose 1.9+ and Material3 1.4, navigation-compose 2.9+ and activity 1.11+
     declare `minAndroidGradlePluginVersion` 8.6.0 or higher, several also compileSdk 36.

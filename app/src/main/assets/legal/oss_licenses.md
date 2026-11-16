@@ -107,7 +107,7 @@ claim that it is exhaustive — consult the generated file for the complete set.
 
 | Dependency | Version | License |
 |---|---|---|
-| AndroidX Core, Lifecycle, Activity Compose, Navigation Compose, Compose BOM, Security Crypto, DocumentFile, WebKit, Room, Startup, Profileinstaller, DataStore | `core-ktx:1.15.0`, `lifecycle:2.8.7`, `activity-compose:1.10.1`, `navigation-compose:2.8.9`, `compose-bom:2025.07.00`, `security-crypto:1.1.0-alpha06`, `documentfile:1.1.0`, `webkit:1.18.0`, `room:2.8.5`, `datastore:1.1.3` | Apache License 2.0 — [developer.android.com/jetpack](https://developer.android.com/jetpack) |
+| AndroidX Core, Lifecycle, Activity Compose, Navigation Compose, Compose BOM, Security Crypto, DocumentFile, WebKit, Startup, Profileinstaller, DataStore | `core-ktx:1.15.0`, `lifecycle:2.8.7`, `activity-compose:1.10.1`, `navigation-compose:2.8.9`, `compose-bom:2025.07.00`, `security-crypto:1.1.0-alpha06`, `documentfile:1.1.0`, `webkit:1.18.0`, `datastore:1.1.3` | Apache License 2.0 — [developer.android.com/jetpack](https://developer.android.com/jetpack) |
 | OkHttp / OkHttp-SSE / Okio | `okhttp:4.12.0`, `okio:3.4.0`/`3.6.0` | Apache License 2.0 — [square.github.io/okhttp](https://square.github.io/okhttp/) |
 | kotlinx.serialization (JSON) | `1.8.1` | Apache License 2.0 — [github.com/Kotlin/kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization) |
 | ZXing (`com.journeyapps:zxing-android-embedded`, `com.google.zxing:core`) | `zxing-android-embedded:4.3.0`, `core:3.4.1` | Apache License 2.0 — [github.com/journeyapps/zxing-android-embedded](https://github.com/journeyapps/zxing-android-embedded), [github.com/zxing/zxing](https://github.com/zxing/zxing) |
