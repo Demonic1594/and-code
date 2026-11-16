@@ -46,6 +46,18 @@ guest is rewritten through the JSON serializer and repaired on every launch - a 
 silently ignored by the CLI, which re-enables the alternate screen buffer and makes the transcript
 much harder to parse.
 
+## Project instructions
+
+`agy` reads instructions from the project as well as from `~/.gemini/GEMINI.md` (where AndCode keeps
+its own section on `andcode-run`). It loads `AGENTS.md` and `GEMINI.md` from the folder it starts in
+and each parent up to the repository root, plus `.agents/rules/*.md`, and adds them together. The
+pinned 1.1.7 release says so in the reference text it carries ("Directory-Based Rules (`GEMINI.md` /
+`AGENTS.md`) ... walks up from the current working directory to the repository root"), as do the
+official docs (antigravity.google/docs/rules and /docs/customization-discovery). AndCode starts it
+with `-w /workspace`, the project folder, so a file at the project root is found. Antigravity's
+settings open the project's `AGENTS.md`: the docs recommend it for rules that are always on, and
+Codex and OpenCode read the same file.
+
 Hook records use schema version 1 JSONL and contain only conversation/transcript paths, event type, tool metadata, step and stop reason. Tokens, prompts and environment variables must not be written to the hook bridge. Session records retain the app UUID, Antigravity conversation id, workspace and last step so a killed process can be resumed.
 
 Image and PDF attachments are decoded into a turn-specific directory under `/workspace/.andcode-attachments` and passed to print mode through Antigravity's native `@path` context mentions. The original file parts are stored in the app transcript, matching the OpenCode and Claude Code targets, so attachments survive completion, reconnects and app restarts. Unsupported attachment types fail the send instead of appearing attached only in the Android UI.

@@ -44,6 +44,7 @@ import com.yugahashimoto.andcode.feature.support.GitHubSupportSheetHost
 import com.yugahashimoto.andcode.feature.wakeword.VoskModelState
 import com.yugahashimoto.andcode.feature.wakeword.WakeWordSettingsPolicy
 import com.yugahashimoto.andcode.feature.widget.QuickInputWidgetProvider
+import com.yugahashimoto.andcode.runtime.LocalAgent
 import com.yugahashimoto.andcode.runtime.LocalRuntimeStatus
 import com.yugahashimoto.andcode.runtime.RuntimeRegistry
 import com.yugahashimoto.andcode.runtime.local.AntigravityInstallStatus
@@ -362,7 +363,7 @@ fun NavGraphBuilder.settingsNavGraph(
                         ?: stringResource(R.string.system_prompt_none)
                 },
             onOpenMcp = { navController.navigate(ROUTE_SETTINGS_MCP) },
-            onOpenProjectInstructions = { onOpenProjectInstructions(ProjectInstructions.AGENTS_FILE) },
+            onOpenProjectInstructions = { onOpenProjectInstructions(ProjectInstructions.fileFor(LocalAgent.OPEN_CODE)) },
             onBack = { navController.popBackStack() },
         )
     }
@@ -392,7 +393,7 @@ fun NavGraphBuilder.settingsNavGraph(
             onOpenMcp = { navController.navigate(ROUTE_SETTINGS_MCP_CLAUDE) },
             onOpenCommandRules = { navController.navigate(ROUTE_SETTINGS_COMMAND_RULES) },
             onOpenChecks = { navController.navigate(ROUTE_SETTINGS_CLAUDE_CHECKS) },
-            onOpenProjectInstructions = { onOpenProjectInstructions(ProjectInstructions.CLAUDE_FILE) },
+            onOpenProjectInstructions = { onOpenProjectInstructions(ProjectInstructions.fileFor(LocalAgent.CLAUDE_CODE)) },
             onSetKeepEditsInProject = claudeActions.onSetKeepEditsInProject,
             onOpenUrl = { url ->
                 UrlLauncher.openUrl(context, url)
@@ -458,6 +459,7 @@ fun NavGraphBuilder.settingsNavGraph(
             onOpenUrl = { url ->
                 UrlLauncher.openUrl(context, url)
             },
+            onOpenProjectInstructions = { onOpenProjectInstructions(ProjectInstructions.fileFor(LocalAgent.ANTIGRAVITY)) },
             onBack = { navController.popBackStack() },
         )
     }
@@ -491,7 +493,7 @@ fun NavGraphBuilder.settingsNavGraph(
             onInstall = app.codexController::install,
             onSignOut = app.codexController::signOut,
             onOpenMcp = { navController.navigate(ROUTE_SETTINGS_MCP_CODEX) },
-            onOpenProjectInstructions = { onOpenProjectInstructions(ProjectInstructions.AGENTS_FILE) },
+            onOpenProjectInstructions = { onOpenProjectInstructions(ProjectInstructions.fileFor(LocalAgent.CODEX)) },
             onBack = { navController.popBackStack() },
         )
     }

@@ -80,5 +80,6 @@ each fix that changes what the user sees lists a device check in its PR.
   needs the language and settings, so moving them off it means a loading state; whether that is
   worth it needs a cold-start measurement on a device.
 - **`AppBundleLocaleChanges`**: the app is not shipped as an app bundle split by language.
-- **Antigravity's instructions file.** Its project-level file is not confirmed (`agy` reads its
-  global `~/.gemini/GEMINI.md`), so no shortcut is offered for it yet.
+- **Antigravity's instructions file.** No longer left: the pinned `agy` 1.1.7 reads `AGENTS.md` and
+  `GEMINI.md` from the project up to the repository root (its embedded reference and the official
+  docs, see `docs/ANTIGRAVITY.md`), so its settings now open the project's `AGENTS.md`.
