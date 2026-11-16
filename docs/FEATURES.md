@@ -95,6 +95,11 @@ into, so AndCode's MCP servers are not added to that agent until it is a plain f
 the runtime, a project or a chat's attachments, and carrying your home folder over on a reinstall,
 remove or copy a link itself, never what it points at.
 
+The Linux environment is not a sandbox. PRoot only changes how paths look to the agent: its
+processes run as AndCode's own Android user, so they can reach what the app itself can. The guards
+above stop AndCode from being tricked into doing something on an agent's behalf; they do not stop
+the agent. Approvals and command rules decide what an agent is asked to do, not what it is able to.
+
 ## Browser and DevTools
 
 | Feature | Where | Notes |
