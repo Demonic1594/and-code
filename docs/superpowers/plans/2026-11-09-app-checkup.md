@@ -73,7 +73,7 @@ each fix that changes what the user sees lists a device check in its PR.
   tests; splitting it is a refactor with no change for the user, and is left until a change needs
   it.
 - **The other 498 detekt baseline entries** (long methods, long parameter lists, complexity). They
-  shrink as the code they point at is changed.
+  shrink as the code they point at is changed: 497 after the first `ChatViewModel.kt` split.
 - **`UsableSpace`** (11): the free-space checks before an install are estimates, and
   `StorageManager.getAllocatableBytes` would only make them less strict.
 - **Startup on the main thread.** `AndCodeApplication` reads the app language from encrypted

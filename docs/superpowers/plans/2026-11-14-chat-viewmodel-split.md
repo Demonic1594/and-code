@@ -94,7 +94,7 @@ Least entangled first. One responsibility per commit.
 
 1. **State types** to `ChatUiState.kt`, with the attachment index helpers. Pure move.
 2. **Transcript mapping and merging** to `ChatTranscript.kt`. Pure functions. The pure half of
-   `toUiMessage` becomes `OpenCodeMessage.toChatMessage()`, with a focused test; the view model
+   `toUiMessage` becomes `toChatMessage(message)`, with a focused test; the view model
    keeps the rewind filter and the role bookkeeping.
 3. **Streaming part merges** to `ChatStreaming.kt`: the part and delta merges from `handleEvent`
    and `updateStreamingMessage`'s body, as pure functions, with focused tests. The stream cache
