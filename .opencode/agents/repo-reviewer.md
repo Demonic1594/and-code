@@ -46,8 +46,10 @@ trusting the diff alone. You never modify files; you only read and report.
 1. **i18n**: English source is `app/src/main/res/values/strings.xml`; every key must also exist in
    every `values-*/strings.xml` (ar, es, fr, ja, pt-rBR, ru, zh-rCN) unless marked
    `translatable="false"` — `.github/workflows/i18n-check.yml` fails otherwise. No hardcoded
-   user-visible text in Kotlin or XML: use `stringResource`/`getString`. LLM prompts and log
-   messages stay English. ViewModels receive user-visible messages through constructor injection
+   user-visible text in Kotlin or XML: use `stringResource`/`getString`. LLM prompts the app
+   sends by itself (commit messages, chat titles) and log messages stay English. Prompt text the
+   app puts in the message box for the user to read and edit before sending is user-visible and
+   is localized like any other UI text (see `IssuePrompt` and `IssuePromptLabels`). ViewModels receive user-visible messages through constructor injection
    with an English default (see `WorkspaceViewModel.incompleteConnectionMessage`,
    `McpViewModel.authNotRemovedMessage`) or a `*Messages` interface with an
    `Android*Messages(context)` implementation (see `LocalRuntimeMessages`).

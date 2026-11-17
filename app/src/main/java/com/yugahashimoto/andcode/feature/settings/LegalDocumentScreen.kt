@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -47,7 +48,9 @@ fun LegalDocumentScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    val languageTag = context.resources.configuration.locales[0].language
+    // LocalConfiguration is built from this same context's configuration, so it carries the app
+    // language set in attachBaseContext, and recomposes when the configuration changes.
+    val languageTag = LocalConfiguration.current.locales[0].language
     val state by
         produceState<LegalDocState>(initialValue = LegalDocState.Loading, document, languageTag) {
             value =

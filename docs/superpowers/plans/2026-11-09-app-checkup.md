@@ -55,7 +55,7 @@ each fix that changes what the user sees lists a device check in its PR.
 | 7 | Only Claude Code had a shortcut to its project instructions file; Codex and OpenCode, which read `AGENTS.md`, had none (`docs/FEATURES.md`, "Not done yet"). | The same shortcut for both; a new `AGENTS.md` starts as a copy of `CLAUDE.md` (#127). |
 | 8 | Spanish, French, Brazilian Portuguese, Russian, Chinese and Arabic still showed English for 113 to 125 strings each that were added since they were last translated: screen reader labels, the widget, the diagnostics screen, runtime errors. Japanese was up to date. | 710 translations (strings PR); about a third reuse the app's own translation of the same text, the rest were translated and corrected by hand to each language's terms. Names, formats and words that are the same in that language stay. |
 | 9 | The OpenCode client followed a redirect from https to http, which would resend a prompt (with code in it) in the clear to an address nobody checked. The context sheet could show over 100% for Codex. `docs/FEATURES.md` still said only Claude Code had the context sheet, and listed neither suggested MCP servers nor that Checks apply to every project. | Redirects between https and http are refused for OpenCode servers; the percentage stops at 100; the rows are updated (this PR). |
-| 10 | GitHub reports 3 Dependabot alerts on main (1 high, 2 moderate), which this session cannot read. Every resolved dependency (213 in the release build, 522 across tests, androidTest, the benchmark module and the build tools) was checked against the OSV database: the only known vulnerability is in `org.json:json:20231013` (GHSA-ghc9-756g-vrcv, a denial of service), used only by unit tests, so nothing shipped is affected. | `org.json` to 20260814 (this PR). The remaining alerts need a look at Security → Dependabot on GitHub. |
+| 10 | GitHub reports 3 Dependabot alerts on main (1 high, 2 moderate), which this session cannot read. Every resolved dependency (213 in the release build, 522 across tests, androidTest, the benchmark module and the build tools) was checked against the OSV database: the only known vulnerability is in `org.json:json:20231013` (GHSA-ghc9-756g-vrcv, a denial of service), used only by unit tests, so nothing shipped is affected. | `org.json` to 20260814 (this PR). The remaining alerts need a look at Security → Dependabot on GitHub. Follow-up (dependency update PR): the alerts come from a stale dependency graph. GitHub's Automatic Dependency Submission ran once, on 31 October at `753bc6b0`, before #84, #96 and this PR, and has not run since, so the graph still lists netty 4.1.93, Bouncy Castle 1.77, kotlin-gradle-plugin 2.0.21 and org.json 20231013. Two of the open alerts are kotlin-gradle-plugin 2.0.21 (GHSA-r937-wjx7-w2jp, moderate, build cache; fixed by #96's Kotlin 2.4.21) and org.json 20231013 (GHSA-ghc9-756g-vrcv, moderate, unit tests; fixed here). The high one cannot be named without alert access, but every vulnerable version in that graph is fixed on main: all 599 components resolved by main's configurations (app, benchmark, build tools) are clean in OSV. They close once GitHub takes a fresh snapshot (Settings → Advanced Security → Automatic dependency submission, off and on again, starts one) or when dismissed as fixed. |
 
 ## Left on purpose
 
@@ -65,8 +65,24 @@ each fix that changes what the user sees lists a device check in its PR.
 - **`window.statusBarColor`.** Deprecated, and Android 15 ignores it now that the app targets SDK
   35, but older Android versions still use it. Calling `enableEdgeToEdge()` everywhere would draw
   content under the bars on screens that do not pad for them yet; that needs a device to check.
-- **18 outdated dependencies** (lint's `GradleDependency`). Updating them is its own change, with
-  its own risk, and is not part of a checkup.
+- **Outdated dependencies.** Lint's `GradleDependency` listed 18; the dependency update PR took
+  every one that fits this toolchain (Compose BOM 2025.07.00, activity-compose 1.10.1,
+  navigation-compose 2.8.9, webkit 1.18.0, documentfile 1.1.0, Firebase BoM 33.16.0,
+  androidx.test ext-junit 1.3.0 and espresso 3.7.0), plus coroutines 1.10.2, serialization 1.8.1,
+  Koin 4.0.4, commons-compress 1.28.0 and xz 1.12. Room is gone instead of updated: its database
+  was never built, so it and the KSP setup it alone needed were removed. Lint still lists 12, all
+  held back on purpose:
+  - AGP 8.5.2: core-ktx 1.16+, Lifecycle 2.9+ (its Compose artifacts), SavedState 1.3+ (pulls
+    Lifecycle 2.9), Compose 1.9+ and Material3 1.4, navigation-compose 2.9+ and activity 1.11+
+    declare `minAndroidGradlePluginVersion` 8.6.0 or higher, several also compileSdk 36.
+  - The Kotlin 2.0 language level: coroutines 1.11+, serialization 1.9+ and Koin 4.2+ need
+    kotlin-stdlib 2.2+, whose metadata this toolchain cannot read.
+  - Major versions: Firebase BoM 34/35, OkHttp 5, Spotless 7+.
+  - `security-crypto` 1.1.0: the same code and Tink 1.8.0 as alpha06 with every API deprecated, so
+    it would only add deprecation warnings; the real follow-up is moving off
+    EncryptedSharedPreferences.
+  Moving the Android Gradle plugin and the language level is the change that unlocks these (see
+  `docs/ROADMAP.md`).
 - **Large files.** `ChatViewModel.kt` was about 4,000 lines. Its first split
   (`2026-11-14-chat-viewmodel-split.md`) moved thirteen pieces into their own files and left it at
   about 2,300; that plan lists the rest. `OpenCodeV2ApiClient.kt` (1,700 lines) is covered by many
