@@ -997,7 +997,8 @@ fun ChatHomeScreen(
                         },
                         linkedIssues = linkedIssues,
                         onUseIssue = { thread ->
-                            val replaced = IssuePrompt.replaceLink(inputValue.text, thread.ref, IssuePrompt.build(thread))
+                            val prompt = IssuePrompt.build(thread, issuePromptLabels(context))
+                            val replaced = IssuePrompt.replaceLink(inputValue.text, thread.ref, prompt)
                             inputValue = TextFieldValue(replaced, TextRange(replaced.length))
                         },
                         pullRequests = state.pullRequests,
