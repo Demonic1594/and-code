@@ -4,26 +4,14 @@ import android.graphics.Bitmap
 import android.speech.tts.TextToSpeech
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.yugahashimoto.andcode.core.api.ConnectionQuality
 import com.yugahashimoto.andcode.core.api.ConnectionQualityMonitor
-import com.yugahashimoto.andcode.core.api.OpenCodeCommand
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
-import com.yugahashimoto.andcode.core.api.OpenCodeFileChange
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
-import com.yugahashimoto.andcode.core.api.OpenCodeMessageError
-import com.yugahashimoto.andcode.core.api.OpenCodePart
-import com.yugahashimoto.andcode.core.api.OpenCodeSkill
-import com.yugahashimoto.andcode.core.api.PermissionRequest
 import com.yugahashimoto.andcode.core.api.PromptAttachment
 import com.yugahashimoto.andcode.core.api.PromptRequest
-import com.yugahashimoto.andcode.core.api.PullRequestRef
-import com.yugahashimoto.andcode.core.api.QuestionPrompt
-import com.yugahashimoto.andcode.core.api.QuestionRequest
 import com.yugahashimoto.andcode.core.api.RunActivity
-import com.yugahashimoto.andcode.core.api.RunRetry
 import com.yugahashimoto.andcode.core.api.sessionIdOrNull
 import com.yugahashimoto.andcode.core.diagnostics.RunSignals
-import com.yugahashimoto.andcode.core.diagnostics.StallDiagnosis
 import com.yugahashimoto.andcode.core.diagnostics.StallEvidence
 import com.yugahashimoto.andcode.core.diagnostics.StallReason
 import com.yugahashimoto.andcode.core.diagnostics.diagnoseStall
@@ -37,11 +25,9 @@ import com.yugahashimoto.andcode.data.settings.DraftStore
 import com.yugahashimoto.andcode.runtime.OpenCodeBackend
 import com.yugahashimoto.andcode.runtime.PermissionResponse
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
-import com.yugahashimoto.andcode.runtime.local.StagedSystemPrompt
 import com.yugahashimoto.andcode.runtime.local.VideoAttachmentHelper
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,251 +36,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 import java.util.UUID
 
-enum class ToolStatus { PENDING, RUNNING, COMPLETED, ERROR, UNKNOWN }
-
-data class TodoItem(
-    val content: String,
-    val status: String,
-    val priority: String,
-)
-
-sealed interface ChatPart {
-    val id: String
-
-    data class Text(override val id: String, val text: String) : ChatPart
-
-    data class Reasoning(override val id: String, val text: String) : ChatPart
-
-    data class Tool(
-        override val id: String,
-        val name: String,
-        val status: ToolStatus,
-        val title: String? = null,
-        val input: String? = null,
-        val output: String? = null,
-        val outputTruncated: Boolean = false,
-        val error: String? = null,
-        val todos: List<TodoItem> = emptyList(),
-        /**
-         * The files a writing tool's input names, read from it before [input] was formatted for
-         * display; empty for any other tool.
-         */
-        val filePaths: List<String> = emptyList(),
-    ) : ChatPart
-
-    data class Patch(override val id: String, val files: List<String>, val messageId: String) : ChatPart
-
-    data class Image(
-        override val id: String,
-        val mime: String,
-        val url: String,
-        val filename: String? = null,
-    ) : ChatPart
-
-    /** The model/provider failed; carries the human-readable error reported by the runtime. */
-    data class Error(override val id: String, val message: String) : ChatPart
-}
-
-/** Files put back by [ChatViewModel.restoreFilesTo] in [sessionId]'s [directory]; [token] undoes it. */
-data class FileRestore(
-    val sessionId: String,
-    val directory: String,
-    val token: String,
-)
-
-/**
- * State of a diff fetched for a [ChatPart.Patch] card the user tapped open.
- *
- * Every state carries [files] so the dialog can always show the file list the chat already knew
- * about, whether or not [RuntimeCapabilities.diffCapable] let the diff itself be fetched.
- */
-sealed interface PatchDiffState {
-    val partId: String
-    val files: List<String>
-
-    data class Loading(override val partId: String, override val files: List<String>) : PatchDiffState
-
-    data class Loaded(
-        override val partId: String,
-        override val files: List<String>,
-        val changes: List<OpenCodeFileChange>,
-    ) : PatchDiffState
-
-    data class Unavailable(override val partId: String, override val files: List<String>) : PatchDiffState
-}
-
-data class ChatMessage(
-    val id: String = UUID.randomUUID().toString(),
-    val isUser: Boolean,
-    val parts: List<ChatPart> = emptyList(),
-    val attachments: List<PromptAttachment> = emptyList(),
-    val imagePreviews: List<Bitmap> = emptyList(),
-    val timestamp: Long = System.currentTimeMillis(),
-    val completedAt: Long? = null,
-    val isStreaming: Boolean = false,
-) {
-    val text: String
-        get() = parts.filterIsInstance<ChatPart.Text>().joinToString("") { it.text }
-}
-
-/**
- * The newer of a reply as streamed here ([live]) and as the transcript has it ([snapshot]). Either
- * can be ahead: the transcript lags the stream, but a stream that died quietly lags the transcript.
- * A finished snapshot is the whole reply. Otherwise each part keeps whichever copy is further on -
- * streamed text only ever grows, so a longer snapshot that starts with the live text is newer, and
- * a tool the snapshot shows finished is done - and parts only one side has are kept.
- */
-internal fun fresherReply(
-    live: ChatMessage,
-    snapshot: ChatMessage,
-): ChatMessage {
-    if (snapshot.completedAt != null) return snapshot
-    val livePartsById = live.parts.associateBy { it.id }
-    val merged = snapshot.parts.map { part -> livePartsById[part.id]?.let { fresherPart(it, part) } ?: part }
-    val snapshotIds = snapshot.parts.map { it.id }.toSet()
-    return live.copy(parts = merged + live.parts.filter { it.id !in snapshotIds })
-}
-
-private fun fresherPart(
-    live: ChatPart,
-    snapshot: ChatPart,
-): ChatPart {
-    fun ahead(
-        liveText: String,
-        snapshotText: String,
-    ) = snapshotText.length > liveText.length && snapshotText.startsWith(liveText)
-    return when {
-        live is ChatPart.Text && snapshot is ChatPart.Text -> if (ahead(live.text, snapshot.text)) snapshot else live
-        live is ChatPart.Reasoning && snapshot is ChatPart.Reasoning -> if (ahead(live.text, snapshot.text)) snapshot else live
-        // An early delta is kept as text until its part says it was reasoning.
-        live is ChatPart.Text && snapshot is ChatPart.Reasoning ->
-            if (ahead(
-                    live.text,
-                    snapshot.text,
-                )
-            ) {
-                snapshot
-            } else {
-                snapshot.copy(text = live.text)
-            }
-        snapshot is ChatPart.Tool && (snapshot.status == ToolStatus.COMPLETED || snapshot.status == ToolStatus.ERROR) -> snapshot
-        else -> live
-    }
-}
-
-/**
- * Rebuilds the timeline from the runtime's persisted transcript, keeping what only this client has.
- *
- * [retainIds] names messages streamed here that the transcript may not carry yet. A turn interrupted
- * by a replacement prompt is finalized asynchronously, and some runtimes never persist its partial
- * output at all; reloading wholesale dropped the bubble the user had been reading, so anything
- * listed here survives until the transcript produces its own copy under the same id (which then
- * wins, keeping the two from doubling up).
- */
-internal fun mergeReloadedMessages(
-    reloaded: List<ChatMessage>,
-    existing: List<ChatMessage>,
-    previewsByFilename: Map<String, Bitmap> = emptyMap(),
-    retainIds: Set<String> = emptySet(),
-): List<ChatMessage> {
-    // Nothing persisted yet means nothing to reconcile against: keeping what is on screen is both
-    // correct and what callers did with an empty result before this could ever retain anything.
-    if (reloaded.isEmpty()) return existing
-    val usedExisting = mutableSetOf<Int>()
-    val merged =
-        reloaded.map { message ->
-            val existingIndex =
-                existing.indices.firstOrNull { it !in usedExisting && existing[it].id == message.id }
-                    ?: existing.indices.firstOrNull { index ->
-                        val candidate = existing[index]
-                        index !in usedExisting &&
-                            message.isUser && candidate.isUser &&
-                            candidate.text == message.text &&
-                            (message.text.isNotBlank() || candidate.attachments.isNotEmpty())
-                    }
-            val previous = existingIndex?.let { index -> existing[index].also { usedExisting += index } }
-            val reloadedImages = message.attachments.filter { it.mime.startsWith("image/") }
-            val reloadedImageNames = reloadedImages.map { it.filename }.toSet()
-            // A runtime that echoes the prompt back (Codex) rebuilds the image attachment from the
-            // data URL it was sent, under a filename of its own: matching by filename alone would
-            // read that image as "missing from the transcript" and append the optimistic copy,
-            // showing it twice. The URL is the same bytes either way, so it is the reliable key.
-            val reloadedImageUrls = reloadedImages.map { it.url }.toSet()
-            val missingImages =
-                previous?.attachments.orEmpty().filter {
-                    it.mime.startsWith("image/") &&
-                        it.filename !in reloadedImageNames &&
-                        it.url !in reloadedImageUrls
-                }
-            val attachments = message.attachments + missingImages
-            val previews =
-                previous?.imagePreviews.orEmpty().ifEmpty {
-                    attachments.mapNotNull { previewsByFilename[it.filename] }
-                }
-            message.copy(attachments = attachments, imagePreviews = previews)
-        }.toMutableList()
-    if (retainIds.isNotEmpty()) {
-        val reloadedIds = reloaded.map { it.id }.toSet()
-        existing
-            .asSequence()
-            .filter { message ->
-                !message.isUser && message.parts.isNotEmpty() && message.id in retainIds && message.id !in reloadedIds
-            }
-            .forEach { message ->
-                // The bubble belongs where it streamed, ahead of everything that came after it,
-                // not pinned to the bottom of a timeline that has moved on.
-                val index = merged.indexOfFirst { it.timestamp > message.timestamp }
-                if (index >= 0) {
-                    merged.add(index, message)
-                } else {
-                    merged.add(message)
-                }
-            }
-    }
-    return merged
-}
-
-data class PendingQuestionUi(
-    val request: QuestionRequest,
-    val selectedAnswers: List<List<String>>,
-    val isSubmitting: Boolean = false,
-    val error: String? = null,
-) {
-    val canSubmit: Boolean
-        get() =
-            request.questions.indices.all { index ->
-                val prompt = request.questions[index]
-                sanitizeQuestionAnswer(
-                    prompt = prompt,
-                    answers = selectedAnswers.getOrElse(index) { emptyList() },
-                    multiple = prompt.multiple,
-                ).isNotEmpty()
-            }
-
-    companion object {
-        fun from(request: QuestionRequest) =
-            PendingQuestionUi(
-                request = request,
-                selectedAnswers = request.questions.map { emptyList() },
-            )
-    }
-}
-
-private const val MAX_TOOL_OUTPUT_CHARS = 4000
 internal const val RESPONSE_POLL_INTERVAL_MS = 3000L
 
 /**
@@ -323,8 +72,6 @@ private const val TRANSIENT_RECOVERY_MAX_BACKOFF_MS = 30_000L
 private const val TRANSIENT_RECOVERY_MAX_ATTEMPTS = 20
 private const val HEALTH_CHECK_ATTEMPTS = 15
 private const val HEALTH_CHECK_DELAY_MS = 2000L
-private const val PENDING_QUESTION_REFRESH_ATTEMPTS = 3
-private const val PENDING_QUESTION_REFRESH_RETRY_DELAY_MS = 3000L
 
 /**
  * How long a run may produce nothing before the chat stops taking it on faith and asks the runtime
@@ -360,16 +107,6 @@ internal const val RESYNC_AFTER_AWAY_MS = 10_000L
  */
 internal const val STALL_RECHECK_INTERVAL_MS = 300_000L
 
-/** Floor between transcript scans for pull request links, so streaming does not drive them. */
-private const val PULL_REQUEST_SCAN_THROTTLE_MS = 300L
-
-/** One refresh of the meter: tokens in the window, the window's size when the agent reported it (else 0), and the totals. */
-private data class ContextReading(
-    val used: Long,
-    val window: Long,
-    val usage: SessionUsage?,
-)
-
 private data class QueuedPrompt(
     val text: String,
     val attachments: List<PromptAttachment>,
@@ -386,390 +123,6 @@ private data class QueuedPrompt(
     /** Names it for the actions on the queue above the composer. */
     val id: String = UUID.randomUUID().toString(),
 )
-
-/** A prompt waiting for the running turn, as the queue above the composer shows it. */
-data class QueuedPromptView(
-    val id: String,
-    val text: String,
-    val attachmentCount: Int,
-)
-
-/** What the user can do with a prompt waiting for the running turn; see [ChatViewModel.sendQueuedPromptNow]. */
-data class QueuedPromptActions(
-    val onSendNow: (String) -> Unit = {},
-    val onEdit: (String) -> Unit = {},
-    val onRemove: (String) -> Unit = {},
-)
-
-internal fun OpenCodePart.toChatPart(messageId: String): ChatPart? {
-    val partId = id ?: return null
-    val stateMap = state.orEmpty()
-    return when (type) {
-        "text" -> ChatPart.Text(partId, text.orEmpty())
-        "reasoning" -> ChatPart.Reasoning(partId, extractReasoningText(text, stateMap))
-        "file", "image" -> {
-            val partUrl = url.orEmpty()
-            val partMime = imageMime(mime, partUrl)
-            if (partMime != null && partUrl.isNotBlank()) {
-                ChatPart.Image(id = partId, mime = partMime, url = partUrl, filename = filename)
-            } else {
-                null
-            }
-        }
-        "tool" -> {
-            val inputText = formatToolInput(stateMap["input"])
-            val rawOutput = stateMap["output"]?.jsonPrimitiveOrNull()
-            val truncated = rawOutput != null && rawOutput.length > MAX_TOOL_OUTPUT_CHARS
-            val toolName = tool ?: "tool"
-            val parsedTodos = if (toolName == "todowrite") parseTodosFromInput(stateMap["input"]) else emptyList()
-            val status = parseToolStatus(stateMap["status"]?.jsonPrimitiveOrNull())
-            // A write that failed left no file to show, so it names none for the artifact list.
-            val writesFiles = toolName.lowercase() in WRITING_TOOLS && status != ToolStatus.ERROR
-            ChatPart.Tool(
-                id = partId,
-                name = toolName,
-                status = status,
-                title =
-                    stateMap["title"]?.jsonPrimitiveOrNull()?.takeIf { it.isNotBlank() }
-                        ?: inputText?.lineSequence()?.firstOrNull(),
-                input = inputText,
-                output = if (truncated) rawOutput?.takeLast(MAX_TOOL_OUTPUT_CHARS) else rawOutput,
-                outputTruncated = truncated,
-                error = stateMap["error"]?.jsonPrimitiveOrNull(),
-                todos = parsedTodos,
-                filePaths = if (writesFiles) toolFilePaths(stateMap["input"]) else emptyList(),
-            )
-        }
-        "patch" -> ChatPart.Patch(partId, extractPatchFiles(stateMap), messageId)
-        else -> null
-    }
-}
-
-/**
- * Reasoning text is normally the part's top-level `text`, but some servers and OpenAI-compatible
- * providers persist it under `state` instead (e.g. `state.reasoningDetails[*].text`) while leaving
- * the top level empty. Without this fallback every such part rendered as a "Thinking" card that
- * showed nothing when expanded.
- */
-internal fun extractReasoningText(
-    topLevelText: String?,
-    state: Map<String, JsonElement>,
-): String {
-    if (!topLevelText.isNullOrBlank()) return topLevelText
-    state["text"]?.jsonPrimitiveOrNull()?.takeIf { it.isNotBlank() }?.let { return it }
-    state["content"]?.jsonPrimitiveOrNull()?.takeIf { it.isNotBlank() }?.let { return it }
-    state["reasoning"]?.jsonPrimitiveOrNull()?.takeIf { it.isNotBlank() }?.let { return it }
-    for (key in listOf("reasoningDetails", "reasoning_details", "details")) {
-        extractReasoningDetailsText(state[key])?.takeIf { it.isNotBlank() }?.let { return it }
-    }
-    return ""
-}
-
-private fun extractReasoningDetailsText(element: JsonElement?): String? {
-    val array = element as? JsonArray ?: return null
-    val texts =
-        array.mapNotNull { entry ->
-            val obj = entry as? JsonObject ?: return@mapNotNull null
-            obj["text"]?.jsonPrimitiveOrNull()?.takeIf { it.isNotBlank() }
-                ?: obj["content"]?.jsonPrimitiveOrNull()?.takeIf { it.isNotBlank() }
-                ?: obj["summary"]?.jsonPrimitiveOrNull()?.takeIf { it.isNotBlank() }
-        }
-    return texts.joinToString("").takeIf { it.isNotBlank() }
-}
-
-/** Image-producing tools do not consistently include a MIME field in their file parts. */
-internal fun imageMime(
-    declaredMime: String?,
-    url: String,
-): String? {
-    declaredMime?.takeIf { it.startsWith("image/") }?.let { return it }
-    // A data URL has no file extension to read: the payload is base64, and looking for one inside it
-    // copied the whole payload (see dataImageMime).
-    if (url.startsWith("data:")) return dataImageMime(url)
-    val extension = url.substringBefore('?').substringBefore('#').substringAfterLast('.').lowercase()
-    return when (extension) {
-        "png" -> "image/png"
-        "jpg", "jpeg" -> "image/jpeg"
-        "webp" -> "image/webp"
-        "gif" -> "image/gif"
-        "bmp" -> "image/bmp"
-        "svg" -> "image/svg+xml"
-        else -> null
-    }
-}
-
-/**
- * Maps an index into [ChatUiState.attachments] onto its index in [ChatUiState.imagePreviews],
- * or null when the attachment carries no preview.
- *
- * The two lists are not parallel: a file picked with the paperclip appends an attachment without a
- * preview bitmap, so the previews line up with the *image* attachments in attachment order rather
- * than with every attachment. Removing attachment 2 must not drop preview 2 when the images sit at
- * different offsets.
- */
-internal fun previewIndexForAttachment(
-    attachments: List<PromptAttachment>,
-    attachmentIndex: Int,
-): Int? {
-    val attachment = attachments.getOrNull(attachmentIndex) ?: return null
-    if (!attachment.mime.startsWith("image/")) return null
-    return attachments.take(attachmentIndex).count { it.mime.startsWith("image/") }
-}
-
-/** Inverse of [previewIndexForAttachment]: the attachment behind the preview thumbnail at [previewIndex]. */
-internal fun attachmentIndexForPreview(
-    attachments: List<PromptAttachment>,
-    previewIndex: Int,
-): Int? = attachments.indices.filter { attachments[it].mime.startsWith("image/") }.getOrNull(previewIndex)
-
-/**
- * Appends the message-level error reported by the runtime when the turn itself carries no error
- * part. A failed provider request is persisted with the error on the message (`info.error`) and
- * often nothing else, so without this the transcript would silently drop the failed turn.
- *
- * User-initiated aborts are excluded: OpenCode records them as `MessageAbortedError`, and stopping
- * a turn is not a failure the chat should flag red.
- */
-internal fun List<ChatPart>.withMessageError(
-    messageId: String,
-    error: OpenCodeMessageError?,
-): List<ChatPart> {
-    if (error == null || error.isAbort) return this
-    val message = error.message ?: return this
-    if (any { it is ChatPart.Error }) return this
-    return this + ChatPart.Error("$messageId-error", message)
-}
-
-private fun JsonElement.jsonPrimitiveOrNull(): String? = (this as? JsonPrimitive)?.contentOrNull ?: (this as? JsonPrimitive)?.content
-
-private fun parseToolStatus(value: String?): ToolStatus =
-    when (value) {
-        "pending" -> ToolStatus.PENDING
-        "running" -> ToolStatus.RUNNING
-        "completed" -> ToolStatus.COMPLETED
-        "error" -> ToolStatus.ERROR
-        else -> ToolStatus.UNKNOWN
-    }
-
-private fun formatToolInput(input: JsonElement?): String? {
-    val obj = input as? JsonObject ?: return null
-    if (obj.isEmpty()) return null
-    obj["command"]?.jsonPrimitiveOrNull()?.let { return it }
-    obj["filePath"]?.jsonPrimitiveOrNull()?.let { path ->
-        val extra = obj.entries.filterNot { it.key == "filePath" }
-        return if (extra.isEmpty()) {
-            path
-        } else {
-            path + "\n" + extra.joinToString("\n") { (key, value) -> "$key: ${value.jsonPrimitiveOrNull() ?: value}" }
-        }
-    }
-    return obj.entries.joinToString("\n") { (key, value) -> "$key: ${value.jsonPrimitiveOrNull() ?: value}" }
-}
-
-private fun parseTodosFromInput(input: JsonElement?): List<TodoItem> {
-    val obj = input as? JsonObject ?: return emptyList()
-    val todosArray = obj["todos"] as? JsonArray ?: return emptyList()
-    return todosArray.mapNotNull { element ->
-        val todoObj = element as? JsonObject ?: return@mapNotNull null
-        TodoItem(
-            content = todoObj["content"]?.jsonPrimitiveOrNull() ?: return@mapNotNull null,
-            status = todoObj["status"]?.jsonPrimitiveOrNull() ?: "pending",
-            priority = todoObj["priority"]?.jsonPrimitiveOrNull() ?: "medium",
-        )
-    }
-}
-
-private fun extractPatchFiles(state: Map<String, JsonElement>): List<String> {
-    return when (val files = state["files"]) {
-        is JsonArray ->
-            files.mapNotNull { entry ->
-                when (entry) {
-                    is JsonPrimitive -> entry.content
-                    is JsonObject ->
-                        entry["path"]?.jsonPrimitiveOrNull()
-                            ?: entry["file"]?.jsonPrimitiveOrNull()
-                            ?: entry["filename"]?.jsonPrimitiveOrNull()
-                    else -> null
-                }
-            }
-        is Map<*, *> -> files.keys.mapNotNull { it?.toString() }
-        else -> emptyList()
-    }
-}
-
-/** The session a subagent conversation was started from, used to walk back to the main agent. */
-data class ParentSessionRef(
-    val id: String,
-    val title: String = "",
-)
-
-data class ChatUiState(
-    val backendName: String = "",
-    val sessionId: String? = null,
-    /**
-     * Counts chat changes, so a choice captured for one chat is not applied to another.
-     *
-     * A blank chat has no session id to identify it by - that is the whole reason the draft below
-     * exists - so this stands in. A send captures it alongside the draft and the draft is applied
-     * only if it still matches: tapping Send and then starting another blank chat lets that send's
-     * `createSession` land on the new chat, and the abandoned chat's preset must not follow it there.
-     */
-    val chatGeneration: Long = 0,
-    /**
-     * System-prompt preset chosen for this chat before it had a session to record it on.
-     *
-     * A chat's session is not created until its first message, so this holds the composer's choice
-     * until [ChatViewModel] can write it to that session. It lives here, rather than on the agent,
-     * because it belongs to this chat alone: it dies with this view model when the runtime changes,
-     * is cleared when the composer moves to another chat, survives a trip to Settings and back, and
-     * cannot be picked up by a session that some other entry point - a schedule, voice, the
-     * quick-input widget - happens to create in the meantime.
-     */
-    val draftSystemPrompt: StagedSystemPrompt? = null,
-    val sessionTitle: String = "",
-    /** Non-null while the open session is a subagent session spawned by [ParentSessionRef.id]. */
-    val parentSession: ParentSessionRef? = null,
-    val messages: List<ChatMessage> = emptyList(),
-    val permissions: List<PermissionRequest> = emptyList(),
-    val pendingQuestions: List<PendingQuestionUi> = emptyList(),
-    val isConnected: Boolean = false,
-    val isRunning: Boolean = false,
-    val isLoadingHistory: Boolean = false,
-    val isListening: Boolean = false,
-    val isSpeechProcessing: Boolean = false,
-    val isThinking: Boolean = false,
-    val isSpeaking: Boolean = false,
-    val partialText: String = "",
-    val autoAcceptPermissions: Boolean = false,
-    val contextTokensUsed: Long = 0L,
-    /**
-     * The window size the agent itself reported for this chat (Codex), which the meter measures
-     * against; 0 where the model's listed limit is used instead.
-     */
-    val contextWindow: Long = 0L,
-    /** What this chat has used so far; null until a turn reports tokens. */
-    val sessionUsage: SessionUsage? = null,
-    val selectedVariant: String? = null,
-    /**
-     * Whether the selected model offers Codex's fast service tier. Only Codex sets this, and only
-     * for a model that lists the tier, so the toggle is hidden everywhere else.
-     */
-    val fastModeAvailable: Boolean = false,
-    /** Effective fast-mode state: the user's choice, or the model's own default when there is none. */
-    val fastModeEnabled: Boolean = false,
-    /** The server's own description of the fast tier, read out by screen readers on the Fast chip. */
-    val fastModeDescription: String? = null,
-    /**
-     * Whether the selected model can run in Claude Code's ultracode. Only Claude Code sets this, and
-     * only for a model the CLI allows it on, so the switch is hidden everywhere else.
-     */
-    val ultracodeAvailable: Boolean = false,
-    /** Effective ultracode state: on only when available and the user turned it on. */
-    val ultracodeEnabled: Boolean = false,
-    val attachments: List<PromptAttachment> = emptyList(),
-    val imagePreviews: List<Bitmap> = emptyList(),
-    val selectedProviderId: String? = null,
-    val selectedModelId: String? = null,
-    val selectedAgentId: String? = null,
-    val selectedWorkspacePath: String? = null,
-    /** Workspace directory of the open session, learned from the backend when it was opened. */
-    val sessionDirectory: String? = null,
-    val slashCommands: List<OpenCodeCommand> = emptyList(),
-    val slashSkills: List<OpenCodeSkill> = emptyList(),
-    val offlineQueue: List<String> = emptyList(),
-    val isOfflineQueued: Boolean = false,
-    val connectionQuality: ConnectionQuality? = null,
-    /** Pull requests linked in this chat, newest first, for the badges above the composer. */
-    val pullRequests: List<ChatPullRequest> = emptyList(),
-    /**
-     * Id of the [TimelineEntry.Todo] the user closed with the sticky bar's dismiss button.
-     * [groupConversationTimeline] gives each `todowrite` update a distinct entry id -- even ones
-     * that reuse a tool part id across a retry -- so the next task list always gets an id
-     * different from this one and reopens the bar instead of staying suppressed for the rest of
-     * the session.
-     */
-    val dismissedTodoBarId: String? = null,
-    /**
-     * Set while the running turn has gone quiet for longer than [STALL_THRESHOLD_MS], carrying the
-     * best available answer to "is this still working, and if not, why not".
-     */
-    val stall: StallDiagnosis? = null,
-    /**
-     * Set while the runtime is waiting out a failing provider call before trying it again, and
-     * cleared by the first output of the run or its end. Without it a rate-limited or overloaded
-     * model looks exactly like a slow one: the chat sits on "Thinking" for as long as the retries
-     * last, which has no upper bound.
-     */
-    val retry: RunRetry? = null,
-    /**
-     * What the running turn is doing that is not output: compacting the conversation, or answering
-     * with a fallback model. Cleared at the end of the run; compacting also when it ends or output starts.
-     */
-    val runActivity: RunActivity? = null,
-    /** True when the agent can say how its context window is split, so the context meter opens that. */
-    val contextBreakdownAvailable: Boolean = false,
-    /** The context window sheet the meter opens: hidden, being asked for, shown, or not available now. */
-    val contextBreakdown: ContextBreakdownState = ContextBreakdownState.Hidden,
-    /** True when the agent compacts a chat on request, so the context window sheet offers it. */
-    val compactAvailable: Boolean = false,
-    val error: String? = null,
-    /**
-     * Set by [ChatViewModel.editLastUserMessage] to the text of the message it just removed, so the
-     * composer can drop it back into the input for editing. One-shot: the screen clears it with
-     * [ChatViewModel.consumeEditDraft] once it has copied the text into its own input state, the
-     * same handoff [partialText] uses for dictation.
-     */
-    val editDraft: String? = null,
-    /**
-     * True when [editDraft] is a held prompt taken back from the queue: it joins what the user is
-     * typing instead of replacing it.
-     */
-    val editDraftJoinsInput: Boolean = false,
-    /**
-     * Prompts sent while a turn runs and held until it ends (send behaviour "queue", and always for a
-     * runtime that cannot interrupt), for this chat only, oldest first.
-     */
-    val queuedPrompts: List<QueuedPromptView> = emptyList(),
-    /** False where the running turn cannot be interrupted (Antigravity), so "Send now" is not offered. */
-    val canSendQueuedNow: Boolean = true,
-    /** The diff dialog open on a tapped [ChatPart.Patch] card, or null when none is open. */
-    val patchDiff: PatchDiffState? = null,
-    /** The artifact open in the preview, or null when none is. */
-    val artifactPreview: ArtifactPreviewState? = null,
-    /**
-     * The message the chat is rewound to, set by [ChatViewModel.rewindTo]: that message and every
-     * later one are hidden, and the files are as they were before it, until [ChatViewModel.undoRewind]
-     * or the next message (which makes the rewind permanent).
-     */
-    val rewoundFrom: String? = null,
-    /** True while a rewind or its undo is on its way, so the controls wait for it. */
-    val isRewinding: Boolean = false,
-    /** Files put back from a turn snapshot, with the token that undoes it; see [TurnSnapshots]. */
-    val fileRestore: FileRestore? = null,
-    val isRestoringFiles: Boolean = false,
-) {
-    /** The transcript as the chat shows it: everything before [rewoundFrom]. */
-    val visibleMessages: List<ChatMessage>
-        get() = rewoundFrom?.let { id -> messages.takeWhile { it.id != id } } ?: messages
-}
-
-/**
- * The `serviceTier` a prompt carries for a model whose fast tier is [fastTier], given the user's
- * [fastMode] choice: null when the model has no fast tier or the choice still follows the model's
- * default (Codex decides), the tier when fast mode is on, and `"default"` when it was turned off on a
- * model that would otherwise run fast.
- */
-internal fun codexServiceTier(
-    fastTier: String?,
-    fastMode: Boolean?,
-): String? {
-    fastTier ?: return null
-    return when (fastMode) {
-        null -> null
-        true -> fastTier
-        false -> "default"
-    }
-}
 
 class ChatViewModel(
     private val backend: OpenCodeBackend? = null,
@@ -879,16 +232,38 @@ class ChatViewModel(
     private val _workspaceTitleSource = MutableStateFlow("title")
     val workspaceTitleSource: StateFlow<String> = _workspaceTitleSource.asStateFlow()
 
-    private val pullRequestRefs = MutableStateFlow<List<PullRequestRef>>(emptyList())
+    private val pullRequestBadges = PullRequestBadges(viewModelScope, _uiState, pullRequestStatuses)
 
-    /**
-     * Pull requests the user hid with [dismissPullRequest]. Scanning re-derives the refs from the
-     * transcript on every message change, so without this set every refetch would put the dismissed
-     * badge back. Like [dismissedQuestionIds] it is cleared when the composer moves to another chat:
-     * the dismissal belongs to the chat it was made in, and opening a chat is an explicit act of
-     * attention that offers its badges again.
-     */
-    private val dismissedPullRequestKeys = mutableSetOf<String>()
+    private val voice = ChatVoice(_uiState)
+
+    private val systemPrompt = SystemPromptDraft(_uiState, onApplySystemPrompt)
+
+    private val contextUsage = ContextUsage(backend, viewModelScope, _uiState, priceCatalog)
+
+    private val restorePoints =
+        RestorePoints(viewModelScope, _uiState, turnSnapshots, restoreFailedMessage, restoreRefusedMessage) { drainHeldPrompts() }
+
+    private val rewind =
+        ChatRewind(
+            backend = backend,
+            scope = viewModelScope,
+            uiState = _uiState,
+            rewindNothingMessage = rewindNothingMessage,
+            reportError = { reportError(it) },
+            onSettled = { drainHeldPrompts() },
+        )
+
+    private val messageEdit =
+        ChatMessageEdit(backend, viewModelScope, _uiState, toUiMessage = { toUiMessage(it) }, reportError = { reportError(it) })
+
+    private val previews = ChatPreviews(backend, viewModelScope, _uiState, turnSnapshots, restorePoints)
+
+    private val permissions = ChatPermissions(backend, viewModelScope, _uiState, onPermissionResolved)
+
+    private val questions = ChatQuestions(backend, viewModelScope, _uiState, onQuestionResolved)
+
+    private val modelSelection =
+        ModelSelection(_uiState, onCodexFastModeChanged, initialCodexFastMode, onClaudeUltracodeChanged, initialClaudeUltracode)
 
     /**
      * Sessions whose idles currently belong to a run this chat interrupted rather than to the prompt
@@ -905,34 +280,12 @@ class ChatViewModel(
     private val offlineMessageQueue = MutableStateFlow<List<QueuedPrompt>>(emptyList())
 
     private var eventJob: Job? = null
-    private var tts: TextToSpeech? = null
-    private var contextLimit: Long = 0L
-
-    /** Codex fast-mode user choice; null follows the selected model's own default. */
-    private var codexFastMode: Boolean? = initialCodexFastMode
-
-    /** The user's ultracode choice; it applies only while the selected model supports it. */
-    private var claudeUltracode: Boolean = initialClaudeUltracode
-
-    /** Whether the selected model can run in ultracode. */
-    private var selectedUltracodeAvailable: Boolean = false
-
-    /** The selected model's Codex fast tier id, or null when that model offers no fast mode. */
-    private var selectedFastServiceTier: String? = null
-
-    /** Whether the selected model's Codex fast tier is on by default. */
-    private var selectedFastByDefault: Boolean = false
     private var recoveringTransiently = false
     private val streamedParts = mutableMapOf<String, LinkedHashMap<String, ChatPart>>()
 
     /** Message id to role, learned from `message.updated`, so user echoes can be skipped. */
     private val messageRoles = mutableMapOf<String, String>()
 
-    /**
-     * Questions the user hid with [dismissQuestion]. A recovery fetch must not resurrect them:
-     * they are still open server-side, so without this every refetch would put the card back.
-     */
-    private val dismissedQuestionIds = mutableSetOf<String>()
     private val connectionMonitor = ConnectionQualityMonitor(viewModelScope, awaitForeground = awaitForeground)
 
     // The three fields below are read and written only from the main thread: every writer is either
@@ -992,21 +345,13 @@ class ChatViewModel(
     private var lastIdleSettledAtMillis = 0L
 
     init {
-        pullRequestStatuses?.let(::trackPullRequests)
+        pullRequestStatuses?.let(pullRequestBadges::track)
         streamErrorFlow?.let { flow ->
             viewModelScope.launch { flow.collect { streamError = it } }
         }
         // A permission answered from the notification (or the activity screen) never comes back
         // as an event, so without this the chat keeps showing a card for a settled request.
-        resolvedPermissionFlow?.let { flow ->
-            viewModelScope.launch {
-                flow.collect { permissionId ->
-                    _uiState.update { state ->
-                        state.copy(permissions = state.permissions.filterNot { it.id == permissionId })
-                    }
-                }
-            }
-        }
+        resolvedPermissionFlow?.let(permissions::followResolvedElsewhere)
         if (backend != null) {
             // The open chat's held prompts, for the queue above the composer: the queue itself is shared by
             // every chat this view model has shown.
@@ -1147,42 +492,10 @@ class ChatViewModel(
     }
 
     /**
-     * Keeps the pull request badges above the composer in step with the transcript.
-     *
-     * Scanning is conflated rather than run per update: a streaming answer rewrites the message
-     * list many times a second, and the links it contains do not change that fast. State and links
-     * are combined separately so a badge appears the moment its link is printed, then fills in with
-     * the diff size and state once GitHub answers.
-     */
-    private fun trackPullRequests(statuses: PullRequestStatusRepository) {
-        viewModelScope.launch {
-            uiState
-                .map { it.messages }
-                .distinctUntilChanged()
-                .conflate()
-                .collect { messages ->
-                    val refs = pullRequestRefsIn(messages).filterNot { it.key in dismissedPullRequestKeys }
-                    pullRequestRefs.value = refs
-                    statuses.track(refs)
-                    delay(PULL_REQUEST_SCAN_THROTTLE_MS)
-                }
-        }
-        viewModelScope.launch {
-            combine(pullRequestRefs, statuses.statuses) { refs, byKey ->
-                refs.map { ref -> ChatPullRequest(ref, byKey[ref.key]) }
-            }
-                .distinctUntilChanged()
-                .collect { pullRequests -> _uiState.update { it.copy(pullRequests = pullRequests) } }
-        }
-    }
-
-    /**
      * Refetches any pull request state that has gone stale. The chat screen calls this on a timer
      * while it is on screen, so a badge follows a pull request that is merged or closed elsewhere.
      */
-    fun refreshPullRequests() {
-        pullRequestStatuses?.track(pullRequestRefs.value)
-    }
+    fun refreshPullRequests() = pullRequestBadges.refresh()
 
     /**
      * Hides one pull request's badges above the composer. Nothing server-side tracks this — the
@@ -1190,10 +503,7 @@ class ChatViewModel(
      * local "stop showing me this": the ref is dropped here, which also stops the periodic refresh
      * from fetching its state, and stays dismissed for as long as this chat is open.
      */
-    fun dismissPullRequest(key: String) {
-        dismissedPullRequestKeys += key
-        pullRequestRefs.value = pullRequestRefs.value.filterNot { it.key == key }
-    }
+    fun dismissPullRequest(key: String) = pullRequestBadges.dismiss(key)
 
     /**
      * Loads the backend's slash commands and skills so the composer's `/` popup can offer them.
@@ -1230,75 +540,24 @@ class ChatViewModel(
         fastByDefault: Boolean = false,
         fastDescription: String? = null,
         ultracodeAvailable: Boolean = false,
-    ) {
-        this.contextLimit = contextLimit
-        selectedFastServiceTier = fastServiceTier
-        selectedFastByDefault = fastByDefault
-        selectedUltracodeAvailable = ultracodeAvailable
-        _uiState.update {
-            val modelChanged = providerId != it.selectedProviderId || modelId != it.selectedModelId
-            it.copy(
-                selectedProviderId = providerId,
-                selectedModelId = modelId,
-                selectedAgentId = agentId,
-                // A reasoning-effort variant belongs to the model that offered it, not to the chat
-                // session, so carrying it across a model switch can silently apply an effort the new
-                // model never listed - AntigravityModels.cliArgs in particular reads a leftover
-                // variant straight off whatever provider set it last, for any model whose id has no
-                // effort baked in.
-                selectedVariant = if (modelChanged) null else it.selectedVariant,
-                fastModeDescription = fastDescription,
-            )
-        }
-        refreshFastMode()
-        refreshUltracode()
-    }
-
-    private fun refreshUltracode() {
-        _uiState.update {
-            it.copy(
-                ultracodeAvailable = selectedUltracodeAvailable,
-                ultracodeEnabled = selectedUltracodeAvailable && claudeUltracode,
-            )
-        }
-    }
+    ) = modelSelection.selectConfiguration(
+        providerId,
+        modelId,
+        agentId,
+        contextLimit,
+        fastServiceTier,
+        fastByDefault,
+        fastDescription,
+        ultracodeAvailable,
+    )
 
     /** Sets the Claude Code ultracode choice and persists it. It takes effect from the next message. */
-    fun setUltracode(enabled: Boolean) {
-        claudeUltracode = enabled
-        onClaudeUltracodeChanged(enabled)
-        refreshUltracode()
-    }
-
-    /**
-     * Derives the three fast-mode fields from the model and the user's choice. Fast mode exists only
-     * for a model that lists a fast tier, so every other model reads as unavailable.
-     */
-    private fun refreshFastMode() {
-        val available = selectedFastServiceTier != null
-        _uiState.update {
-            it.copy(
-                fastModeAvailable = available,
-                fastModeEnabled = available && (codexFastMode ?: selectedFastByDefault),
-            )
-        }
-    }
+    fun setUltracode(enabled: Boolean) = modelSelection.setUltracode(enabled)
 
     /**
      * Sets the Codex fast-mode choice and persists it. Passing null returns to the model's default.
      */
-    fun setFastMode(enabled: Boolean?) {
-        codexFastMode = enabled
-        onCodexFastModeChanged(enabled)
-        refreshFastMode()
-    }
-
-    /**
-     * The `serviceTier` for a prompt on the selected model: null when fast mode is unavailable or
-     * still follows the default (Codex then chooses), the model's fast tier when the user turned it
-     * on, and `"default"` when they turned it off on a model that would otherwise be fast.
-     */
-    private fun serviceTierForPrompt(): String? = codexServiceTier(selectedFastServiceTier, codexFastMode)
+    fun setFastMode(enabled: Boolean?) = modelSelection.setFastMode(enabled)
 
     fun setAutoAcceptPermissions(enabled: Boolean) {
         _uiState.update { it.copy(autoAcceptPermissions = enabled) }
@@ -1376,47 +635,6 @@ class ChatViewModel(
         }
     }
 
-    private fun refreshContextUsage(sessionId: String) {
-        val currentBackend = backend ?: return
-        // Captured for staleness: a fetch for chat A landing after the switch to chat B wrote
-        // A's usage into B, and B's >=90% reading then fired summarizeSession against B.
-        val generation = _uiState.value.chatGeneration
-        viewModelScope.launch {
-            runCatching {
-                // The indicator (and the >=90% summarize gate below) must read the context
-                // window's occupancy, which only the last assistant message's usage reports:
-                // `input + cache.read` of that single LLM call. The session endpoint aggregates
-                // the same fields over every turn of the session - with prompt caching each turn
-                // re-reads the whole prefix, so that sum grows by roughly a window per turn and
-                // reached "800k/1.0M" within minutes of real usage. Summed lifetime tokens made
-                // shouldSummarizeBeforePrompt fire before every prompt, and each summarize turn
-                // then added another window's worth to the sum: a self-amplifying loop. The
-                // session number is therefore only a fallback for sessions whose messages carry
-                // no tokens at all (there it is ~0 anyway), never the primary source.
-                val messages = currentBackend.listMessages(sessionId)
-                val usage = summarizeSessionUsage(messages, priceCatalog())
-                // An agent that reports its window's fill itself (Codex) is taken at its word.
-                val reported = runCatching { currentBackend.contextUsage(sessionId) }.getOrNull()
-                val used =
-                    reported?.usedTokens
-                        ?: messages
-                            .asReversed()
-                            .firstNotNullOfOrNull { message ->
-                                message.info.tokens?.contextUsed
-                                    ?.takeIf { !message.info.role.equals("user", ignoreCase = true) }
-                            }
-                        ?: currentBackend.session(sessionId).tokens?.contextUsed
-                        ?: 0L
-                ContextReading(used, reported?.windowTokens ?: 0L, usage)
-            }.onSuccess { reading ->
-                if (_uiState.value.chatGeneration != generation) return@onSuccess
-                _uiState.update {
-                    it.copy(contextTokensUsed = reading.used, contextWindow = reading.window, sessionUsage = reading.usage)
-                }
-            }
-        }
-    }
-
     /**
      * Shows a chat's new name in the header when that chat is the one open. Renames come from outside
      * (the drawer or the ⋮ menu, through the chat lifecycle), and an on-device runtime sends no event
@@ -1461,8 +679,8 @@ class ChatViewModel(
         lastIdleSettledSessionId = null
         // Opening the chat is an explicit act of attention, so questions the user hid earlier are
         // offered again rather than staying suppressed by a stale dismissal.
-        dismissedQuestionIds.clear()
-        dismissedPullRequestKeys.clear()
+        questions.forgetDismissals()
+        pullRequestBadges.forgetDismissals()
         _uiState.update {
             it.copy(
                 sessionId = sessionId,
@@ -1494,8 +712,8 @@ class ChatViewModel(
             )
         }
         if (parent == null) resolveParentSession(sessionId)
-        refreshRewind(sessionId)
-        refreshPendingQuestions(sessionId)
+        rewind.refreshRewind(sessionId)
+        questions.refreshPendingQuestions(sessionId)
         // Captured after the generation bump above: the history fetch below is async, and a
         // quick switch to another chat must not land THIS chat's transcript under THAT one's
         // title (the merge drops the other chat's unmatched bubbles).
@@ -1518,7 +736,7 @@ class ChatViewModel(
                             )
                         }
                     }
-                    if (_uiState.value.chatGeneration == generation) refreshContextUsage(sessionId)
+                    if (_uiState.value.chatGeneration == generation) contextUsage.refresh(sessionId)
                 }
                 .onFailure { error ->
                     if (_uiState.value.chatGeneration != generation) return@onFailure
@@ -1573,50 +791,15 @@ class ChatViewModel(
      * Recorded on the session when there is one, and held as [ChatUiState.draftSystemPrompt] until
      * the first message creates one when there is not.
      */
-    fun selectSystemPrompt(presetId: String?) {
-        val sessionId = _uiState.value.sessionId
-        if (sessionId == null) {
-            _uiState.update { it.copy(draftSystemPrompt = StagedSystemPrompt(presetId)) }
-            return
-        }
-        onApplySystemPrompt(sessionId, presetId)
-    }
-
-    /**
-     * Writes the preset [draft] onto the session this send just created, and consumes it.
-     *
-     * Called inside the send's own coroutine, before the turn is dispatched, because the send path
-     * reads the session's preset when it builds the process arguments - doing this from a
-     * recomposition instead would race the message it is meant to accompany.
-     *
-     * Only the chat's identity is captured by the caller, not the choice itself: a preset belongs to
-     * a session, not to a turn - `ClaudeCodeTarget` reads one `promptId` off the session record for
-     * every turn it sends - so while the session is still being created there is one choice to make
-     * about it, and the last tap before it exists is that choice. Reading the draft here is what
-     * makes the chip's answer and the session's answer the same thing.
-     *
-     * [generation] is what the caller does capture. If the composer has moved to another chat since,
-     * the session this send just created belongs to that chat, and the abandoned chat's preset would
-     * be applied to a conversation it was never chosen for - so it is dropped instead. The draft is
-     * consumed only once applied, so a failed `createSession` leaves it in place for the retry.
-     */
-    private fun applyDraftSystemPrompt(
-        sessionId: String,
-        generation: Long,
-    ) {
-        if (_uiState.value.chatGeneration != generation) return
-        val draft = _uiState.value.draftSystemPrompt ?: return
-        onApplySystemPrompt(sessionId, draft.id)
-        _uiState.update { it.copy(draftSystemPrompt = null) }
-    }
+    fun selectSystemPrompt(presetId: String?) = systemPrompt.selectSystemPrompt(presetId)
 
     fun newSession() {
         dropNewChatPrompts()
         streamedParts.clear()
         transcriptGeneration++
         messageRoles.clear()
-        dismissedQuestionIds.clear()
-        dismissedPullRequestKeys.clear()
+        questions.forgetDismissals()
+        pullRequestBadges.forgetDismissals()
         pendingInterrupts.clear()
         lastIdleSettledSessionId = null
         _uiState.update {
@@ -1653,58 +836,13 @@ class ChatViewModel(
         }
     }
 
-    /**
-     * Messages a rewind hid when the next message made it permanent. The runtime drops them as it
-     * takes that message, but a transcript fetched in between can still carry them, and they must
-     * not come back.
-     */
-    private val discardedByRewind = mutableSetOf<String>()
-
-    /** The transcript a new message is appended to: a pending rewind becomes permanent here. */
-    private fun keepRewind(state: ChatUiState): List<ChatMessage> {
-        val from = state.rewoundFrom ?: return state.messages
-        discardedByRewind += state.messages.dropWhile { it.id != from }.map { it.id }
-        return state.visibleMessages
-    }
-
-    private fun canRewind(currentBackend: OpenCodeBackend?): Boolean = (currentBackend as? RuntimeTarget)?.capabilities?.checkpoints == true
-
-    /**
-     * The restore or undo still rewriting files. Kept apart from [ChatUiState.isRestoringFiles],
-     * which a chat switch clears for the screen: the files are still being rewritten, so nothing may
-     * be sent until it ends, from whichever chat.
-     */
-    private var restoreJob: Job? = null
-
-    private val restoreInFlight: Boolean
-        get() = _uiState.value.isRestoringFiles || restoreJob?.isActive == true
-
-    /**
-     * Called last by the restore or undo coroutine: it is still active at that point, so it lets go
-     * of [restoreJob] first, or the prompts held for it would see a restore in flight and stay held.
-     */
-    private suspend fun finishRestoreJob() {
-        val self = currentCoroutineContext()[Job]
-        if (restoreJob === self) restoreJob = null
-        drainHeldPrompts()
-    }
-
-    /**
-     * Messages shown while offline, before they were sent. When they do go out they are sent again as
-     * new messages, so counting the placeholders would number every later turn one too high.
-     */
-    private val offlinePlaceholders = mutableSetOf<String>()
-
-    /** [messages] without the offline placeholders, as the turn numbers count them. */
-    private fun sentMessages(messages: List<ChatMessage>): List<ChatMessage> = messages.filterNot { it.id in offlinePlaceholders }
-
     /** How many of the user's messages went out before the one being sent: its turn number. */
-    private fun sentTurns(): Int = keepRewind(_uiState.value).count { it.isUser && it.id !in offlinePlaceholders }
+    private fun sentTurns(): Int = restorePoints.sentTurns(rewind.keepRewind(_uiState.value))
 
     /** Project files for the `@` mention being typed in the composer. */
     val fileMentions =
         FileMentionSearch(viewModelScope) { query ->
-            val directory = snapshotDirectory()
+            val directory = restorePoints.snapshotDirectory()
             val currentBackend = backend
             if (directory == null || currentBackend == null) {
                 emptyList()
@@ -1719,101 +857,19 @@ class ChatViewModel(
             }
         }
 
-    /** The folder the chat's snapshots are taken of: the session's, else the one picked for it. */
-    private fun snapshotDirectory(sessionDirectory: String? = null): String? =
-        _uiState.value.sessionDirectory ?: sessionDirectory ?: _uiState.value.selectedWorkspacePath
-
     /** Whether the files can be put back to how they were before [messageId], a message of the user's. */
-    fun canRestoreFiles(messageId: String): Boolean {
-        val state = _uiState.value
-        val sessionId = state.sessionId
-        val isUserMessage = state.messages.any { it.id == messageId && it.isUser }
-        val turn = turnOf(sentMessages(state.messages), messageId)
-        return turnSnapshots != null && sessionId != null && isUserMessage && turn != null &&
-            turnSnapshots.has(sessionId, turn)
-    }
+    fun canRestoreFiles(messageId: String): Boolean = restorePoints.canRestoreFiles(messageId)
 
     /**
      * Puts the workspace's files back to how they were before [messageId], from the snapshot taken
      * when it was sent. The messages stay: only files change. [undoFileRestore] takes it back.
      */
-    fun restoreFilesTo(messageId: String) {
-        val state = _uiState.value
-        val snapshots = turnSnapshots
-        val sessionId = state.sessionId
-        val directory = snapshotDirectory()
-        val turn = turnOf(sentMessages(state.messages), messageId)
-        if (snapshots == null || sessionId == null) return
-        if (directory == null || turn == null) return
-        if (state.isRunning || restoreInFlight) return
-        _uiState.update { it.copy(isRestoringFiles = true) }
-        restoreJob =
-            viewModelScope.launch {
-                val result = snapshotCall<RestoreResult>(RestoreResult.Failed) { snapshots.restore(sessionId, turn, directory) }
-                _uiState.update {
-                    when {
-                        // The chat changed meanwhile: its Undo must not appear in another one.
-                        it.sessionId != sessionId -> it.copy(isRestoringFiles = false)
-                        result is RestoreResult.Restored ->
-                            it.copy(isRestoringFiles = false, fileRestore = FileRestore(sessionId, directory, result.token))
-                        // Nothing changed, and saying which file is in the way tells the user what to move.
-                        result is RestoreResult.Refused -> it.copy(isRestoringFiles = false, error = restoreRefusedMessage(result.path))
-                        else -> it.copy(isRestoringFiles = false, error = restoreFailedMessage)
-                    }
-                }
-                finishRestoreJob()
-            }
-    }
+    fun restoreFilesTo(messageId: String) = restorePoints.restoreFilesTo(messageId)
 
     /** Takes the last [restoreFilesTo] back: the files return to how they were just before it. */
-    fun undoFileRestore() {
-        val snapshots = turnSnapshots ?: return
-        val restore = _uiState.value.fileRestore ?: return
-        val busy = restoreInFlight || _uiState.value.isRunning
-        if (busy || restore.sessionId != _uiState.value.sessionId) return
-        _uiState.update { it.copy(isRestoringFiles = true) }
-        restoreJob =
-            viewModelScope.launch {
-                val undone = snapshotCall(false) { snapshots.undoRestore(restore.directory, restore.token) }
-                _uiState.update {
-                    when {
-                        undone -> it.copy(isRestoringFiles = false, fileRestore = null)
-                        it.sessionId != restore.sessionId -> it.copy(isRestoringFiles = false)
-                        else -> it.copy(isRestoringFiles = false, error = restoreFailedMessage)
-                    }
-                }
-                finishRestoreJob()
-            }
-    }
+    fun undoFileRestore() = restorePoints.undoFileRestore()
 
-    fun dismissFileRestore() {
-        _uiState.update { it.copy(fileRestore = null) }
-    }
-
-    /** The changes of the turn [patch] belongs to, from its snapshots; empty when there are none. */
-    private suspend fun snapshotChanges(
-        sessionId: String,
-        patch: ChatPart.Patch,
-    ): List<OpenCodeFileChange> {
-        val snapshots = turnSnapshots ?: return emptyList()
-        val directory = snapshotDirectory() ?: return emptyList()
-        val turn = turnOf(sentMessages(_uiState.value.messages), patch.messageId) ?: return emptyList()
-        val changes = snapshotCall(null) { snapshots.turnChanges(sessionId, turn, directory) }.orEmpty()
-        return changesForPatch(changes, patch.files)
-    }
-
-    /**
-     * Picks up a rewind the session already carries - one made on another device, or before the app
-     * was last closed - so the chat hides what the runtime will drop on the next message.
-     */
-    private fun refreshRewind(sessionId: String) {
-        val currentBackend = backend ?: return
-        if (!canRewind(currentBackend)) return
-        viewModelScope.launch {
-            val revert = runCatching { currentBackend.session(sessionId) }.getOrNull()?.revert
-            _uiState.update { if (it.sessionId == sessionId) it.copy(rewoundFrom = revert?.messageId) else it }
-        }
-    }
+    fun dismissFileRestore() = restorePoints.dismissFileRestore()
 
     /**
      * Rewinds the chat to just before [messageId], a message of the user's: the runtime restores
@@ -1824,61 +880,10 @@ class ChatViewModel(
      * when the runtime drops the rewound messages for good. See
      * [com.yugahashimoto.andcode.runtime.RuntimeCapabilities.checkpoints] for which runtimes can.
      */
-    fun rewindTo(messageId: String) {
-        val currentBackend = backend ?: return
-        val state = _uiState.value
-        val sessionId = state.sessionId ?: return
-        if (state.isRunning || state.isRewinding || !canRewind(currentBackend)) return
-        val message = state.messages.firstOrNull { it.id == messageId && it.isUser } ?: return
-        _uiState.update { it.copy(isRewinding = true) }
-        viewModelScope.launch {
-            runCatching { currentBackend.revertSession(sessionId, messageId) }
-                .onSuccess {
-                    // The session says where the rewind really landed; trust that over the request.
-                    // One that answers with no rewind at all rewound nothing (a message the runtime
-                    // never stored, say), and saying the files are back would be untrue. Only a
-                    // session that cannot be read at all falls back to the request.
-                    val session = runCatching { currentBackend.session(sessionId) }
-                    val landed = if (session.isSuccess) session.getOrNull()?.revert?.messageId else messageId
-                    _uiState.update {
-                        when {
-                            it.sessionId != sessionId -> it.copy(isRewinding = false)
-                            landed == null -> it.copy(isRewinding = false, error = rewindNothingMessage)
-                            else -> it.copy(isRewinding = false, rewoundFrom = landed, editDraft = message.text)
-                        }
-                    }
-                }
-                .onFailure { error ->
-                    if (error is CancellationException) throw error
-                    _uiState.update { it.copy(isRewinding = false) }
-                    if (_uiState.value.sessionId == sessionId) reportError(error)
-                }
-            drainHeldPrompts()
-        }
-    }
+    fun rewindTo(messageId: String) = rewind.rewindTo(messageId)
 
-    /** Best effort: a turn without a snapshot only loses its restore point, never the message. */
-    private suspend fun recordTurnSnapshot(
-        sessionId: String,
-        turn: Int,
-        sessionDirectory: String?,
-    ) {
-        val directory = snapshotDirectory(sessionDirectory) ?: return
-        snapshotCall(Unit) { turnSnapshots?.record(sessionId, turn, directory) }
-    }
-
-    /** A snapshot call that fails gives [fallback]; leaving the screen still cancels it. */
-    private suspend fun <T> snapshotCall(
-        fallback: T,
-        block: suspend () -> T,
-    ): T =
-        try {
-            block()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Exception) {
-            fallback
-        }
+    /** Takes a rewind back: the files return to how the chat left them, and so do the messages. */
+    fun undoRewind() = rewind.undoRewind()
 
     /** Sends what queued up while a rewind or file restore was landing, now that things are settled. */
     private fun drainHeldPrompts() {
@@ -1890,30 +895,43 @@ class ChatViewModel(
         }
     }
 
-    /** Takes a rewind back: the files return to how the chat left them, and so do the messages. */
-    fun undoRewind() {
-        val currentBackend = backend ?: return
-        val state = _uiState.value
-        val sessionId = state.sessionId ?: return
-        if (state.rewoundFrom == null || state.isRewinding) return
-        _uiState.update { it.copy(isRewinding = true) }
-        viewModelScope.launch {
-            runCatching { currentBackend.unrevertSession(sessionId) }
-                .onSuccess {
-                    // Whatever a failed send marked as gone is back on the server now.
-                    discardedByRewind.clear()
-                    _uiState.update {
-                        if (it.sessionId == sessionId) it.copy(isRewinding = false, rewoundFrom = null) else it.copy(isRewinding = false)
-                    }
-                }
-                .onFailure { error ->
-                    if (error is CancellationException) throw error
-                    _uiState.update { it.copy(isRewinding = false) }
-                    if (_uiState.value.sessionId == sessionId) reportError(error)
-                }
-            drainHeldPrompts()
-        }
-    }
+    /**
+     * Fetches and shows the diff for a tapped [ChatPart.Patch] card, or the "diff unavailable"
+     * state straight away when the backend cannot produce one at all
+     * ([com.yugahashimoto.andcode.runtime.RuntimeCapabilities.diffCapable]) — Antigravity has no
+     * diff surface, so this skips the round trip entirely rather than calling a backend already
+     * known to have nothing to return.
+     *
+     * A git-capable backend can still come back empty for a workspace that turns out not to be a
+     * git repository (see [ClaudeCodeTarget.sessionDiff]'s own git fallback); that is treated the
+     * same as [RuntimeCapabilities.diffCapable] being false, since [ChatPart.Patch.files] is only
+     * ever non-empty when the event stream already reported real changes, so an empty diff response
+     * in that situation is itself the "can't diff here" signal rather than "nothing changed".
+     */
+    fun openPatchDiff(patch: ChatPart.Patch) = previews.openPatchDiff(patch)
+
+    /**
+     * Opens [artifact] in the preview: reads the file - from the chat's workspace when it lies in
+     * it, else from its own folder - and shows it as what it is: a page, a drawing, a document, a
+     * picture. See [collectArtifacts] and [artifactReadPair].
+     */
+    fun openArtifact(artifact: Artifact.File) = previews.openArtifact(artifact)
+
+    fun dismissArtifact() = previews.dismissArtifact()
+
+    fun dismissPatchDiff() = previews.dismissPatchDiff()
+
+    /** Asks the agent how this chat's context window is split, for the sheet the context meter opens. */
+    fun showContextBreakdown() = contextUsage.showBreakdown()
+
+    fun hideContextBreakdown() = contextUsage.hideBreakdown()
+
+    /**
+     * Has the agent compact the open chat now, from the context window sheet. Not while a turn runs:
+     * the compaction is a turn of its own, which the agent would refuse to start beside another. The
+     * sheet closes; the chat then shows the compaction running, and the meter refreshes when it ends.
+     */
+    fun compactContext() = contextUsage.compact()
 
     /**
      * Removes the last user message from the open session — and anything the runtime already
@@ -1934,219 +952,7 @@ class ChatViewModel(
      * reaches the composer the same one-shot way [ChatUiState.partialText] carries dictation in —
      * see [consumeEditDraft].
      */
-    fun editLastUserMessage() {
-        val currentBackend = backend ?: return
-        val sessionId = _uiState.value.sessionId ?: return
-        if (_uiState.value.isRunning) return
-        // While rewound, the last message on screen is not the last one stored; deleting "the last"
-        // would delete a hidden one.
-        if (_uiState.value.rewoundFrom != null || _uiState.value.isRewinding) return
-        if ((currentBackend as? RuntimeTarget)?.capabilities?.editMessages != true) return
-        val messages = _uiState.value.messages
-        val lastUserIndex = messages.indexOfLast { it.isUser }
-        if (lastUserIndex < 0) return
-        val toRemove = messages.subList(lastUserIndex, messages.size).toList()
-        val originalText = messages[lastUserIndex].text
-        val idsToRemove = toRemove.map { it.id }.toSet()
-        _uiState.update {
-            it.copy(
-                messages = it.messages.filterNot { message -> message.id in idsToRemove },
-                editDraft = originalText,
-            )
-        }
-        viewModelScope.launch {
-            var anyDeleteFailed = false
-            // Newest first: if a later delete fails, the ones already gone still leave a clean,
-            // shorter transcript instead of a surviving message stranded ahead of a gap.
-            toRemove.asReversed().forEach { message ->
-                runCatching { currentBackend.deleteMessage(sessionId, message.id) }
-                    .onFailure { error ->
-                        if (error is CancellationException) throw error
-                        anyDeleteFailed = true
-                        reportError(error)
-                    }
-                    .onSuccess { deleted ->
-                        // The server signals real failures as thrown HTTP errors, so a `false`
-                        // body is unlikely in practice - but deleteMessage's return value is
-                        // treated as meaningful elsewhere, so a `false` here should not silently
-                        // look like success either. There is no thrown error to report, so just
-                        // fall into the same reconciliation reload a thrown failure triggers.
-                        if (!deleted) anyDeleteFailed = true
-                    }
-            }
-            // A refused delete leaves the backend holding messages this screen already dropped
-            // optimistically. Reload so the transcript reflects what the backend actually kept
-            // instead of silently lying to the user. If the reload itself fails there is nothing
-            // left to reconcile with, so at least surface that the on-screen transcript may now be
-            // wrong instead of swallowing the failure.
-            if (anyDeleteFailed) {
-                runCatching { reloadMessages(currentBackend, sessionId) }
-                    .onFailure { error ->
-                        if (error is CancellationException) throw error
-                        reportError(error)
-                    }
-            }
-        }
-    }
-
-    /**
-     * Fetches and shows the diff for a tapped [ChatPart.Patch] card, or the "diff unavailable"
-     * state straight away when the backend cannot produce one at all
-     * ([com.yugahashimoto.andcode.runtime.RuntimeCapabilities.diffCapable]) — Antigravity has no
-     * diff surface, so this skips the round trip entirely rather than calling a backend already
-     * known to have nothing to return.
-     *
-     * A git-capable backend can still come back empty for a workspace that turns out not to be a
-     * git repository (see [ClaudeCodeTarget.sessionDiff]'s own git fallback); that is treated the
-     * same as [RuntimeCapabilities.diffCapable] being false, since [ChatPart.Patch.files] is only
-     * ever non-empty when the event stream already reported real changes, so an empty diff response
-     * in that situation is itself the "can't diff here" signal rather than "nothing changed".
-     */
-    fun openPatchDiff(patch: ChatPart.Patch) {
-        _uiState.update { it.copy(patchDiff = PatchDiffState.Loading(patch.id, patch.files)) }
-        val currentBackend = backend
-        val sessionId = _uiState.value.sessionId
-        val runtime = currentBackend as? RuntimeTarget
-        val diffCapable = runtime?.capabilities?.diffCapable == true
-        if (sessionId == null || (!diffCapable && turnSnapshots == null)) {
-            _uiState.update { it.copy(patchDiff = PatchDiffState.Unavailable(patch.id, patch.files)) }
-            return
-        }
-        val directory = _uiState.value.sessionDirectory
-        viewModelScope.launch {
-            // The runtime's own diff when it has one; otherwise, or when it has nothing to say (a
-            // folder that is not a git repository), the turn's snapshots.
-            val fromRuntime =
-                if (diffCapable) {
-                    snapshotCall(emptyList()) { runtime?.sessionDiff(sessionId, directory, patch.messageId).orEmpty() }
-                } else {
-                    emptyList()
-                }
-            val changes = fromRuntime.ifEmpty { snapshotChanges(sessionId, patch) }
-            // A dialog dismissed and reopened on a different patch while this fetch was still in
-            // flight must not have its answer land on the wrong card.
-            _uiState.update {
-                if (it.patchDiff?.partId != patch.id) return@update it
-                it.copy(
-                    patchDiff =
-                        if (changes.isEmpty()) {
-                            PatchDiffState.Unavailable(patch.id, patch.files)
-                        } else {
-                            PatchDiffState.Loaded(patch.id, patch.files, changes)
-                        },
-                )
-            }
-        }
-    }
-
-    /**
-     * Opens [artifact] in the preview: reads the file - from the chat's workspace when it lies in
-     * it, else from its own folder - and shows it as what it is: a page, a drawing, a document, a
-     * picture. See [collectArtifacts] and [artifactReadPair].
-     */
-    fun openArtifact(artifact: Artifact.File) {
-        _uiState.update { it.copy(artifactPreview = ArtifactPreviewState.Loading(artifact)) }
-        val currentBackend = backend
-        val directory = _uiState.value.sessionDirectory ?: _uiState.value.selectedWorkspacePath
-        if (currentBackend == null || directory == null) {
-            _uiState.update { it.copy(artifactPreview = ArtifactPreviewState.Failed(artifact, null)) }
-            return
-        }
-        viewModelScope.launch {
-            val read = artifactReadPair(artifact.path, directory)
-            val result = runCatching { currentBackend.readFile(read.first, read.second) }
-            _uiState.update {
-                // Dismissed, or another artifact opened, while the file was on its way.
-                if (it.artifactPreview?.artifact != artifact) return@update it
-                it.copy(
-                    artifactPreview =
-                        result.fold(
-                            onSuccess = { file ->
-                                ArtifactPreviewState.Loaded(
-                                    artifact = artifact,
-                                    content = file.content,
-                                    base64 = file.encoding == "base64" || file.type == "binary",
-                                )
-                            },
-                            // The runtime's own words when it has some; otherwise the screen says it.
-                            onFailure = { error -> ArtifactPreviewState.Failed(artifact, error.message?.takeIf { it.isNotBlank() }) },
-                        ),
-                )
-            }
-        }
-    }
-
-    fun dismissArtifact() {
-        _uiState.update { it.copy(artifactPreview = null) }
-    }
-
-    fun dismissPatchDiff() {
-        _uiState.update { it.copy(patchDiff = null) }
-    }
-
-    /** Asks the agent how this chat's context window is split, for the sheet the context meter opens. */
-    fun showContextBreakdown() {
-        val currentBackend = backend ?: return
-        val sessionId = _uiState.value.sessionId
-        _uiState.update { it.copy(contextBreakdown = ContextBreakdownState.Loading) }
-        viewModelScope.launch {
-            val breakdown = sessionId?.let { runCatching { currentBackend.contextBreakdown(it) }.getOrNull() }
-            _uiState.update { state ->
-                // Closed meanwhile, or the composer moved to another chat: the answer is not wanted,
-                // and a sheet still waiting on it is closed rather than left spinning.
-                if (state.sessionId != sessionId) {
-                    state.copy(contextBreakdown = ContextBreakdownState.Hidden)
-                } else if (state.contextBreakdown != ContextBreakdownState.Loading) {
-                    state
-                } else {
-                    state.copy(contextBreakdown = breakdown?.let(ContextBreakdownState::Shown) ?: ContextBreakdownState.Unavailable)
-                }
-            }
-        }
-    }
-
-    fun hideContextBreakdown() {
-        _uiState.update { it.copy(contextBreakdown = ContextBreakdownState.Hidden) }
-    }
-
-    /**
-     * Has the agent compact the open chat now, from the context window sheet. Not while a turn runs:
-     * the compaction is a turn of its own, which the agent would refuse to start beside another. The
-     * sheet closes; the chat then shows the compaction running, and the meter refreshes when it ends.
-     */
-    fun compactContext() {
-        val currentBackend = backend ?: return
-        val state = _uiState.value
-        val sessionId = state.sessionId ?: return
-        if (!state.compactAvailable || state.isRunning) return
-        _uiState.update { it.copy(contextBreakdown = ContextBreakdownState.Hidden) }
-        viewModelScope.launch {
-            runCatching { currentBackend.compactSession(sessionId) }
-                .onFailure { error ->
-                    if (_uiState.value.sessionId == sessionId) {
-                        _uiState.update { it.copy(error = error.safeMessage("Could not compact the conversation")) }
-                    }
-                }
-        }
-    }
-
-    /**
-     * Re-fetches [sessionId]'s transcript from the backend and reconciles it into
-     * [ChatUiState.messages], the same merge [openSession] does on its initial load. Used to bring
-     * the on-screen transcript back in line with the backend after an optimistic change it turns out
-     * the backend did not actually apply.
-     *
-     * Throws if the fetch itself fails; callers decide how to surface that.
-     */
-    private suspend fun reloadMessages(
-        currentBackend: OpenCodeBackend,
-        sessionId: String,
-    ) {
-        val messages = currentBackend.listMessages(sessionId)
-        _uiState.update {
-            it.copy(messages = mergeReloadedMessages(messages.mapNotNull(::toUiMessage), it.messages))
-        }
-    }
+    fun editLastUserMessage() = messageEdit.editLastUserMessage()
 
     /** Clears [ChatUiState.editDraft] once the composer has copied it into its own input state. */
     fun consumeEditDraft() {
@@ -2192,7 +998,7 @@ class ChatViewModel(
     ) {
         // A rewind or its undo in flight decides which messages the next one follows; the screen
         // holds the composer until it lands.
-        if (_uiState.value.isRewinding || restoreInFlight) return
+        if (_uiState.value.isRewinding || restorePoints.inFlight) return
         val normalized = text.trim()
         // Whether this send takes, and afterwards clears, what is in the composer.
         val usesComposer = fromComposer && held == null
@@ -2207,7 +1013,7 @@ class ChatViewModel(
         val modelAtSend = _uiState.value.selectedModelId
         val agentAtSend = _uiState.value.selectedAgentId
         val variantAtSend = _uiState.value.selectedVariant
-        val ultracodeAtSend = selectedUltracodeAvailable && claudeUltracode
+        val ultracodeAtSend = modelSelection.ultracodeForPrompt
         val pendingPreviewsByFilename =
             pendingAttachments
                 .filter { it.mime.startsWith("image/") }
@@ -2263,10 +1069,10 @@ class ChatViewModel(
                     attachments = pendingAttachments,
                     imagePreviews = pendingPreviews,
                 )
-            offlinePlaceholders += userMessage.id
+            restorePoints.markOffline(userMessage.id)
             _uiState.update {
                 it.copy(
-                    messages = keepRewind(it) + userMessage,
+                    messages = rewind.keepRewind(it) + userMessage,
                     rewoundFrom = null,
                     offlineQueue = it.offlineQueue + outgoingText,
                     isOfflineQueued = true,
@@ -2312,7 +1118,7 @@ class ChatViewModel(
             )
         _uiState.update {
             it.copy(
-                messages = keepRewind(it) + userMessage,
+                messages = rewind.keepRewind(it) + userMessage,
                 rewoundFrom = null,
                 // Undoing a restore after the agent has worked again would throw that work away.
                 fileRestore = null,
@@ -2333,7 +1139,7 @@ class ChatViewModel(
 
         // Which chat asked, captured here because the coroutine below does not begin until the
         // dispatcher runs it - long enough for another chat to have been started. See
-        // applyDraftSystemPrompt.
+        // SystemPromptDraft.applyDraftSystemPrompt.
         val draftGeneration = _uiState.value.chatGeneration
         viewModelScope.launch {
             // Captured once the target session is known so onFailure below can tell whether the
@@ -2354,7 +1160,7 @@ class ChatViewModel(
                 val targetSessionId = existingSessionId ?: requireNotNull(session).id
                 capturedSessionId = targetSessionId
                 if (session != null) {
-                    applyDraftSystemPrompt(session.id, draftGeneration)
+                    systemPrompt.applyDraftSystemPrompt(session.id, draftGeneration)
                     _uiState.update {
                         it.copy(
                             sessionId = session.id,
@@ -2365,7 +1171,7 @@ class ChatViewModel(
                     adoptHeldPrompts(session.id, draftGeneration)
                     onSessionCreated()
                 }
-                if (existingSessionId != null && shouldSummarizeBeforePrompt()) {
+                if (existingSessionId != null && modelSelection.shouldSummarizeBeforePrompt()) {
                     runCatching {
                         currentBackend.summarizeSession(
                             sessionId = targetSessionId,
@@ -2373,10 +1179,10 @@ class ChatViewModel(
                             modelId = requireNotNull(modelAtSend),
                         )
                     }
-                    refreshContextUsage(targetSessionId)
+                    contextUsage.refresh(targetSessionId)
                 }
                 if (interrupting) interruptRunningTurn(currentBackend, targetSessionId)
-                recordTurnSnapshot(targetSessionId, turnAtSend, session?.directory)
+                restorePoints.recordTurnSnapshot(targetSessionId, turnAtSend, session?.directory)
                 currentBackend.sendMessage(
                     targetSessionId,
                     PromptRequest(
@@ -2386,7 +1192,7 @@ class ChatViewModel(
                         agent = agentAtSend,
                         variant = variantAtSend,
                         attachments = modelAttachments,
-                        serviceTier = serviceTierForPrompt(),
+                        serviceTier = modelSelection.serviceTierForPrompt(),
                         ultracode = ultracodeAtSend,
                     ),
                 )
@@ -2490,7 +1296,7 @@ class ChatViewModel(
                             }
                             // Refresh after the final assistant message is persisted. The
                             // pre-send refresh only contains the previous turn's tokens.
-                            refreshContextUsage(targetSessionId)
+                            contextUsage.refresh(targetSessionId)
                             // The idle handler is the usual drainer, but this settle bypassed
                             // it; without draining here, a queued prompt stranded until some
                             // LATER turn happened to end with an idle event.
@@ -2524,7 +1330,7 @@ class ChatViewModel(
         arguments: String,
         sendNow: Boolean = false,
     ) {
-        if (_uiState.value.isRewinding || restoreInFlight) return
+        if (_uiState.value.isRewinding || restorePoints.inFlight) return
         val currentBackend = backend
         if (currentBackend == null) {
             _uiState.update { it.copy(error = "OpenCode connection is not configured") }
@@ -2542,10 +1348,10 @@ class ChatViewModel(
                     isUser = true,
                     parts = listOf(ChatPart.Text(id = UUID.randomUUID().toString(), text = displayText)),
                 )
-            offlinePlaceholders += userMessage.id
+            restorePoints.markOffline(userMessage.id)
             _uiState.update {
                 it.copy(
-                    messages = keepRewind(it) + userMessage,
+                    messages = rewind.keepRewind(it) + userMessage,
                     rewoundFrom = null,
                     fileRestore = null,
                     offlineQueue = it.offlineQueue + displayText,
@@ -2581,7 +1387,7 @@ class ChatViewModel(
             )
         _uiState.update {
             it.copy(
-                messages = keepRewind(it) + userMessage,
+                messages = rewind.keepRewind(it) + userMessage,
                 rewoundFrom = null,
                 // A command changes files like any message: an Undo offered past it would undo its work.
                 fileRestore = null,
@@ -2618,7 +1424,7 @@ class ChatViewModel(
                 val targetSessionId = existingSessionId ?: requireNotNull(session).id
                 capturedSessionId = targetSessionId
                 if (session != null) {
-                    applyDraftSystemPrompt(session.id, draftGeneration)
+                    systemPrompt.applyDraftSystemPrompt(session.id, draftGeneration)
                     _uiState.update {
                         it.copy(
                             sessionId = session.id,
@@ -2631,7 +1437,7 @@ class ChatViewModel(
                 }
 
                 if (interrupting) interruptRunningTurn(currentBackend, targetSessionId)
-                recordTurnSnapshot(targetSessionId, turnAtSend, session?.directory)
+                restorePoints.recordTurnSnapshot(targetSessionId, turnAtSend, session?.directory)
 
                 // The command endpoint on OpenCode runs the whole turn before answering, so it is
                 // fired in its own coroutine: the poll loop below (and the SSE stream) drive the UI
@@ -2716,7 +1522,7 @@ class ChatViewModel(
                                     isThinking = false,
                                 )
                             }
-                            refreshContextUsage(targetSessionId)
+                            contextUsage.refresh(targetSessionId)
                             drainQueue()
                         }
                 }
@@ -2779,225 +1585,36 @@ class ChatViewModel(
         return answeredThisPrompt && newest.time.completed != null
     }
 
-    /**
-     * Measured against the model's listed limit only, never [ChatUiState.contextWindow]: an agent that
-     * reports its own window (Codex) compacts on its own, and is compacted on request from the sheet.
-     */
-    private fun shouldSummarizeBeforePrompt(): Boolean =
-        contextLimit > 0L &&
-            _uiState.value.contextTokensUsed.toDouble() / contextLimit.toDouble() >= 0.9
-
     fun respondToPermission(
         permissionId: String,
         response: PermissionResponse,
         remember: Boolean,
-    ) = answerPermission(permissionId) { target, request ->
-        target.respondToPermission(request.sessionId, request.id, response, remember)
-    }
+    ) = permissions.respondToPermission(permissionId, response, remember)
 
     /** Allows [permissionId] and every later call of a tool from the same MCP server. */
-    fun allowMcpServer(permissionId: String) =
-        answerPermission(permissionId) { target, request -> target.allowMcpServer(request.sessionId, request.id) }
-
-    private fun answerPermission(
-        permissionId: String,
-        answer: suspend (OpenCodeBackend, PermissionRequest) -> Boolean,
-    ) {
-        val currentBackend = backend ?: return
-        val permission = _uiState.value.permissions.firstOrNull { it.id == permissionId } ?: return
-        viewModelScope.launch {
-            runCatching { answer(currentBackend, permission) }.onSuccess { accepted ->
-                if (accepted) {
-                    _uiState.update { state ->
-                        state.copy(permissions = state.permissions.filterNot { it.id == permissionId })
-                    }
-                    onPermissionResolved(permissionId)
-                } else {
-                    _uiState.update { it.copy(error = "OpenCode could not apply that permission response") }
-                }
-            }.onFailure { error ->
-                _uiState.update { it.copy(error = error.safeMessage("OpenCode operation failed")) }
-            }
-        }
-    }
+    fun allowMcpServer(permissionId: String) = permissions.allowMcpServer(permissionId)
 
     fun selectQuestionAnswer(
         questionId: String,
         questionIndex: Int,
         answer: String,
-    ) {
-        _uiState.update { state ->
-            state.copy(
-                pendingQuestions =
-                    state.pendingQuestions.map { pending ->
-                        if (pending.request.id != questionId) return@map pending
-                        val prompt = pending.request.questions.getOrNull(questionIndex) ?: return@map pending
-                        val updatedAnswers = pending.selectedAnswers.toMutableList()
-                        updatedAnswers[questionIndex] =
-                            updateQuestionAnswerSelection(
-                                prompt = prompt,
-                                current = pending.selectedAnswers.getOrElse(questionIndex) { emptyList() },
-                                answer = answer,
-                                multiple = prompt.multiple,
-                            )
-                        pending.copy(selectedAnswers = updatedAnswers, error = null)
-                    },
-            )
-        }
-    }
+    ) = questions.selectQuestionAnswer(questionId, questionIndex, answer)
 
-    fun submitQuestion(questionId: String) {
-        val currentBackend = backend ?: return
-        val pendingQuestion = _uiState.value.pendingQuestions.firstOrNull { it.request.id == questionId } ?: return
-        val answers =
-            pendingQuestion.request.questions.indices.map { index ->
-                val prompt = pendingQuestion.request.questions[index]
-                sanitizeQuestionAnswer(
-                    prompt = prompt,
-                    answers = pendingQuestion.selectedAnswers.getOrElse(index) { emptyList() },
-                    multiple = prompt.multiple,
-                )
-            }
-        if (answers.any { it.isEmpty() }) {
-            _uiState.update { state ->
-                state.copy(
-                    pendingQuestions =
-                        state.pendingQuestions.map { pending ->
-                            if (pending.request.id == questionId) {
-                                pending.copy(error = "Answer required")
-                            } else {
-                                pending
-                            }
-                        },
-                )
-            }
-            return
-        }
-
-        _uiState.update { state ->
-            state.copy(
-                pendingQuestions =
-                    state.pendingQuestions.map { pending ->
-                        if (pending.request.id == questionId) {
-                            pending.copy(isSubmitting = true, error = null)
-                        } else {
-                            pending
-                        }
-                    },
-            )
-        }
-
-        viewModelScope.launch {
-            runCatching {
-                currentBackend.answerQuestion(
-                    requestId = questionId,
-                    answers = answers,
-                    directory = pendingQuestion.workspaceDirectory(),
-                )
-            }.onSuccess { accepted ->
-                if (accepted) onQuestionResolved(questionId)
-                _uiState.update { state ->
-                    if (accepted) {
-                        state.copy(
-                            pendingQuestions = state.pendingQuestions.filterNot { it.request.id == questionId },
-                        )
-                    } else {
-                        state.copy(
-                            pendingQuestions =
-                                state.pendingQuestions.map { pending ->
-                                    if (pending.request.id == questionId) {
-                                        pending.copy(isSubmitting = false, error = "OpenCode question failed")
-                                    } else {
-                                        pending
-                                    }
-                                },
-                        )
-                    }
-                }
-            }.onFailure { error ->
-                _uiState.update { state ->
-                    state.copy(
-                        pendingQuestions =
-                            state.pendingQuestions.map { pending ->
-                                if (pending.request.id == questionId) {
-                                    pending.copy(isSubmitting = false, error = error.safeMessage("OpenCode operation failed"))
-                                } else {
-                                    pending
-                                }
-                            },
-                    )
-                }
-            }
-        }
-    }
-
-    /**
-     * The directory the question routes have to be scoped to. What the event stream reported is
-     * authoritative; the open session's own directory is the next best source; the selected
-     * workspace is the last fallback for the older per-instance `/event` stream, whose frames
-     * carry no directory.
-     */
-    private fun PendingQuestionUi.workspaceDirectory(): String? =
-        request.directory
-            ?: _uiState.value.sessionDirectory
-            ?: _uiState.value.selectedWorkspacePath
-
-    /**
-     * Recovers questions that are already waiting for an answer. A question reaches the chat as an
-     * event and nowhere else, so one asked while this client was not listening — in another chat,
-     * before the app opened the session, or across a dropped event stream — would otherwise leave
-     * the turn blocked with nothing on screen to unblock it.
-     *
-     * The question routes are scoped to the instance that owns the session, so the directory is
-     * resolved from the session itself: the workspace the composer happens to have selected often
-     * belongs to another project entirely, and querying with it finds nothing.
-     */
-    private fun refreshPendingQuestions(sessionId: String) {
-        val currentBackend = backend ?: return
-        viewModelScope.launch {
-            val directory =
-                runCatching { currentBackend.session(sessionId).directory }
-                    .getOrNull()
-                    ?: _uiState.value.selectedWorkspacePath
-            if (directory != null && _uiState.value.sessionId == sessionId) {
-                _uiState.update { it.copy(sessionDirectory = directory) }
-            }
-            var fetched: List<QuestionRequest>? = null
-            for (attempt in 0 until PENDING_QUESTION_REFRESH_ATTEMPTS) {
-                if (_uiState.value.sessionId != sessionId) return@launch
-                fetched = runCatching { currentBackend.pendingQuestions(directory) }.getOrNull()
-                if (fetched != null) break
-                if (attempt < PENDING_QUESTION_REFRESH_ATTEMPTS - 1) delay(PENDING_QUESTION_REFRESH_RETRY_DELAY_MS)
-            }
-            val pending = (fetched ?: return@launch).filter { it.sessionId == sessionId }
-            if (pending.isEmpty()) return@launch
-            _uiState.update { state ->
-                if (state.sessionId != sessionId) return@update state
-                val known = state.pendingQuestions.map { it.request.id }.toSet()
-                state.copy(
-                    pendingQuestions =
-                        state.pendingQuestions +
-                            pending
-                                .filterNot { it.id in known || it.id in dismissedQuestionIds }
-                                .map(PendingQuestionUi::from),
-                )
-            }
-        }
-    }
+    fun submitQuestion(questionId: String) = questions.submitQuestion(questionId)
 
     /**
      * Hides the question card and leaves the turn alone, so the user can ignore the question and
      * just keep typing. The request stays open on the OpenCode side; this only affects what the
      * chat shows.
      */
-    fun dismissQuestion(questionId: String) {
-        dismissedQuestionIds += questionId
-        _uiState.update { state ->
-            state.copy(
-                pendingQuestions = state.pendingQuestions.filterNot { it.request.id == questionId },
-            )
-        }
-    }
+    fun dismissQuestion(questionId: String) = questions.dismissQuestion(questionId)
+
+    /**
+     * Declines the question. OpenCode fails the waiting tool call with "the user dismissed this
+     * question", which the agent can react to — unlike [dismissQuestion], which only clears the
+     * card and leaves the request open.
+     */
+    fun cancelQuestion(questionId: String) = questions.cancelQuestion(questionId)
 
     /**
      * Closes the sticky todo bar for one `todowrite` update. Nothing server-side tracks this — the
@@ -3007,33 +1624,6 @@ class ChatViewModel(
      */
     fun dismissTodoBar(entryId: String) {
         _uiState.update { it.copy(dismissedTodoBarId = entryId) }
-    }
-
-    /**
-     * Declines the question. OpenCode fails the waiting tool call with "the user dismissed this
-     * question", which the agent can react to — unlike [dismissQuestion], which only clears the
-     * card and leaves the request open.
-     */
-    fun cancelQuestion(questionId: String) {
-        val pendingQuestion = _uiState.value.pendingQuestions.firstOrNull { it.request.id == questionId } ?: return
-        _uiState.update { state ->
-            state.copy(
-                pendingQuestions = state.pendingQuestions.filterNot { it.request.id == questionId },
-            )
-        }
-        val currentBackend = backend ?: return
-        viewModelScope.launch {
-            runCatching {
-                currentBackend.rejectQuestion(
-                    requestId = questionId,
-                    directory = pendingQuestion.workspaceDirectory(),
-                )
-            }.onSuccess { rejected ->
-                if (rejected) onQuestionResolved(questionId)
-            }.onFailure { error ->
-                _uiState.update { it.copy(error = error.safeMessage()) }
-            }
-        }
     }
 
     fun abort() {
@@ -3113,7 +1703,7 @@ class ChatViewModel(
                         applyResync(session, messages)
                     }
             }
-        refreshPendingQuestions(session)
+        questions.refreshPendingQuestions(session)
     }
 
     private fun applyResync(
@@ -3265,7 +1855,7 @@ class ChatViewModel(
                 // ones puts the card back, so answering it can get the run moving again. Only worth
                 // doing when the verdict is new: re-probing an unchanged one just costs requests.
                 if (diagnosis.reason == StallReason.NO_OUTPUT && previous != StallReason.NO_OUTPUT) {
-                    refreshPendingQuestions(sessionId)
+                    questions.refreshPendingQuestions(sessionId)
                 }
             }
         }
@@ -3297,30 +1887,7 @@ class ChatViewModel(
                 val partId = part.id ?: messageId
                 val chatPart = part.toChatPart(messageId) ?: return
                 val messageParts = streamedParts.getOrPut(messageId) { linkedMapOf() }
-                // Deltas can arrive before the part event that introduces them (see issue #26924):
-                // they are accumulated under the same part id, and the late snapshot must not wipe
-                // them out with its own (often empty) initial text.
-                val mergedPart =
-                    when (val existing = messageParts[partId]) {
-                        is ChatPart.Text ->
-                            when {
-                                chatPart is ChatPart.Text && chatPart.text.isBlank() && existing.text.isNotBlank() -> existing
-                                // An early delta was stored as Text (deltas carry no part type) but
-                                // the snapshot reveals it was reasoning: keep the accumulated text.
-                                chatPart is ChatPart.Reasoning && chatPart.text.isBlank() && existing.text.isNotBlank() ->
-                                    chatPart.copy(text = existing.text)
-                                else -> chatPart
-                            }
-                        is ChatPart.Reasoning ->
-                            if ((chatPart is ChatPart.Reasoning && chatPart.text.isBlank()) ||
-                                (chatPart is ChatPart.Text && chatPart.text.isBlank())
-                            ) {
-                                if (existing.text.isNotBlank()) existing else chatPart
-                            } else {
-                                chatPart
-                            }
-                        else -> chatPart
-                    }
+                val mergedPart = mergeStreamedPart(messageParts[partId], chatPart)
                 messageParts[partId] = mergedPart
                 updateStreamingMessage(messageId, messageParts.values.toList())
             }
@@ -3331,68 +1898,13 @@ class ChatViewModel(
                 if (event.sessionId != activeSession || (event.field != "text" && event.field != "reasoning")) return
                 connectionMonitor.recordStreamTokens(event.mergeCount)
                 val messageParts = streamedParts.getOrPut(event.messageId) { linkedMapOf() }
-                val updatedPart =
-                    when (val existing = messageParts[event.partId]) {
-                        is ChatPart.Text -> existing.copy(text = existing.text + event.delta)
-                        is ChatPart.Reasoning -> existing.copy(text = existing.text + event.delta)
-                        // A delta can outrun the part event that introduces it; start the part here
-                        // rather than dropping the text on the floor.
-                        null ->
-                            if (event.field == "reasoning") {
-                                ChatPart.Reasoning(event.partId, event.delta)
-                            } else {
-                                ChatPart.Text(event.partId, event.delta)
-                            }
-                        else -> return
-                    }
+                val updatedPart = appendStreamedDelta(messageParts[event.partId], event) ?: return
                 messageParts[event.partId] = updatedPart
                 updateStreamingMessage(event.messageId, messageParts.values.toList())
             }
-            is OpenCodeEvent.PermissionAsked -> {
-                if (_uiState.value.autoAcceptPermissions) {
-                    val request = event.request
-                    val autoBackend = backend ?: return
-                    viewModelScope.launch {
-                        runCatching {
-                            autoBackend.respondToPermission(
-                                request.sessionId,
-                                request.id,
-                                PermissionResponse.ONCE,
-                                false,
-                            )
-                        }.onSuccess { accepted ->
-                            if (accepted) onPermissionResolved(request.id)
-                        }
-                    }
-                    return
-                }
-                if (event.request.sessionId != activeSession) return
-                _uiState.update { state ->
-                    state.copy(
-                        permissions = state.permissions.filterNot { it.id == event.request.id } + event.request,
-                        isThinking = false,
-                    )
-                }
-            }
-            is OpenCodeEvent.QuestionAsked -> {
-                if (event.request.sessionId != activeSession) return
-                if (event.request.id in dismissedQuestionIds) return
-                _uiState.update { state ->
-                    state.copy(
-                        pendingQuestions =
-                            state.pendingQuestions
-                                .filterNot { it.request.id == event.request.id } + PendingQuestionUi.from(event.request),
-                        isThinking = false,
-                    )
-                }
-            }
-            is OpenCodeEvent.PermissionReplied -> {
-                // Answered elsewhere — another device, or the TUI. Drop the stale card.
-                if (event.sessionId != activeSession) return
-                _uiState.update { state ->
-                    state.copy(permissions = state.permissions.filterNot { it.id == event.requestId })
-                }
-            }
+            is OpenCodeEvent.PermissionAsked -> permissions.onPermissionAsked(event, activeSession)
+            is OpenCodeEvent.QuestionAsked -> questions.onQuestionAsked(event, activeSession)
+            is OpenCodeEvent.PermissionReplied -> permissions.onPermissionReplied(event, activeSession)
             is OpenCodeEvent.SessionStatusChanged -> {
                 // session.idle is deprecated in favour of session.status; treat idle the same way,
                 // and let a busy status pick up a run that was started from another client.
@@ -3459,12 +1971,7 @@ class ChatViewModel(
             }
             is OpenCodeEvent.SessionCreated -> Unit
             // A rewind made permanent, or made or undone elsewhere (another device, the TUI).
-            is OpenCodeEvent.SessionUpdated -> {
-                val session = event.session
-                if (session.id == _uiState.value.sessionId && canRewind(backend)) {
-                    _uiState.update { if (it.isRewinding) it else it.copy(rewoundFrom = session.revert?.messageId) }
-                }
-            }
+            is OpenCodeEvent.SessionUpdated -> rewind.onSessionUpdated(event.session)
             is OpenCodeEvent.Unknown -> Unit
         }
     }
@@ -3505,7 +2012,7 @@ class ChatViewModel(
                 isThinking = false,
             )
         }
-        refreshContextUsage(sessionId)
+        contextUsage.refresh(sessionId)
         refreshMessages(sessionId, retainedIds)
         onSessionCreated()
         drainQueue()
@@ -3540,138 +2047,28 @@ class ChatViewModel(
         messageId: String,
         parts: List<ChatPart>,
     ) {
-        _uiState.update { state ->
-            val index = state.messages.indexOfFirst { it.id == messageId }
-            if (index >= 0) {
-                val existing = state.messages[index]
-                val updated =
-                    state.messages.toMutableList().apply {
-                        this[index] =
-                            existing.copy(
-                                parts = parts,
-                                isStreaming = !existing.isUser,
-                            )
-                    }
-                return@update state.copy(
-                    messages = updated,
-                    isRunning = true,
-                    isThinking = false,
-                    retry = null,
-                    runActivity = state.runActivity.takeUnless { it == RunActivity.Compacting },
-                )
-            }
-
-            val incomingText = parts.filterIsInstance<ChatPart.Text>().joinToString("") { it.text }
-            val userEchoIndex = state.messages.indexOfLast { it.isUser && it.text == incomingText }
-            if (incomingText.isNotBlank() && userEchoIndex >= 0) {
-                val updated =
-                    state.messages.toMutableList().apply {
-                        this[userEchoIndex] = this[userEchoIndex].copy(id = messageId)
-                    }
-                return@update state.copy(messages = updated)
-            }
-
-            state.copy(
-                messages =
-                    state.messages +
-                        ChatMessage(
-                            id = messageId,
-                            isUser = false,
-                            parts = parts,
-                            isStreaming = true,
-                        ),
-                isRunning = true,
-                isThinking = false,
-                retry = null,
-                runActivity = state.runActivity.takeUnless { it == RunActivity.Compacting },
-            )
-        }
+        _uiState.update { state -> withStreamedParts(state, messageId, parts) }
     }
 
     private fun toUiMessage(message: OpenCodeMessage): ChatMessage? {
-        if (message.info.id in discardedByRewind) return null
+        if (rewind.isDiscarded(message.info.id)) return null
         messageRoles[message.info.id] = message.info.role
-        val parts = message.parts.mapNotNull { it.toChatPart(message.info.id) }.withMessageError(message.info.id, message.info.error)
-        val attachments =
-            message.parts.mapNotNull { part ->
-                if (part.type != "file") return@mapNotNull null
-                PromptAttachment(
-                    filename = part.filename ?: "attachment",
-                    mime = part.mime ?: "application/octet-stream",
-                    url = part.url ?: "",
-                )
-            }
-        if (parts.isEmpty() && attachments.isEmpty()) return null
-        return ChatMessage(
-            id = message.info.id,
-            isUser = message.info.role == "user",
-            parts = parts,
-            attachments = attachments,
-            timestamp = message.info.time.created,
-            completedAt = message.info.time.completed,
-            isStreaming = false,
-        )
+        return toChatMessage(message)
     }
 
-    fun setTTS(textToSpeech: TextToSpeech) {
-        tts = textToSpeech
-    }
+    fun setTTS(textToSpeech: TextToSpeech) = voice.setTTS(textToSpeech)
 
-    fun startListening() {
-        _uiState.update {
-            it.copy(
-                isListening = true,
-                isSpeechProcessing = false,
-                partialText = "",
-                error = null,
-            )
-        }
-    }
+    fun startListening() = voice.startListening()
 
-    fun updateSpeechPartial(text: String) {
-        _uiState.update {
-            it.copy(
-                isListening = true,
-                isSpeechProcessing = false,
-                partialText = text,
-            )
-        }
-    }
+    fun updateSpeechPartial(text: String) = voice.updateSpeechPartial(text)
 
-    fun showSpeechProcessing() {
-        _uiState.update {
-            it.copy(
-                isListening = false,
-                isSpeechProcessing = true,
-                partialText = it.partialText,
-            )
-        }
-    }
+    fun showSpeechProcessing() = voice.showSpeechProcessing()
 
-    fun reportSpeechError(message: String) {
-        _uiState.update {
-            it.copy(
-                isListening = false,
-                isSpeechProcessing = false,
-                error = message,
-            )
-        }
-    }
+    fun reportSpeechError(message: String) = voice.reportSpeechError(message)
 
-    fun stopListening() {
-        _uiState.update {
-            it.copy(
-                isListening = false,
-                isSpeechProcessing = false,
-                partialText = it.partialText,
-            )
-        }
-    }
+    fun stopListening() = voice.stopListening()
 
-    fun stopSpeaking() {
-        tts?.stop()
-        _uiState.update { it.copy(isSpeaking = false) }
-    }
+    fun stopSpeaking() = voice.stopSpeaking()
 
     fun copyMessageContent(messageId: String): String? {
         return _uiState.value.messages.firstOrNull { it.id == messageId }?.text
@@ -3684,7 +2081,7 @@ class ChatViewModel(
      */
     private fun drainQueue() {
         // Held, not dropped: send() refuses while a rewind lands, and the rewind drains after.
-        if (_uiState.value.isRewinding || restoreInFlight) return
+        if (_uiState.value.isRewinding || restorePoints.inFlight) return
         val queued = messageQueue.value
         val next = queued.indexOfFirst { it.sessionId == _uiState.value.sessionId }
         if (next >= 0) {
@@ -3697,7 +2094,7 @@ class ChatViewModel(
     }
 
     private fun drainOfflineQueue() {
-        if (_uiState.value.isRewinding || restoreInFlight) return
+        if (_uiState.value.isRewinding || restorePoints.inFlight) return
         val (open, others) = offlineMessageQueue.value.partition { it.sessionId == _uiState.value.sessionId }
         if (open.isEmpty()) return
         offlineMessageQueue.value = others
@@ -3786,7 +2183,7 @@ class ChatViewModel(
     fun sendQueuedPromptNow(id: String) {
         if (!_uiState.value.canSendQueuedNow) return
         val prompt = messageQueue.value.firstOrNull { it.id == id } ?: return
-        if (_uiState.value.isRewinding || restoreInFlight) return
+        if (_uiState.value.isRewinding || restorePoints.inFlight) return
         removeQueuedPrompt(id)
         sendQueued(prompt, sendNow = true)
     }
@@ -3817,8 +2214,7 @@ class ChatViewModel(
         // Preview bitmaps are deliberately not recycled here either: the composition that draws
         // them can outlive the ViewModel during teardown, and the GC reclaims them anyway.
         eventJob?.cancel()
-        tts?.stop()
-        tts = null
+        voice.shutDown()
         super.onCleared()
     }
 
@@ -3919,67 +2315,5 @@ class ChatViewModel(
             drainOfflineQueue()
         }
         return refreshed
-    }
-}
-
-private fun updateQuestionAnswerSelection(
-    prompt: QuestionPrompt,
-    current: List<String>,
-    answer: String,
-    multiple: Boolean,
-): List<String> {
-    // Keep the raw text while the user is typing — trimming here would strip a trailing space
-    // the moment it's typed, since this feeds straight back into the (controlled) text field's
-    // value and silently joins words together. Trimming happens once, at submit time, in
-    // sanitizeQuestionAnswer.
-    val optionLabels = prompt.options.map { it.label }.toSet()
-    if (prompt.options.isEmpty()) {
-        return answer.takeIf { it.isNotEmpty() }?.let(::listOf).orEmpty()
-    }
-
-    val optionAnswers = current.filter { it in optionLabels }
-    val fallback = current.lastOrNull { it !in optionLabels }
-    if (answer in optionLabels) {
-        return if (multiple) {
-            val toggled =
-                if (answer in optionAnswers) {
-                    optionAnswers.filterNot { it == answer }
-                } else {
-                    optionAnswers + answer
-                }
-            toggled + listOfNotNull(fallback?.takeIf { it.isNotEmpty() })
-        } else {
-            listOf(answer)
-        }
-    }
-
-    val nextFallback = answer.takeIf { it.isNotEmpty() }
-    return if (multiple) {
-        optionAnswers + listOfNotNull(nextFallback)
-    } else {
-        listOfNotNull(nextFallback)
-    }
-}
-
-private fun sanitizeQuestionAnswer(
-    prompt: QuestionPrompt,
-    answers: List<String>,
-    multiple: Boolean,
-): List<String> {
-    val normalizedAnswers = answers.map(String::trim).filter { it.isNotEmpty() }
-    if (prompt.options.isEmpty()) {
-        return normalizedAnswers.take(1)
-    }
-
-    val optionLabels = prompt.options.map { it.label }.toSet()
-    val selectedOptions = normalizedAnswers.filter { it in optionLabels }.distinct()
-    // A prompt with `custom` off only accepts its own options, so never submit a typed answer.
-    val fallback = normalizedAnswers.lastOrNull { it !in optionLabels }?.takeIf { prompt.custom }
-    return if (multiple) {
-        selectedOptions + listOfNotNull(fallback)
-    } else {
-        selectedOptions.firstOrNull()?.let(::listOf)
-            ?: fallback?.let(::listOf)
-            ?: emptyList()
     }
 }

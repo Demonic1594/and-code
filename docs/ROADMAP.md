@@ -24,6 +24,12 @@ Update this file in the same PR that starts, finishes or drops an item.
    server list and agent-control indicator. Sync through the usual merge once upstream merges #422,
    not before.
 
+3. **Finish splitting `ChatViewModel.kt`** (Planned, first half done).
+   Thirteen pieces moved into their own files with no change in behaviour, taking the file from
+   3,985 lines to 2,319 (`2026-11-14-chat-viewmodel-split.md`). The plan lists what is left, least
+   entangled first: transient recovery, session opening, held prompts, then the stream cache, live
+   resume and the send path together. One PR each.
+
 ## Before the next release
 
 - **Release notes.** Each release needs `fastlane/metadata/android/*/changelogs/<versionCode>.txt`
