@@ -147,7 +147,11 @@ class ClaudeCodeTarget(
         )
     val defaultPermissionMode: StateFlow<ClaudePermissionMode> = mutableDefaultPermissionMode.asStateFlow()
 
-    /** [createSession] records every session with [defaultPermissionMode]. */
+    /**
+     * [createSession] records every session with [defaultPermissionMode].
+     *
+     * Reads the rootfs to see whether the permission hook is installed, so call it off the main thread.
+     */
     override val sessionApproval: SessionApproval
         get() = mutableDefaultPermissionMode.value.sessionApproval(bridgeReady = runtime.permissionBridgeReady())
 

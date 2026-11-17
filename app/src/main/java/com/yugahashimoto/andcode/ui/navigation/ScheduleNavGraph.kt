@@ -107,8 +107,10 @@ private fun NavGraphBuilder.scheduleRunsRoute(
         val scheduleId = decodeRouteArg(backStackEntry.arguments?.getString("scheduleId").orEmpty())
         val schedule = schedules.firstOrNull { it.id == scheduleId }
         // Opening the schedule - from the list or from an agent's notification - is the user seeing
-        // what the agent did, so its marker goes.
-        LaunchedEffect(scheduleId) { scheduleViewModel.acknowledgeAgentChange(scheduleId) }
+        // what the agent did, so its marker goes. Keyed on the marker too, so a change an agent makes
+        // while the page is open is seen as well (clearing it re-runs this once, which is a no-op).
+        val agentChange = schedule?.agentChange
+        LaunchedEffect(scheduleId, agentChange) { scheduleViewModel.acknowledgeAgentChange(scheduleId) }
         if (schedule == null) {
             // Deleted while on screen; drop back to the list.
             LaunchedEffect(Unit) { navController.popBackStack() }
