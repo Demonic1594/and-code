@@ -46,6 +46,16 @@ class GuestFilesTest {
         assertEquals(listOf("opencode.json"), File(rootfs, "root/.config/opencode").list()!!.toList())
     }
 
+    /** The temporary name must fit the 255-byte limit however long, or multi-byte, the target's name is. */
+    @Test
+    fun `a write to a name near the length limit succeeds`() {
+        val name = "\u3042".repeat(80) + ".json"
+
+        GuestFiles.write(rootfs, "root/$name", "{}\n")
+
+        assertEquals("{}\n", File(rootfs, "root/$name").readText())
+    }
+
     @Test
     fun `a write replaces a link at the target instead of writing through it`() {
         val target = File(rootfs, "root/.git-credentials")

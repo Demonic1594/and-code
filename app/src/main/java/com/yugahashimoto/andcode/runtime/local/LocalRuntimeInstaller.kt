@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.runtime.local
 
 import android.content.Context
 import android.system.Os
+import android.util.Log
 import com.yugahashimoto.andcode.BuildConfig
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.runtime.LocalAgent
@@ -13,6 +14,7 @@ import okhttp3.OkHttpClient
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 
 class LocalRuntimeInstaller(
     private val context: Context,
@@ -421,7 +423,15 @@ class LocalRuntimeInstaller(
         currentRootfs: File,
         stagingRootfs: File,
     ) {
-        runCatching { GuestFiles.copyTree(File(currentRootfs, "root"), File(stagingRootfs, "root")) }
+        // A missing home copies nothing. A failure leaves the new environment without the old home
+        // (agents then ask to sign in again), so it is logged rather than silently dropped.
+        try {
+            GuestFiles.copyTree(File(currentRootfs, "root"), File(stagingRootfs, "root"))
+        } catch (refused: GuestPathRefusedException) {
+            Log.w(LOG_TAG, "Home not carried over, /root is a link: ${refused.message}")
+        } catch (failure: IOException) {
+            Log.w(LOG_TAG, "Home not carried over", failure)
+        }
     }
 
     private suspend fun download(
@@ -711,6 +721,8 @@ class LocalRuntimeInstaller(
     }
 
     internal companion object {
+        private const val LOG_TAG = "LocalRuntimeInstaller"
+
         /** The rootfs folders whose guest scripts this process has refreshed (see refreshHelperScriptsOnce). */
         private val refreshedScriptRootfs: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 

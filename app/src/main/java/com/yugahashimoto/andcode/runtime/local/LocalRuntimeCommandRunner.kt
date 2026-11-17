@@ -16,6 +16,8 @@ class LocalRuntimeCommandRunner(
      * the default workspace, so git actions and file saves from the explorer would fail there.
      */
     private val workspaceDirectory: File? = null,
+    /** For git's credential helper: the token is never stored in the guest, only passed in the environment. */
+    private val githubToken: () -> String? = { null },
 ) {
     init {
         require(timeoutSeconds > 0)
@@ -93,7 +95,7 @@ class LocalRuntimeCommandRunner(
                         .redirectOutput(ProcessBuilder.Redirect.to(outputFile))
                         .apply {
                             environment().clear()
-                            environment().putAll(localRuntimeEnvironment(runtime.commandSuite.environment(), prootTmp))
+                            environment().putAll(localRuntimeEnvironment(runtime.commandSuite.environment(), prootTmp, githubToken()))
                         }
                         .start()
                 val completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)

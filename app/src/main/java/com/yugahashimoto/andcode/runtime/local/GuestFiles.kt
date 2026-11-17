@@ -331,8 +331,6 @@ internal object GuestFiles {
 /** Deeper than any honest tree; stops a guest-made pathological one from exhausting file descriptors. */
 private const val MAX_TREE_DEPTH = 256
 
-private const val TEMPORARY_NAME_PREFIX_LENGTH = 200
-
 private val NO_FOLLOW = arrayOf(LinkOption.NOFOLLOW_LINKS)
 private val READ: Set<OpenOption> = setOf(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)
 private val CREATE_NEW: Set<OpenOption> = setOf(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)
@@ -456,8 +454,8 @@ private fun replace(
         permissions ?: existing?.takeIf(BasicFileAttributes::isRegularFile)?.let {
             folder.getFileAttributeView(target, PosixFileAttributeView::class.java, *NO_FOLLOW).readAttributes().permissions()
         }
-    val prefix = target.toString().take(TEMPORARY_NAME_PREFIX_LENGTH)
-    val temporary = relative(".$prefix.${java.lang.Long.toHexString(random.nextLong())}.tmp")
+    // Short and independent of the target's name, which may already be near the 255-byte limit.
+    val temporary = relative(".guestfiles-${java.lang.Long.toHexString(random.nextLong())}.tmp")
     try {
         folder.newByteChannel(temporary, CREATE_NEW).use { channel ->
             val output = Channels.newOutputStream(channel).buffered()

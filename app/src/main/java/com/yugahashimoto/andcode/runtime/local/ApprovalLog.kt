@@ -100,7 +100,16 @@ class ApprovalLog(
             .map { it.copy(summary = it.summary.take(MAX_SUMMARY), rule = it.rule?.take(MAX_SUMMARY)) }
 
     private fun trim(fileName: String) {
-        val lines = GuestFiles.readText(root, fileName)?.lines()?.filter(String::isNotEmpty) ?: return
+        val text =
+            try {
+                GuestFiles.readText(root, fileName)
+            } catch (refused: GuestPathRefusedException) {
+                // The hook appends without bound; a history grown past the read limit would stay
+                // unreadable for good, so it starts afresh. A link (not a regular file) is left alone.
+                if (GuestFiles.isRegularFile(root, fileName)) GuestFiles.write(root, fileName, "")
+                return
+            }
+        val lines = text?.lines()?.filter(String::isNotEmpty) ?: return
         if (lines.size <= MAX_LINES) return
         // Written aside and renamed over the file, so an append from the hook in the meantime is
         // lost whole rather than written over halfway.

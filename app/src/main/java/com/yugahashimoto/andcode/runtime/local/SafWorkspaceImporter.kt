@@ -25,7 +25,7 @@ class SafWorkspaceImporter(
         // left (File.deleteRecursively would walk into them), and the copy must not follow one either.
         val workspace = File(runtimeDirectory, "workspace")
         val destination = File(workspace, name)
-        GuestFiles.deleteTree(workspace, name)
+        check(GuestFiles.deleteTree(workspace, name)) { "Unable to replace the existing folder $name" }
         copyDocument(source, workspace, name)
         return destination
     }
@@ -38,7 +38,9 @@ class SafWorkspaceImporter(
         if (source.isDirectory) {
             GuestFiles.createDirectories(workspace, relativePath)
             source.listFiles().forEach { child ->
-                val childPath = "$relativePath/${child.name ?: return@forEach}"
+                // A provider's name that is not one plain path component is skipped, not imported.
+                val name = child.name?.takeIf(::isPlainName) ?: return@forEach
+                val childPath = "$relativePath/$name"
                 if (child.isDirectory) {
                     copyDocument(child, workspace, childPath)
                 } else if (child.isFile) {
@@ -60,3 +62,5 @@ class SafWorkspaceImporter(
         } ?: error("Unable to read ${source.uri}")
     }
 }
+
+private fun isPlainName(name: String): Boolean = name.isNotEmpty() && name != "." && name != ".." && '/' !in name && '\u0000' !in name

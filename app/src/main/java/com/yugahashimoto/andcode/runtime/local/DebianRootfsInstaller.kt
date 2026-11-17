@@ -134,15 +134,23 @@ class DebianRootfsInstaller(
         // Through GuestFiles: installFullDevelopmentTools runs this on the live rootfs, where the guest
         // could have made any of these files, or /etc/apt, a link to one of this app's own files.
         // Docker's slim image otherwise deletes these archives after every apt operation.
-        GuestFiles.delete(rootfs, "etc/apt/apt.conf.d/docker-clean")
-        GuestFiles.write(rootfs, "etc/apt/apt.conf.d/keep-downloads", "APT::Keep-Downloaded-Packages \"true\";\n")
-        GuestFiles.write(
-            rootfs,
-            "etc/apt/sources.list",
-            "deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware\n" +
-                "deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware\n" +
-                "deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware\n",
-        )
+        try {
+            GuestFiles.delete(rootfs, "etc/apt/apt.conf.d/docker-clean")
+            GuestFiles.write(rootfs, "etc/apt/apt.conf.d/keep-downloads", "APT::Keep-Downloaded-Packages \"true\";\n")
+            GuestFiles.write(
+                rootfs,
+                "etc/apt/sources.list",
+                "deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware\n" +
+                    "deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware\n" +
+                    "deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware\n",
+            )
+        } catch (refused: GuestPathRefusedException) {
+            throw IllegalStateException(
+                "Cannot configure apt in the Antigravity Linux environment: ${refused.message}. " +
+                    "Replace that link with a real folder or file inside the environment, then try again.",
+                refused,
+            )
+        }
         val command =
             listOf(
                 suite.proot.absolutePath,

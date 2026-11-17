@@ -438,8 +438,15 @@ class AndCodeApplication : Application() {
                 accessCoordinator = accessCoordinator,
                 messages = AndroidLocalRuntimeMessages(this),
                 workspaceDirectory = File(runtimeDirectory, "workspace"),
+                githubToken = { settings.githubToken },
             )
-        terminalSessions = LocalTerminalSessionFactory(runtimeDirectory, installer::installedRuntime, accessCoordinator)
+        terminalSessions =
+            LocalTerminalSessionFactory(
+                runtimeDirectory,
+                installer::installedRuntime,
+                accessCoordinator,
+                githubToken = { settings.githubToken },
+            )
         opencodeDatabaseMaintenance =
             OpencodeDatabaseMaintenance(
                 shellRunner = { command, timeoutSeconds -> commandRunner.runShell(command, timeoutSeconds) },
