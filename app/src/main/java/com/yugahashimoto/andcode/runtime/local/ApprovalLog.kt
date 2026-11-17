@@ -83,9 +83,13 @@ class ApprovalLog(
 
     @Synchronized
     fun clear() {
-        GuestFiles.delete(root, APP_FILE)
-        GuestFiles.delete(root, HOOK_FILE)
-        mutableEntries.value = emptyList()
+        try {
+            GuestFiles.delete(root, APP_FILE)
+            GuestFiles.delete(root, HOOK_FILE)
+        } finally {
+            // Read back rather than emptied, so a delete that failed halfway shows what is left.
+            refreshLocked()
+        }
     }
 
     private fun refreshLocked() {
