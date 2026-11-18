@@ -1,7 +1,6 @@
 package com.yugahashimoto.andcode.feature.schedule
 
 import android.annotation.SuppressLint
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -11,6 +10,8 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.yugahashimoto.andcode.MainActivity
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.locale.AppLanguage
+import com.yugahashimoto.andcode.core.notification.AppNotificationChannels
 import com.yugahashimoto.andcode.core.notification.RuntimeNotificationHelper
 import com.yugahashimoto.andcode.runtime.RuntimeRegistry
 import com.yugahashimoto.andcode.runtime.SessionApproval
@@ -33,21 +34,23 @@ class AgentScheduleNotifications(
     private val manager = NotificationManagerCompat.from(context)
 
     init {
-        ensureChannel()
+        AppNotificationChannels.ensure(context, CHANNEL)
     }
 
     override fun notify(notice: AgentScheduleNotice): Boolean {
         if (!canShow()) return false
+        // In the language picked now: the Application context keeps the one the process started in.
+        val text = AppLanguage.current(context)
         val schedule = notice.schedule
-        val folder = schedule.workspacePath.ifBlank { context.getString(R.string.schedule_workspace_unset) }
-        val where = "${runtimeLabel(schedule.runtimeId)} · $folder"
+        val folder = schedule.workspacePath.ifBlank { text.getString(R.string.schedule_workspace_unset) }
+        val where = "${runtimeLabel(text, schedule.runtimeId)} · $folder"
         val notification =
             when (notice.kind) {
                 // Deleting only takes work away, so it is told quietly: no sound, no heads-up. It is
                 // told at all because it cannot be undone and leaves no schedule to carry a marker.
                 AgentScheduleChangeKind.DELETED ->
                     builder(schedule.id, openSchedule = false)
-                        .setContentTitle(context.getString(R.string.notification_schedule_agent_deleted_title, schedule.displayName))
+                        .setContentTitle(text.getString(R.string.notification_schedule_agent_deleted_title, schedule.displayName))
                         .setContentText(where)
                         .setSilent(true)
                         .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -60,20 +63,20 @@ class AgentScheduleNotifications(
                         }
                     val timing =
                         when {
-                            !schedule.enabled -> context.getString(R.string.notification_schedule_agent_off)
+                            !schedule.enabled -> text.getString(R.string.notification_schedule_agent_off)
                             notice.nextRunAt != null ->
-                                context.getString(R.string.schedule_next_run, dateTimeLabel(context, notice.nextRunAt.toEpochMilli()))
-                            else -> context.getString(R.string.notification_schedule_agent_no_next_run)
+                                text.getString(R.string.schedule_next_run, dateTimeLabel(text, notice.nextRunAt.toEpochMilli()))
+                            else -> text.getString(R.string.notification_schedule_agent_no_next_run)
                         }
                     val warning =
                         when (notice.approval) {
-                            SessionApproval.NEVER_ASKS -> context.getString(R.string.notification_schedule_agent_will_not_ask)
+                            SessionApproval.NEVER_ASKS -> text.getString(R.string.notification_schedule_agent_will_not_ask)
                             SessionApproval.EDITS_AND_COMMANDS_PREAPPROVED ->
-                                context.getString(R.string.notification_schedule_agent_edits_unasked)
+                                text.getString(R.string.notification_schedule_agent_edits_unasked)
                             SessionApproval.ASKS -> null
                         }
                     builder(schedule.id, openSchedule = true)
-                        .setContentTitle(context.getString(title, schedule.displayName))
+                        .setContentTitle(text.getString(title, schedule.displayName))
                         // Collapsed, the warning is what matters most; expanded, everything is there.
                         .setContentText(warning ?: where)
                         .setStyle(NotificationCompat.BigTextStyle().bigText(listOfNotNull(where, timing, warning).joinToString("\n")))
@@ -86,14 +89,14 @@ class AgentScheduleNotifications(
     /** POST_NOTIFICATIONS granted (Android 13+), notifications on for the app, and this channel not blocked. */
     private fun canShow(): Boolean {
         if (!RuntimeNotificationHelper.canPost(context) || !manager.areNotificationsEnabled()) return false
-        return manager.getNotificationChannel(CHANNEL_ID)?.importance != NotificationManager.IMPORTANCE_NONE
+        return manager.getNotificationChannel(CHANNEL.id)?.importance != NotificationManager.IMPORTANCE_NONE
     }
 
     private fun builder(
         scheduleId: String,
         openSchedule: Boolean,
     ): NotificationCompat.Builder =
-        NotificationCompat.Builder(context, CHANNEL_ID)
+        NotificationCompat.Builder(context, CHANNEL.id)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(openIntent(scheduleId, openSchedule))
             .setAutoCancel(true)
@@ -126,33 +129,27 @@ class AgentScheduleNotifications(
     }
 
     /** The runtime as the Schedules screen names it, or its id when it no longer exists. */
-    private fun runtimeLabel(runtimeId: String): String {
+    private fun runtimeLabel(
+        text: Context,
+        runtimeId: String,
+    ): String {
         val target = runtimes.target(runtimeId) ?: return runtimeId
         val agent = target.agent ?: return target.displayName
-        return context.getString(R.string.local_agent_on_device, context.getString(agent.displayNameRes))
+        return text.getString(R.string.local_agent_on_device, text.getString(agent.displayNameRes))
     }
 
     @SuppressLint("MissingPermission")
     private fun post(
         scheduleId: String,
         builder: NotificationCompat.Builder,
-    ): Boolean = runCatching { manager.notify(scheduleId, NOTIFICATION_ID, builder.build()) }.isSuccess
-
-    private fun ensureChannel() {
-        val notificationManager = context.getSystemService(NotificationManager::class.java) ?: return
-        notificationManager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                context.getString(R.string.notification_channel_schedule_agent_changes),
-                NotificationManager.IMPORTANCE_DEFAULT,
-            ).apply {
-                description = context.getString(R.string.notification_channel_schedule_agent_changes_description)
-            },
-        )
+    ): Boolean {
+        // Renames the channel first if the language changed since it was named.
+        AppNotificationChannels.ensure(context, CHANNEL)
+        return runCatching { manager.notify(scheduleId, NOTIFICATION_ID, builder.build()) }.isSuccess
     }
 
     companion object {
-        private const val CHANNEL_ID = "andcode_schedule_agent_changes"
+        private val CHANNEL = AppNotificationChannels.SCHEDULE_AGENT_CHANGES
 
         /**
          * Takes down [scheduleId]'s notice once the user has opened the schedule: it has done its

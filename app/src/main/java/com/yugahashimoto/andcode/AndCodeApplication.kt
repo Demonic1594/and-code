@@ -101,6 +101,7 @@ import com.yugahashimoto.andcode.runtime.local.SystemPromptStore
 import com.yugahashimoto.andcode.runtime.local.TerminalSessionFactory
 import com.yugahashimoto.andcode.runtime.local.VerifiedRuntimeDownloader
 import com.yugahashimoto.andcode.runtime.local.applyOpenCodeSystemPrompt
+import com.yugahashimoto.andcode.runtime.local.describeFailure
 import com.yugahashimoto.andcode.runtime.local.isActive
 import com.yugahashimoto.andcode.startup.CatalogReconcileInitializer
 import com.yugahashimoto.andcode.startup.RuntimeAutoStartInitializer
@@ -134,6 +135,10 @@ class AndCodeApplication : Application() {
 
     lateinit var preferences: AppPreferencesRepository
         private set
+
+    /** The picked app language from the settings in memory, or null before [onCreate] has read them. */
+    val loadedLanguage: String?
+        get() = if (::preferences.isInitialized) preferences.state.value.language else null
 
     /** Whether the app is behind the device lock; see [AppLockState]. */
     val appLock = AppLockState()
@@ -475,7 +480,14 @@ class AndCodeApplication : Application() {
         claudeCodeTarget = ClaudeCodeTarget(claudeCodeRuntime, claudeMessages, systemPromptStore)
         antigravityRuntime = AntigravityRuntime(runtimeDirectory, installer::installedRuntime, githubToken = { settings.githubToken })
         antigravityTarget = AntigravityTarget(antigravityRuntime)
-        antigravityController = AntigravityController(installer, antigravityTarget, runtimeWork, applicationScope)
+        antigravityController =
+            AntigravityController(
+                installer,
+                antigravityTarget,
+                runtimeWork,
+                applicationScope,
+                describeFailure = { describeFailure(it) },
+            )
         val codexMessages = AndroidCodexMessages(this)
         codexRuntime =
             CodexRuntime(
@@ -503,7 +515,16 @@ class AndCodeApplication : Application() {
                 }
             }
         }
-        codexController = CodexController(codexRuntime, codexTarget, installer, abi, runtimeWork, applicationScope)
+        codexController =
+            CodexController(
+                codexRuntime,
+                codexTarget,
+                installer,
+                abi,
+                runtimeWork,
+                applicationScope,
+                describeFailure = { describeFailure(it) },
+            )
         runtimeMessages = AndroidLocalRuntimeMessages(this)
         gitCloneRepository =
             GitCloneRepository(

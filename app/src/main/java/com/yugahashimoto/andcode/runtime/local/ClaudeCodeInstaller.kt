@@ -232,10 +232,8 @@ object ClaudeCodeInstaller {
         if (exitCode != 0) {
             collectDiagnostics(INSTALL_DIAGNOSTICS_SCRIPT, rootfs, suite, runtimeDirectory, log, timeoutMinutes)
         }
-        check(exitCode == 0) { failureMessage("installation", exitCode, log) }
-        check(File(rootfs, CLAUDE_BINARY.removePrefix("/")).isFile) {
-            "Claude Code reported success but $CLAUDE_BINARY is missing"
-        }
+        if (exitCode != 0) throw failure(update = false, exitCode = exitCode, log = log)
+        if (!File(rootfs, CLAUDE_BINARY.removePrefix("/")).isFile) throw InstallerErrors.Claude.binaryMissing(CLAUDE_BINARY)
         ensureDnsPreload(rootfs)
     }
 
@@ -278,7 +276,7 @@ object ClaudeCodeInstaller {
         if (exitCode != 0) {
             collectDiagnostics(UPDATE_DIAGNOSTICS_SCRIPT, rootfs, suite, runtimeDirectory, log, timeoutMinutes)
         }
-        check(exitCode == 0) { failureMessage("update", exitCode, log) }
+        if (exitCode != 0) throw failure(update = true, exitCode = exitCode, log = log)
     }
 
     fun isInstalledIn(rootfs: File): Boolean = File(rootfs, CLAUDE_BINARY.removePrefix("/")).isFile
@@ -330,7 +328,7 @@ object ClaudeCodeInstaller {
         if (!process.waitFor(timeoutMinutes, TimeUnit.MINUTES)) {
             process.destroyForcibly()
             process.waitFor(5, TimeUnit.SECONDS)
-            error("Claude Code package operation timed out after $timeoutMinutes minutes. $PACKAGE_INSTALL_RETRY_HINT")
+            throw InstallerErrors.Claude.timedOut(timeoutMinutes)
         }
         return process.exitValue()
     }
@@ -353,11 +351,11 @@ object ClaudeCodeInstaller {
     private val APK_ERROR_PATTERN =
         Regex("(?i)\\b(error|warning|fatal|conflict|overwrite|unsatisfiable|masked|untrusted|denied|no space left|not found|failed to)\\b")
 
-    internal fun failureMessage(
-        operation: String,
+    internal fun failure(
+        update: Boolean,
         exitCode: Int,
         log: File,
-    ): String {
+    ): InstallerException {
         val text = log.takeIf(File::isFile)?.readText().orEmpty()
         val errors = extractApkErrors(text)
         val head = text.take(1_500)
@@ -372,29 +370,23 @@ object ClaudeCodeInstaller {
             errors.lineSequence().firstOrNull { !APK_ERROR_SUMMARY_PATTERN.containsMatchIn(it) }
                 ?: errors.lineSequence().firstOrNull()
                 ?: tail.lineSequence().map(String::trim).firstOrNull { it.isNotBlank() }.orEmpty()
-        return buildString {
-            append("Claude Code ")
-            append(operation)
-            append(" failed (exit ")
-            append(exitCode)
-            append("): ")
-            append(primary)
-            // On its own line right after the primary error: the errors block and the log head and
-            // tail that follow run to thousands of characters, and a hint buried under them is
-            // never read (issue #290).
-            append('\n')
-            append(PACKAGE_INSTALL_RETRY_HINT)
-            if (errors.isNotBlank()) {
-                append('\n')
-                append(errors)
+        // The retry hint goes on its own line right after the primary error: the errors block and
+        // the log head and tail that follow run to thousands of characters, and a hint buried under
+        // them is never read (issue #290).
+        val details =
+            buildString {
+                if (errors.isNotBlank()) {
+                    append('\n')
+                    append(errors)
+                }
+                if (showHead) {
+                    append("\n--- log head ---\n")
+                    append(head)
+                }
+                append("\n--- log tail ---\n")
+                append(tail)
             }
-            if (showHead) {
-                append("\n--- log head ---\n")
-                append(head)
-            }
-            append("\n--- log tail ---\n")
-            append(tail)
-        }
+        return InstallerErrors.Claude.failed(update, exitCode, primary, details)
     }
 
     internal fun extractApkErrors(text: String): String =

@@ -9,6 +9,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.MainActivity
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.locale.AppLanguage
 import com.yugahashimoto.andcode.data.repository.RuntimeActivityState
 import com.yugahashimoto.andcode.data.repository.RuntimeSessionRef
 import kotlinx.coroutines.CoroutineScope
@@ -129,13 +130,15 @@ class LiveRunNotifier(
 
     @SuppressLint("MissingPermission")
     private fun render(runs: List<LiveRun>) {
+        // In the language picked now: the Application context keeps the one the process started in.
+        val text = AppLanguage.current(context)
         val content =
             liveRunContent(
                 runs,
                 LiveRunLabels(
-                    untitled = context.getString(R.string.new_chat),
-                    working = context.getString(R.string.notification_live_working),
-                    manyTitle = { count -> context.getString(R.string.notification_live_many, count) },
+                    untitled = text.getString(R.string.new_chat),
+                    working = text.getString(R.string.notification_live_working),
+                    manyTitle = { count -> text.getString(R.string.notification_live_many, count) },
                 ),
             )
         if (content == null) {
@@ -159,7 +162,7 @@ class LiveRunNotifier(
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
         val builder =
-            NotificationCompat.Builder(context, RuntimeNotificationHelper.CHANNEL_LIVE)
+            NotificationCompat.Builder(context, AppNotificationChannels.LIVE_RUNS.id)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(content.title)
                 .setContentText(content.text)
@@ -184,10 +187,11 @@ class LiveRunNotifier(
         if (single != null) {
             builder.addAction(
                 0,
-                context.getString(R.string.stop_run),
+                text.getString(R.string.stop_run),
                 NotificationActionReceiver.stopIntent(context, single.sessionId, single.runtimeId),
             )
         }
+        AppNotificationChannels.ensure(context, AppNotificationChannels.LIVE_RUNS)
         runCatching { manager.notify(NOTIFICATION_ID, builder.build()) }
     }
 

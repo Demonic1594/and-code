@@ -56,7 +56,7 @@ object CodexInstaller {
         releaseClient: CodexReleaseClient = CodexReleaseClient(httpClient),
     ): String =
         withContext(Dispatchers.IO) {
-            val targetTriple = requireNotNull(TARGET_TRIPLE_BY_ABI[abi]) { "Unsupported Android ABI for Codex: $abi" }
+            val targetTriple = TARGET_TRIPLE_BY_ABI[abi] ?: throw InstallerErrors.Codex.unsupportedAbi(abi)
             val release = releaseClient.latest(abi)
             val downloadDir = File(runtimeDirectory, "tmp").apply { mkdirs() }
             // A unique filename per invocation: a fixed name would let two concurrent installs
@@ -74,9 +74,7 @@ object CodexInstaller {
                 accessCoordinator.write {
                     extractBinaries(downloadFile, targetTriple, rootfs)
                     INSTALLED_BINARIES.forEach { name ->
-                        check(GuestFiles.isRegularFile(rootfs, "$BIN_DIR/$name")) {
-                            "Codex reported a successful download but $BIN_DIR/$name is missing"
-                        }
+                        if (!GuestFiles.isRegularFile(rootfs, "$BIN_DIR/$name")) throw InstallerErrors.Codex.binaryMissing("$BIN_DIR/$name")
                     }
                 }
             } finally {
@@ -92,8 +90,8 @@ object CodexInstaller {
     ) {
         val request = Request.Builder().url(url).header("User-Agent", "AndCode").get().build()
         httpClient.newCall(request).execute().use { response ->
-            check(response.isSuccessful) { "Codex download failed with HTTP ${response.code}" }
-            val body = checkNotNull(response.body) { "Codex download response had no body" }
+            if (!response.isSuccessful) throw InstallerErrors.Codex.downloadHttp(response.code)
+            val body = response.body ?: throw InstallerErrors.Codex.downloadEmpty()
             body.byteStream().use { input ->
                 FileOutputStream(destination).use { output -> input.copyTo(output) }
             }
@@ -115,7 +113,7 @@ object CodexInstaller {
             }
         }
         val actualBase64 = Base64.getEncoder().encodeToString(digest.digest())
-        check(actualBase64 == expectedBase64) { "SHA-512 mismatch for Codex download: expected $expectedBase64, got $actualBase64" }
+        if (actualBase64 != expectedBase64) throw InstallerErrors.Codex.checksumMismatch(expectedBase64, actualBase64)
     }
 
     /**
@@ -152,6 +150,6 @@ object CodexInstaller {
                 }
             }
         }
-        check(pending.isEmpty()) { "Codex tarball does not contain ${pending.joinToString { "$prefix$it" }}" }
+        if (pending.isNotEmpty()) throw InstallerErrors.Codex.tarballIncomplete(pending.joinToString { "$prefix$it" })
     }
 }

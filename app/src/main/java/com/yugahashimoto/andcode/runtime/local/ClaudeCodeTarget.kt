@@ -268,7 +268,7 @@ class ClaudeCodeTarget(
         }.onSuccess { version ->
             mutableState.value = RuntimeState.Connected(version)
         }.onFailure { error ->
-            mutableState.value = RuntimeState.Failed(error.message ?: messages.installFailed)
+            mutableState.value = RuntimeState.Failed(messages.describe(error) ?: messages.installFailed)
         }
     }
 

@@ -52,7 +52,7 @@ class DebianRootfsInstaller(
                     },
                 )
                 destination.deleteRecursively()
-                require(extracted.renameTo(destination)) { "Unable to activate Debian Antigravity rootfs" }
+                if (!extracted.renameTo(destination)) throw InstallerErrors.Debian.activateFailed()
                 onProgress(1f)
                 destination
             } finally {
@@ -63,10 +63,10 @@ class DebianRootfsInstaller(
     private fun accessToken(): String {
         val request = Request.Builder().url(DebianRootfsManifest.tokenUrl).get().build()
         httpClient.newCall(request).execute().use { response ->
-            require(response.isSuccessful) { "Debian registry token request failed with HTTP ${response.code}" }
+            if (!response.isSuccessful) throw InstallerErrors.Debian.tokenHttp(response.code)
             val body = requireNotNull(response.body).string()
             return Json.parseToJsonElement(body).jsonObject["token"]?.jsonPrimitive?.content
-                ?: error("Debian registry token response did not contain a token")
+                ?: throw InstallerErrors.Debian.tokenMissing()
         }
     }
 
@@ -97,7 +97,7 @@ class DebianRootfsInstaller(
             )
         }
         packageFile.inputStream().use { RuntimeArchive.extractDebianPackage(it, rootfs) }
-        require(File(rootfs, "usr/bin/script").isFile) { "Debian PTY utility was not installed" }
+        if (!File(rootfs, "usr/bin/script").isFile) throw InstallerErrors.Debian.ptyMissing()
     }
 
     /**
@@ -131,26 +131,7 @@ class DebianRootfsInstaller(
         val aptCache = File(runtimeDirectory, "cache/apt/archives").apply { mkdirs() }
         File(aptCache, "partial").mkdirs()
         File(rootfs, "var/cache/apt/archives").mkdirs()
-        // Through GuestFiles: installFullDevelopmentTools runs this on the live rootfs, where the guest
-        // could have made any of these files, or /etc/apt, a link to one of this app's own files.
-        // Docker's slim image otherwise deletes these archives after every apt operation.
-        try {
-            GuestFiles.delete(rootfs, "etc/apt/apt.conf.d/docker-clean")
-            GuestFiles.write(rootfs, "etc/apt/apt.conf.d/keep-downloads", "APT::Keep-Downloaded-Packages \"true\";\n")
-            GuestFiles.write(
-                rootfs,
-                "etc/apt/sources.list",
-                "deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware\n" +
-                    "deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware\n" +
-                    "deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware\n",
-            )
-        } catch (refused: GuestPathRefusedException) {
-            throw IllegalStateException(
-                "Cannot configure apt in the Antigravity Linux environment: ${refused.message}. " +
-                    "Replace that link with a real folder or file inside the environment, then try again.",
-                refused,
-            )
-        }
+        configureApt(rootfs)
         val command =
             listOf(
                 suite.proot.absolutePath,
@@ -197,15 +178,36 @@ class DebianRootfsInstaller(
         val completed = process.waitFor(10, java.util.concurrent.TimeUnit.MINUTES)
         if (!completed) {
             process.destroyForcibly()
-            error("Debian development tool installation timed out. $PACKAGE_INSTALL_RETRY_HINT")
+            throw InstallerErrors.Debian.toolsTimedOut()
         }
-        require(process.exitValue() == 0) {
+        if (process.exitValue() != 0) {
             // Same shape as LocalRuntimeInstaller: hint before the log tail, which is the only part
             // long enough to push it out of view.
-            "Unable to install Debian runtime packages. $PACKAGE_INSTALL_RETRY_HINT\n\n" +
-                "Last log lines:\n${installLog.readText().takeLast(4000)}"
+            throw InstallerErrors.Debian.packagesFailed(installLog.readText().takeLast(4000))
         }
         if ("gh" in packages) installGitHubCli(rootfs, suite, prootTmp, aptCache)
+    }
+
+    /**
+     * Points apt at Debian's mirrors and keeps its downloads. Through GuestFiles:
+     * installFullDevelopmentTools runs this on the live rootfs, where the guest could have made any
+     * of these files, or /etc/apt, a link to one of this app's own files. Docker's slim image
+     * otherwise deletes these archives after every apt operation.
+     */
+    private fun configureApt(rootfs: File) {
+        try {
+            GuestFiles.delete(rootfs, "etc/apt/apt.conf.d/docker-clean")
+            GuestFiles.write(rootfs, "etc/apt/apt.conf.d/keep-downloads", "APT::Keep-Downloaded-Packages \"true\";\n")
+            GuestFiles.write(
+                rootfs,
+                "etc/apt/sources.list",
+                "deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware\n" +
+                    "deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware\n" +
+                    "deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware\n",
+            )
+        } catch (refused: GuestPathRefusedException) {
+            throw InstallerErrors.Debian.aptRefused(refused)
+        }
     }
 
     private fun installGitHubCli(
@@ -261,11 +263,9 @@ class DebianRootfsInstaller(
         val completed = process.waitFor(5, java.util.concurrent.TimeUnit.MINUTES)
         if (!completed) {
             process.destroyForcibly()
-            error("GitHub CLI installation timed out")
+            throw InstallerErrors.Debian.githubCliTimedOut()
         }
-        require(process.exitValue() == 0) {
-            "Unable to install GitHub CLI: ${installLog.readText().takeLast(4000)}"
-        }
+        if (process.exitValue() != 0) throw InstallerErrors.Debian.githubCliFailed(installLog.readText().takeLast(4000))
     }
 
     private fun ensureGlibcLoader(rootfs: File) {
@@ -275,7 +275,7 @@ class DebianRootfsInstaller(
                 File(rootfs, "lib/aarch64-linux-gnu/$loaderName"),
                 File(rootfs, "lib/x86_64-linux-gnu/$loaderName"),
             ).firstOrNull { it.isFile }
-                ?: error("Debian glibc loader is missing: $loaderName")
+                ?: throw InstallerErrors.Debian.glibcLoaderMissing(loaderName)
         val loader = File(rootfs, "lib/$loaderName")
         if (!loader.isFile) {
             loader.parentFile?.mkdirs()

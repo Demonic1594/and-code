@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.locale.AppLanguage
 
 /**
  * Wakes the app when a schedule's alarm fires, and re-arms all alarms after boot
@@ -29,7 +30,7 @@ class ScheduleAlarmReceiver : BroadcastReceiver() {
                     app.scheduleRepository.schedule(scheduleId)?.let { schedule ->
                         app.reportScheduleStartFailure(
                             schedule = schedule,
-                            reason = app.getString(R.string.schedule_foreground_start_blocked),
+                            reason = AppLanguage.current(app).getString(R.string.schedule_foreground_start_blocked),
                             failedAttempts = attempt + 1,
                             retryable = true,
                         )
