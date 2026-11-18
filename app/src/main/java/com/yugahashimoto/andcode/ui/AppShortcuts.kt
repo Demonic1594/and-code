@@ -19,14 +19,22 @@ enum class ShortcutDestination(val id: String) {
     companion object {
         const val EXTRA = "com.yugahashimoto.andcode.extra.SHORTCUT"
 
+        /** With [SCHEDULES], a schedule to open there: an agent's schedule-change notification sets it. */
+        const val EXTRA_SCHEDULE_ID = "com.yugahashimoto.andcode.extra.SCHEDULE_ID"
+
         fun fromId(id: String?): ShortcutDestination? = entries.firstOrNull { it.id == id }
     }
 }
 
-/** A shortcut tap; [token] makes two taps on the same shortcut distinct, like [ChatDeepLink]. */
+/**
+ * A shortcut tap, or a notification tap that goes to one of the same places; [token] makes two taps
+ * on the same shortcut distinct, like [ChatDeepLink]. [scheduleId] names a schedule to open in
+ * [ShortcutDestination.SCHEDULES].
+ */
 data class ShortcutLink(
     val destination: ShortcutDestination,
     val token: Long,
+    val scheduleId: String? = null,
 )
 
 /** A pinned chat offered as its own launcher shortcut. */

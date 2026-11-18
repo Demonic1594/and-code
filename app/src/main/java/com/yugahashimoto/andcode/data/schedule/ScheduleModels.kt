@@ -36,6 +36,12 @@ data class Schedule(
     val autoAcceptPermissions: Boolean? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
+    /**
+     * Set when an agent added this schedule or changed what it runs or when, through the schedule
+     * bridge; cleared once the user opens or edits it. Stored with the schedule so the Schedules
+     * screen still shows it when the notification was never seen or notifications are off.
+     */
+    val agentChange: ScheduleAgentChange? = null,
 ) {
     val displayName: String
         get() =
@@ -45,6 +51,19 @@ data class Schedule(
 
     val isRecurring: Boolean get() = cron != null
 }
+
+/** What an agent did to a schedule that the user has not looked at since; see [Schedule.agentChange]. */
+@Serializable
+enum class ScheduleAgentChange { CREATED, CHANGED }
+
+/**
+ * These schedules with [id]'s marker set to [change], leaving the order and every timestamp alone:
+ * the marker is not an edit, so it must not move the schedule to the top of the list.
+ */
+internal fun List<Schedule>.withAgentChange(
+    id: String,
+    change: ScheduleAgentChange?,
+): List<Schedule> = map { if (it.id == id) it.copy(agentChange = change) else it }
 
 enum class ScheduleRunStatus { PENDING, RUNNING, COMPLETED, FAILED, SKIPPED }
 

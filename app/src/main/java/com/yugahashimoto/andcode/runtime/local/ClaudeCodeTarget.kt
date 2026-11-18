@@ -27,6 +27,7 @@ import com.yugahashimoto.andcode.runtime.RuntimeCapabilities
 import com.yugahashimoto.andcode.runtime.RuntimeState
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
 import com.yugahashimoto.andcode.runtime.RuntimeType
+import com.yugahashimoto.andcode.runtime.SessionApproval
 import com.yugahashimoto.andcode.runtime.WorkspaceRef
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -145,6 +146,14 @@ class ClaudeCodeTarget(
             ClaudePermissionMode.fromCliValue(runCatching { modeFile.readText().trim() }.getOrNull()),
         )
     val defaultPermissionMode: StateFlow<ClaudePermissionMode> = mutableDefaultPermissionMode.asStateFlow()
+
+    /**
+     * [createSession] records every session with [defaultPermissionMode].
+     *
+     * Reads the rootfs to see whether the permission hook is installed, so call it off the main thread.
+     */
+    override val sessionApproval: SessionApproval
+        get() = mutableDefaultPermissionMode.value.sessionApproval(bridgeReady = runtime.permissionBridgeReady())
 
     /**
      * Applies [mode] to new sessions, and to [sessionId] when one is given.

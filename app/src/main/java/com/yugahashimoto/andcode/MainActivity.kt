@@ -198,8 +198,10 @@ class MainActivity : FragmentActivity() {
         intent ?: return
         ShortcutDestination.fromId(intent.getStringExtra(ShortcutDestination.EXTRA))?.let { destination ->
             deepLinkToken += 1
-            shortcutLink = ShortcutLink(destination, deepLinkToken)
+            val scheduleId = intent.getStringExtra(ShortcutDestination.EXTRA_SCHEDULE_ID)?.takeIf(String::isNotBlank)
+            shortcutLink = ShortcutLink(destination, deepLinkToken, scheduleId)
             intent.removeExtra(ShortcutDestination.EXTRA)
+            intent.removeExtra(ShortcutDestination.EXTRA_SCHEDULE_ID)
             return
         }
         val sessionId =

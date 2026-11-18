@@ -1150,6 +1150,17 @@
     <string name="schedule_notification_starting">Запуск по расписанию…</string>
     <string name="schedule_notification_running">Выполняется</string>
     <string name="notification_channel_schedules">Запуски по расписанию</string>
+    <string name="notification_channel_schedule_agent_changes">Расписания, изменённые агентами</string>
+    <string name="notification_channel_schedule_agent_changes_description">Когда агент добавляет, изменяет или удаляет расписание, не спрашивая вас</string>
+    <string name="notification_schedule_agent_created_title">Агент добавил расписание: %1$s</string>
+    <string name="notification_schedule_agent_changed_title">Агент изменил расписание: %1$s</string>
+    <string name="notification_schedule_agent_deleted_title">Агент удалил расписание: %1$s</string>
+    <string name="notification_schedule_agent_off">Выключено: не запустится, пока его не включат</string>
+    <string name="notification_schedule_agent_no_next_run">Ближайших запусков нет</string>
+    <string name="notification_schedule_agent_will_not_ask">⚠ Его запуски не будут спрашивать вашего одобрения перед использованием инструментов</string>
+    <string name="notification_schedule_agent_edits_unasked">Правки и команды выполняются, не спрашивая вас</string>
+    <string name="schedule_agent_marker_created">Добавлено агентом</string>
+    <string name="schedule_agent_marker_changed">Изменено агентом</string>
     <string name="schedule_model_unset">Модель по умолчанию</string>
     <string name="schedule_workspace_unset">Нет рабочей области</string>
     <string name="schedule_agent_unset">Агент не задан</string>

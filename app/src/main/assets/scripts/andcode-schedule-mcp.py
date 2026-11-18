@@ -13,6 +13,12 @@ Bridges the agent to the schedule settings of the AndCode Android app:
 The tool surface mirrors what the schedules screen offers: list, inspect, create,
 edit, delete, toggle, run-now, and run history.
 
+The app runs these without asking the user first, so it tells them afterwards:
+a new schedule, a change to what or when one runs, and turning one on each post
+an Android notification (with a warning when the runs will not ask for approval)
+and mark the schedule in the Schedules screen; deleting posts a quieter notice.
+Replies to those calls carry ``userNotified``.
+
 Speaks MCP over stdio (newline-delimited JSON-RPC) with no third-party deps so
 it runs on the bare runtime rootfs python3.
 """
@@ -126,6 +132,15 @@ SCHEDULE_PROPERTIES = {
     },
 }
 
+# The app makes these changes without asking the user, so it tells them afterwards; agents must not
+# describe a change as unseen.
+USER_NOTICE = (
+    " The user is told through an Android notification and an \"added/changed by an agent\" marker on the"
+    " schedule in the Schedules screen, with a warning when its runs will not ask for approval"
+    " (auto-approval, or a runtime in full-access mode) and a softer one when edits and commands run"
+    " unasked (accept-edits mode); the reply's userNotified says whether this call told them."
+)
+
 TOOLS = [
     {
         "name": "schedule_list",
@@ -151,7 +166,10 @@ TOOLS = [
     },
     {
         "name": "schedule_create",
-        "description": "Create a schedule. Provide exactly one of cron (recurring) or oneTimeAt (single run).",
+        "description": (
+            "Create a schedule. Provide exactly one of cron (recurring) or oneTimeAt (single run). "
+            "Every new schedule is told to the user." + USER_NOTICE
+        ),
         "inputSchema": {
             "type": "object",
             "properties": SCHEDULE_PROPERTIES,
@@ -162,7 +180,10 @@ TOOLS = [
         "name": "schedule_update",
         "description": (
             "Update fields of an existing schedule. Omitting a field keeps its current value; "
-            "explicit null clears providerId/modelId/agentId but keeps workspacePath."
+            "explicit null clears providerId/modelId/agentId but keeps workspacePath. "
+            "A change to what runs or when (prompt, runtime, folder, provider, model, agent, cron/oneTimeAt), "
+            "turning it on, or leaving its approvals to an app setting that approves them is told to the user;"
+            " renaming or turning it off is not." + USER_NOTICE
         ),
         "inputSchema": {
             "type": "object",
@@ -172,7 +193,10 @@ TOOLS = [
     },
     {
         "name": "schedule_delete",
-        "description": "Delete a schedule and its run history.",
+        "description": (
+            "Delete a schedule and its run history. The user gets a quiet notification naming it when"
+            " notifications are on; the reply's userNotified says whether it was shown."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {"scheduleId": {"type": "string"}},
@@ -181,7 +205,10 @@ TOOLS = [
     },
     {
         "name": "schedule_set_enabled",
-        "description": "Enable or disable a schedule without changing its timing.",
+        "description": (
+            "Enable or disable a schedule without changing its timing. Turning one on is told to the user;"
+            " turning one off is not." + USER_NOTICE
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {"scheduleId": {"type": "string"}, "enabled": {"type": "boolean"}},

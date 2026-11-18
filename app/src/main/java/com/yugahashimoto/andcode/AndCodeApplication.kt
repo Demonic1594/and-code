@@ -39,6 +39,8 @@ import com.yugahashimoto.andcode.data.settings.AppPreferencesRepository
 import com.yugahashimoto.andcode.data.settings.DraftRepository
 import com.yugahashimoto.andcode.di.appModule
 import com.yugahashimoto.andcode.di.viewModelModule
+import com.yugahashimoto.andcode.feature.schedule.AgentScheduleNotifications
+import com.yugahashimoto.andcode.feature.schedule.AppScheduleApprovalSettings
 import com.yugahashimoto.andcode.feature.schedule.AppScheduleStore
 import com.yugahashimoto.andcode.feature.schedule.ScheduleBridge
 import com.yugahashimoto.andcode.feature.schedule.ScheduleManager
@@ -784,7 +786,15 @@ class AndCodeApplication : Application() {
         // something holds runtimeWork (and with it the wake lock). With neither, the device is free
         // to suspend and the guest freezes with it, so the loop stays parked instead of polling for
         // the life of the process.
-        val scheduleBridge = ScheduleBridge(File(runtimeDirectory, "workspace"), AppScheduleStore(scheduleRepository, scheduleManager))
+        // Agents change schedules here without asking, so each change that adds to what runs is told
+        // to the user, with a warning when the runs will not ask for approval.
+        val scheduleBridge =
+            ScheduleBridge(
+                File(runtimeDirectory, "workspace"),
+                AppScheduleStore(scheduleRepository, scheduleManager),
+                AgentScheduleNotifications(this, runtimeRegistry) { preferences.state.value.biometricLockEnabled },
+                AppScheduleApprovalSettings({ settings.autoAcceptPermissions }, runtimeRegistry),
+            )
         val scheduleBridgeActive =
             combine(appForeground.foreground, runtimeWork.active) { foreground, working -> foreground || working }
                 .distinctUntilChanged()

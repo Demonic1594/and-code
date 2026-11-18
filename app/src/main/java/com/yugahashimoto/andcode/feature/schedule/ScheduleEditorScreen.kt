@@ -931,5 +931,7 @@ private fun buildSchedule(
         oneTimeAt = oneTimeAt,
         cron = cron,
         autoAcceptPermissions = if (autoAcceptMode == AutoAcceptMode.ALWAYS) true else null,
+        // The user's own save: whatever an agent did to it, they have now seen and decided on.
+        agentChange = null,
     )
 }

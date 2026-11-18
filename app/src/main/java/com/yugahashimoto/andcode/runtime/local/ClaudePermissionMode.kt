@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.runtime.SessionApproval
 
 /**
  * How Claude Code handles tool permissions for a session.
@@ -40,6 +41,19 @@ enum class ClaudePermissionMode(
     ),
     FULL_ACCESS("bypassPermissions", R.string.claude_permission_full_access, R.string.claude_permission_full_access_desc),
     ;
+
+    /**
+     * What a session in this mode asks before using tools. [bridgeReady] is whether the
+     * PermissionRequest hook is installed: without it ClaudeCodeRuntime runs [ASK] as [ACCEPT_EDITS].
+     */
+    fun sessionApproval(bridgeReady: Boolean): SessionApproval =
+        when (this) {
+            FULL_ACCESS -> SessionApproval.NEVER_ASKS
+            ACCEPT_EDITS -> SessionApproval.EDITS_AND_COMMANDS_PREAPPROVED
+            ASK -> if (bridgeReady) SessionApproval.ASKS else SessionApproval.EDITS_AND_COMMANDS_PREAPPROVED
+            // Plan never edits or runs commands, so there is nothing to approve.
+            PLAN -> SessionApproval.ASKS
+        }
 
     companion object {
         /** Safe default until the user opts into [ASK] after the bridge is ready. */

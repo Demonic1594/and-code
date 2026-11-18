@@ -56,6 +56,7 @@ import com.yugahashimoto.andcode.feature.git.GitClient
 import com.yugahashimoto.andcode.feature.inbox.InboxViewModel
 import com.yugahashimoto.andcode.feature.onboarding.AndroidSetupScreen
 import com.yugahashimoto.andcode.feature.onboarding.OnboardingChoiceScreen
+import com.yugahashimoto.andcode.feature.schedule.AgentScheduleNotifications
 import com.yugahashimoto.andcode.feature.schedule.ScheduleViewModel
 import com.yugahashimoto.andcode.feature.settings.CodexSignInActions
 import com.yugahashimoto.andcode.feature.settings.CodexSignInViewModel
@@ -82,6 +83,7 @@ import com.yugahashimoto.andcode.ui.navigation.ROUTE_WORKSPACES
 import com.yugahashimoto.andcode.ui.navigation.activityNavGraph
 import com.yugahashimoto.andcode.ui.navigation.codeViewerRoute
 import com.yugahashimoto.andcode.ui.navigation.guestBrowserRoute
+import com.yugahashimoto.andcode.ui.navigation.scheduleDetailRoute
 import com.yugahashimoto.andcode.ui.navigation.scheduleNavGraph
 import com.yugahashimoto.andcode.ui.navigation.settingsNavGraph
 import com.yugahashimoto.andcode.ui.navigation.workspaceNavGraph
@@ -230,7 +232,9 @@ fun AndCodeApp(
             key = "schedules",
             factory =
                 ViewModelFactory {
-                    ScheduleViewModel(app.scheduleRepository, app.scheduleManager)
+                    ScheduleViewModel(app.scheduleRepository, app.scheduleManager) { scheduleId ->
+                        AgentScheduleNotifications.cancel(app, scheduleId)
+                    }
                 },
         )
 
@@ -619,7 +623,12 @@ fun AndCodeApp(
                 navController.navigate(ROUTE_CHAT) { launchSingleTop = true }
             }
             ShortcutDestination.WORKSPACES -> navController.navigate(ROUTE_WORKSPACES) { launchSingleTop = true }
-            ShortcutDestination.SCHEDULES -> navController.navigate(ROUTE_SCHEDULES) { launchSingleTop = true }
+            ShortcutDestination.SCHEDULES -> {
+                navController.navigate(ROUTE_SCHEDULES) { launchSingleTop = true }
+                // An agent's schedule-change notification opens the schedule itself, over the list so
+                // Back lands there; one deleted since drops back to the list on its own.
+                link.scheduleId?.let { navController.navigate(scheduleDetailRoute(it)) { launchSingleTop = true } }
+            }
         }
     }
 

@@ -21,59 +21,21 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.nio.file.Files
-import java.time.Instant
 import java.util.UUID
 
 class ScheduleBridgeTest {
     @get:Rule
     val folder = TemporaryFolder()
 
-    private class FakeStore : ScheduleStore {
-        val schedules = mutableListOf<Schedule>()
-        val runs = mutableListOf<ScheduleRun>()
-        val runNowCalls = mutableListOf<String>()
-        var reschedules = 0
-
-        override fun schedules(): List<Schedule> = schedules.toList()
-
-        override fun schedule(id: String): Schedule? = schedules.firstOrNull { it.id == id }
-
-        override fun runs(scheduleId: String?): List<ScheduleRun> =
-            if (scheduleId == null) runs.toList() else runs.filter { it.scheduleId == scheduleId }
-
-        override fun upsert(schedule: Schedule) {
-            schedules.removeAll { it.id == schedule.id }
-            schedules.add(schedule)
-            reschedules++
-        }
-
-        override fun delete(id: String) {
-            schedules.removeAll { it.id == id }
-            runs.removeAll { it.scheduleId == id }
-        }
-
-        override fun setEnabled(
-            id: String,
-            enabled: Boolean,
-        ) {
-            schedules.replaceAll { if (it.id == id) it.copy(enabled = enabled) else it }
-            reschedules++
-        }
-
-        override fun runNow(id: String): Boolean {
-            runNowCalls += id
-            return true
-        }
-
-        override fun nextFireAt(schedule: Schedule): Instant? = null
-    }
+    private val notifier = FakeScheduleNotifier()
 
     private fun bridgeWith(
         store: ScheduleStore,
         staleAfterMillis: Long = ScheduleBridge.STALE_AFTER_MILLIS,
         clock: () -> Long = System::currentTimeMillis,
+        approvals: ScheduleApprovalSettings = FakeApprovalSettings(),
     ): ScheduleBridge {
-        val bridge = ScheduleBridge(folder.root, store, staleAfterMillis = staleAfterMillis, clock = clock)
+        val bridge = ScheduleBridge(folder.root, store, notifier, approvals, staleAfterMillis = staleAfterMillis, clock = clock)
         bridge.pollOnce()
         return bridge
     }

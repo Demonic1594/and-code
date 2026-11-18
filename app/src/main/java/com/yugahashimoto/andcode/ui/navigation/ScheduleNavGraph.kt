@@ -65,6 +65,9 @@ private fun NavGraphBuilder.scheduleListRoute(
                 navController.navigate(scheduleDetailRoute(scheduleId)) { launchSingleTop = true }
             },
             onEdit = { scheduleId ->
+                // Cleared before the editor opens rather than from inside it: the editor rebuilds its
+                // timing fields whenever the schedule it was given changes.
+                scheduleViewModel.acknowledgeAgentChange(scheduleId)
                 navController.navigate(scheduleEditRoute(scheduleId)) { launchSingleTop = true }
             },
             onRunNow = { scheduleId ->
@@ -103,6 +106,11 @@ private fun NavGraphBuilder.scheduleRunsRoute(
         val allSessions by app.catalogRepository.allSessions.collectAsState()
         val scheduleId = decodeRouteArg(backStackEntry.arguments?.getString("scheduleId").orEmpty())
         val schedule = schedules.firstOrNull { it.id == scheduleId }
+        // Opening the schedule - from the list or from an agent's notification - is the user seeing
+        // what the agent did, so its marker goes. Keyed on the marker too, so a change an agent makes
+        // while the page is open is seen as well (clearing it re-runs this once, which is a no-op).
+        val agentChange = schedule?.agentChange
+        LaunchedEffect(scheduleId, agentChange) { scheduleViewModel.acknowledgeAgentChange(scheduleId) }
         if (schedule == null) {
             // Deleted while on screen; drop back to the list.
             LaunchedEffect(Unit) { navController.popBackStack() }
@@ -169,6 +177,9 @@ private fun NavGraphBuilder.scheduleEditorRoute(
             onSave = { built ->
                 if (scheduleId != null) {
                     scheduleViewModel.update(built)
+                    // The save clears the marker; a change an agent made while the editor was open
+                    // also left a notice, which the user has now seen through.
+                    scheduleViewModel.acknowledgeAgentChange(built.id)
                 } else {
                     scheduleViewModel.create(built)
                 }
