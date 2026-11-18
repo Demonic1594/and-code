@@ -30,6 +30,46 @@ class AntigravitySandboxLauncherTest {
     }
 
     @Test
+    fun `a chat's agy starts in its project folder`() {
+        val command =
+            AntigravitySandboxLauncher.command(
+                mockRuntime(File("/rootfs")),
+                "/host/workspace",
+                listOf("--print", "hi"),
+                pty = false,
+                workingDirectory = "/workspace/my-app",
+            )
+
+        assertEquals("/workspace/my-app", command.workingDirectory())
+        // The mount stays the whole workspace, which is what puts the project folder in the guest.
+        assertTrue("/host/workspace:/workspace" in command)
+        assertEquals(listOf("/usr/local/bin/agy", "--print", "hi"), command.takeLast(3))
+    }
+
+    @Test
+    fun `agy runs that belong to no chat start in the shared workspace`() {
+        val command = AntigravitySandboxLauncher.command(mockRuntime(File("/rootfs")), "/host/workspace", listOf("models"), pty = false)
+
+        assertEquals("/workspace", command.workingDirectory())
+    }
+
+    @Test
+    fun `a chat without a folder starts in the shared workspace`() {
+        val command =
+            AntigravitySandboxLauncher.command(
+                mockRuntime(File("/rootfs")),
+                "/host/workspace",
+                emptyList(),
+                pty = true,
+                workingDirectory = " ",
+            )
+
+        assertEquals("/workspace", command.workingDirectory())
+    }
+
+    private fun List<String>.workingDirectory(): String = this[indexOf("-w") + 1]
+
+    @Test
     fun `guest settings are valid json with the alt screen disabled`() {
         val parsed = Json.parseToJsonElement(AntigravityGuestSettings.content).jsonObject
         assertEquals("never", parsed["altScreenMode"]?.jsonPrimitive?.content)

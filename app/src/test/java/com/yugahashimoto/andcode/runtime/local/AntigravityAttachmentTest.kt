@@ -53,6 +53,22 @@ class AntigravityAttachmentTest {
         )
     }
 
+    @Test
+    fun `the attachment directory is the folder the prompt references`() {
+        val prompt =
+            prepareAntigravityPrompt(
+                folder.root,
+                "session/unsafe",
+                3,
+                "Describe this image",
+                listOf(PromptAttachment("photo.png", "image/png", "data:image/png;base64,AQ==")),
+            )
+
+        val directory = antigravityAttachmentDirectory("session/unsafe", 3)
+        assertEquals("/workspace/.andcode-attachments/session_unsafe/3", directory)
+        assertEquals("@$directory/0-photo.png", prompt.lineSequence().first())
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun `rejects unsupported attachments instead of silently dropping them`() {
         prepareAntigravityPrompt(

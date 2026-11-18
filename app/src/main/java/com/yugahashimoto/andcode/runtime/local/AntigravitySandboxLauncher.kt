@@ -13,11 +13,27 @@ object AntigravitySandboxLauncher {
     const val PTY_ROWS = 24
     const val PTY_COLUMNS = 1000
 
+    /** Where [command] mounts the app's workspace; the parent of every project folder made in the app. */
+    const val WORKSPACE_GUEST_DIR = "/workspace"
+
+    /**
+     * The folder agy starts in: the chat's own [directory], as Claude Code's `-w` and Codex's `cwd`
+     * are, or [WORKSPACE_GUEST_DIR] for a chat that has none.
+     */
+    fun workingDirectory(directory: String): String = directory.ifBlank { WORKSPACE_GUEST_DIR }
+
+    /**
+     * [workingDirectory] is the folder agy starts in, and agy takes that folder as its workspace: it
+     * reads the project's `AGENTS.md` and `GEMINI.md` from there up to the repository root (see
+     * docs/ANTIGRAVITY.md). A chat passes its own folder. Sign-in, `agy models` and chat naming belong
+     * to no project and keep the default.
+     */
     fun command(
         runtime: LocalRuntimeInstaller.InstalledRuntime,
         workspaceHostDir: String,
         arguments: List<String>,
         pty: Boolean,
+        workingDirectory: String = WORKSPACE_GUEST_DIR,
     ): List<String> =
         buildList {
             val rootfs = runtime.antigravityRootfs ?: runtime.rootfs
@@ -36,11 +52,11 @@ object AntigravitySandboxLauncher {
             add("-b")
             add("/system")
             add("-b")
-            add("$workspaceHostDir:/workspace")
+            add("$workspaceHostDir:$WORKSPACE_GUEST_DIR")
             // Empty until the user grants all-files access, so the sandbox is unchanged without it.
             addAll(DeviceStorage.bindArguments())
             add("-w")
-            add("/workspace")
+            add(workingDirectory(workingDirectory))
             if (pty) {
                 add("/usr/bin/script")
                 add("-qefc")
