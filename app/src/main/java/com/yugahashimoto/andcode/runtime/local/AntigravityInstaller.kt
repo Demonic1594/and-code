@@ -45,22 +45,14 @@ class AntigravityInstaller(
                 val source =
                     extraction.walkTopDown().firstOrNull { it.isFile && (it.name == AntigravityManifest.BINARY_NAME || it.name == "antigravity") }
                         ?: error("Official Antigravity archive did not contain an agy binary")
-                val destination = File(rootfs, "usr/local/bin/agy")
-                destination.parentFile?.mkdirs()
-                val candidate = File(destination.parentFile, "agy.new-${System.nanoTime()}")
-                val backup = File(destination.parentFile, "agy.rollback")
-                runCatching {
-                    source.copyTo(candidate, overwrite = true)
-                    require(candidate.setExecutable(true, false) || candidate.canExecute()) { "Unable to mark agy executable" }
-                    backup.delete()
-                    if (destination.exists()) require(destination.renameTo(backup)) { "Unable to stage the previous agy binary" }
-                    require(candidate.renameTo(destination)) { "Unable to activate the verified agy binary" }
-                    backup.delete()
-                }.onFailure { error ->
-                    candidate.delete()
-                    if (!destination.exists() && backup.exists()) backup.renameTo(destination)
-                    throw error
+                // Renamed over the old binary in one step, so there is never a moment without one and no
+                // backup to restore; through GuestFiles, because an update runs on the live rootfs,
+                // where the guest could have linked the binary or its folder to one of this app's files.
+                source.inputStream().use { input ->
+                    GuestFiles.write(rootfs, BINARY_PATH, GuestFiles.EXECUTABLE) { output -> input.copyTo(output) }
                 }
+                // The previous build swapped through this name; one left behind by an interrupted swap goes.
+                GuestFiles.delete(rootfs, "$BINARY_PATH.rollback")
                 // Written only once the swap succeeded, so the marker can never claim a version the
                 // guest is not actually running.
                 writeInstalledVersion(rootfs, release.version)
@@ -83,17 +75,14 @@ class AntigravityInstaller(
          * before-and-after to report. The marker is what the installer actually wrote.
          */
         private const val VERSION_MARKER = "usr/local/share/and-code/antigravity-version"
+        private const val BINARY_PATH = "usr/local/bin/agy"
+        private const val MAX_VERSION_MARKER_BYTES = 1024L
 
         internal fun writeInstalledVersion(
             rootfs: File,
             version: String,
         ) {
-            runCatching {
-                File(rootfs, VERSION_MARKER).apply {
-                    parentFile?.mkdirs()
-                    writeText("$version\n")
-                }
-            }
+            runCatching { GuestFiles.write(rootfs, VERSION_MARKER, "$version\n") }
         }
 
         /**
@@ -104,6 +93,12 @@ class AntigravityInstaller(
          * inventing history.
          */
         fun installedVersion(rootfs: File): String? =
-            runCatching { File(rootfs, VERSION_MARKER).readText().trim().takeIf(String::isNotEmpty) }.getOrNull()
+            runCatching {
+                GuestFiles.readText(
+                    rootfs,
+                    VERSION_MARKER,
+                    MAX_VERSION_MARKER_BYTES,
+                )?.trim()?.takeIf(String::isNotEmpty)
+            }.getOrNull()
     }
 }

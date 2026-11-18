@@ -18,7 +18,8 @@ class AgentTranscriptFilesTest {
 
     @Test
     fun `claude transcript, subagent folder, todos and file history are removed`() {
-        val home = temp.newFolder(".claude")
+        val rootfs = temp.newFolder("rootfs")
+        val home = File(rootfs, "root/.claude").apply { mkdirs() }
         val project = File(home, "projects/-workspace-app").apply { mkdirs() }
         val transcript = File(project, "$id.jsonl").apply { writeText("{}") }
         val subagents = File(project, id).apply { mkdirs() }.also { File(it, "agent-1.jsonl").writeText("{}") }
@@ -26,7 +27,7 @@ class AgentTranscriptFilesTest {
         val history = File(home, "file-history/$id").apply { mkdirs() }
         val kept = File(project, "$otherId.jsonl").apply { writeText("{}") }
 
-        val deleted = AgentTranscriptFiles.deleteClaude(home, listOf(id))
+        val deleted = AgentTranscriptFiles.deleteClaude(rootfs, listOf(id))
 
         assertEquals(4, deleted)
         listOf(transcript, subagents, todo, history).forEach { assertFalse(it.path, it.exists()) }
@@ -35,12 +36,13 @@ class AgentTranscriptFilesTest {
 
     @Test
     fun `antigravity conversation and brain folder are removed`() {
-        val home = temp.newFolder(".gemini")
+        val rootfs = temp.newFolder("rootfs")
+        val home = File(rootfs, "root/.gemini").apply { mkdirs() }
         val conversation = File(home, "antigravity-cli/conversations/$id.pb").apply { parentFile!!.mkdirs() }.apply { writeText("x") }
         val brain = File(home, "antigravity-cli/brain/$id").apply { mkdirs() }
         val settings = File(home, "antigravity-cli/settings.json").apply { writeText("{}") }
 
-        AgentTranscriptFiles.deleteAntigravity(home, listOf(id))
+        AgentTranscriptFiles.deleteAntigravity(rootfs, listOf(id))
 
         assertFalse(conversation.exists())
         assertFalse(brain.exists())
@@ -53,7 +55,7 @@ class AgentTranscriptFilesTest {
         val file = File(folder, "abc.jsonl").apply { writeText("{}") }
         val dotted = File(folder, "..").canonicalFile
 
-        assertEquals(0, AgentTranscriptFiles.deleteMatching(listOf(folder), listOf("abc", "", "../x", "a/b/c/d/e/f")))
+        assertEquals(0, AgentTranscriptFiles.deleteMatching(temp.root, listOf("projects"), listOf("abc", "", "../x", "a/b/c/d/e/f")))
         assertTrue(file.exists())
         assertTrue(dotted.exists())
     }
@@ -66,7 +68,7 @@ class AgentTranscriptFilesTest {
         val entry = File(folder, id).apply { mkdirs() }
         Files.createSymbolicLink(File(entry, "link").toPath(), workspace.toPath())
 
-        AgentTranscriptFiles.deleteMatching(listOf(folder), listOf(id))
+        AgentTranscriptFiles.deleteMatching(temp.root, listOf(folder.name), listOf(id))
 
         assertFalse(entry.exists())
         assertTrue(precious.exists())
@@ -80,7 +82,7 @@ class AgentTranscriptFilesTest {
         val link = File(folder, id)
         Files.createSymbolicLink(link.toPath(), workspace.toPath())
 
-        AgentTranscriptFiles.deleteMatching(listOf(folder), listOf(id))
+        AgentTranscriptFiles.deleteMatching(temp.root, listOf(folder.name), listOf(id))
 
         assertFalse(Files.exists(link.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS))
         assertTrue(precious.exists())
@@ -91,8 +93,25 @@ class AgentTranscriptFilesTest {
         val folder = temp.newFolder("projects")
         val longer = File(folder, "${id}0.jsonl").apply { writeText("{}") }
 
-        AgentTranscriptFiles.deleteMatching(listOf(folder), listOf(id))
+        AgentTranscriptFiles.deleteMatching(temp.root, listOf(folder.name), listOf(id))
 
         assertTrue(longer.exists())
+    }
+
+    /**
+     * The guest can make `~/.claude/todos` a link to the app's data folder, and Claude's own output
+     * supplies the id (`shared_prefs` passes as one): deleting the chat must not reach through it.
+     */
+    @Test
+    fun `a transcript folder the guest linked to app data is never listed or deleted through`() {
+        val appData = temp.newFolder("app-data")
+        val prefs = File(appData, "shared_prefs").apply { mkdirs() }.also { File(it, "secure.xml").writeText("<map/>") }
+        val rootfs = temp.newFolder("rootfs-linked")
+        File(rootfs, "root/.claude").mkdirs()
+        Files.createSymbolicLink(File(rootfs, "root/.claude/todos").toPath(), appData.toPath())
+
+        AgentTranscriptFiles.deleteClaude(rootfs, listOf("shared_prefs"))
+
+        assertTrue(File(prefs, "secure.xml").exists())
     }
 }

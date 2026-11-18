@@ -41,7 +41,7 @@ internal suspend fun importComposerAttachments(
                 workspaceDir
                     ?.takeIf { !AttachmentSupport.isModelSendable(attachment.mime) }
                     ?.let { directory ->
-                        runCatching { importer.writeToWorkspace(attachment, directory) }
+                        runCatching { importer.writeToWorkspace(attachment, directory, runtimeWorkspaceRoot) }
                             .getOrNull()
                             ?.let { AttachmentSupport.guestWorkspacePath(it, runtimeWorkspaceRoot) }
                     }

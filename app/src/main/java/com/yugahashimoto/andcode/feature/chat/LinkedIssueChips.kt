@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.feature.chat
 
+import android.content.Context
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -50,6 +51,26 @@ internal fun rememberLinkedIssues(
         }
     }
     return links.mapNotNull(threads::get)
+}
+
+/** The inserted issue's fixed wording from the string resources, in the language [context] shows. */
+internal fun issuePromptLabels(context: Context): IssuePromptLabels {
+    val res = context.resources
+    return IssuePromptLabels(
+        header = { res.getString(R.string.chat_issue_prompt_header, it) },
+        guard = res.getString(R.string.chat_issue_prompt_guard),
+        meta = { number, state, author -> res.getString(R.string.chat_issue_prompt_meta, number, state, author) },
+        open = res.getString(R.string.chat_issue_prompt_state_open),
+        closed = res.getString(R.string.chat_issue_prompt_state_closed),
+        labels = { res.getString(R.string.chat_issue_prompt_labels, it) },
+        noDescription = res.getString(R.string.chat_issue_prompt_no_description),
+        comments = res.getString(R.string.chat_issue_prompt_comments),
+        commentsLatest = { shown, skipped ->
+            res.getQuantityString(R.plurals.chat_issue_prompt_comments_latest, skipped, shown, skipped)
+        },
+        commentsPartial = { shown, read -> res.getString(R.string.chat_issue_prompt_comments_partial, shown, read) },
+        cut = { res.getQuantityString(R.plurals.chat_issue_prompt_cut, it, it) },
+    )
 }
 
 /** One chip per linked issue; tapping it puts the issue's text in place of its link. */

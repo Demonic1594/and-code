@@ -199,10 +199,10 @@ class LocalRuntimeManager(
                 beforeGuestChange()
                 withContext(Dispatchers.IO) {
                     processLauncher?.stop()
-                    if (runtimeDirectory.exists()) {
-                        require(runtimeDirectory.deleteRecursively()) {
-                            messages.deleteIncomplete
-                        }
+                    // Never File.deleteRecursively: it walks into a folder the guest linked from its
+                    // rootfs or workspace, which could be this app's own data or shared storage.
+                    require(GuestFiles.deleteTree(runtimeDirectory)) {
+                        messages.deleteIncomplete
                     }
                 }
                 mutableLastOperation.value = null

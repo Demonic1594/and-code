@@ -12,15 +12,23 @@ Update this file in the same PR that starts, finishes or drops an item.
    Nothing merged since v1.2.29 (#107 onwards) has run on a phone. Go through
    `docs/DEVICE_VALIDATION.md` plus the device checks listed in each PR since then (approvals and
    checks, rename, Markdown in your own messages, the context window sheet, held prompts, the code
-   block copy button). Then run **Fork release**: 1.2.30 is the first release that can be signed
-   with the fork's own key (`docs/FORK.md`). Its changelog should also mention upstream's code block
-   copy button, which came in with the #119 sync.
+   block copy button, and the dependency update's Compose 1.8 screens and a local runtime install,
+   whose .deb and tar.xz unpacking no unit test covers). Then run **Fork release**:
+   1.2.30 is the first release that can be signed with the fork's own key (`docs/FORK.md`). Its
+   changelog should also mention upstream's code block copy button, which came in with the #119
+   sync.
 
 2. **Sync upstream once its open PRs land** (Planned, waiting on upstream).
    Upstream #422 (handing the Guest Browser to the user and back) also carries #421's inline live
    preview for local dev servers; #421 itself was closed into it. Both overlap the fork's Artifacts
    server list and agent-control indicator. Sync through the usual merge once upstream merges #422,
    not before.
+
+3. **Finish splitting `ChatViewModel.kt`** (Planned, first half done).
+   Thirteen pieces moved into their own files with no change in behaviour, taking the file from
+   3,985 lines to 2,319 (`2026-11-14-chat-viewmodel-split.md`). The plan lists what is left, least
+   entangled first: transient recovery, session opening, held prompts, then the stream cache, live
+   resume and the send path together. One PR each.
 
 ## Before the next release
 
@@ -35,6 +43,13 @@ Update this file in the same PR that starts, finishes or drops an item.
 - Extend "approve from notification" beyond the cases it covers today.
 - A per-model memory of the thinking level.
 - Device-side test runs for the Git and chat fixes, so they stop depending on a manual check.
+- The Android Gradle plugin and Kotlin language level step (no plan yet). AGP 8.5.2 holds back
+  core-ktx 1.16+, Compose 1.9+, Material3 1.4, Lifecycle and SavedState 2.9/1.3+ and
+  navigation-compose 2.9+ (they need AGP 8.6+, some compileSdk 36), and the Kotlin 2.0 language
+  level holds back coroutines 1.11+, serialization 1.9+ and Koin 4.2+ (kotlin-stdlib 2.2+). See
+  "Left on purpose" in `2026-11-09-app-checkup.md`.
+- Handle WebView renderer crashes (`onRenderProcessGone`) in the artifact preview and the Guest
+  Browser, so a killed renderer does not take the app down (lint `MissingOnRenderProcessGone`).
 
 ## Done
 

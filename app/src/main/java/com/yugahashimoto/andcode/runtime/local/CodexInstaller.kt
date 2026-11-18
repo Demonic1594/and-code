@@ -9,8 +9,6 @@ import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.Base64
 
@@ -43,7 +41,7 @@ object CodexInstaller {
         )
 
     /** Both binaries: an install that predates the code-mode host counts as not installed, so it is redone. */
-    fun isInstalledIn(rootfs: File): Boolean = INSTALLED_BINARIES.all { File(rootfs, "$BIN_DIR/$it").isFile }
+    fun isInstalledIn(rootfs: File): Boolean = INSTALLED_BINARIES.all { GuestFiles.isRegularFile(rootfs, "$BIN_DIR/$it") }
 
     /**
      * Downloads the release for [abi], verifies it against the npm registry's own recorded SHA-512
@@ -74,13 +72,11 @@ object CodexInstaller {
                 verifySha512(downloadFile, release.integrity)
 
                 accessCoordinator.write {
-                    val binDir = File(rootfs, BIN_DIR)
-                    extractBinaries(downloadFile, targetTriple, binDir)
+                    extractBinaries(downloadFile, targetTriple, rootfs)
                     INSTALLED_BINARIES.forEach { name ->
-                        val installed = File(binDir, name)
-                        check(installed.isFile) { "Codex reported a successful download but $BIN_DIR/$name is missing" }
-                        installed.setExecutable(true, false)
-                        installed.setReadable(true, false)
+                        check(GuestFiles.isRegularFile(rootfs, "$BIN_DIR/$name")) {
+                            "Codex reported a successful download but $BIN_DIR/$name is missing"
+                        }
                     }
                 }
             } finally {
@@ -123,45 +119,33 @@ object CodexInstaller {
     }
 
     /**
-     * Extracts the named files from `vendor/<targetTriple>/bin/` into [binDir]; everything else in the
-     * tarball (voice runtime, bundled `bwrap`, `ripgrep`) is skipped.
+     * Extracts the named files from `vendor/<targetTriple>/bin/` into [BIN_DIR] in [rootfs]; everything
+     * else in the tarball (voice runtime, bundled `bwrap`, `ripgrep`) is skipped.
      *
      * Each file is written to a temporary name and moved into place only once fully copied: these are
      * the live install paths [isInstalledIn] checks (existence only, not integrity), so a copy
      * interrupted mid-write - cancellation, the app killed, disk full - must not leave a truncated
      * binary reporting itself installed forever. Fails when any of [names] is missing.
+     *
+     * Through [GuestFiles]: this also runs on the live rootfs, where the guest could have made a
+     * binary, its old fixed temporary name, or `usr/local/bin` itself a link to one of this app's
+     * own files.
      */
     internal fun extractBinaries(
         tarball: File,
         targetTriple: String,
-        binDir: File,
+        rootfs: File,
         names: List<String> = INSTALLED_BINARIES,
     ) {
         val prefix = "package/vendor/$targetTriple/bin/"
         val pending = names.toMutableSet()
-        binDir.mkdirs()
         GzipCompressorInputStream(BufferedInputStream(tarball.inputStream())).use { gzip ->
             TarArchiveInputStream(gzip).use { tar ->
                 var entry = tar.nextEntry
                 while (entry != null && pending.isNotEmpty()) {
                     val name = entry.name.removePrefix(prefix)
                     if (entry.isFile && entry.name.startsWith(prefix) && name in pending) {
-                        val destination = File(binDir, name)
-                        val temporary = File(binDir, "$name.download")
-                        try {
-                            FileOutputStream(temporary).use { output ->
-                                tar.copyTo(output)
-                                output.fd.sync()
-                            }
-                            Files.move(
-                                temporary.toPath(),
-                                destination.toPath(),
-                                StandardCopyOption.ATOMIC_MOVE,
-                                StandardCopyOption.REPLACE_EXISTING,
-                            )
-                        } finally {
-                            temporary.delete()
-                        }
+                        GuestFiles.write(rootfs, "$BIN_DIR/$name", GuestFiles.EXECUTABLE) { output -> tar.copyTo(output) }
                         pending -= name
                     }
                     entry = tar.nextEntry

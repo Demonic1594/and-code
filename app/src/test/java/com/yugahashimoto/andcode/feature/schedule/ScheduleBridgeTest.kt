@@ -20,6 +20,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.nio.file.Files
 import java.util.UUID
 
 class ScheduleBridgeTest {
@@ -668,5 +669,52 @@ class ScheduleBridgeTest {
         assertTrue(readResponse(bridge, future).getBoolean("ok"))
         assertTrue(readResponse(bridge, missing).getBoolean("ok"))
         assertEquals(setOf("future", "missing"), store.schedules.map { it.prompt }.toSet())
+    }
+
+    /** The app's own files the guest may aim a link at; outside the workspace, like the real ones. */
+    private fun appFolder(): File = folder.newFolder("app-private")
+
+    @Test
+    fun `a request the guest linked to an app file is never read or answered`() {
+        val bridge = bridgeWith(FakeStore())
+        val appFile = File(appFolder(), "claude-messages.json").apply { writeText("""{"op":"list","args":{}}""") }
+        pendingDir(bridge).mkdirs()
+        Files.createSymbolicLink(File(pendingDir(bridge), "evil.json").toPath(), appFile.toPath())
+
+        bridge.pollOnce()
+
+        assertFalse(File(responsesDir(bridge), "evil.json").exists())
+        assertEquals("""{"op":"list","args":{}}""", appFile.readText())
+    }
+
+    /** The reply used to be staged at a fixed name the guest could plant as a link beforehand. */
+    @Test
+    fun `a reply is never written through a link the guest planted`() {
+        val bridge = bridgeWith(FakeStore())
+        val prefs = File(appFolder(), "settings.xml").apply { writeText("<map/>") }
+        val id = requestId()
+        writeRequest(bridge, id, "list")
+        responsesDir(bridge).mkdirs()
+        Files.createSymbolicLink(File(responsesDir(bridge), "$id.json.tmp").toPath(), prefs.toPath())
+        Files.createSymbolicLink(File(responsesDir(bridge), "$id.json").toPath(), prefs.toPath())
+
+        bridge.pollOnce()
+
+        assertEquals("<map/>", prefs.readText())
+        assertTrue(readResponse(bridge, id).getBoolean("ok"))
+    }
+
+    @Test
+    fun `linked bridge folders are neither read, answered into nor pruned`() {
+        val bridge = bridgeWith(FakeStore(), staleAfterMillis = 0L, clock = { System.currentTimeMillis() + 5 * 60 * 1000L })
+        val appPending = appFolder()
+        val appState = File(appPending, "claude-resume-ids.json").apply { writeText("""{"op":"list"}""") }
+        bridge.bridgeDir.mkdirs()
+        Files.createSymbolicLink(pendingDir(bridge).toPath(), appPending.toPath())
+
+        runCatching { bridge.pollOnce() }
+
+        assertEquals("""{"op":"list"}""", appState.readText())
+        assertEquals(listOf("claude-resume-ids.json"), appPending.list()!!.toList())
     }
 }

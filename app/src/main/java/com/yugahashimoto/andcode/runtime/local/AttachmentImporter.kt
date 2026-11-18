@@ -167,17 +167,23 @@ class AttachmentImporter(
     fun writeToWorkspace(
         attachment: PromptAttachment,
         workspaceDir: File,
+        /** The workspace mount itself; [workspaceDir] is it or a project folder inside it. */
+        workspaceRoot: File = workspaceDir,
     ): File {
         val encoded = attachment.url.substringAfter(";base64,", missingDelimiterValue = "")
         check(attachment.url.startsWith("data:") && encoded.isNotEmpty()) {
             "Attachment has no inline content to copy"
         }
-        val directory =
-            File(workspaceDir, ATTACHMENT_DIRECTORY).apply {
-                check(mkdirs() || isDirectory) { "Cannot create attachment directory" }
-            }
-        val destination = uniqueDestination(directory, attachment.filename)
-        destination.writeBytes(Base64.decode(encoded, Base64.DEFAULT))
+        // Through GuestFiles: the workspace is the guest's, and a link it left on the way must not
+        // have the attachment land among this app's own files.
+        // Relative to the workspace root, so a project folder (or one above it) the guest turned
+        // into a link is refused too, not only the attachments folder.
+        val project = workspaceDir.absoluteFile.normalize().relativeTo(workspaceRoot.absoluteFile.normalize()).invariantSeparatorsPath
+        check(project != ".." && !project.startsWith("../")) { "Attachment folder is outside the workspace" }
+        val directory = if (project.isEmpty()) ATTACHMENT_DIRECTORY else "$project/$ATTACHMENT_DIRECTORY"
+        GuestFiles.createDirectories(workspaceRoot, directory)
+        val destination = uniqueDestination(File(workspaceDir, ATTACHMENT_DIRECTORY), attachment.filename)
+        GuestFiles.write(workspaceRoot, "$directory/${destination.name}", Base64.decode(encoded, Base64.DEFAULT))
         return destination
     }
 

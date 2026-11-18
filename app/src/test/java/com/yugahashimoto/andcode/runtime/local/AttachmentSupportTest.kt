@@ -36,6 +36,16 @@ class AttachmentSupportTest {
     }
 
     @Test
+    fun `host workspace rejects dot segments even when they stay inside the root`() {
+        // The copy is written to the lexically resolved folder, but the agent is handed the path as
+        // given; through a link the guest made, `link/..` is somewhere else.
+        val root = File("/data/app/runtime/workspace")
+        assertNull(AttachmentSupport.hostWorkspace("/workspace/proj/link/../other", root))
+        assertNull(AttachmentSupport.hostWorkspace("/workspace/./proj", root))
+        assertNull(AttachmentSupport.hostWorkspace("/workspace/proj/.", root))
+    }
+
+    @Test
     fun `guest workspace path is the inverse of host mapping`() {
         val root = File("/data/app/runtime/workspace")
         val file = File(root, "proj/.andcode-attachments/archive.zip")

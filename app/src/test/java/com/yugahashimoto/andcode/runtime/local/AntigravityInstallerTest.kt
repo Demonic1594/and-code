@@ -10,12 +10,14 @@ import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.ByteArrayOutputStream
+import java.nio.file.Files
 import java.security.MessageDigest
 
 /**
@@ -87,6 +89,22 @@ class AntigravityInstallerTest {
             assertEquals("1.0.0", AntigravityInstaller.installedVersion(rootfs))
             assertTrue(rootfs.resolve("usr/local/bin/agy").isFile)
         }
+
+    /** The marker lives in the live rootfs; a link the guest left there must be neither read nor written through. */
+    @Test
+    fun `the version marker never goes through a link`() {
+        val rootfs = folder.newFolder("rootfs-linked")
+        val prefs = folder.newFile("settings.xml").apply { writeText("<map/>") }
+        val marker = rootfs.resolve("usr/local/share/and-code/antigravity-version")
+        marker.parentFile.mkdirs()
+        Files.createSymbolicLink(marker.toPath(), prefs.toPath())
+
+        assertNull(AntigravityInstaller.installedVersion(rootfs))
+        AntigravityInstaller.writeInstalledVersion(rootfs, "1.2.3")
+
+        assertEquals("<map/>", prefs.readText())
+        assertEquals("1.2.3", AntigravityInstaller.installedVersion(rootfs))
+    }
 
     private fun asset(
         url: String,

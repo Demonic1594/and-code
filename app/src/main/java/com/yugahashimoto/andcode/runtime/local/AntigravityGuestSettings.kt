@@ -42,17 +42,21 @@ object AntigravityGuestSettings {
             ),
         ) + "\n"
 
+    /**
+     * Through [GuestFiles], which replaces a link the guest left here instead of writing through it
+     * into one of this app's own files, and refuses a linked folder above it.
+     */
     fun write(rootfs: File) {
-        val settings = File(rootfs, RELATIVE_PATH)
-        settings.parentFile?.mkdirs()
-        settings.writeText(content)
+        GuestFiles.write(rootfs, RELATIVE_PATH, content)
     }
 
     fun repair(runtime: LocalRuntimeInstaller.InstalledRuntime) {
         val rootfs = runtime.antigravityRootfs ?: runtime.rootfs
         runCatching {
-            val settings = File(rootfs, RELATIVE_PATH)
-            if (!settings.isFile || !isValid(settings.readText())) write(rootfs)
+            // The file is this app's own and rewritten whole, so one it cannot read (a link) is as
+            // broken as a missing or malformed one: it is replaced, never read through.
+            val existing = runCatching { GuestFiles.readText(rootfs, RELATIVE_PATH) }.getOrNull()
+            if (existing == null || !isValid(existing)) write(rootfs)
         }
     }
 

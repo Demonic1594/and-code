@@ -6,7 +6,6 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
-    id("com.google.devtools.ksp")
     id("androidx.baselineprofile")
     id("com.google.gms.google-services") apply false
     id("com.google.firebase.crashlytics") apply false
@@ -281,9 +280,9 @@ dependencies {
 
     // Firebase (github flavor only - the fdroid flavor ships with no Firebase/Google Play
     // services code so it can be built from source by F-Droid's own build server).
-    // Still on the 33.6 line: the project is now on Kotlin 2.4, which reads the Kotlin 2.2
-    // metadata of the 34.x line, but moving Firebase is a separate change from the toolchain one.
-    "githubImplementation"(platform("com.google.firebase:firebase-bom:33.6.0"))
+    // The last 33.x release. 34.x is a major version (it drops the KTX modules) and is a change of
+    // its own.
+    "githubImplementation"(platform("com.google.firebase:firebase-bom:33.16.0"))
     "githubImplementation"("com.google.firebase:firebase-analytics")
     "githubImplementation"("com.google.firebase:firebase-crashlytics")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
@@ -293,12 +292,12 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-process:2.8.7")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.savedstate:savedstate-ktx:1.2.1")
-    implementation("androidx.activity:activity-compose:1.9.3")
+    implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.startup:startup-runtime:1.2.0")
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 
     // Compose
-    implementation(platform("androidx.compose:compose-bom:2024.12.01"))
+    implementation(platform("androidx.compose:compose-bom:2025.07.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -306,14 +305,14 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
 
     // Navigation
-    implementation("androidx.navigation:navigation-compose:2.8.5")
+    implementation("androidx.navigation:navigation-compose:2.8.9")
 
     // Networking
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-    implementation("org.apache.commons:commons-compress:1.27.1")
-    implementation("org.tukaani:xz:1.9")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+    implementation("org.apache.commons:commons-compress:1.28.0")
+    implementation("org.tukaani:xz:1.12")
 
     // Markdown parsing for the chat and Markdown previews (CommonMark plus GitHub's extensions).
     // Only the parser: the app renders the result itself. Keep every commonmark artifact on one version.
@@ -328,13 +327,13 @@ dependencies {
 
     // Encrypted SharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
-    implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation("androidx.documentfile:documentfile:1.1.0")
 
     // Document-start scripts and a message channel for the browser's DevTools.
-    implementation("androidx.webkit:webkit:1.12.1")
+    implementation("androidx.webkit:webkit:1.18.0")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     // Vosk (wake word detection). The speech model is downloaded on first use rather than
     // packaged: the smallest usable pair is about 90 MB against a 37 MB APK, and it is only
@@ -342,13 +341,8 @@ dependencies {
     implementation("com.alphacephei:vosk-android:0.3.75")
 
     // DI
-    implementation("io.insert-koin:koin-android:4.0.1")
-    implementation("io.insert-koin:koin-androidx-compose:4.0.1")
-
-    // Room
-    implementation("androidx.room:room-runtime:2.7.2")
-    implementation("androidx.room:room-ktx:2.7.2")
-    ksp("androidx.room:room-compiler:2.7.2")
+    implementation("io.insert-koin:koin-android:4.0.4")
+    implementation("io.insert-koin:koin-androidx-compose:4.0.4")
 
     // Baseline Profiles
     baselineProfile(project(":benchmark"))
@@ -358,10 +352,10 @@ dependencies {
     // Real org.json implementation for unit tests that exercise the schedule bridge protocol.
     testImplementation("org.json:json:20260814")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2024.12.01"))
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
+    androidTestImplementation(platform("androidx.compose:compose-bom:2025.07.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

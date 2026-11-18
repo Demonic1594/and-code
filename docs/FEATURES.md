@@ -24,7 +24,7 @@ page: [`TOKEN_EFFICIENCY.md`](TOKEN_EFFICIENCY.md).
 | Pin chats | Long-press a chat in the drawer → pin icon | Pinned chats get their own section at the top. Long-press again to unpin. Auto-archive never touches a pinned chat, and up to two pinned chats also appear as launcher shortcuts. |
 | Saved prompts | Settings → Chat → **Saved prompts**; type `/` in the composer | Each saved prompt answers to `/name`. Picking it from the popup puts its text in the composer to edit first; sending `/name` sends the saved text. Arguments work like Claude Code's custom commands: `/fix-issue 123 high` fills `$ARGUMENTS` with everything after the command and `$1`, `$2`… with single words. A prompt without placeholders gets the arguments appended. Picking a prompt that takes arguments from the popup inserts `/name ` so you can type them. A prompt can't take the name of a built-in command. |
 | Mention a file | Chat → type `@` in the message box | Lists up to eight project files whose path matches what follows the `@`. Picking one puts `@path/to/file` in the message, which the agent reads as that file. Needs a runtime that can search files; others show no list. |
-| Start from an issue | Chat → paste a GitHub issue link in the message box | Each linked issue (up to three) is read from GitHub, with the connected account's token when there is one, and offered as a chip with its number and title. Tapping it puts the issue in place of the link: its title, state, labels, description and its latest 20 comments (of the first 100, on a longer thread), each cut to a phone-sized length, after a line asking the agent to work on it and saying the issue's text is its participants' description of the task, not instructions. Nothing is sent until you send it, so the text can be read and edited first. |
+| Start from an issue | Chat → paste a GitHub issue link in the message box | Each linked issue (up to three) is read from GitHub, with the connected account's token when there is one, and offered as a chip with its number and title. Tapping it puts the issue in place of the link: its title, state, labels, description and its latest 20 comments (of the first 100, on a longer thread), each cut to a phone-sized length, after a line asking the agent to work on it and saying the issue's text is its participants' description of the task, not instructions. Those lines and the headings are in the app's language; the title, description, comments, labels and account names stay as GitHub has them. The issue is named as `owner/repo#n`, not linked, so its chip does not come back for its own text, also after the app's language changes. Nothing is sent until you send it, so the text can be read and edited first. |
 | Full-screen message | Chat → the expand icon beside the microphone, once a message fills the box | Opens the message full screen for editing. Collapsing or Back returns with every change kept; it survives rotation and starts closed in each chat. |
 | Prompts held for a running turn | Settings → Chat → **Send behavior** → **Queue**, then send while a reply is running (Antigravity always holds) | Each one waits above the message box with **Send now** (stops the running turn, where the runtime can interrupt), **Edit** (back into the box with its attachments) and **Remove**, and goes out with its own attachments. |
 | Rename a chat | Drawer → long-press a chat → pencil icon, or Chat → ⋮ → **Rename** | Opens on the current name, all selected, so typing replaces it. Works for every agent. OpenCode and Codex keep the name on their side (the session title, the thread name); Claude Code and Antigravity do not name their conversations, so for them it is kept in AndCode's own record of the chat and other clients do not see it. A name you give is never overwritten by the summary Claude Code or Antigravity works out from the first message. A blank name is not saved, and if the agent refuses, the snackbar says why. |
@@ -86,6 +86,20 @@ remote PC runtime the buttons stay hidden.
 The command runner now mounts `/workspace` the same way the agents see it. The terminal can reach
 it too.
 
+Files AndCode itself writes or reads in the Linux environment, the workspace and the Claude Code
+approval folder (agent configs and MCP registrations, the git credential helper and config, API keys, the guest
+scripts, schedule and `andcode-run` requests and replies, `startup-commands.json`, attachments)
+never go through a symbolic link: an agent could otherwise point one at the app's own private files.
+A config you replaced with a link of your own (dotfiles, say) is left as it is rather than merged
+into, so AndCode's MCP servers are not added to that agent until it is a plain file again. Deleting
+the runtime, a project or a chat's attachments, and carrying your home folder over on a reinstall,
+remove or copy a link itself, never what it points at.
+
+The Linux environment is not a sandbox. PRoot only changes how paths look to the agent: its
+processes run as AndCode's own Android user, so they can reach what the app itself can. The guards
+above stop AndCode from being tricked into doing something on an agent's behalf; they do not stop
+the agent. Approvals and command rules decide what an agent is asked to do, not what it is able to.
+
 ## Browser and DevTools
 
 | Feature | Where | Notes |
@@ -121,7 +135,7 @@ before they are deleted, so one an install creates again a moment later is left 
 | Local model presets | Settings → Agents → OpenCode → **Provider settings** → **Add custom provider** | **Ollama** and **LM Studio** presets fill in each one's usual local address; **Fetch models** tests the connection. |
 | Suggested MCP servers | Settings → Agents → an agent → **MCP servers** | A short list of servers worth adding (Context7, DeepWiki, Microsoft Learn, Sequential Thinking); **Add** opens the add form filled in, to confirm. One already added is not offered. |
 | Why an MCP server failed | Settings → Agents → an agent → **MCP servers** | A local server whose program (`npx`, `uvx`, …) is not installed in the Linux environment says so, with the Node.js install command when that is what is missing. |
-| GitHub personal access token | Settings → **GitHub / Git Operations** | A token is checked with GitHub before it is kept, and **Create a token** opens GitHub with the repo and workflow scopes ticked. A build without an OAuth client ID offers the token as the way in instead of a dead button; with one, both are there. A refused token is told apart from GitHub being unavailable. |
+| GitHub personal access token | Settings → **GitHub / Git Operations** | A token is checked with GitHub before it is kept, and **Create a token** opens GitHub with the repo and workflow scopes ticked. A build without an OAuth client ID offers the token as the way in instead of a dead button; with one, both are there. A refused token is told apart from GitHub being unavailable. Inside the Linux environment git gets it from a credential helper that reads it from the agent's environment (`OPENCODE_GITHUB_TOKEN`, or `GH_TOKEN` for Codex); it is never written to a file there, and a `~/.git-credentials` an older build left is deleted at the next runtime start. |
 
 ## Launcher and system
 

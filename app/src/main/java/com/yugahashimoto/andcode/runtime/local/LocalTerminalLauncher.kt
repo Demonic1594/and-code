@@ -60,8 +60,9 @@ object LocalTerminalLauncher {
     fun environment(
         runtime: LocalRuntimeInstaller.InstalledRuntime,
         prootTmp: File,
+        githubToken: String? = null,
     ): Map<String, String> =
-        localRuntimeEnvironment(runtime.commandSuite.environment(), prootTmp) +
+        localRuntimeEnvironment(runtime.commandSuite.environment(), prootTmp, githubToken) +
             mapOf(
                 "TERM" to "xterm-256color",
                 "COLORTERM" to "truecolor",
@@ -75,6 +76,8 @@ class LocalTerminalSessionFactory(
     private val runtimeDirectory: File,
     private val installedRuntimeProvider: () -> LocalRuntimeInstaller.InstalledRuntime?,
     private val accessCoordinator: LocalRuntimeAccessCoordinator = LocalRuntimeAccessCoordinator(),
+    /** For git's credential helper: the token is never stored in the guest, only passed in the environment. */
+    private val githubToken: () -> String? = { null },
 ) : TerminalSessionFactory {
     /**
      * Holds the runtime's read lock only while the process is spawned. A shell may stay open for
@@ -99,7 +102,7 @@ class LocalTerminalSessionFactory(
                     .redirectErrorStream(true)
                     .apply {
                         environment().clear()
-                        environment().putAll(LocalTerminalLauncher.environment(runtime, prootTmp))
+                        environment().putAll(LocalTerminalLauncher.environment(runtime, prootTmp, githubToken()))
                     }
                     .start()
             ProcessTerminalSession(process)

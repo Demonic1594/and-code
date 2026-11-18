@@ -7,6 +7,7 @@ import com.yugahashimoto.andcode.data.schedule.ScheduleAgentChange
 import com.yugahashimoto.andcode.data.schedule.ScheduleRepository
 import com.yugahashimoto.andcode.data.schedule.ScheduleRun
 import com.yugahashimoto.andcode.runtime.SessionApproval
+import com.yugahashimoto.andcode.runtime.local.GuestFiles
 import kotlinx.coroutines.flow.Flow
 import org.json.JSONArray
 import org.json.JSONObject
@@ -126,31 +127,37 @@ class ScheduleBridge(
         active.pollWhileActive(pollIntervalMillis) { runCatching { pollOnce() } }
     }
 
-    /** Handles every currently pending request and prunes stale files. */
+    /**
+     * Handles every currently pending request and prunes stale files.
+     *
+     * The guest writes this tree, so every file in it goes through [GuestFiles], relative to
+     * [workspaceDir]: a request, a reply or either folder that the guest made a link to one of the
+     * app's own files is never read, written or pruned through, and a request is read only up to
+     * [MAX_REQUEST_BYTES] (a fifo or an endless file would otherwise stall or exhaust the app).
+     * A linked folder throws, which [run] absorbs like any other failed poll.
+     */
     fun pollOnce() {
         // The guest MCP server creates the tree on its first call, so an idle process only pays
         // for one directory stat per poll instead of keeping the bridge populated forever.
         if (!bridgeDir.isDirectory) return
-        val pendingDir = File(bridgeDir, "pending")
-        val responsesDir = File(bridgeDir, "responses")
         val now = clock()
-        for (file in pendingDir.listFiles().orEmpty().filter { it.extension == "json" }.sortedBy { it.name }) {
-            handlePending(file, responsesDir, now)
+        for (entry in GuestFiles.listFiles(workspaceDir, PENDING).filter { File(it.name).extension == "json" }.sortedBy { it.name }) {
+            handlePending(entry.name, now)
         }
-        pruneStale(pendingDir, now)
-        pruneStale(responsesDir, now)
+        pruneStale(PENDING, now)
+        pruneStale(RESPONSES, now)
     }
 
     private fun handlePending(
-        file: File,
-        responsesDir: File,
+        fileName: String,
         now: Long,
     ) {
-        val requestId = file.nameWithoutExtension
-        val request = runCatching { JSONObject(file.readText()) }.getOrNull()
+        val requestId = File(fileName).nameWithoutExtension
+        val pending = "$PENDING/$fileName"
+        val request = runCatching { GuestFiles.readText(workspaceDir, pending, MAX_REQUEST_BYTES)?.let(::JSONObject) }.getOrNull()
         if (request == null) {
-            file.delete()
-            writeResponse(responsesDir, requestId, errorResponse("Malformed request"), now)
+            GuestFiles.delete(workspaceDir, pending)
+            writeResponse(requestId, errorResponse("Malformed request"), now)
             return
         }
         // The guest stops waiting after RESPONSE_TIMEOUT_S and reports the call as failed. A request
@@ -159,8 +166,8 @@ class ScheduleBridge(
         // anyway. A missing or zero timestamp is "unknown", not "ancient", so it still runs.
         val createdAtMs = request.optLong("createdAtMs", 0L)
         if (createdAtMs > 0L && now - createdAtMs > REQUEST_EXPIRES_AFTER_MILLIS) {
-            file.delete()
-            writeResponse(responsesDir, requestId, errorResponse("Request expired before the AndCode app could handle it"), now)
+            GuestFiles.delete(workspaceDir, pending)
+            writeResponse(requestId, errorResponse("Request expired before the AndCode app could handle it"), now)
             return
         }
         val response =
@@ -171,8 +178,8 @@ class ScheduleBridge(
             }
         // Drop the request before the reply so a crash in between can never re-run a mutating
         // operation (create/delete/runNow) after the response was already consumed.
-        file.delete()
-        writeResponse(responsesDir, requestId, response, now)
+        GuestFiles.delete(workspaceDir, pending)
+        writeResponse(requestId, response, now)
     }
 
     private fun execute(request: JSONObject): JSONObject {
@@ -400,33 +407,25 @@ class ScheduleBridge(
             }
         }
 
+    /** Written aside and renamed in by [GuestFiles], so the guest never reads half a reply. */
     private fun writeResponse(
-        responsesDir: File,
         requestId: String,
         payload: JSONObject,
         now: Long,
     ) {
-        responsesDir.mkdirs()
-        val target = File(responsesDir, "$requestId.json")
-        val tmp = File(responsesDir, "$requestId.json.tmp")
-        tmp.writeText(payload.put("at", now).toString())
-        if (!tmp.renameTo(target)) {
-            target.writeText(payload.toString())
-            tmp.delete()
-        }
+        GuestFiles.write(workspaceDir, "$RESPONSES/$requestId.json", payload.put("at", now).toString())
     }
 
+    /** Old replies and requests, and a temporary file a crash left behind; links are left alone. */
     private fun pruneStale(
-        dir: File,
+        relativeDirectory: String,
         now: Long,
     ) {
-        val staleTargets =
-            dir.listFiles().orEmpty().filter { file ->
-                file.name.endsWith(".json") || file.name.endsWith(".json.tmp")
-            }
-        for (file in staleTargets) {
-            if (now - file.lastModified() > staleAfterMillis) file.delete()
-        }
+        GuestFiles
+            .listFiles(workspaceDir, relativeDirectory)
+            .filter { it.name.endsWith(".json") || it.name.endsWith(".tmp") }
+            .filter { now - it.lastModifiedMillis > staleAfterMillis }
+            .forEach { GuestFiles.delete(workspaceDir, "$relativeDirectory/${it.name}") }
     }
 
     private fun ok(vararg pairs: Pair<String, Any>): JSONObject {
@@ -469,6 +468,11 @@ class ScheduleBridge(
     companion object {
         /** Path under the workspace (guest-visible at /workspace) where the MCP server writes. */
         const val BRIDGE_RELATIVE_PATH = ".and-code/schedule-bridge"
+        private const val PENDING = "$BRIDGE_RELATIVE_PATH/pending"
+        private const val RESPONSES = "$BRIDGE_RELATIVE_PATH/responses"
+
+        /** Far past any request the guest MCP server writes; anything larger is not read. */
+        private const val MAX_REQUEST_BYTES = 1024L * 1024
 
         /**
          * In a reply to a change: whether the user was told about it, so the agent does not imply it

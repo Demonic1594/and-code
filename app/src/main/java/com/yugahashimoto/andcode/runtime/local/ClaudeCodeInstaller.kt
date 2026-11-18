@@ -247,17 +247,18 @@ object ClaudeCodeInstaller {
      */
     fun ensureDnsPreload(rootfs: File) {
         runCatching {
-            File(rootfs, DNS_PRELOAD.removePrefix("/")).apply {
-                if (isFile) return@runCatching
-                parentFile?.mkdirs()
-                writeText(
-                    """
-                    try { require("dns").setServers(["1.1.1.1", "8.8.8.8"]); } catch (e) {}
-                    """.trimIndent()
-                        +
-                        "\n",
-                )
-            }
+            // Through GuestFiles: a link the guest left here is replaced rather than written through.
+            val relativePath = DNS_PRELOAD.removePrefix("/")
+            if (GuestFiles.isRegularFile(rootfs, relativePath)) return@runCatching
+            GuestFiles.write(
+                rootfs,
+                relativePath,
+                """
+                try { require("dns").setServers(["1.1.1.1", "8.8.8.8"]); } catch (e) {}
+                """.trimIndent()
+                    +
+                    "\n",
+            )
         }
     }
 

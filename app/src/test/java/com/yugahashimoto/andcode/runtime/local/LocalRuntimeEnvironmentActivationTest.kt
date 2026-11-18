@@ -244,4 +244,27 @@ class LocalRuntimeEnvironmentActivationTest {
             runtimeVersion = "2026.07.18.1",
             abi = "arm64-v8a",
         )
+
+    /**
+     * The previous environment holds the guest's rootfs, where an agent can leave a link to the
+     * app's own data or to shared storage; dropping the rollback must remove the link, not what it
+     * points at.
+     */
+    @Test
+    fun `dropping the old environment never follows a link the guest left in it`() {
+        val root = temporaryFolder.newFolder("runtime-linked")
+        val appData = temporaryFolder.newFolder("app-data").apply { resolve("secure.xml").writeText("<map/>") }
+        val active =
+            root.resolve("environment").apply {
+                resolve("rootfs/root").mkdirs()
+                Files.createSymbolicLink(resolve("rootfs/root/prefs").toPath(), appData.toPath())
+            }
+        val staging = root.resolve("environment.staging").apply { resolve("rootfs").mkdirs() }
+        val rollback = root.resolve("environment.rollback")
+
+        activateRuntimeEnvironment(active = active, staging = staging, rollback = rollback, finalizeActivation = {})
+
+        assertFalse(rollback.exists())
+        assertEquals("<map/>", appData.resolve("secure.xml").readText())
+    }
 }

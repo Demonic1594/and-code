@@ -117,4 +117,18 @@ class LocalTerminalLauncherTest {
         assertEquals("C.UTF-8", environment["LANG"])
         assertTrue(environment.containsKey("PROOT_TMP_DIR"))
     }
+
+    /** With no store file in the guest, git in the terminal authenticates through the helper's variables. */
+    @Test
+    fun `environment passes the GitHub token only when there is one`() {
+        val prootTmp = temporaryFolder.newFolder("proot-tmp-token")
+        val runtime = runtime()
+
+        val withToken = LocalTerminalLauncher.environment(runtime, prootTmp, "token-value")
+        val withoutToken = LocalTerminalLauncher.environment(runtime, prootTmp)
+
+        assertEquals("token-value", withToken["GH_TOKEN"])
+        assertEquals("token-value", withToken["OPENCODE_GITHUB_TOKEN"])
+        assertFalse(withoutToken.containsKey("GH_TOKEN"))
+    }
 }

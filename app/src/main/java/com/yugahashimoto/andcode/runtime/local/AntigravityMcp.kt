@@ -26,9 +26,12 @@ object AntigravityMcp {
     private const val SERVERS_KEY = "mcpServers"
     private val json = Json { prettyPrint = true }
 
-    /** A missing or malformed file reads as no servers configured, rather than failing the screen. */
+    /**
+     * A missing or malformed file reads as no servers configured, rather than failing the screen; so
+     * does one [GuestFiles] refuses to read (a link, say), which [add] and [remove] refuse to touch.
+     */
     fun read(rootfs: File): List<McpServer> =
-        readServers(rootfs).map { (name, entry) ->
+        runCatching { readServers(rootfs) }.getOrDefault(emptyMap()).map { (name, entry) ->
             val url = entry[URL_KEY]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)
             val command = entry[COMMAND_KEY]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)?.let { commandLine(it, entry) }
             McpServer(name = name, type = if (url != null) "remote" else "local", command = command, url = url)
@@ -90,25 +93,24 @@ object AntigravityMcp {
         return removed
     }
 
+    /**
+     * Through [GuestFiles]: the guest can make the file, or a folder above it, a link to one of this
+     * app's own files, which must be neither read here nor replaced by [writeServers].
+     */
     private fun readServers(rootfs: File): Map<String, JsonObject> {
-        val file = File(rootfs, RELATIVE_PATH)
-        if (!file.isFile) return emptyMap()
-        val root = runCatching { Json.parseToJsonElement(file.readText()) }.getOrNull() as? JsonObject ?: return emptyMap()
+        val text = GuestFiles.readText(rootfs, RELATIVE_PATH) ?: return emptyMap()
+        val root = runCatching { Json.parseToJsonElement(text) }.getOrNull() as? JsonObject ?: return emptyMap()
         val servers = root[SERVERS_KEY] as? JsonObject ?: return emptyMap()
         return servers.entries.mapNotNull { (name, value) -> (value as? JsonObject)?.let { name to it } }.toMap()
     }
 
-    /** Atomic write-temp-then-rename, matching how [AntigravityGuestSettings] touches this rootfs. */
+    /** Atomic write-temp-then-rename through [GuestFiles], as everything this app writes in the rootfs. */
     private fun writeServers(
         rootfs: File,
         servers: Map<String, JsonElement>,
     ) {
-        val file = File(rootfs, RELATIVE_PATH)
-        file.parentFile?.mkdirs()
         val content = json.encodeToString(JsonObject.serializer(), JsonObject(mapOf(SERVERS_KEY to JsonObject(servers)))) + "\n"
-        val staged = File(file.parentFile, "${file.name}.tmp-${System.nanoTime()}")
-        staged.writeText(content)
-        require(staged.renameTo(file)) { "Unable to update the MCP configuration" }
+        GuestFiles.write(rootfs, RELATIVE_PATH, content)
     }
 
     private const val URL_KEY = "serverUrl"

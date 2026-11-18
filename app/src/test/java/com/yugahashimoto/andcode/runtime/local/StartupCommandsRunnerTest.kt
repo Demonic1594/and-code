@@ -182,6 +182,33 @@ class StartupCommandsRunnerTest {
         assertTrue(launches.isEmpty())
     }
 
+    /** The workspace is the guest's: a link there must not have the app read one of its own files as the config. */
+    @Test
+    fun `a config the guest linked elsewhere runs nothing`() {
+        val runner = setUpRunner()
+        val elsewhere =
+            File(temporaryFolder.newFolder("app-private"), "commands.json").apply {
+                writeText("""{"commands":[{"command":"echo from-a-private-file"}]}""")
+            }
+        File(workspaceDirectory, ".and-code").mkdirs()
+        java.nio.file.Files.createSymbolicLink(File(workspaceDirectory, ".and-code/startup-commands.json").toPath(), elsewhere.toPath())
+
+        runner.runAll(installedRuntime())
+
+        assertTrue(launches.isEmpty())
+    }
+
+    @Test
+    fun `a config past the size cap is not read`() {
+        val runner = setUpRunner()
+        val padding = " ".repeat(256 * 1024)
+        writeConfig("""{"commands":[{"command":"echo hi"}]}$padding""")
+
+        runner.runAll(installedRuntime())
+
+        assertTrue(launches.isEmpty())
+    }
+
     @Test
     fun `blank command entries are skipped`() {
         val runner = setUpRunner()
