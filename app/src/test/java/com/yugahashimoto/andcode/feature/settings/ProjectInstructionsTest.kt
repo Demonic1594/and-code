@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.feature.settings
 
+import com.yugahashimoto.andcode.runtime.LocalAgent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -76,6 +77,20 @@ class ProjectInstructionsTest {
         assertNotEquals(0, run(ProjectInstructions.ensureExistsCommand(project.path, ProjectInstructions.AGENTS_FILE)))
 
         assertFalse(File(project, "AGENTS.md").exists())
+    }
+
+    /** Antigravity reads `AGENTS.md` (and `GEMINI.md`) from the project; see ProjectInstructions.fileFor. */
+    @Test
+    fun `each agent's settings open the instructions file it reads from the project`() {
+        assertEquals(
+            mapOf(
+                LocalAgent.CLAUDE_CODE to "CLAUDE.md",
+                LocalAgent.CODEX to "AGENTS.md",
+                LocalAgent.OPEN_CODE to "AGENTS.md",
+                LocalAgent.ANTIGRAVITY to "AGENTS.md",
+            ),
+            LocalAgent.entries.associateWith(ProjectInstructions::fileFor),
+        )
     }
 
     private fun run(command: String): Int = ProcessBuilder("sh", "-c", command).start().waitFor()
