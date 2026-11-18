@@ -20,7 +20,7 @@ object AntigravitySandboxLauncher {
      * The folder agy starts in: the chat's own [directory], as Claude Code's `-w` and Codex's `cwd`
      * are, or [WORKSPACE_GUEST_DIR] for a chat that has none.
      */
-    fun workingDirectory(directory: String): String = directory.ifBlank { WORKSPACE_GUEST_DIR }
+    fun workingDirectoryFor(directory: String): String = directory.ifBlank { WORKSPACE_GUEST_DIR }
 
     /**
      * [workingDirectory] is the folder agy starts in, and agy takes that folder as its workspace: it
@@ -56,7 +56,7 @@ object AntigravitySandboxLauncher {
             // Empty until the user grants all-files access, so the sandbox is unchanged without it.
             addAll(DeviceStorage.bindArguments())
             add("-w")
-            add(workingDirectory(workingDirectory))
+            add(workingDirectoryFor(workingDirectory))
             if (pty) {
                 add("/usr/bin/script")
                 add("-qefc")

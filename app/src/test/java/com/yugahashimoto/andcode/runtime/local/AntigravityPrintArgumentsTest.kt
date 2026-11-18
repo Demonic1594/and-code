@@ -47,7 +47,7 @@ class AntigravityPrintArgumentsTest {
                 variant = null,
                 permissionMode = AntigravityPermissionMode.PLAN,
                 workingDirectory = "/workspace/my-app",
-                attachmentDirectory = "/workspace/.andcode-attachments/s/3",
+                attachmentDirectory = "/workspace/.andcode-attachments/s",
             )
 
         assertEquals(
@@ -57,7 +57,7 @@ class AntigravityPrintArgumentsTest {
                 "--mode",
                 "plan",
                 "--add-dir",
-                "/workspace/.andcode-attachments/s/3",
+                "/workspace/.andcode-attachments/s",
                 "--print",
                 "@/workspace/.andcode-attachments/s/3/0-a.png\nWhat is this?",
             ),
@@ -76,7 +76,7 @@ class AntigravityPrintArgumentsTest {
                     variant = null,
                     permissionMode = AntigravityPermissionMode.FULL_ACCESS,
                     workingDirectory = workingDirectory,
-                    attachmentDirectory = "/workspace/.andcode-attachments/s/3",
+                    attachmentDirectory = "/workspace/.andcode-attachments/s",
                 )
 
             assertFalse(workingDirectory, "--add-dir" in arguments)
@@ -93,9 +93,9 @@ class AntigravityPrintArgumentsTest {
                 variant = null,
                 permissionMode = AntigravityPermissionMode.FULL_ACCESS,
                 workingDirectory = "/workspace/.andcode",
-                attachmentDirectory = "/workspace/.andcode-attachments/s/3",
+                attachmentDirectory = "/workspace/.andcode-attachments/s",
             )
 
-        assertEquals("/workspace/.andcode-attachments/s/3", arguments[arguments.indexOf("--add-dir") + 1])
+        assertEquals("/workspace/.andcode-attachments/s", arguments[arguments.indexOf("--add-dir") + 1])
     }
 }

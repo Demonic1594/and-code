@@ -64,9 +64,10 @@ the project folder it started in `/workspace`, the parent of every project, and 
 was not found. Antigravity's settings open the project's `AGENTS.md`, which is always on for its
 folder, and Codex and OpenCode read the same file.
 
-Two things outside the project folder still work. A turn's attachments are written under
-`/workspace/.andcode-attachments`, so that turn's folder is passed with `--add-dir` and stays inside
-agy's workspace, as it was when agy started in `/workspace`. And `trustedWorkspaces` in the guest
+Two things outside the project folder still work. A chat's attachments are written under
+`/workspace/.andcode-attachments`, so the chat's folder there is passed with `--add-dir` and stays
+inside agy's workspace, earlier turns' attachments included, as it was when agy started in
+`/workspace`. And `trustedWorkspaces` in the guest
 `settings.json` lists only `/workspace`, which 1.1.7 compares as an exact path, so a project folder
 is not on it. That list only matters to the TUI's "Do you trust the contents of this project?" step
 (`store.derivePhase`): print mode waits for sign-in and eligibility, never for trust. The TUI

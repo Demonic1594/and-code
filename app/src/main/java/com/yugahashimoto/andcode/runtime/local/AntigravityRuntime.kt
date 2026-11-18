@@ -16,6 +16,8 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.util.Base64
 
 @Serializable
@@ -195,7 +197,7 @@ class AntigravityRuntime(
                         prompt,
                         attachments,
                     )
-                val workingDirectory = AntigravitySandboxLauncher.workingDirectory(workspace)
+                val workingDirectory = AntigravitySandboxLauncher.workingDirectoryFor(workspace)
                 // Normally unreachable now that the app always queues a send behind a running
                 // Antigravity turn (see RuntimeCapabilities.forcesQueue) - kept as a safety net for
                 // e.g. two clients racing the same session. Marking the kill as intentional here is
@@ -216,7 +218,7 @@ class AntigravityRuntime(
                             variant = variant,
                             permissionMode = permissionMode,
                             workingDirectory = workingDirectory,
-                            attachmentDirectory = antigravityAttachmentDirectory(sessionId, turn).takeIf { attachments.isNotEmpty() },
+                            attachmentDirectory = antigravityAttachmentDirectory(runtimeDirectory, sessionId),
                         )
                     val stderrLog = File(runtimeDirectory, "logs/agy-stderr.log").also { it.parentFile?.mkdirs() }
                     val process =
@@ -413,10 +415,10 @@ class AntigravityRuntime(
             currentRootfs()?.let { AgentTranscriptFiles.deleteAntigravity(it, listOf(conversationId)) }
         }
         messageStore.remove(sessionId)
-        val safeSession = sessionId.replace(Regex("[^A-Za-z0-9._-]"), "_")
+        val safeSession = attachmentSessionName(sessionId)
         // The workspace is the guest's: never follow a link it left among the attachments.
         if (safeSession != "." && safeSession != "..") {
-            GuestFiles.deleteTree(File(runtimeDirectory, "workspace"), "$ATTACHMENT_DIRECTORY/$safeSession")
+            GuestFiles.deleteTree(File(runtimeDirectory, "workspace"), attachmentDirectory(sessionId))
         }
         persistRecords()
         persistMessages()
@@ -613,7 +615,7 @@ private fun writeAtomically(
  * prompt, so a message sent with any flag set asked the model about "--conversation" or "--mode"
  * instead of what the user typed.
  *
- * agy's workspace is the folder it starts in plus each `--add-dir`. The turn's attachments are in
+ * agy's workspace is the folder it starts in plus each `--add-dir`. The chat's attachments are in
  * [attachmentDirectory] under the shared `/workspace`, outside a project folder, so that folder is
  * added to the workspace unless agy already starts in or above it - as agy did before it started in
  * the project, when attachments were always inside its workspace.
@@ -653,17 +655,24 @@ private fun isGuestPathWithin(
     return path == parent || path.startsWith("$parent/")
 }
 
-/** The guest folder [prepareAntigravityPrompt] writes turn [turn]'s attachments to. */
+/**
+ * The guest folder holding every attachment of [sessionId]'s chat, one subfolder per turn (see
+ * [prepareAntigravityPrompt]), or null while the chat has none. The whole chat's folder, so a turn
+ * can still refer to an earlier turn's attachment. A link the guest left in its place is not one.
+ */
 internal fun antigravityAttachmentDirectory(
+    runtimeDirectory: File,
     sessionId: String,
-    turn: Long,
-): String = "${AntigravitySandboxLauncher.WORKSPACE_GUEST_DIR}/${attachmentDirectory(sessionId, turn)}"
+): String? =
+    attachmentDirectory(sessionId)
+        .takeIf { Files.isDirectory(File(runtimeDirectory, "workspace/$it").toPath(), LinkOption.NOFOLLOW_LINKS) }
+        ?.let { "${AntigravitySandboxLauncher.WORKSPACE_GUEST_DIR}/$it" }
 
-/** [antigravityAttachmentDirectory] relative to the workspace. */
-private fun attachmentDirectory(
-    sessionId: String,
-    turn: Long,
-): String = "$ATTACHMENT_DIRECTORY/${sessionId.replace(Regex("[^A-Za-z0-9._-]"), "_")}/$turn"
+/** The chat's attachment folder relative to the workspace. */
+private fun attachmentDirectory(sessionId: String): String = "$ATTACHMENT_DIRECTORY/${attachmentSessionName(sessionId)}"
+
+/** [sessionId] as a single folder name. */
+private fun attachmentSessionName(sessionId: String): String = sessionId.replace(Regex("[^A-Za-z0-9._-]"), "_")
 
 /**
  * Materializes inline attachments in the shared workspace and references them through agy's native
@@ -678,7 +687,7 @@ internal fun prepareAntigravityPrompt(
 ): String {
     if (attachments.isEmpty()) return prompt
     val workspace = File(runtimeDirectory, "workspace")
-    val attachmentDir = attachmentDirectory(sessionId, turn)
+    val attachmentDir = "${attachmentDirectory(sessionId)}/$turn"
     val references =
         attachments.mapIndexed { index, attachment ->
             require(attachment.mime.startsWith("image/") || attachment.mime == "application/pdf") {
