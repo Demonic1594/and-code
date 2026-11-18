@@ -1438,7 +1438,9 @@
     <plurals name="chat_issue_prompt_comments_latest">
         <item quantity="other">コメント（最新の %1$d 件。それより前の %2$d 件は省略）</item>
     </plurals>
-    <string name="chat_issue_prompt_comments_partial">コメント（最初の %2$d 件のうち最後の %1$d 件。残りは GitHub にあります）</string>
+    <plurals name="chat_issue_prompt_comments_partial">
+        <item quantity="other">コメント（最初の %2$d 件のうち最後の %1$d 件。残りは GitHub にあります）</item>
+    </plurals>
     <plurals name="chat_issue_prompt_cut">
         <item quantity="other">[… 省略。残りの %1$d 文字は GitHub にあります]</item>
     </plurals>

@@ -1458,7 +1458,11 @@
         <item quantity="many">Comentarios (los %1$d más recientes; se omitieron %2$d anteriores)</item>
         <item quantity="other">Comentarios (los %1$d más recientes; se omitieron %2$d anteriores)</item>
     </plurals>
-    <string name="chat_issue_prompt_comments_partial">Comentarios (los últimos %1$d de los primeros %2$d; el resto está en GitHub)</string>
+    <plurals name="chat_issue_prompt_comments_partial">
+        <item quantity="one">Comentarios (el último %1$d de los primeros %2$d; el resto está en GitHub)</item>
+        <item quantity="many">Comentarios (los últimos %1$d de los primeros %2$d; el resto está en GitHub)</item>
+        <item quantity="other">Comentarios (los últimos %1$d de los primeros %2$d; el resto está en GitHub)</item>
+    </plurals>
     <plurals name="chat_issue_prompt_cut">
         <item quantity="one">[… recortado, %1$d carácter más en GitHub]</item>
         <item quantity="many">[… recortado, %1$d caracteres más en GitHub]</item>

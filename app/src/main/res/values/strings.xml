@@ -1473,8 +1473,11 @@
         <item quantity="one">Comments (the latest %1$d; %2$d earlier one left out)</item>
         <item quantity="other">Comments (the latest %1$d; %2$d earlier ones left out)</item>
     </plurals>
-    <!-- Only the first %2$d comments were read from GitHub, and the last %1$d of those are kept. -->
-    <string name="chat_issue_prompt_comments_partial">Comments (the last %1$d of the first %2$d; the rest are on GitHub)</string>
+    <!-- Only the first %2$d comments were read from GitHub, and the last %1$d of those are kept; %1$d picks the plural form. -->
+    <plurals name="chat_issue_prompt_comments_partial">
+        <item quantity="one">Comments (the last %1$d comment of the first %2$d; the rest are on GitHub)</item>
+        <item quantity="other">Comments (the last %1$d comments of the first %2$d; the rest are on GitHub)</item>
+    </plurals>
     <!-- After a description or comment cut short; %1$d characters of it were left out. -->
     <plurals name="chat_issue_prompt_cut">
         <item quantity="one">[… cut, %1$d more character on GitHub]</item>

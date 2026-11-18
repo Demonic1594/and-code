@@ -1418,7 +1418,9 @@
     <plurals name="chat_issue_prompt_comments_latest">
         <item quantity="other">评论（最新 %1$d 条；省略了更早的 %2$d 条）</item>
     </plurals>
-    <string name="chat_issue_prompt_comments_partial">评论（前 %2$d 条中的最后 %1$d 条；其余在 GitHub 上）</string>
+    <plurals name="chat_issue_prompt_comments_partial">
+        <item quantity="other">评论（前 %2$d 条中的最后 %1$d 条；其余在 GitHub 上）</item>
+    </plurals>
     <plurals name="chat_issue_prompt_cut">
         <item quantity="other">[… 已截断，GitHub 上还有 %1$d 个字符]</item>
     </plurals>

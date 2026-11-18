@@ -1518,7 +1518,14 @@
         <item quantity="many">التعليقات (أحدث %1$d، وعدد التعليقات الأقدم غير المُدرجة: %2$d)</item>
         <item quantity="other">التعليقات (أحدث %1$d، وعدد التعليقات الأقدم غير المُدرجة: %2$d)</item>
     </plurals>
-    <string name="chat_issue_prompt_comments_partial">التعليقات (آخر %1$d من أول %2$d، والباقي على GitHub)</string>
+    <plurals name="chat_issue_prompt_comments_partial">
+        <item quantity="zero">التعليقات (%1$d من أول %2$d، والباقي على GitHub)</item>
+        <item quantity="one">التعليقات (آخر تعليق من أول %2$d، والباقي على GitHub)</item>
+        <item quantity="two">التعليقات (آخر تعليقين من أول %2$d، والباقي على GitHub)</item>
+        <item quantity="few">التعليقات (آخر %1$d تعليقات من أول %2$d، والباقي على GitHub)</item>
+        <item quantity="many">التعليقات (آخر %1$d تعليقًا من أول %2$d، والباقي على GitHub)</item>
+        <item quantity="other">التعليقات (آخر %1$d تعليق من أول %2$d، والباقي على GitHub)</item>
+    </plurals>
     <plurals name="chat_issue_prompt_cut">
         <item quantity="zero">[… اقتُطع النص، وعدد الأحرف المتبقية على GitHub: %1$d]</item>
         <item quantity="one">[… اقتُطع النص، وعدد الأحرف المتبقية على GitHub: %1$d]</item>

@@ -1478,7 +1478,12 @@
         <item quantity="many">Комментарии (последние: %1$d; более ранние пропущены: %2$d)</item>
         <item quantity="other">Комментарии (последние: %1$d; более ранние пропущены: %2$d)</item>
     </plurals>
-    <string name="chat_issue_prompt_comments_partial">Комментарии (последние %1$d из первых %2$d; остальные на GitHub)</string>
+    <plurals name="chat_issue_prompt_comments_partial">
+        <item quantity="one">Комментарии (последний %1$d из первых %2$d; остальные на GitHub)</item>
+        <item quantity="few">Комментарии (последние %1$d из первых %2$d; остальные на GitHub)</item>
+        <item quantity="many">Комментарии (последние %1$d из первых %2$d; остальные на GitHub)</item>
+        <item quantity="other">Комментарии (последние %1$d из первых %2$d; остальные на GitHub)</item>
+    </plurals>
     <plurals name="chat_issue_prompt_cut">
         <item quantity="one">[… обрезано, ещё символов на GitHub: %1$d]</item>
         <item quantity="few">[… обрезано, ещё символов на GitHub: %1$d]</item>
