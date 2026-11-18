@@ -1330,6 +1330,9 @@
     <string name="devtools_viewport">视口</string>
     <string name="devtools_user_agent">用户代理</string>
     <string name="guest_browser_webview_unavailable">无法启动访客浏览器，因为此设备上的 WebView 加载失败。更新或重新启用 Android System WebView 可能会解决此问题。</string>
+    <string name="webview_page_gone_title">此页面已停止响应</string>
+    <string name="webview_page_gone_body">Android 关闭了显示此页面的进程，通常是为了释放内存。重新加载即可再次打开。</string>
+    <string name="webview_page_gone_reload">重新加载</string>
     <string name="guest_browser_agent_controlling">智能体正在操控此页面</string>
     <string name="setup_step_development_tools">开发工具</string>
     <string name="setup_development_tools_description">默认只安装运行所需组件，也可以一并安装完整开发工具链。</string>

@@ -1,9 +1,11 @@
 package com.yugahashimoto.andcode.feature.chat
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.util.Base64
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -50,6 +52,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -82,6 +85,10 @@ import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.ProvideSafeUriHandler
 import com.yugahashimoto.andcode.core.UrlLauncher
 import com.yugahashimoto.andcode.feature.browser.DESKTOP_VIEWPORT_SCRIPT
+import com.yugahashimoto.andcode.ui.components.PageStoppedResponding
+import com.yugahashimoto.andcode.ui.components.WebPageRecovery
+import com.yugahashimoto.andcode.ui.components.destroyWebView
+import com.yugahashimoto.andcode.ui.components.discardAfterRendererGone
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 import com.yugahashimoto.andcode.ui.theme.Spacing
 import kotlinx.coroutines.Dispatchers
@@ -381,7 +388,7 @@ private fun RenderedArtifact(
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun ArtifactWebView(
+internal fun ArtifactWebView(
     html: String,
     path: String,
     desktopLayout: Boolean = false,
@@ -389,54 +396,84 @@ private fun ArtifactWebView(
     val context = LocalContext.current
     // An origin of its own per file: storage a page keeps is not another artifact's to read.
     val baseUrl = remember(path) { "https://a${path.hashCode().toUInt().toString(16)}.artifact.andcode.invalid/" }
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = { viewContext ->
-            WebView(viewContext).apply {
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.allowFileAccess = false
-                settings.allowContentAccess = false
-                // Pinch to zoom, without the legacy on-screen zoom buttons.
-                settings.setSupportZoom(true)
-                settings.builtInZoomControls = true
-                settings.displayZoomControls = false
-                webViewClient =
-                    object : WebViewClient() {
-                        // The preview shows the agent's page and nothing else: a link or script
-                        // that would take it elsewhere opens that site in the browser instead, so a
-                        // page cannot dress itself up as the app on a screen with no address bar.
-                        override fun shouldOverrideUrlLoading(
-                            view: WebView,
-                            request: WebResourceRequest,
-                        ): Boolean {
-                            val url = request.url.toString()
-                            if (url.startsWith(baseUrl)) return false
-                            // Only a tap opens the browser: a page redirecting itself on load or on a
-                            // timer must not launch apps over and over.
-                            if (request.isForMainFrame && request.hasGesture()) UrlLauncher.openUrl(context, url)
-                            return true
+    // The page's WebView across the deaths of its renderer: gone until Reload builds a fresh one,
+    // which loads the page again as any new view does.
+    var recovery by remember { mutableStateOf(WebPageRecovery()) }
+    if (!recovery.showsView) {
+        PageStoppedResponding(onReload = { recovery = recovery.rebuild() })
+        return
+    }
+    key(recovery.generation) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { viewContext ->
+                WebView(viewContext).apply {
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.allowFileAccess = false
+                    settings.allowContentAccess = false
+                    // Pinch to zoom, without the legacy on-screen zoom buttons.
+                    settings.setSupportZoom(true)
+                    settings.builtInZoomControls = true
+                    settings.displayZoomControls = false
+                    webViewClient =
+                        artifactWebViewClient(context, baseUrl) { dead, detail ->
+                            recovery = recovery.rendererGone(lastUrl = null, fallbackUrl = baseUrl)
+                            dead.discardAfterRendererGone(detail)
                         }
-
-                        override fun onPageFinished(
-                            view: WebView,
-                            url: String?,
-                        ) {
-                            if (view.settings.useWideViewPort) view.evaluateJavascript(DESKTOP_VIEWPORT_SCRIPT, null)
-                        }
-                    }
-            }
-        },
-        update = { view ->
-            // Desktop lays the page out at a laptop's width and zooms out to fit; the flag is read
-            // back from the settings when the page finishes, to widen its viewport tag too.
-            view.settings.useWideViewPort = desktopLayout
-            view.settings.loadWithOverviewMode = desktopLayout
-            view.loadDataWithBaseURL(baseUrl, html, "text/html", "utf-8", null)
-        },
-        onRelease = { view -> view.destroy() },
-    )
+                }
+            },
+            update = { view ->
+                // Desktop lays the page out at a laptop's width and zooms out to fit; the flag is read
+                // back from the settings when the page finishes, to widen its viewport tag too.
+                view.settings.useWideViewPort = desktopLayout
+                view.settings.loadWithOverviewMode = desktopLayout
+                view.loadDataWithBaseURL(baseUrl, html, "text/html", "utf-8", null)
+            },
+            onRelease = ::destroyWebView,
+        )
+    }
 }
+
+/** Keeps an artifact's page to itself, and hands a dead renderer's view to [onRendererGone]. */
+private fun artifactWebViewClient(
+    context: Context,
+    baseUrl: String,
+    onRendererGone: (WebView, RenderProcessGoneDetail?) -> Unit,
+): WebViewClient =
+    object : WebViewClient() {
+        // The preview shows the agent's page and nothing else: a link or script
+        // that would take it elsewhere opens that site in the browser instead, so a
+        // page cannot dress itself up as the app on a screen with no address bar.
+        override fun shouldOverrideUrlLoading(
+            view: WebView,
+            request: WebResourceRequest,
+        ): Boolean {
+            val url = request.url.toString()
+            if (url.startsWith(baseUrl)) return false
+            // Only a tap opens the browser: a page redirecting itself on load or on a
+            // timer must not launch apps over and over.
+            if (request.isForMainFrame && request.hasGesture()) UrlLauncher.openUrl(context, url)
+            return true
+        }
+
+        override fun onPageFinished(
+            view: WebView,
+            url: String?,
+        ) {
+            if (view.settings.useWideViewPort) view.evaluateJavascript(DESKTOP_VIEWPORT_SCRIPT, null)
+        }
+
+        // Android ended the renderer (to free memory, or the page crashed it). Unhandled, the whole
+        // app goes with it; handled, the preview discards the view and offers the page back.
+        override fun onRenderProcessGone(
+            view: WebView,
+            detail: RenderProcessGoneDetail?,
+        ): Boolean {
+            onRendererGone(view, detail)
+            return true
+        }
+    }
 
 /** Longest side, in pixels, a previewed picture is decoded at. */
 private const val MAX_IMAGE_SIDE = 2048

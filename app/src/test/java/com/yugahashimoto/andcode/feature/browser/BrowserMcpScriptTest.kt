@@ -270,6 +270,99 @@ class BrowserMcpScriptTest {
         assertEquals("refused ignored\nraised", outcome)
     }
 
+    // A WebView whose renderer died answers nothing: without these the tool waited out its socket timeout.
+    private val crashingWs =
+        """
+        class CrashingWs:
+            def __init__(self):
+                self.replies = ['{"method": "Inspector.targetCrashed", "params": {}}']
+            def send_text(self, text):
+                pass
+            def recv_text(self):
+                if not self.replies:
+                    raise TimeoutError("waited out the socket timeout")
+                return self.replies.pop(0)
+        """.trimIndent()
+
+    @Test
+    fun `a page whose renderer dies mid-action fails the tool at once, saying so`() {
+        val outcome =
+            run(
+                crashingWs + "\n" +
+                    """
+                    try:
+                        m._PageSession(CrashingWs()).call("Runtime.evaluate", expression="1")
+                        print("answered")
+                    except m.CdpError as error:
+                        print(str(error) == m.PAGE_GONE)
+                    """.trimIndent(),
+            )
+
+        assertEquals("True", outcome)
+    }
+
+    @Test
+    fun `the agent announcement passes a dead page on rather than leaving the next call to hang`() {
+        val outcome =
+            run(
+                crashingWs + "\n" +
+                    """
+                    try:
+                        m._PageSession(CrashingWs()).announce()
+                        print("swallowed")
+                    except m.CdpError as error:
+                        print(str(error) == m.PAGE_GONE)
+                    """.trimIndent(),
+            )
+
+        assertEquals("True", outcome)
+    }
+
+    @Test
+    fun `a page closed around an action says it went away, however the socket ends`() {
+        val outcome =
+            run(
+                """
+                import socket
+                def page_over(sock):
+                    ws = m._UnixWs.__new__(m._UnixWs)
+                    ws.sock = sock
+                    return m._PageSession(ws)
+                # Gone before the request, gone while waiting for the answer, and closed by the server.
+                for ending in ("before", "while waiting", "close frame"):
+                    mine, theirs = socket.socketpair()
+                    if ending == "close frame":
+                        theirs.sendall(b"\x88\x00")
+                    if ending == "before":
+                        theirs.close()
+                    else:
+                        theirs.shutdown(socket.SHUT_WR)
+                    try:
+                        page_over(mine).call("Runtime.evaluate", expression="1")
+                        print("answered")
+                    except m.CdpError as error:
+                        print(ending, str(error) == m.PAGE_CLOSED)
+                """.trimIndent(),
+            )
+
+        assertEquals("before True\nwhile waiting True\nclose frame True", outcome)
+    }
+
+    @Test
+    fun `with no page to drive the agent learns the page may have stopped responding`() {
+        val status =
+            run(
+                """
+                m._find_devtools_socket = lambda: "webview_devtools_remote_1"
+                m.CdpSession.list_targets = lambda self: []
+                print(m.tool_status({}).endswith(m.NO_PAGE))
+                print("stopped responding" in m.NO_PAGE and "Reload" in m.NO_PAGE)
+                """.trimIndent(),
+            )
+
+        assertEquals("True\nTrue", status)
+    }
+
     @Test
     fun `the page console hook keeps the marker out of the user's console`() {
         val devtools =

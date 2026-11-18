@@ -2,4 +2,6 @@
 <resources>
     <!-- Stable id so the quick-input EditText's text survives Activity recreation (issue #355). -->
     <item name="quick_input_field" type="id" />
+    <!-- Marks a WebView already destroyed after its renderer died, so letting go of it does not destroy it twice. -->
+    <item name="webview_discarded" type="id" />
 </resources>
