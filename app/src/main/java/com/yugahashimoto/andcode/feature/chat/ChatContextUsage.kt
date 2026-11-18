@@ -26,6 +26,8 @@ internal class ContextUsage(
     private val uiState: MutableStateFlow<ChatUiState>,
     /** The current price catalog, for the usage row's estimate on turns the runtime priced at nothing. */
     private val priceCatalog: () -> PriceCatalog?,
+    /** Shown when compacting failed and the runtime gave no reason. */
+    private val compactFailedMessage: String,
 ) {
     fun refresh(sessionId: String) {
         val currentBackend = backend ?: return
@@ -68,19 +70,25 @@ internal class ContextUsage(
         }
     }
 
+    /** Bumped by every [showBreakdown], so only the latest request's answer fills the sheet. */
+    private var breakdownRequest = 0L
+
     fun showBreakdown() {
         val currentBackend = backend ?: return
         val sessionId = uiState.value.sessionId
+        val request = ++breakdownRequest
         uiState.update { it.copy(contextBreakdown = ContextBreakdownState.Loading) }
         scope.launch {
             val breakdown = sessionId?.let { runCatching { currentBackend.contextBreakdown(it) }.getOrNull() }
             uiState.update { state ->
-                // Closed meanwhile, or the composer moved to another chat: the answer is not wanted,
-                // and a sheet still waiting on it is closed rather than left spinning.
-                if (state.sessionId != sessionId) {
-                    state.copy(contextBreakdown = ContextBreakdownState.Hidden)
-                } else if (state.contextBreakdown != ContextBreakdownState.Loading) {
+                // Closed meanwhile, or asked for again since (perhaps on another chat, after the
+                // switch closed this one): the sheet is not this answer's to fill or to close.
+                if (request != breakdownRequest || state.contextBreakdown != ContextBreakdownState.Loading) {
                     state
+                } else if (state.sessionId != sessionId) {
+                    // The composer moved to another chat under the sheet still waiting on this
+                    // answer: closed rather than left spinning.
+                    state.copy(contextBreakdown = ContextBreakdownState.Hidden)
                 } else {
                     state.copy(contextBreakdown = breakdown?.let(ContextBreakdownState::Shown) ?: ContextBreakdownState.Unavailable)
                 }
@@ -102,7 +110,7 @@ internal class ContextUsage(
             runCatching { currentBackend.compactSession(sessionId) }
                 .onFailure { error ->
                     if (uiState.value.sessionId == sessionId) {
-                        uiState.update { it.copy(error = error.safeMessage("Could not compact the conversation")) }
+                        uiState.update { it.copy(error = error.safeMessage(compactFailedMessage)) }
                     }
                 }
         }

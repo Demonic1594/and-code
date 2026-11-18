@@ -21,6 +21,8 @@ internal class ChatPermissions(
     private val scope: CoroutineScope,
     private val uiState: MutableStateFlow<ChatUiState>,
     private val onPermissionResolved: (String) -> Unit,
+    /** Shown when the runtime refused an answer. */
+    private val notAppliedMessage: String,
 ) {
     /** Drops the card of a permission answered from the notification or the activity screen. */
     fun followResolvedElsewhere(flow: Flow<String>) {
@@ -58,7 +60,7 @@ internal class ChatPermissions(
                     }
                     onPermissionResolved(permissionId)
                 } else {
-                    uiState.update { it.copy(error = "OpenCode could not apply that permission response") }
+                    uiState.update { it.copy(error = notAppliedMessage) }
                 }
             }.onFailure { error ->
                 uiState.update { it.copy(error = error.safeMessage("OpenCode operation failed")) }

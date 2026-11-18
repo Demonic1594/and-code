@@ -48,6 +48,12 @@ val viewModelModule =
                     androidContext().getString(
                         com.yugahashimoto.andcode.R.string.chat_workspace_attachment_note,
                     ),
+                compactFailedMessage = androidContext().getString(com.yugahashimoto.andcode.R.string.chat_compact_failed),
+                permissionNotAppliedMessage =
+                    androidContext().getString(com.yugahashimoto.andcode.R.string.permission_response_not_applied),
+                questionAnswerRequiredMessage =
+                    androidContext().getString(com.yugahashimoto.andcode.R.string.question_answer_required),
+                questionFailedMessage = androidContext().getString(com.yugahashimoto.andcode.R.string.question_failed),
             )
         }
 

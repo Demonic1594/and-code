@@ -161,6 +161,49 @@ class ChatViewModelTest {
             assertNull(viewModel.loadDraft("s1"))
         }
 
+    /** A command sent from the composer is the composer's text going out, like any message. */
+    @Test
+    fun `sending a slash command clears the session's stored draft`() =
+        runTest(dispatcher) {
+            val store = InMemoryDraftStore()
+            val viewModel = ChatViewModel(FakeBackend(), draftRepo = store)
+            advanceUntilIdle()
+            viewModel.sendMessage("Hello")
+            advanceUntilIdle()
+            viewModel.saveDraft("s1", "/changelog v1.0")
+
+            viewModel.sendMessage("/changelog v1.0")
+            advanceUntilIdle()
+
+            assertNull(viewModel.loadDraft("s1"))
+        }
+
+    /**
+     * A command held behind the running turn goes out when that turn ends, by which time the
+     * composer may hold the user's next message. Its stored draft is not the command's to clear.
+     */
+    @Test
+    fun `a held slash command going out leaves the draft typed while it waited`() =
+        runTest(dispatcher) {
+            val store = InMemoryDraftStore()
+            val backend = FakeBackend()
+            val viewModel = ChatViewModel(backend, draftRepo = store)
+            viewModel.setSendBehavior("queue")
+            advanceUntilIdle()
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+            viewModel.sendMessage("/changelog v1.0")
+            advanceUntilIdle()
+            assertEquals(listOf("/changelog v1.0"), viewModel.uiState.value.queuedPrompts.map { it.text })
+            viewModel.saveDraft("s1", "next thing")
+
+            backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+
+            assertEquals(listOf("changelog"), backend.executedCommands.map { it.command })
+            assertEquals("next thing", viewModel.loadDraft("s1")?.text)
+        }
+
     /** The choice belongs to the chat it was made in, so leaving that chat drops it. */
     @Test
     fun `starting another blank chat drops the previous draft preset`() =
@@ -1018,6 +1061,30 @@ class ChatViewModelTest {
             assertEquals(PermissionResponse.ONCE, backend.permissionResponses.single().third)
         }
 
+    /** A refused answer leaves the card to try again, and says so in the user's language. */
+    @Test
+    fun `a permission answer the runtime refuses keeps the card and says so in the app's words`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            backend.permissionAccepted = false
+            val viewModel = ChatViewModel(backend, permissionNotAppliedMessage = "No se pudo aplicar esa respuesta")
+            advanceUntilIdle()
+            viewModel.sendMessage("Check git")
+            advanceUntilIdle()
+            backend.events.emit(
+                OpenCodeEvent.PermissionAsked(
+                    PermissionRequest(id = "perm1", sessionId = "s1", permission = "bash", patterns = listOf("git status")),
+                ),
+            )
+            advanceUntilIdle()
+
+            viewModel.respondToPermission("perm1", PermissionResponse.ONCE, remember = false)
+            advanceUntilIdle()
+
+            assertEquals("perm1", viewModel.uiState.value.permissions.single().id)
+            assertEquals("No se pudo aplicar esa respuesta", viewModel.uiState.value.error)
+        }
+
     @Test
     fun `permission answered from the notification removes the chat card`() =
         runTest(dispatcher) {
@@ -1271,6 +1338,77 @@ class ChatViewModelTest {
             assertEquals(ContextBreakdownState.Hidden, viewModel.uiState.value.contextBreakdown)
         }
 
+    /**
+     * The sheet belongs to the latest request: an answer for the chat left behind must neither close
+     * nor fill the sheet opened since on the next chat.
+     */
+    @Test
+    fun `a late context answer for the chat left behind leaves the next chat's sheet alone`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(contextBreakdown = true))
+            val forFirst = ContextBreakdown(1, 100, emptyList(), emptyList(), emptyList(), null)
+            val forSecond = ContextBreakdown(2, 200, emptyList(), emptyList(), emptyList(), null)
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+            val firstAnswer = CompletableDeferred<Unit>()
+            backend.breakdownGates += firstAnswer
+            viewModel.showContextBreakdown()
+            advanceUntilIdle()
+
+            viewModel.openSession("s2")
+            advanceUntilIdle()
+            val secondAnswer = CompletableDeferred<Unit>()
+            backend.breakdownGates += secondAnswer
+            viewModel.showContextBreakdown()
+            advanceUntilIdle()
+            assertEquals(listOf("s1", "s2"), backend.breakdownAskedFor)
+
+            backend.breakdown = forFirst
+            firstAnswer.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(ContextBreakdownState.Loading, viewModel.uiState.value.contextBreakdown)
+
+            backend.breakdown = forSecond
+            secondAnswer.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(ContextBreakdownState.Shown(forSecond), viewModel.uiState.value.contextBreakdown)
+        }
+
+    /** Closed and opened again on the same chat: only the second request's answer fills it. */
+    @Test
+    fun `an older context answer does not fill the sheet asked for again since`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(contextBreakdown = true))
+            val older = ContextBreakdown(1, 100, emptyList(), emptyList(), emptyList(), null)
+            val newer = ContextBreakdown(2, 100, emptyList(), emptyList(), emptyList(), null)
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+            val firstAnswer = CompletableDeferred<Unit>()
+            val secondAnswer = CompletableDeferred<Unit>()
+            backend.breakdownGates += firstAnswer
+            backend.breakdownGates += secondAnswer
+
+            viewModel.showContextBreakdown()
+            advanceUntilIdle()
+            viewModel.hideContextBreakdown()
+            viewModel.showContextBreakdown()
+            advanceUntilIdle()
+
+            backend.breakdown = older
+            firstAnswer.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(ContextBreakdownState.Loading, viewModel.uiState.value.contextBreakdown)
+
+            backend.breakdown = newer
+            secondAnswer.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(ContextBreakdownState.Shown(newer), viewModel.uiState.value.contextBreakdown)
+        }
+
     @Test
     fun `an agent that reports its window fills the meter, and compacts on request between turns`() =
         runTest(dispatcher) {
@@ -1307,6 +1445,25 @@ class ChatViewModelTest {
             // The window belongs to the chat that reported it.
             viewModel.newSession()
             assertEquals(0L, viewModel.uiState.value.contextWindow)
+        }
+
+    /** The runtime gave no reason, so the app says it, in the user's language. */
+    @Test
+    fun `a compaction that fails without a reason is reported in the app's words`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(contextBreakdown = true, compact = true))
+            backend.compactFailure = IllegalStateException()
+            val viewModel = ChatViewModel(backend, compactFailedMessage = "No se pudo compactar la conversación")
+            advanceUntilIdle()
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+            backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+
+            viewModel.compactContext()
+            advanceUntilIdle()
+
+            assertEquals("No se pudo compactar la conversación", viewModel.uiState.value.error)
         }
 
     @Test
@@ -2027,6 +2184,41 @@ class ChatViewModelTest {
 
             viewModel.dismissArtifact()
             assertNull(viewModel.uiState.value.artifactPreview)
+        }
+
+    /**
+     * Two workspaces can each hold an `index.html`: a read from the first that lands after the
+     * second was opened must not replace the newer preview with the older file.
+     */
+    @Test
+    fun `an artifact read that lands after a newer one is dropped`() =
+        runTest(dispatcher) {
+            val backend = FakeRuntimeTargetBackend(RuntimeCapabilities())
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            val page = Artifact.File("index.html", ArtifactKind.HTML)
+            val olderRead = CompletableDeferred<Unit>()
+            val newerRead = CompletableDeferred<Unit>()
+            backend.readFileGates += olderRead
+            backend.readFileGates += newerRead
+
+            viewModel.selectWorkspace("/w/first")
+            backend.fileContent = "<h1>First</h1>"
+            viewModel.openArtifact(page)
+            advanceUntilIdle()
+            viewModel.selectWorkspace("/w/second")
+            backend.fileContent = "<h1>Second</h1>"
+            viewModel.openArtifact(page)
+            advanceUntilIdle()
+            assertEquals(listOf("/w/first|index.html", "/w/second|index.html"), backend.readPaths)
+
+            newerRead.complete(Unit)
+            advanceUntilIdle()
+            olderRead.complete(Unit)
+            advanceUntilIdle()
+
+            val preview = viewModel.uiState.value.artifactPreview as ArtifactPreviewState.Loaded
+            assertEquals("<h1>Second</h1>", preview.content)
         }
 
     @Test
@@ -2866,8 +3058,11 @@ class ChatViewModelTest {
             remember: Boolean,
         ): Boolean {
             permissionResponses += PermissionRecord(sessionId, permissionId, response, remember)
-            return true
+            return permissionAccepted
         }
+
+        /** False has the runtime refuse a permission answer. */
+        var permissionAccepted = true
 
         override fun events(): Flow<OpenCodeEvent> = events
     }
@@ -2903,9 +3098,12 @@ class ChatViewModelTest {
         /** When set, the breakdown is answered only once this completes. */
         var breakdownGate: CompletableDeferred<Unit>? = null
 
+        /** One gate per request, taken in the order they are made; each holds its answer back until completed. */
+        val breakdownGates = ArrayDeque<CompletableDeferred<Unit>>()
+
         override suspend fun contextBreakdown(sessionId: String): ContextBreakdown? {
             breakdownAskedFor += sessionId
-            breakdownGate?.await()
+            (breakdownGates.removeFirstOrNull() ?: breakdownGate)?.await()
             return breakdown
         }
 
@@ -2975,8 +3173,17 @@ class ChatViewModelTest {
             path: String,
         ): com.yugahashimoto.andcode.core.api.OpenCodeFileContent {
             readPaths += "$directory|$path"
-            return com.yugahashimoto.andcode.core.api.OpenCodeFileContent(type = "text", content = "<h1>Hi</h1>")
+            // Read when asked, like the file on disk; the gate only holds the answer back.
+            val content = fileContent
+            readFileGates.removeFirstOrNull()?.await()
+            return com.yugahashimoto.andcode.core.api.OpenCodeFileContent(type = "text", content = content)
         }
+
+        /** What a file read finds. */
+        var fileContent = "<h1>Hi</h1>"
+
+        /** One gate per read, taken in the order they are made; each holds its answer back until completed. */
+        val readFileGates = ArrayDeque<CompletableDeferred<Unit>>()
 
         /** Where the session stands rewound, as the server would report it. */
         var revert: OpenCodeSessionRevert? = null

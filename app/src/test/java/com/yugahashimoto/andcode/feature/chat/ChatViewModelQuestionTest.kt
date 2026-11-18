@@ -13,6 +13,7 @@ import com.yugahashimoto.andcode.core.api.QuestionPrompt
 import com.yugahashimoto.andcode.core.api.QuestionRequest
 import com.yugahashimoto.andcode.runtime.BackendKind
 import com.yugahashimoto.andcode.runtime.OpenCodeBackend
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -145,6 +147,31 @@ class ChatViewModelQuestionTest {
             assertFalse(pending.isSubmitting)
         }
 
+    /** The card's own messages come from the app, in the user's language. */
+    @Test
+    fun `a refused answer and a missing one are reported in the app's words`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend(answerResult = false)
+            val viewModel =
+                ChatViewModel(
+                    backend,
+                    questionAnswerRequiredMessage = "Respuesta obligatoria",
+                    questionFailedMessage = "La pregunta falló",
+                )
+            viewModel.openSession("session-1")
+            advanceUntilIdle()
+            backend.events.emit(OpenCodeEvent.QuestionAsked(request(id = "q-1", sessionId = "session-1")))
+            advanceUntilIdle()
+
+            viewModel.submitQuestion("q-1")
+            assertEquals("Respuesta obligatoria", viewModel.uiState.value.pendingQuestions.single().error)
+
+            viewModel.selectQuestionAnswer("q-1", 0, "src")
+            viewModel.submitQuestion("q-1")
+            advanceUntilIdle()
+            assertEquals("La pregunta falló", viewModel.uiState.value.pendingQuestions.single().error)
+        }
+
     @Test
     fun `free text answer keeps internal and trailing spaces while typing`() =
         runTest(dispatcher) {
@@ -252,6 +279,92 @@ class ChatViewModelQuestionTest {
             assertEquals(listOf("q-1" to "/workspace/repo"), backend.rejectedQuestions)
             assertTrue(backend.abortedSessions.isEmpty())
             assertTrue(backend.answeredQuestions.isEmpty())
+        }
+
+    /** The card is the only way to answer: it stays until the runtime has taken the decline. */
+    @Test
+    fun `a declined question keeps its card until the runtime takes the decline`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = ChatViewModel(backend)
+            viewModel.openSession("session-1")
+            advanceUntilIdle()
+            backend.events.emit(OpenCodeEvent.QuestionAsked(request(id = "q-1", sessionId = "session-1")))
+            advanceUntilIdle()
+            val gate = CompletableDeferred<Unit>()
+            backend.rejectGate = gate
+
+            viewModel.cancelQuestion("q-1")
+            runCurrent()
+
+            val waiting = viewModel.uiState.value.pendingQuestions.single()
+            assertEquals("q-1", waiting.request.id)
+            assertTrue("the card's buttons wait for the decline", waiting.isSubmitting)
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.pendingQuestions.isEmpty())
+        }
+
+    @Test
+    fun `a decline the runtime refuses leaves the card to answer, with the reason`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend(rejectResult = false)
+            val resolved = mutableListOf<String>()
+            val viewModel =
+                ChatViewModel(backend, onQuestionResolved = { resolved += it }, questionFailedMessage = "La pregunta falló")
+            viewModel.openSession("session-1")
+            advanceUntilIdle()
+            backend.events.emit(OpenCodeEvent.QuestionAsked(request(id = "q-1", sessionId = "session-1")))
+            advanceUntilIdle()
+
+            viewModel.cancelQuestion("q-1")
+            advanceUntilIdle()
+
+            val pending = viewModel.uiState.value.pendingQuestions.single()
+            assertEquals("q-1", pending.request.id)
+            assertFalse(pending.isSubmitting)
+            assertEquals("La pregunta falló", pending.error)
+            assertTrue(resolved.isEmpty())
+        }
+
+    @Test
+    fun `a decline that fails leaves the card to answer and shows the error`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            backend.rejectFailure = IllegalStateException("question service unavailable")
+            val viewModel = ChatViewModel(backend)
+            viewModel.openSession("session-1")
+            advanceUntilIdle()
+            backend.events.emit(OpenCodeEvent.QuestionAsked(request(id = "q-1", sessionId = "session-1")))
+            advanceUntilIdle()
+
+            viewModel.cancelQuestion("q-1")
+            advanceUntilIdle()
+
+            val pending = viewModel.uiState.value.pendingQuestions.single()
+            assertEquals("q-1", pending.request.id)
+            assertFalse(pending.isSubmitting)
+            assertEquals("question service unavailable", viewModel.uiState.value.error)
+        }
+
+    /** The runtime gave no reason, so the app says it, in the user's language. */
+    @Test
+    fun `a decline that fails without a reason says so in the app's words`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            backend.rejectFailure = IllegalStateException()
+            val viewModel = ChatViewModel(backend, questionFailedMessage = "La pregunta falló")
+            viewModel.openSession("session-1")
+            advanceUntilIdle()
+            backend.events.emit(OpenCodeEvent.QuestionAsked(request(id = "q-1", sessionId = "session-1")))
+            advanceUntilIdle()
+
+            viewModel.cancelQuestion("q-1")
+            advanceUntilIdle()
+
+            assertEquals("q-1", viewModel.uiState.value.pendingQuestions.single().request.id)
+            assertEquals("La pregunta falló", viewModel.uiState.value.error)
         }
 
     @Test
@@ -524,6 +637,7 @@ class ChatViewModelQuestionTest {
 
     private class FakeBackend(
         private val answerResult: Boolean = true,
+        private val rejectResult: Boolean = true,
         private val pending: List<QuestionRequest> = emptyList(),
         private val sessionDirectory: String? = null,
     ) : OpenCodeBackend {
@@ -596,8 +710,16 @@ class ChatViewModelQuestionTest {
             directory: String?,
         ): Boolean {
             rejectedQuestions += requestId to directory
-            return true
+            rejectGate?.await()
+            rejectFailure?.let { throw it }
+            return rejectResult
         }
+
+        /** When set, a decline is answered only once this completes. */
+        var rejectGate: CompletableDeferred<Unit>? = null
+
+        /** When set, a decline throws this instead of answering. */
+        var rejectFailure: Throwable? = null
 
         override suspend fun pendingQuestions(directory: String?): List<QuestionRequest> {
             pendingQuestionDirectories += directory

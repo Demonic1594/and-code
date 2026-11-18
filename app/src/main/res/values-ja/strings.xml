@@ -120,6 +120,7 @@
     <string name="notification_complete_title">実行が完了しました</string>
     <string name="notification_complete_body">チャット「%1$s」が待機中です</string>
     <string name="permission_chat_confirmation">このチャットは承認待ちです。エージェントに許可する操作を選んでください:</string>
+    <string name="permission_response_not_applied">OpenCode はその承認結果を適用できませんでした</string>
     <string name="notification_error_title">実行エラー</string>
     <string name="notification_error_body">セッションが失敗しました</string>
     <string name="chat_stall_title">応答が止まっている可能性があります</string>
@@ -199,6 +200,8 @@
     <string name="question_free_text_label">その他（自由入力）</string>
     <string name="question_cancel">回答しない</string>
     <string name="question_dismiss">質問を閉じる</string>
+    <string name="question_answer_required">回答が必要です</string>
+    <string name="question_failed">OpenCode の質問を処理できませんでした</string>
     <string name="capability_version">OpenCode %1$s</string>
 
     <string name="rename_session">名前を変更</string>
@@ -1890,5 +1893,6 @@
     <string name="context_breakdown_memory_large">大きいファイル：Claude Code が動作を遅くすると警告するサイズを、おそらく超えています。</string>
     <string name="context_breakdown_compact">今すぐ圧縮</string>
     <string name="context_breakdown_compact_caption">古いメッセージを要約に置き換えて、チャットを続ける余地を作ります。ターンと同じように実行されます。</string>
+    <string name="chat_compact_failed">会話を圧縮できませんでした</string>
     <string name="context_category_in_use">指示、ツール、メッセージ</string>
 </resources>

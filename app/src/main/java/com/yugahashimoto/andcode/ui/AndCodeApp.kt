@@ -331,6 +331,10 @@ fun AndCodeApp(
                         videoNotSupportedMessage = context.getString(R.string.error_video_not_supported),
                         rewindNothingMessage = context.getString(R.string.rewind_nothing),
                         workspaceAttachmentNoteTemplate = context.getString(R.string.chat_workspace_attachment_note),
+                        compactFailedMessage = context.getString(R.string.chat_compact_failed),
+                        permissionNotAppliedMessage = context.getString(R.string.permission_response_not_applied),
+                        questionAnswerRequiredMessage = context.getString(R.string.question_answer_required),
+                        questionFailedMessage = context.getString(R.string.question_failed),
                     )
                 },
         )
