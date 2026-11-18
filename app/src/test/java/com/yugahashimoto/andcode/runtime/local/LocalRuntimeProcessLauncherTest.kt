@@ -255,11 +255,9 @@ class LocalRuntimeProcessLauncherTest {
         val rootfs = temporaryFolder.newFolder("rootfs-target-unwritable")
 
         // Simulate an agent replacing CLAUDE.md's parent directory with a regular file before
-        // AndCode's install logic runs. manageablePathOrNull still admits the target (it doesn't
-        // exist yet, and canonicalization of a missing leaf under an existing non-directory
-        // succeeds lexically), but mkdirs() on the parent then fails and writeBytes() throws
-        // FileSystemException (an IOException) because ".claude" is not a directory. That must
-        // skip only this target, not the opencode or gemini instruction files.
+        // AndCode's install logic runs. GuestFiles refuses the path (".claude" is not a folder)
+        // with an IOException. That must skip only this target, not the opencode or gemini
+        // instruction files.
         val claudeDir = File(rootfs, "root/.claude")
         claudeDir.parentFile.mkdirs()
         claudeDir.writeText("not a directory")

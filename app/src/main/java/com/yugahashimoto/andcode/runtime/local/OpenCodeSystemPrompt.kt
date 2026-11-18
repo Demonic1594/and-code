@@ -2,10 +2,6 @@ package com.yugahashimoto.andcode.runtime.local
 
 import java.io.File
 import java.io.IOException
-import java.nio.file.Files
-import java.nio.file.LinkOption
-import java.nio.file.StandardCopyOption
-import java.nio.file.StandardOpenOption
 
 /**
  * Where the selected preset is written inside the guest filesystem.
@@ -35,74 +31,27 @@ internal const val OPENCODE_SYSTEM_PROMPT_PATH = "root/.config/opencode/and-code
  * Best-effort like the rest of the guest-filesystem writes: a preset that cannot be written simply
  * is not applied, rather than failing a runtime start or a settings tap.
  *
- * The new prompt is staged beside the target under a unique name and renamed onto it, never
- * written into it in place: OpenCode re-reads this file every turn, so truncating the live file
- * would let a turn that starts mid-write see an empty or half-written prompt. A rename swaps the
- * name in one step, so every read sees either the old prompt or the new one - and if two writers
- * overlap, the later rename wins whole rather than the two interleaving.
- *
- * The path goes through [manageablePathOrNull], which refuses anything resolving outside `rootfs`,
- * anything that is already a symlink, and anything that is not a plain file; the staging file is
- * then opened `NOFOLLOW_LINKS`, and the rename and the removal both act on the name rather than
- * following it. What is left uncovered is a *parent* directory swapped for a symlink between the
- * check and the write, which Java cannot close without an `openat` walk - and it buys nothing,
- * because the guest runs under PRoot as the app's own uid and can write any of these files
- * directly. These checks exist to keep AndCode from clobbering a path the user has taken over, not
- * as a privilege boundary.
+ * The new prompt goes through [GuestFiles.write]: staged beside the target under a unique name and
+ * renamed onto it, never written into it in place. OpenCode re-reads this file every turn, so
+ * truncating the live file would let a turn that starts mid-write see an empty or half-written
+ * prompt. A rename swaps the name in one step, so every read sees either the old prompt or the new
+ * one - and if two writers overlap, the later rename wins whole rather than the two interleaving.
+ * The same rename replaces a link the guest left at the target instead of writing through it, and
+ * a linked folder above it is refused, so a switch can never write to one of this app's own files.
  */
 internal fun applyOpenCodeSystemPrompt(
     rootfs: File,
     prompt: String?,
 ) {
-    val rootfsCanonical =
-        try {
-            rootfs.canonicalFile
-        } catch (e: IOException) {
-            rootfs.absoluteFile
-        }
-    val target = manageablePathOrNull(rootfsCanonical, File(rootfs, OPENCODE_SYSTEM_PROMPT_PATH)) ?: return
     try {
         if (prompt.isNullOrBlank()) {
             // Removed rather than blanked: an empty file would still be read and announced to the
             // model as "Instructions from: ...", which is worse than no instruction at all.
-            target.delete()
+            GuestFiles.delete(rootfs, OPENCODE_SYSTEM_PROMPT_PATH)
             return
         }
-        target.parentFile?.mkdirs()
-        // Created in the target's own directory, so the rename below stays within one filesystem
-        // and can be atomic - and with a unique name, so that two writers (the runtime start and
-        // the switch collector) cannot stage over each other, and so the cleanup below can only
-        // ever remove a file this call made. With a fixed name, a directory the user had created
-        // at that path would fail the open and then be deleted by the cleanup below.
-        val staging = File.createTempFile("${target.name}.", ".staged", target.parentFile)
-        try {
-            Files
-                .newOutputStream(
-                    staging.toPath(),
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.WRITE,
-                    StandardOpenOption.TRUNCATE_EXISTING,
-                    LinkOption.NOFOLLOW_LINKS,
-                ).use { out -> out.write(prompt.toByteArray()) }
-            // REPLACE_EXISTING alongside ATOMIC_MOVE, as LocalProviderCredentialStore does:
-            // ATOMIC_MOVE leaves replacement of an existing target provider-defined, and a
-            // provider that refuses one would fail every switch after the first.
-            Files.move(
-                staging.toPath(),
-                target.toPath(),
-                StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING,
-            )
-        } finally {
-            // A no-op once the move succeeded; on any failure it clears the half-written staging
-            // file. Safe because this name was just created here and belongs to this call alone.
-            staging.delete()
-        }
+        GuestFiles.write(rootfs, OPENCODE_SYSTEM_PROMPT_PATH, prompt)
     } catch (e: IOException) {
-        // Skipped, as above - including the ELOOP a swapped-in symlink turns the open into.
-    } catch (e: UnsupportedOperationException) {
-        // A filesystem provider that will not take NOFOLLOW_LINKS as an open option. Skipping the
-        // preset is the same best-effort outcome as any other failed write; it must not crash a
-        // settings tap.
+        // Skipped, as above: a folder in the way, a linked folder above it, a failing write.
     }
 }

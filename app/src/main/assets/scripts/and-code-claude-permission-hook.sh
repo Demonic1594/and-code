@@ -187,7 +187,8 @@ fi
 
 # Kinds of calls the user allows without asking (ToolClassRules). Same tool lists as
 # ToolClassRules.Kind; running commands is never allowed by kind.
-if [ -f "$CLASSES" ]; then
+# A link is ignored, as the app does (GuestFiles refuses it), so the switches and the hook agree.
+if [ -f "$CLASSES" ] && [ ! -L "$CLASSES" ]; then
   case "$TOOL_NAME" in
     Read|Grep|Glob|LS|NotebookRead) TOOL_KIND="read" ;;
     WebFetch|WebSearch) TOOL_KIND="web" ;;

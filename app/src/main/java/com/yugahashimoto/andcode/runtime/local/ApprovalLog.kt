@@ -18,7 +18,8 @@ import java.io.File
  * file is cut back to its newest entries.
  */
 class ApprovalLog(
-    root: File,
+    /** The bridge folder, which the guest writes too: both files go through [GuestFiles]. */
+    private val root: File,
     private val json: Json =
         Json {
             ignoreUnknownKeys = true
@@ -38,14 +39,12 @@ class ApprovalLog(
         val rule: String? = null,
     )
 
-    private val appFile = File(root, APP_FILE)
-    private val hookFile = File(root, HOOK_FILE)
     private val mutableEntries = MutableStateFlow<List<Entry>>(emptyList())
 
     init {
         // The hook appends on every call it decides, so its file is cut back here and on each
         // phone answer too, not only when the history is opened.
-        runCatching { trim(hookFile) }
+        runCatching { trim(HOOK_FILE) }
     }
 
     /** The newest entries first, as of the last [record], [refresh] or [clear]. */
@@ -60,12 +59,15 @@ class ApprovalLog(
         rule: String? = null,
     ) {
         runCatching {
-            appFile.parentFile?.mkdirs()
-            appFile.appendText(
-                json.encodeToString(Entry.serializer(), Entry(now(), tool, summary.take(MAX_SUMMARY), allowed, how, rule)) + "\n",
+            val line = json.encodeToString(Entry.serializer(), Entry(now(), tool, summary.take(MAX_SUMMARY), allowed, how, rule))
+            // Only the app writes this file, so it is read, extended and renamed back in whole.
+            val lines = runCatching { GuestFiles.readText(root, APP_FILE) }.getOrNull().orEmpty().lines().filter(String::isNotEmpty) + line
+            GuestFiles.write(
+                root,
+                APP_FILE,
+                (if (lines.size > MAX_LINES) lines.takeLast(KEEP_LINES) else lines).joinToString("\n", postfix = "\n"),
             )
-            trim(appFile)
-            trim(hookFile)
+            trim(HOOK_FILE)
         }
         refreshLocked()
     }
@@ -75,40 +77,47 @@ class ApprovalLog(
     fun refresh() {
         // The hook only appends; a line it adds while this cuts its file back can be lost, which a
         // history can afford.
-        runCatching { trim(hookFile) }
+        runCatching { trim(HOOK_FILE) }
         refreshLocked()
     }
 
     @Synchronized
     fun clear() {
-        appFile.delete()
-        hookFile.delete()
-        mutableEntries.value = emptyList()
+        try {
+            GuestFiles.delete(root, APP_FILE)
+            GuestFiles.delete(root, HOOK_FILE)
+        } finally {
+            // Read back rather than emptied, so a delete that failed halfway shows what is left.
+            refreshLocked()
+        }
     }
 
     private fun refreshLocked() {
-        mutableEntries.value = (read(appFile) + read(hookFile)).sortedByDescending { it.timeMs }.take(SHOWN)
+        mutableEntries.value = (read(APP_FILE) + read(HOOK_FILE)).sortedByDescending { it.timeMs }.take(SHOWN)
     }
 
-    private fun read(file: File): List<Entry> =
-        runCatching { if (file.isFile) file.readLines() else emptyList() }
+    private fun read(fileName: String): List<Entry> =
+        runCatching { GuestFiles.readText(root, fileName)?.lines().orEmpty() }
             .getOrDefault(emptyList())
             .mapNotNull { line -> runCatching { json.decodeFromString(Entry.serializer(), line) }.getOrNull() }
             // The guest can write the hook's file, so nothing read back is trusted to be short.
             .map { it.copy(summary = it.summary.take(MAX_SUMMARY), rule = it.rule?.take(MAX_SUMMARY)) }
 
-    private fun trim(file: File) {
-        if (!file.isFile) return
-        val lines = file.readLines()
+    private fun trim(fileName: String) {
+        val text =
+            try {
+                GuestFiles.readText(root, fileName)
+            } catch (refused: GuestPathRefusedException) {
+                // The hook appends without bound; a history grown past the read limit would stay
+                // unreadable for good, so it starts afresh. A link (not a regular file) is left alone.
+                if (GuestFiles.isRegularFile(root, fileName)) GuestFiles.write(root, fileName, "")
+                return
+            }
+        val lines = text?.lines()?.filter(String::isNotEmpty) ?: return
         if (lines.size <= MAX_LINES) return
         // Written aside and renamed over the file, so an append from the hook in the meantime is
         // lost whole rather than written over halfway.
-        val kept = File(file.parentFile, "${file.name}.tmp")
-        kept.writeText(lines.takeLast(KEEP_LINES).joinToString("\n", postfix = "\n"))
-        if (!kept.renameTo(file)) {
-            file.writeText(kept.readText())
-            kept.delete()
-        }
+        GuestFiles.write(root, fileName, lines.takeLast(KEEP_LINES).joinToString("\n", postfix = "\n"))
     }
 
     companion object {

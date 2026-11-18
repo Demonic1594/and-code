@@ -30,13 +30,16 @@ object AttachmentSupport {
         if (path != WORKSPACE_ROOT && !path.startsWith("$WORKSPACE_ROOT/")) return null
         val relative = path.removePrefix(WORKSPACE_ROOT).trim('/')
         if (relative.isEmpty()) return runtimeWorkspaceRoot
+        // The copy lands in the lexically resolved folder, but the agent is told the path as given,
+        // and through a link the guest made `link/..` is somewhere else. Such a path gets no copy.
+        val plain = relative.split('/').none { it == "." || it == ".." }
         val candidate = File(runtimeWorkspaceRoot, relative)
         // A session's directory is attacker-influenced, so re-check the resolved path stays inside
         // the local runtime directory: `..` segments must not copy the file elsewhere on the device.
         return runCatching {
             val root = runtimeWorkspaceRoot.canonicalPath.trimEnd(File.separatorChar)
             val resolved = candidate.canonicalPath
-            candidate.takeIf { resolved == root || resolved.startsWith("$root${File.separator}") }
+            candidate.takeIf { plain && (resolved == root || resolved.startsWith("$root${File.separator}")) }
         }.getOrNull()
     }
 

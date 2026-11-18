@@ -135,4 +135,18 @@ class ClaudeChecksTest {
     private companion object {
         const val WAIT_SECONDS = 20L
     }
+
+    /** A check used to be staged at a fixed name in the guest-writable bridge folder. */
+    @Test
+    fun `a check is never written through a link the guest planted`() {
+        val bridgeRoot = File(folder.root, "claude-bridge")
+        File(bridgeRoot, "checks").mkdirs()
+        val prefs = File(folder.newFolder("shared_prefs"), "settings.xml").apply { writeText("<map/>") }
+        java.nio.file.Files.createSymbolicLink(File(bridgeRoot, "checks/.after-edit.tmp").toPath(), prefs.toPath())
+
+        ClaudeChecks(bridgeRoot).set(ClaudeChecks.Kind.AFTER_EDIT, "npm run lint")
+
+        assertEquals("<map/>", prefs.readText())
+        assertEquals("npm run lint\n", File(bridgeRoot, "checks/after-edit.sh").readText())
+    }
 }

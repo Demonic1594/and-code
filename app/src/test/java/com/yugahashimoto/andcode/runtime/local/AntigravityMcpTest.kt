@@ -8,11 +8,13 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.nio.file.Files
 
 class AntigravityMcpTest {
     @get:Rule val tmp = TemporaryFolder()
@@ -142,5 +144,29 @@ class AntigravityMcpTest {
     fun `removing an unknown server is a no-op`() {
         val rootfs = tmp.newFolder("rootfs")
         assertEquals(false, AntigravityMcp.remove(rootfs, "nothing-here"))
+    }
+
+    /** An agent can make the config a link to a JSON file of the app's own: never read it, never replace it. */
+    @Test
+    fun `a linked config is neither shown nor written through`() {
+        val rootfs = tmp.newFolder("linked-rootfs")
+        val appFile = File(tmp.newFolder("files"), "app-state.json").apply { writeText(realConfig) }
+        configFile(rootfs).parentFile!!.mkdirs()
+        Files.createSymbolicLink(configFile(rootfs).toPath(), appFile.toPath())
+
+        assertEquals(emptyList<Any>(), AntigravityMcp.read(rootfs))
+        assertThrows(java.io.IOException::class.java) {
+            AntigravityMcp.add(
+                rootfs,
+                buildJsonObject {
+                    put("name", "docs")
+                    put("url", "https://example.com/mcp")
+                },
+            )
+        }
+        assertThrows(java.io.IOException::class.java) { AntigravityMcp.remove(rootfs, "chrome-devtools-mcp") }
+
+        assertEquals(realConfig, appFile.readText())
+        assertTrue(Files.isSymbolicLink(configFile(rootfs).toPath()))
     }
 }

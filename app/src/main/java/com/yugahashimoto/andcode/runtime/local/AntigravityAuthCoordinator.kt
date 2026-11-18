@@ -263,7 +263,7 @@ class AntigravityAuthCoordinator(
         val runtime = installedRuntimeProvider() ?: return
         cancel()
         val rootfs = runtime.antigravityRootfs ?: runtime.rootfs
-        runCatching { File(rootfs, GUEST_TOKEN_PATH).delete() }
+        runCatching { GuestFiles.delete(rootfs, GUEST_TOKEN_PATH) }
         runtime.let { AntigravityGuestSettings.repair(it) }
         mutableState.value = State.Idle
     }

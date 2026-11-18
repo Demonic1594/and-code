@@ -17,7 +17,7 @@ import java.io.File
  * skimmed its instructions learns how this works.
  */
 class RunBridge(
-    workspaceDir: File,
+    private val workspaceDir: File,
     private val supervisor: ProcessSupervisor,
     private val pollIntervalMillis: Long = POLL_INTERVAL_MILLIS,
     private val clock: () -> Long = System::currentTimeMillis,
@@ -29,14 +29,18 @@ class RunBridge(
         active.pollWhileActive(pollIntervalMillis) { runCatching { pollOnce() } }
     }
 
+    /**
+     * Handles every pending request and prunes old files. The guest writes this tree, so every file
+     * in it goes through [GuestFiles], relative to the workspace, and a request is read only up to
+     * [MAX_REQUEST_BYTES]; see the schedule bridge, which works the same way.
+     */
     suspend fun pollOnce() {
         if (!bridgeDir.isDirectory) return
-        val pendingDir = File(bridgeDir, "pending")
-        val responsesDir = File(bridgeDir, "responses")
         val now = clock()
-        pendingDir.listFiles().orEmpty().filter { it.extension == "json" }.sortedBy { it.name }.forEach { file ->
-            val requestId = file.nameWithoutExtension
-            val request = runCatching { JSONObject(file.readText()) }.getOrNull()
+        GuestFiles.listFiles(workspaceDir, PENDING).filter { File(it.name).extension == "json" }.sortedBy { it.name }.forEach { entry ->
+            val requestId = File(entry.name).nameWithoutExtension
+            val pending = "$PENDING/${entry.name}"
+            val request = runCatching { GuestFiles.readText(workspaceDir, pending, MAX_REQUEST_BYTES)?.let(::JSONObject) }.getOrNull()
             val createdAt = request?.optLong("createdAtMs", 0L) ?: 0L
             val response =
                 when {
@@ -59,11 +63,11 @@ class RunBridge(
                         }
                 }
             // The request goes before the reply, so a crash in between never runs a start twice.
-            file.delete()
-            write(responsesDir, requestId, response)
+            GuestFiles.delete(workspaceDir, pending)
+            write(requestId, response)
         }
-        prune(pendingDir, now)
-        prune(responsesDir, now)
+        prune(PENDING, now)
+        prune(RESPONSES, now)
     }
 
     internal suspend fun handle(
@@ -176,25 +180,29 @@ class RunBridge(
     private fun error(message: String) = JSONObject().put("ok", false).put("error", message)
 
     private fun write(
-        directory: File,
         requestId: String,
         response: JSONObject,
     ) {
-        directory.mkdirs()
-        val temp = File(directory, "$requestId.json.tmp")
-        temp.writeText(response.toString())
-        temp.renameTo(File(directory, "$requestId.json"))
+        GuestFiles.write(workspaceDir, "$RESPONSES/$requestId.json", response.toString())
     }
 
     private fun prune(
-        directory: File,
+        relativeDirectory: String,
         now: Long,
     ) {
-        directory.listFiles().orEmpty().filter { now - it.lastModified() > STALE_AFTER_MILLIS }.forEach { it.delete() }
+        GuestFiles
+            .listFiles(workspaceDir, relativeDirectory)
+            .filter { now - it.lastModifiedMillis > STALE_AFTER_MILLIS }
+            .forEach { GuestFiles.delete(workspaceDir, "$relativeDirectory/${it.name}") }
     }
 
     companion object {
         const val BRIDGE_RELATIVE_PATH = ".and-code/run-bridge"
+        private const val PENDING = "$BRIDGE_RELATIVE_PATH/pending"
+        private const val RESPONSES = "$BRIDGE_RELATIVE_PATH/responses"
+
+        /** Far past any request `andcode-run` writes; anything larger is not read. */
+        private const val MAX_REQUEST_BYTES = 256L * 1024
         const val POLL_INTERVAL_MILLIS = 500L
         const val STALE_AFTER_MILLIS = 15 * 60_000L
 

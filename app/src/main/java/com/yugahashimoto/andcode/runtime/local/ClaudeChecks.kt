@@ -16,7 +16,8 @@ import java.io.File
  * removed starts each chat's process anew; a command edited in place is read when it runs.
  */
 class ClaudeChecks(
-    root: File,
+    /** The bridge folder, which the guest writes too: the checks go through [GuestFiles]. */
+    private val root: File,
 ) {
     enum class Kind(
         val fileName: String,
@@ -28,7 +29,6 @@ class ClaudeChecks(
         BEFORE_FINISH("before-finish"),
     }
 
-    private val dir = File(root, DIR)
     private val mutableCommands = MutableStateFlow(read())
 
     /** The command set for each kind; a kind with none is absent. */
@@ -40,19 +40,12 @@ class ClaudeChecks(
         kind: Kind,
         command: String,
     ) {
-        val file = File(dir, "${kind.fileName}.sh")
         runCatching {
             if (command.isBlank()) {
-                file.delete()
+                GuestFiles.delete(root, pathOf(kind))
             } else {
-                dir.mkdirs()
                 // Written aside and renamed in, so the hook never runs half a command.
-                val written = File(dir, ".${kind.fileName}.tmp")
-                written.writeText(command.trim() + "\n")
-                if (!written.renameTo(file)) {
-                    file.writeText(command.trim() + "\n")
-                    written.delete()
-                }
+                GuestFiles.write(root, pathOf(kind), command.trim() + "\n")
             }
         }
         mutableCommands.value = read()
@@ -61,11 +54,13 @@ class ClaudeChecks(
     private fun read(): Map<Kind, String> =
         Kind.entries
             .mapNotNull { kind ->
-                runCatching { File(dir, "${kind.fileName}.sh").takeIf(File::isFile)?.readText()?.trim() }
+                runCatching { GuestFiles.readText(root, pathOf(kind))?.trim() }
                     .getOrNull()
                     ?.takeIf(String::isNotEmpty)
                     ?.let { kind to it }
             }.toMap()
+
+    private fun pathOf(kind: Kind) = "$DIR/${kind.fileName}.sh"
 
     companion object {
         private const val DIR = "checks"

@@ -21,42 +21,46 @@ class SafWorkspaceImporter(
             source.name?.replace(Regex("[^A-Za-z0-9._-]"), "_")
                 ?.takeIf { it.isNotBlank() }
                 ?: "imported-${System.currentTimeMillis()}"
-        val destination =
-            File(runtimeDirectory, "workspace/$name").apply {
-                if (exists()) deleteRecursively()
-                mkdirs()
-            }
-        copyDocument(source, destination)
+        // Through GuestFiles: the workspace is the guest's. A folder of this name may hold links it
+        // left (File.deleteRecursively would walk into them), and the copy must not follow one either.
+        val workspace = File(runtimeDirectory, "workspace")
+        val destination = File(workspace, name)
+        check(GuestFiles.deleteTree(workspace, name)) { "Unable to replace the existing folder $name" }
+        copyDocument(source, workspace, name)
         return destination
     }
 
     private fun copyDocument(
         source: DocumentFile,
-        destination: File,
+        workspace: File,
+        relativePath: String,
     ) {
         if (source.isDirectory) {
-            destination.mkdirs()
+            GuestFiles.createDirectories(workspace, relativePath)
             source.listFiles().forEach { child ->
-                val childName = child.name ?: return@forEach
-                val childDest = File(destination, childName)
+                // A provider's name that is not one plain path component is skipped, not imported.
+                val name = child.name?.takeIf(::isPlainName) ?: return@forEach
+                val childPath = "$relativePath/$name"
                 if (child.isDirectory) {
-                    copyDocument(child, childDest)
+                    copyDocument(child, workspace, childPath)
                 } else if (child.isFile) {
-                    copyFile(child, childDest)
+                    copyFile(child, workspace, childPath)
                 }
             }
         } else if (source.isFile) {
-            copyFile(source, destination)
+            copyFile(source, workspace, relativePath)
         }
     }
 
     private fun copyFile(
         source: DocumentFile,
-        destination: File,
+        workspace: File,
+        relativePath: String,
     ) {
-        destination.parentFile?.mkdirs()
         context.contentResolver.openInputStream(source.uri)?.use { input ->
-            destination.outputStream().use { output -> input.copyTo(output) }
+            GuestFiles.write(workspace, relativePath) { output -> input.copyTo(output) }
         } ?: error("Unable to read ${source.uri}")
     }
 }
+
+private fun isPlainName(name: String): Boolean = name.isNotEmpty() && name != "." && name != ".." && '/' !in name && '\u0000' !in name

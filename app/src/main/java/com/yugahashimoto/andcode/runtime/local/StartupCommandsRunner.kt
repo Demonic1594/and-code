@@ -92,13 +92,17 @@ class StartupCommandsRunner(
         }
     }
 
-    private fun readConfig(): StartupCommandsConfig? {
-        val file = File(workspaceDirectory, CONFIG_FILE_RELATIVE_PATH)
-        if (!file.isFile) return null
-        return runCatching {
-            json.decodeFromString<StartupCommandsConfig>(file.readText())
+    /**
+     * The workspace is guest-writable, so the config is read through [GuestFiles]: a link there is
+     * not followed into one of the app's own files, and nothing larger than [MAX_CONFIG_BYTES] (a
+     * fifo, an endless file) is read at all.
+     */
+    private fun readConfig(): StartupCommandsConfig? =
+        runCatching {
+            GuestFiles.readText(workspaceDirectory, CONFIG_FILE_RELATIVE_PATH, MAX_CONFIG_BYTES)?.let {
+                json.decodeFromString<StartupCommandsConfig>(it)
+            }
         }.getOrNull()
-    }
 
     /** True when the entry's check command exits 0 in time, i.e. the service is already up. */
     private fun alreadyRunning(
@@ -162,6 +166,7 @@ class StartupCommandsRunner(
 
     private companion object {
         const val CONFIG_FILE_RELATIVE_PATH = ".and-code/startup-commands.json"
+        const val MAX_CONFIG_BYTES = 256L * 1024
         const val LOG_FILE_PREFIX = "startup-command"
     }
 }

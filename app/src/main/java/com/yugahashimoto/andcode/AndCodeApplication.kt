@@ -424,7 +424,7 @@ class AndCodeApplication : Application() {
                     runCatching { providerCredentials.syncToRuntime(installed.rootfs) }
                     runCatching { customProviders.syncToRuntime(installed.rootfs) }
                     runCatching {
-                        GitCredentialHelper(installed.rootfs) { settings.githubToken }.let { helper ->
+                        GitCredentialHelper(installed.rootfs).let { helper ->
                             if (settings.githubToken.isNullOrBlank()) helper.remove() else helper.install()
                         }
                     }
@@ -438,8 +438,15 @@ class AndCodeApplication : Application() {
                 accessCoordinator = accessCoordinator,
                 messages = AndroidLocalRuntimeMessages(this),
                 workspaceDirectory = File(runtimeDirectory, "workspace"),
+                githubToken = { settings.githubToken },
             )
-        terminalSessions = LocalTerminalSessionFactory(runtimeDirectory, installer::installedRuntime, accessCoordinator)
+        terminalSessions =
+            LocalTerminalSessionFactory(
+                runtimeDirectory,
+                installer::installedRuntime,
+                accessCoordinator,
+                githubToken = { settings.githubToken },
+            )
         opencodeDatabaseMaintenance =
             OpencodeDatabaseMaintenance(
                 shellRunner = { command, timeoutSeconds -> commandRunner.runShell(command, timeoutSeconds) },

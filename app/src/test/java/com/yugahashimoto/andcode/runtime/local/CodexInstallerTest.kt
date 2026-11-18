@@ -4,6 +4,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream
 import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -48,11 +49,11 @@ class CodexInstallerTest {
                     "package/vendor/aarch64-unknown-linux-musl/bin/codex" to "wrong arch".toByteArray(),
                 ),
             )
-        val binDir = tempFolder.newFolder("extracted")
+        val rootfs = tempFolder.newFolder("extracted")
 
-        CodexInstaller.extractBinaries(tarball, "x86_64-unknown-linux-musl", binDir, names = listOf("codex"))
+        CodexInstaller.extractBinaries(tarball, "x86_64-unknown-linux-musl", rootfs, names = listOf("codex"))
 
-        assertArrayEquals(binaryBytes, java.io.File(binDir, "codex").readBytes())
+        assertArrayEquals(binaryBytes, java.io.File(rootfs, "usr/local/bin/codex").readBytes())
     }
 
     /**
@@ -72,9 +73,10 @@ class CodexInstallerTest {
                     "package/vendor/aarch64-unknown-linux-musl/codex-resources/voice/bin/codex-voice-host" to "voice".toByteArray(),
                 ),
             )
-        val binDir = tempFolder.newFolder("bin")
+        val rootfs = tempFolder.newFolder("rootfs")
+        val binDir = java.io.File(rootfs, "usr/local/bin")
 
-        CodexInstaller.extractBinaries(tarball, "aarch64-unknown-linux-musl", binDir)
+        CodexInstaller.extractBinaries(tarball, "aarch64-unknown-linux-musl", rootfs)
 
         assertArrayEquals(codex, java.io.File(binDir, "codex").readBytes())
         assertArrayEquals(host, java.io.File(binDir, "codex-code-mode-host").readBytes())
@@ -90,11 +92,10 @@ class CodexInstallerTest {
     fun `a tarball without the code-mode host fails and names it`() {
         val tarball = buildTarGz(mapOf("package/vendor/aarch64-unknown-linux-musl/bin/codex" to "codex".toByteArray()))
         val rootfs = tempFolder.newFolder("rootfs-partial")
-        val binDir = java.io.File(rootfs, "usr/local/bin")
 
         val error =
             assertThrows(IllegalStateException::class.java) {
-                CodexInstaller.extractBinaries(tarball, "aarch64-unknown-linux-musl", binDir)
+                CodexInstaller.extractBinaries(tarball, "aarch64-unknown-linux-musl", rootfs)
             }
 
         assertTrue(error.message.orEmpty().contains("bin/codex-code-mode-host"))
@@ -116,11 +117,46 @@ class CodexInstallerTest {
     @Test
     fun `a tarball with no matching entry fails loudly instead of installing nothing`() {
         val tarball = buildTarGz(mapOf("package/vendor/aarch64-unknown-linux-musl/bin/codex" to "arm binary".toByteArray()))
-        val binDir = tempFolder.newFolder("extracted")
+        val rootfs = tempFolder.newFolder("extracted")
 
         assertThrows(IllegalStateException::class.java) {
-            CodexInstaller.extractBinaries(tarball, "x86_64-unknown-linux-musl", binDir)
+            CodexInstaller.extractBinaries(tarball, "x86_64-unknown-linux-musl", rootfs)
         }
+    }
+
+    /**
+     * An update runs on the live rootfs, where the guest can make the old fixed temporary name, the
+     * binary or `usr/local/bin` a link to one of the app's own files; none of them may be written.
+     */
+    @Test
+    fun `binaries never go through links the guest planted`() {
+        val tarball =
+            buildTarGz(
+                mapOf(
+                    "package/vendor/aarch64-unknown-linux-musl/bin/codex" to "codex".toByteArray(),
+                    "package/vendor/aarch64-unknown-linux-musl/bin/codex-code-mode-host" to "host".toByteArray(),
+                ),
+            )
+        val appFolder = tempFolder.newFolder("shared_prefs")
+        val prefs = java.io.File(appFolder, "settings.xml").apply { writeText("<map/>") }
+        val rootfs = tempFolder.newFolder("rootfs-linked")
+        val binDir = java.io.File(rootfs, "usr/local/bin").apply { mkdirs() }
+        java.nio.file.Files.createSymbolicLink(java.io.File(binDir, "codex.download").toPath(), prefs.toPath())
+        java.nio.file.Files.createSymbolicLink(java.io.File(binDir, "codex-code-mode-host").toPath(), prefs.toPath())
+
+        CodexInstaller.extractBinaries(tarball, "aarch64-unknown-linux-musl", rootfs)
+
+        assertEquals("<map/>", prefs.readText())
+        assertArrayEquals("host".toByteArray(), java.io.File(binDir, "codex-code-mode-host").readBytes())
+
+        val linkedRootfs = tempFolder.newFolder("rootfs-linked-bin")
+        java.io.File(linkedRootfs, "usr/local").mkdirs()
+        java.nio.file.Files.createSymbolicLink(java.io.File(linkedRootfs, "usr/local/bin").toPath(), appFolder.toPath())
+
+        assertThrows(java.io.IOException::class.java) {
+            CodexInstaller.extractBinaries(tarball, "aarch64-unknown-linux-musl", linkedRootfs)
+        }
+        assertEquals(listOf("settings.xml"), appFolder.list()!!.toList())
     }
 
     @Test

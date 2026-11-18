@@ -19,6 +19,7 @@ import com.yugahashimoto.andcode.runtime.local.ClaudeCodeController
 import com.yugahashimoto.andcode.runtime.local.ClaudeCodeUiState
 import com.yugahashimoto.andcode.runtime.local.ClaudePermissionBridge
 import com.yugahashimoto.andcode.runtime.local.ClaudePermissionMode
+import com.yugahashimoto.andcode.runtime.local.GuestFiles
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeManager
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeServiceController
 import kotlinx.coroutines.Dispatchers
@@ -239,7 +240,13 @@ class WorkspaceViewModel(
 
     private fun deleteFolder(hostDir: File): Boolean {
         if (!hostDir.exists()) return true
-        hostDir.deleteRecursively()
+        // Never File.deleteRecursively: an agent can leave a link in the project to a folder of this
+        // app's own, or to shared storage, and that walks into it. Relative to the workspace root,
+        // so a link in place of a folder on the way is refused too.
+        val root = workspaceHostDir.absoluteFile.normalize()
+        val relativePath = runCatching { hostDir.absoluteFile.normalize().relativeTo(root).invariantSeparatorsPath }.getOrNull()
+        if (relativePath.isNullOrEmpty() || relativePath == ".." || relativePath.startsWith("../")) return false
+        runCatching { GuestFiles.deleteTree(root, relativePath) }
         // What is left on disk is the answer, not the return value: the row is claiming the folder
         // is gone, so it has to be gone.
         return !hostDir.exists()
