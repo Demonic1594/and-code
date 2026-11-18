@@ -177,6 +177,9 @@ private fun NavGraphBuilder.scheduleEditorRoute(
             onSave = { built ->
                 if (scheduleId != null) {
                     scheduleViewModel.update(built)
+                    // The save clears the marker; a change an agent made while the editor was open
+                    // also left a notice, which the user has now seen through.
+                    scheduleViewModel.acknowledgeAgentChange(built.id)
                 } else {
                     scheduleViewModel.create(built)
                 }

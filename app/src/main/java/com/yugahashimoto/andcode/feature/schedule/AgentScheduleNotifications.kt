@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.yugahashimoto.andcode.MainActivity
@@ -19,7 +20,7 @@ import com.yugahashimoto.andcode.ui.ShortcutDestination
  * Posts an [AgentScheduleNotice] as an Android notification on a channel of its own, "Schedules
  * changed by agents", so the user can tune it without silencing the results of their runs.
  *
- * One notification per schedule, so a later change replaces the earlier notice instead of
+ * One notification per schedule (tagged with its id), so a later change replaces the earlier notice instead of
  * stacking up. Without the POST_NOTIFICATIONS permission (Android 13+) nothing is posted - the
  * change still happens, and the marker on the schedule in the Schedules screen carries it.
  */
@@ -79,7 +80,7 @@ class AgentScheduleNotifications(
                         .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 }
             }
-        return post(notificationId(schedule.id), notification)
+        return post(schedule.id, notification)
     }
 
     /** POST_NOTIFICATIONS granted (Android 13+), notifications on for the app, and this channel not blocked. */
@@ -109,13 +110,16 @@ class AgentScheduleNotifications(
     ): PendingIntent {
         val intent =
             Intent(context, MainActivity::class.java).apply {
+                // Request codes are a hash and can collide; the identifier keeps two schedules'
+                // intents apart (Intent.filterEquals compares it), so one tap never opens the other.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) identifier = scheduleId
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putExtra(ShortcutDestination.EXTRA, ShortcutDestination.SCHEDULES.id)
                 if (openSchedule) putExtra(ShortcutDestination.EXTRA_SCHEDULE_ID, scheduleId)
             }
         return PendingIntent.getActivity(
             context,
-            notificationId(scheduleId),
+            requestCode(scheduleId),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -130,9 +134,9 @@ class AgentScheduleNotifications(
 
     @SuppressLint("MissingPermission")
     private fun post(
-        id: Int,
+        scheduleId: String,
         builder: NotificationCompat.Builder,
-    ): Boolean = runCatching { manager.notify(id, builder.build()) }.isSuccess
+    ): Boolean = runCatching { manager.notify(scheduleId, NOTIFICATION_ID, builder.build()) }.isSuccess
 
     private fun ensureChannel() {
         val notificationManager = context.getSystemService(NotificationManager::class.java) ?: return
@@ -158,14 +162,16 @@ class AgentScheduleNotifications(
             context: Context,
             scheduleId: String,
         ) {
-            runCatching { NotificationManagerCompat.from(context).cancel(notificationId(scheduleId)) }
+            runCatching { NotificationManagerCompat.from(context).cancel(scheduleId, NOTIFICATION_ID) }
         }
 
-        private fun notificationId(scheduleId: String): Int = NOTIFICATION_ID_BASE + (scheduleId.hashCode() and NOTIFICATION_ID_MASK)
+        /** Only a PendingIntent request code: a hash, so two schedules can share one. */
+        private fun requestCode(scheduleId: String): Int = NOTIFICATION_ID + (scheduleId.hashCode() and REQUEST_CODE_MASK)
 
-        // Clear of RuntimeNotificationHelper's ranges (1M, 3M and 5M, each about a million wide)
-        // and of LiveRunNotifier's 4_900_001.
-        private const val NOTIFICATION_ID_BASE = 7_000_000
-        private const val NOTIFICATION_ID_MASK = 0x000FFFFF
+        // Notices are told apart by their tag, the full schedule id, so they all share one id. It is
+        // clear of RuntimeNotificationHelper's ranges (1M, 3M and 5M, each about a million wide) and
+        // of LiveRunNotifier's 4_900_001.
+        private const val NOTIFICATION_ID = 7_000_000
+        private const val REQUEST_CODE_MASK = 0x000FFFFF
     }
 }
