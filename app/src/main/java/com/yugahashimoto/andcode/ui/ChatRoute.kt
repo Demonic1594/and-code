@@ -151,14 +151,15 @@ internal fun ChatRoute(
         ChatHomeScreen(
             repositoryUrl = repositoryUrl,
             previewState = preview.state,
+            previewsAvailable = preview.available,
             previewTargets = preview.targets,
             isForeground = preview.isForeground,
             previewWorkspaceDir = preview.workspaceDir,
-            onPreviewRequested = preview.onRequested,
-            onPreviewMinimize = preview.onMinimize,
-            onPreviewRestore = preview.onRestore,
-            onExpandPreview = preview.onExpand,
-            onClosePreview = preview.onClose,
+            onPreviewRequested = preview.actions.onRequested,
+            onPreviewMinimize = preview.actions.onMinimize,
+            onPreviewRestore = preview.actions.onRestore,
+            onExpandPreview = preview.actions.onExpand,
+            onClosePreview = preview.actions.onClose,
             issueLookup = app.githubApi::getIssueThread,
             // No runtime given: the lifecycle looks the chat's owner up, so a runtime switched while
             // the dialog was open cannot pair this chat with another agent.
@@ -359,9 +360,16 @@ internal fun ChatRoute(
 /** The live preview pinned in the chat: where it is, what can be reopened, and what its controls do. */
 internal class ChatPreviewProps(
     val state: PreviewUiState = PreviewUiState.None,
+    /** Whether pages on this device can be previewed: only a runtime on this phone serves them. */
+    val available: Boolean = true,
     val targets: List<PreviewTarget> = emptyList(),
     val isForeground: Boolean = true,
     val workspaceDir: File? = null,
+    val actions: ChatPreviewActions = ChatPreviewActions(),
+)
+
+/** What the preview's controls do. */
+internal class ChatPreviewActions(
     val onRequested: (PreviewTarget) -> Unit = {},
     val onMinimize: () -> Unit = {},
     val onRestore: () -> Unit = {},

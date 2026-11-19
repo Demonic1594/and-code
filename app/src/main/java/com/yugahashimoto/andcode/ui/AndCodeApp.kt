@@ -1092,30 +1092,34 @@ fun AndCodeApp(
                                 preview =
                                     ChatPreviewProps(
                                         state = previewState,
-                                        targets = sessionPreviewTargets,
+                                        available = selectedRuntime?.agent != null,
+                                        targets = sessionPreviewTargets.takeIf { selectedRuntime?.agent != null }.orEmpty(),
                                         isForeground = appForeground,
                                         workspaceDir = previewWorkspaceDir,
-                                        onRequested = { target -> showPreview(target) },
-                                        onMinimize = ::collapseActivePreview,
-                                        onRestore = {
-                                            (previewState as? PreviewUiState.Collapsed)?.let {
-                                                previewState =
-                                                    PreviewUiState.Active(
-                                                        it.target,
-                                                    )
-                                            }
-                                        },
-                                        onExpand = { target ->
-                                            when (target) {
-                                                is PreviewTarget.Url -> {
-                                                    collapseActivePreview()
-                                                    navController.navigate(guestBrowserRoute(target.url)) { launchSingleTop = true }
-                                                }
-                                                // A static site expands in the card's own full-screen view.
-                                                is PreviewTarget.Static -> Unit
-                                            }
-                                        },
-                                        onClose = { previewState = PreviewUiState.None },
+                                        actions =
+                                            ChatPreviewActions(
+                                                onRequested = { target -> showPreview(target) },
+                                                onMinimize = ::collapseActivePreview,
+                                                onRestore = {
+                                                    (previewState as? PreviewUiState.Collapsed)?.let {
+                                                        previewState =
+                                                            PreviewUiState.Active(
+                                                                it.target,
+                                                            )
+                                                    }
+                                                },
+                                                onExpand = { target ->
+                                                    when (target) {
+                                                        is PreviewTarget.Url -> {
+                                                            collapseActivePreview()
+                                                            navController.navigate(guestBrowserRoute(target.url)) { launchSingleTop = true }
+                                                        }
+                                                        // A static site expands in the card's own full-screen view.
+                                                        is PreviewTarget.Static -> Unit
+                                                    }
+                                                },
+                                                onClose = { previewState = PreviewUiState.None },
+                                            ),
                                     ),
                                 waiting =
                                     ChatRouteWaiting(

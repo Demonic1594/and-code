@@ -119,6 +119,8 @@ fun ChatPreviewCard(
                         onNavigationUrlChange = { currentUrl = it },
                         onWebViewCreated = onCreated,
                         onWebViewDisposed = onDisposed,
+                        // A page off this device opens in the Guest Browser, not in the chat.
+                        onLeavePreview = { address -> onExpand(PreviewTarget.Url(address)) },
                     )
                 }
             }
@@ -150,6 +152,8 @@ fun ChatPreviewCard(
                     onNavigationUrlChange = { currentUrl = it },
                     onWebViewCreated = onCreated,
                     onWebViewDisposed = onDisposed,
+                    // A page off this device opens in the Guest Browser, not in the chat.
+                    onLeavePreview = { address -> onExpand(PreviewTarget.Url(address)) },
                 )
             }
         }
@@ -221,6 +225,7 @@ private fun PreviewBody(
     onNavigationUrlChange: (String) -> Unit,
     onWebViewCreated: (WebView?) -> Unit,
     onWebViewDisposed: (WebView) -> Unit,
+    onLeavePreview: (String) -> Unit,
 ) {
     var progress by remember(target) { mutableIntStateOf(0) }
     var unavailable by remember(target) { mutableStateOf(false) }
@@ -252,6 +257,7 @@ private fun PreviewBody(
             if (pageUrl.isNotBlank()) onNavigationUrlChange(pageUrl)
         },
         onUnavailable = { unavailable = true },
+        onLeavePreview = onLeavePreview,
     )
 }
 

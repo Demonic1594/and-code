@@ -34,4 +34,16 @@ class WorkspaceFingerprintTest {
 
         assertEquals(before, workspaceFingerprint(root))
     }
+
+    /** The guest could link a folder to its parent: the walk must still end, without the linked copy. */
+    @Test
+    fun `a folder linked back into the workspace is not walked`() {
+        val root = temporaryFolder.newFolder()
+        File(root, "index.html").writeText("a")
+        val before = workspaceFingerprint(root)
+
+        java.nio.file.Files.createSymbolicLink(File(root, "loop").toPath(), root.toPath())
+
+        assertEquals(before, workspaceFingerprint(root))
+    }
 }

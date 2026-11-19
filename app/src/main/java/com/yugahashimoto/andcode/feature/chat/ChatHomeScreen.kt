@@ -230,6 +230,8 @@ fun ChatHomeScreen(
     repositoryUrl: String? = null,
     /** Where the preview is: gone, the full card, or collapsed to a floating button. */
     previewState: PreviewUiState = PreviewUiState.None,
+    /** Whether pages on this device can be previewed: only a runtime on this phone serves them. */
+    previewsAvailable: Boolean = true,
     /** Reopenable targets: the last one, a detected static site, and loopback links in the chat. */
     previewTargets: List<PreviewTarget> = emptyList(),
     /** False while backgrounded, so the preview pauses and stops reloading. */
@@ -772,7 +774,12 @@ fun ChatHomeScreen(
                                         entry,
                                         onOpenActivity = { activityGroupId = it },
                                         onImageClick = { selectedImage = it },
-                                        onPreviewRequested = { url -> onPreviewRequested(PreviewTarget.Url(url)) },
+                                        // 127.0.0.1 is this phone: a remote runtime's dev server is not there.
+                                        onPreviewRequested =
+                                            {
+                                                    url: String ->
+                                                onPreviewRequested(PreviewTarget.Url(url))
+                                            }.takeIf { previewsAvailable },
                                         onOpenProviderSettings = onOpenProviderSettings,
                                         onOpenChanges = onOpenPatchDiff,
                                         onPreviewArtifact = onOpenArtifact,

@@ -30,6 +30,9 @@ private const val TAG = "GuestWebContent"
  * A WebView for a page the conversation's inline preview shows: a dev server on this device, or a
  * static site from the workspace served through [interceptRequest].
  *
+ * It only ever shows a page on this device or the workspace's static site ([isPreviewPage]): a page
+ * that navigates anywhere else hands the address to [onLeavePreview] instead.
+ *
  * It gets the Guest Browser's settings ([applyGuestBrowserSettings]: no file or content access), and
  * nothing else of it: it never turns the DevTools socket on, so the agent's browser tools do not
  * drive it, and the handoff stays the Guest Browser's. The view is destroyed when it leaves the
@@ -49,6 +52,7 @@ fun GuestWebContent(
     onProgress: (Int) -> Unit = {},
     onNavigationStateChange: (url: String, canGoBack: Boolean, canGoForward: Boolean) -> Unit = { _, _, _ -> },
     onUnavailable: (Throwable) -> Unit = {},
+    onLeavePreview: (String) -> Unit = {},
 ) {
     var recovery by remember {
         mutableStateOf(
@@ -61,6 +65,7 @@ fun GuestWebContent(
     val currentOnStateChange by rememberUpdatedState(onNavigationStateChange)
     val currentOnUnavailable by rememberUpdatedState(onUnavailable)
     val currentIntercept by rememberUpdatedState(interceptRequest)
+    val currentOnLeave by rememberUpdatedState(onLeavePreview)
 
     if (!recovery.showsView) {
         PageStoppedResponding(onReload = { recovery = recovery.rebuild() }, modifier = modifier)
@@ -99,6 +104,19 @@ fun GuestWebContent(
                                 request: WebResourceRequest,
                             ): WebResourceResponse? = currentIntercept?.invoke(request.url) ?: super.shouldInterceptRequest(view, request)
 
+                            // A preview stays a page on this device: a link, a script or a redirect to any
+                            // other page goes to [onLeavePreview] (the Guest Browser) instead of into the chat.
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView?,
+                                request: WebResourceRequest?,
+                            ): Boolean {
+                                if (request?.isForMainFrame != true) return false
+                                val target = request.url.toString()
+                                if (isPreviewPage(target)) return false
+                                if (target.substringBefore("://").lowercase() in setOf("http", "https")) currentOnLeave(target)
+                                return true
+                            }
+
                             override fun onPageFinished(
                                 view: WebView?,
                                 url: String?,
@@ -132,6 +150,10 @@ fun GuestWebContent(
         )
     }
 }
+
+/** Whether [url] may show in the chat's preview: a page on this device, or the workspace's static site. */
+internal fun isPreviewPage(url: String): Boolean =
+    isLoopbackPreviewUrl(url) || url.startsWith("https://$STATIC_PREVIEW_HOST/", ignoreCase = true)
 
 /** Prefixes a bare host:port with a scheme and falls back to the guest's loopback address. */
 internal fun normalizeGuestUrl(raw: String): String {

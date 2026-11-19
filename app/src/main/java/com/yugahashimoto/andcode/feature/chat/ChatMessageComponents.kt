@@ -186,7 +186,7 @@ fun TimelineEntryRow(
     onOpenProviderSettings: (() -> Unit)? = null,
     onOpenChanges: (ChatPart.Patch) -> Unit = {},
     onPreviewArtifact: (Artifact.File) -> Unit = {},
-    onPreviewRequested: (String) -> Unit = {},
+    onPreviewRequested: ((String) -> Unit)? = null,
 ) {
     when (entry) {
         is TimelineEntry.UserMessage -> MessageBubble(entry.message, onImageClick)
@@ -536,7 +536,7 @@ internal fun RowScope.TableCellText(
 internal fun MarkdownText(
     text: String,
     onImageClick: (ChatImageSource) -> Unit = {},
-    onPreviewRequested: (String) -> Unit = {},
+    onPreviewRequested: ((String) -> Unit)? = null,
 ) {
     val blocks = remember(text) { MarkdownLite.parse(text) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

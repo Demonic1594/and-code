@@ -48,4 +48,15 @@ class PreviewEntryTest {
 
         assertNull(findPreviewEntry(root))
     }
+
+    /** The site is served without following links, so an entry behind one is not offered either. */
+    @Test
+    fun `an entry behind a linked folder is not found, and a loop ends`() {
+        val root = temporaryFolder.newFolder()
+        val elsewhere = temporaryFolder.newFolder().apply { File(this, "index.html").writeText("<html></html>") }
+        java.nio.file.Files.createSymbolicLink(File(root, "site").toPath(), elsewhere.toPath())
+        java.nio.file.Files.createSymbolicLink(File(root, "loop").toPath(), root.toPath())
+
+        assertNull(findPreviewEntry(root))
+    }
 }

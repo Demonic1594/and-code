@@ -1097,9 +1097,9 @@ TOOLS = [
         "name": "browser_handoff",
         "description": (
             "Hand the open Guest Browser to the user for a step only they can do (signing in with "
-            "their own credentials, approving a prompt, solving a captcha). Waits until the user "
-            "taps 'Hand back to agent' in the app, then returns so you can continue. Call "
-            "browser_show first. The page the user is on is left exactly as it is."
+            "their own credentials, approving a prompt, solving a captcha). Returns when the user taps "
+            "'Hand back to agent' (continue), taps Cancel (stop), or after timeout_s (call it again if "
+            "they are still busy). Call browser_show first. The page the user is on is left exactly as it is."
         ),
         "inputSchema": {
             "type": "object",

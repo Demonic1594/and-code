@@ -86,7 +86,10 @@ Remote (PC) runtimes are not watched from the phone; their dev server's own hot 
 
 ## Security and lifecycle
 
-- Previews are loopback-only (or the workspace's static site); no `addJavascriptInterface`, no mixed
+- Previews are loopback-only (or the workspace's static site), also after the page navigates: a link,
+  script or redirect to any other page opens it in the Guest Browser instead of in the card, and a
+  remote runtime's replies offer no preview (`127.0.0.1` is the phone, not that machine). No
+  `addJavascriptInterface`, no mixed
   content, file/content access left off. Static serving is limited to the workspace directory and
   never follows a link.
 - One WebView at a time; minimized and cancelled previews destroy it.
