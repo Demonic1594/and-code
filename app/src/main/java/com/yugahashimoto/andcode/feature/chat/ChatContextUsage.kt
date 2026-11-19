@@ -26,8 +26,8 @@ internal class ContextUsage(
     private val uiState: MutableStateFlow<ChatUiState>,
     /** The current price catalog, for the usage row's estimate on turns the runtime priced at nothing. */
     private val priceCatalog: () -> PriceCatalog?,
-    /** Shown when compacting failed and the runtime gave no reason. */
-    private val compactFailedMessage: String,
+    /** Shown when compacting failed and the runtime gave no reason; read when it is shown. */
+    private val compactFailedMessage: () -> String,
 ) {
     fun refresh(sessionId: String) {
         val currentBackend = backend ?: return
@@ -110,7 +110,8 @@ internal class ContextUsage(
             runCatching { currentBackend.compactSession(sessionId) }
                 .onFailure { error ->
                     if (uiState.value.sessionId == sessionId) {
-                        uiState.update { it.copy(error = error.safeMessage(compactFailedMessage)) }
+                        val message = error.safeMessage(compactFailedMessage())
+                        uiState.update { it.copy(error = message) }
                     }
                 }
         }

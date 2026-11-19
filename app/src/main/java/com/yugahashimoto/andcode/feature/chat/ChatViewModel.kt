@@ -202,14 +202,18 @@ class ChatViewModel(
     private val restoreFailedMessage: String = "The files could not be put back.",
     /** Shown when a restore was refused because an ignored file is in the way, named when known; localized by the app. */
     private val restoreRefusedMessage: (String?) -> String = { path -> "Nothing was changed: ${path ?: "an ignored file"} is in the way." },
-    /** Shown when compacting failed and the runtime gave no reason; localized by the app. */
-    private val compactFailedMessage: String = "Could not compact the conversation",
+    /**
+     * Shown when compacting failed and the runtime gave no reason; localized by the app. Read when
+     * shown, as are the three below, not when this view model is built: a language change recreates
+     * the screen but keeps the view model (see AppLanguage.stringResolver).
+     */
+    private val compactFailedMessage: () -> String = { "Could not compact the conversation" },
     /** Shown when the runtime refused an answer to a permission card; localized by the app. */
-    private val permissionNotAppliedMessage: String = "OpenCode could not apply that permission response",
+    private val permissionNotAppliedMessage: () -> String = { "OpenCode could not apply that permission response" },
     /** Shown on a question card submitted without an answer to every question; localized by the app. */
-    private val questionAnswerRequiredMessage: String = "Answer required",
+    private val questionAnswerRequiredMessage: () -> String = { "Answer required" },
     /** Shown on a question card whose answer or decline the runtime refused; localized by the app. */
-    private val questionFailedMessage: String = "OpenCode question failed",
+    private val questionFailedMessage: () -> String = { "OpenCode question failed" },
     /** Persists the Codex fast-mode choice (null = follow the model default). */
     private val onCodexFastModeChanged: (Boolean?) -> Unit = {},
     /** The user's saved Codex fast-mode choice, read when the ViewModel starts. */

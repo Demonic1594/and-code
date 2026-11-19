@@ -147,17 +147,22 @@ class ChatViewModelQuestionTest {
             assertFalse(pending.isSubmitting)
         }
 
-    /** The card's own messages come from the app, in the user's language. */
+    /**
+     * The card's own messages come from the app, in the language it is set to when they are shown:
+     * changing it recreates the screen but keeps this view model.
+     */
     @Test
     fun `a refused answer and a missing one are reported in the app's words`() =
         runTest(dispatcher) {
             val backend = FakeBackend(answerResult = false)
+            var language = "en"
             val viewModel =
                 ChatViewModel(
                     backend,
-                    questionAnswerRequiredMessage = "Respuesta obligatoria",
-                    questionFailedMessage = "La pregunta falló",
+                    questionAnswerRequiredMessage = { if (language == "es") "Respuesta obligatoria" else "Answer required" },
+                    questionFailedMessage = { if (language == "es") "La pregunta falló" else "Question failed" },
                 )
+            language = "es"
             viewModel.openSession("session-1")
             advanceUntilIdle()
             backend.events.emit(OpenCodeEvent.QuestionAsked(request(id = "q-1", sessionId = "session-1")))
@@ -312,7 +317,7 @@ class ChatViewModelQuestionTest {
             val backend = FakeBackend(rejectResult = false)
             val resolved = mutableListOf<String>()
             val viewModel =
-                ChatViewModel(backend, onQuestionResolved = { resolved += it }, questionFailedMessage = "La pregunta falló")
+                ChatViewModel(backend, onQuestionResolved = { resolved += it }, questionFailedMessage = { "La pregunta falló" })
             viewModel.openSession("session-1")
             advanceUntilIdle()
             backend.events.emit(OpenCodeEvent.QuestionAsked(request(id = "q-1", sessionId = "session-1")))
@@ -354,7 +359,7 @@ class ChatViewModelQuestionTest {
         runTest(dispatcher) {
             val backend = FakeBackend()
             backend.rejectFailure = IllegalStateException()
-            val viewModel = ChatViewModel(backend, questionFailedMessage = "La pregunta falló")
+            val viewModel = ChatViewModel(backend, questionFailedMessage = { "La pregunta falló" })
             viewModel.openSession("session-1")
             advanceUntilIdle()
             backend.events.emit(OpenCodeEvent.QuestionAsked(request(id = "q-1", sessionId = "session-1")))

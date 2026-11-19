@@ -1061,14 +1061,25 @@ class ChatViewModelTest {
             assertEquals(PermissionResponse.ONCE, backend.permissionResponses.single().third)
         }
 
-    /** A refused answer leaves the card to try again, and says so in the user's language. */
+    /**
+     * A refused answer leaves the card to try again, and says so in the language the app is set to
+     * when it happens: changing it recreates the screen but keeps this view model.
+     */
     @Test
     fun `a permission answer the runtime refuses keeps the card and says so in the app's words`() =
         runTest(dispatcher) {
             val backend = FakeBackend()
             backend.permissionAccepted = false
-            val viewModel = ChatViewModel(backend, permissionNotAppliedMessage = "No se pudo aplicar esa respuesta")
+            var language = "en"
+            val viewModel =
+                ChatViewModel(
+                    backend,
+                    permissionNotAppliedMessage = {
+                        if (language == "es") "No se pudo aplicar esa respuesta" else "Could not apply that response"
+                    },
+                )
             advanceUntilIdle()
+            language = "es"
             viewModel.sendMessage("Check git")
             advanceUntilIdle()
             backend.events.emit(
@@ -1447,14 +1458,25 @@ class ChatViewModelTest {
             assertEquals(0L, viewModel.uiState.value.contextWindow)
         }
 
-    /** The runtime gave no reason, so the app says it, in the user's language. */
+    /**
+     * The runtime gave no reason, so the app says it, in the language the app is set to when it
+     * happens: changing it recreates the screen but keeps this view model.
+     */
     @Test
     fun `a compaction that fails without a reason is reported in the app's words`() =
         runTest(dispatcher) {
             val backend = FakeRuntimeTargetBackend(RuntimeCapabilities(contextBreakdown = true, compact = true))
             backend.compactFailure = IllegalStateException()
-            val viewModel = ChatViewModel(backend, compactFailedMessage = "No se pudo compactar la conversación")
+            var language = "en"
+            val viewModel =
+                ChatViewModel(
+                    backend,
+                    compactFailedMessage = {
+                        if (language == "es") "No se pudo compactar la conversación" else "Could not compact the conversation"
+                    },
+                )
             advanceUntilIdle()
+            language = "es"
             viewModel.sendMessage("first")
             advanceUntilIdle()
             backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))

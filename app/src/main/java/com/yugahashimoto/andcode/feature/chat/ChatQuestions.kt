@@ -51,10 +51,10 @@ internal class ChatQuestions(
     private val scope: CoroutineScope,
     private val uiState: MutableStateFlow<ChatUiState>,
     private val onQuestionResolved: (String) -> Unit,
-    /** Shown on a card submitted without an answer to every question. */
-    private val answerRequiredMessage: String,
-    /** Shown on a card whose answer or decline the runtime refused. */
-    private val failedMessage: String,
+    /** Shown on a card submitted without an answer to every question; read when it is shown. */
+    private val answerRequiredMessage: () -> String,
+    /** Shown on a card whose answer or decline the runtime refused; read when it is shown. */
+    private val failedMessage: () -> String,
 ) {
     /**
      * Questions the user hid with [dismissQuestion]. A recovery fetch must not resurrect them:
@@ -100,12 +100,13 @@ internal class ChatQuestions(
                 )
             }
         if (answers.any { it.isEmpty() }) {
+            val message = answerRequiredMessage()
             uiState.update { state ->
                 state.copy(
                     pendingQuestions =
                         state.pendingQuestions.map { pending ->
                             if (pending.request.id == questionId) {
-                                pending.copy(error = answerRequiredMessage)
+                                pending.copy(error = message)
                             } else {
                                 pending
                             }
@@ -137,6 +138,7 @@ internal class ChatQuestions(
                 )
             }.onSuccess { accepted ->
                 if (accepted) onQuestionResolved(questionId)
+                val message = if (accepted) null else failedMessage()
                 uiState.update { state ->
                     if (accepted) {
                         state.copy(
@@ -147,7 +149,7 @@ internal class ChatQuestions(
                             pendingQuestions =
                                 state.pendingQuestions.map { pending ->
                                     if (pending.request.id == questionId) {
-                                        pending.copy(isSubmitting = false, error = failedMessage)
+                                        pending.copy(isSubmitting = false, error = message)
                                     } else {
                                         pending
                                     }
@@ -257,11 +259,13 @@ internal class ChatQuestions(
                         state.copy(pendingQuestions = state.pendingQuestions.filterNot { it.request.id == questionId })
                     }
                 } else {
-                    updatePendingQuestion(questionId) { it.copy(isSubmitting = false, error = failedMessage) }
+                    val message = failedMessage()
+                    updatePendingQuestion(questionId) { it.copy(isSubmitting = false, error = message) }
                 }
             }.onFailure { error ->
                 updatePendingQuestion(questionId) { it.copy(isSubmitting = false) }
-                uiState.update { it.copy(error = error.safeMessage(failedMessage)) }
+                val message = error.safeMessage(failedMessage())
+                uiState.update { it.copy(error = message) }
             }
         }
     }
