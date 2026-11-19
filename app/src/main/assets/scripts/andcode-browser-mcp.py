@@ -40,7 +40,21 @@ NOT_REACHABLE = (
     "The Guest Browser is not reachable: it is closed, or 'Let agents control this browser' is off "
     "in its menu. Call browser_show with a URL to open it."
 )
-NO_PAGE = "The Guest Browser has no page loaded. Call browser_show or browser_navigate with a URL."
+NO_PAGE = (
+    "The Guest Browser has no page to drive. If it was showing one, that page stopped responding and the "
+    "browser is waiting for the user to tap Reload; otherwise call browser_show with a URL."
+)
+# Android ended the renderer under the page (to free memory, or the page crashed it). The app takes the
+# dead WebView away, which ends every session on it: nothing on that page will answer again.
+PAGE_GONE = (
+    "The Guest Browser's page stopped responding: Android ended the process that ran it, often to free "
+    "memory, so this action did not finish. The browser now offers the user a Reload button; once the "
+    "page is back, call browser_read again."
+)
+PAGE_CLOSED = (
+    "The Guest Browser's page went away before answering: it stopped responding, or the browser was "
+    "closed. Call browser_status to see what is open now."
+)
 AMBIGUOUS = (
     "More than one of the app's web pages could be the Guest Browser (another one may be closing). "
     "Wait a moment and retry, or close the other page."
@@ -147,6 +161,14 @@ class CdpError(RuntimeError):
     pass
 
 
+class PageGone(CdpError):
+    """The page went away mid-session: its renderer died, or its WebView was destroyed."""
+
+
+class _WsClosed(CdpError):
+    """The other end closed the WebSocket."""
+
+
 class _UnixWs:
     """Minimal WebSocket client (text frames) over an AF_UNIX abstract socket."""
 
@@ -190,7 +212,7 @@ class _UnixWs:
         while len(buf) < n:
             chunk = self.sock.recv(n - len(buf))
             if not chunk:
-                raise CdpError("socket closed")
+                raise _WsClosed("socket closed")
             buf += chunk
         return buf
 
@@ -211,7 +233,7 @@ class _UnixWs:
             if opcode == 0x1:
                 return payload.decode()
             if opcode == 0x8:
-                raise CdpError("server closed ws")
+                raise _WsClosed("server closed ws")
             if opcode == 0x9:
                 self._send_pong(payload)
 
@@ -311,7 +333,12 @@ class CdpSession:
         parsed = urlparse(ws_url)
         ws = _UnixWs(self._connect(), parsed.netloc or "localhost", parsed.path or "/")
         page = _PageSession(ws)
-        page.announce()
+        try:
+            page.announce()
+        except BaseException:
+            # A page gone already, or a broken socket: the tool fails, and the socket is not left open.
+            page.close()
+            raise
         return page
 
 
@@ -320,20 +347,29 @@ class _PageSession:
         self.ws = ws
 
     def call(self, method: str, **params) -> dict:
-        self.ws.send_text(json.dumps({"id": 1, "method": method, "params": params}))
-        while True:
-            msg = json.loads(self.ws.recv_text())
-            if msg.get("id") == 1:
-                if "error" in msg:
-                    raise CdpError(f"{method}: {msg['error']}")
-                return msg.get("result", {})
+        # A page whose renderer died never answers: say so at once rather than wait out the timeout.
+        try:
+            self.ws.send_text(json.dumps({"id": 1, "method": method, "params": params}))
+            while True:
+                msg = json.loads(self.ws.recv_text())
+                if msg.get("method") == "Inspector.targetCrashed":
+                    raise PageGone(PAGE_GONE)
+                if msg.get("id") == 1:
+                    if "error" in msg:
+                        raise CdpError(f"{method}: {msg['error']}")
+                    return msg.get("result", {})
+        except (_WsClosed, BrokenPipeError, ConnectionResetError) as closed:
+            raise PageGone(PAGE_CLOSED) from closed
 
     def announce(self) -> None:
         """Tells the Guest Browser an agent is acting on the page, so it can say so on screen."""
         # Only a refusal (no page context mid-navigation, say) is ignored: that reply was read in
-        # full. A socket error or timeout leaves the stream mid-reply, so it fails the tool as before.
+        # full. A socket error or timeout leaves the stream mid-reply, so it fails the tool as before,
+        # and so does a page that went away, whose next call would otherwise wait for an answer.
         try:
             self.call("Runtime.evaluate", expression=f"console.debug({json.dumps(AGENT_ACTIVITY_MARKER)})")
+        except PageGone:
+            raise
         except CdpError:
             pass
 

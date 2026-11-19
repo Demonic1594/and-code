@@ -1,9 +1,11 @@
 package com.yugahashimoto.andcode.feature.chat
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.util.Base64
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -50,9 +52,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -82,6 +86,10 @@ import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.ProvideSafeUriHandler
 import com.yugahashimoto.andcode.core.UrlLauncher
 import com.yugahashimoto.andcode.feature.browser.DESKTOP_VIEWPORT_SCRIPT
+import com.yugahashimoto.andcode.ui.components.PageStoppedResponding
+import com.yugahashimoto.andcode.ui.components.WebPageRecovery
+import com.yugahashimoto.andcode.ui.components.destroyWebView
+import com.yugahashimoto.andcode.ui.components.discardAfterRendererGone
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
 import com.yugahashimoto.andcode.ui.theme.Spacing
 import kotlinx.coroutines.Dispatchers
@@ -189,6 +197,9 @@ internal fun ArtifactPreviewDialog(
     val artifact = state.artifact
     var showSource by rememberSaveable(artifact.path) { mutableStateOf(false) }
     var desktopLayout by rememberSaveable(artifact.path) { mutableStateOf(false) }
+    // Here rather than in the preview, which Source takes off screen: a page whose renderer died stays
+    // stopped across Source and back, instead of loading again on its own.
+    var recovery by remember(artifact.path) { mutableStateOf(WebPageRecovery()) }
     val loaded = state as? ArtifactPreviewState.Loaded
     val context = LocalContext.current
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -266,7 +277,7 @@ internal fun ArtifactPreviewDialog(
                         if (showSource && !state.base64) {
                             SourceView(state.content)
                         } else {
-                            RenderedArtifact(state, desktopLayout)
+                            RenderedArtifact(state, desktopLayout, recovery, onRecoveryChange = { recovery = it })
                         }
                 }
             }
@@ -327,13 +338,24 @@ private fun SourceView(content: String) {
 private fun RenderedArtifact(
     state: ArtifactPreviewState.Loaded,
     desktopLayout: Boolean,
+    recovery: WebPageRecovery,
+    onRecoveryChange: (WebPageRecovery) -> Unit,
 ) {
     when (state.artifact.kind) {
-        ArtifactKind.HTML -> ArtifactWebView(html = state.content, path = state.artifact.path, desktopLayout = desktopLayout)
+        ArtifactKind.HTML ->
+            ArtifactWebView(
+                html = state.content,
+                path = state.artifact.path,
+                recovery = recovery,
+                onRecoveryChange = onRecoveryChange,
+                desktopLayout = desktopLayout,
+            )
         // An SVG on its own page, scaled to fit, on white: most drawings assume a light canvas.
         ArtifactKind.SVG ->
             ArtifactWebView(
                 path = state.artifact.path,
+                recovery = recovery,
+                onRecoveryChange = onRecoveryChange,
                 html =
                     "<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
                         "<style>html,body{margin:0;height:100%;background:#fff;display:flex;align-items:center;justify-content:center}" +
@@ -378,65 +400,101 @@ private fun RenderedArtifact(
  * A web view for one agent-written page. Scripts run, since interactive pages are the point, but
  * the page is cut off from the device: no file or content access, no JavaScript bridge, and links
  * stay inside the view rather than launching other apps.
+ *
+ * [recovery] is the page's WebView across the deaths of its renderer, held by the caller so it
+ * outlasts this composable: gone until Reload builds a fresh view, which loads the page again as any
+ * new view does.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun ArtifactWebView(
+internal fun ArtifactWebView(
     html: String,
     path: String,
+    recovery: WebPageRecovery,
+    onRecoveryChange: (WebPageRecovery) -> Unit,
     desktopLayout: Boolean = false,
 ) {
     val context = LocalContext.current
     // An origin of its own per file: storage a page keeps is not another artifact's to read.
     val baseUrl = remember(path) { "https://a${path.hashCode().toUInt().toString(16)}.artifact.andcode.invalid/" }
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = { viewContext ->
-            WebView(viewContext).apply {
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.allowFileAccess = false
-                settings.allowContentAccess = false
-                // Pinch to zoom, without the legacy on-screen zoom buttons.
-                settings.setSupportZoom(true)
-                settings.builtInZoomControls = true
-                settings.displayZoomControls = false
-                webViewClient =
-                    object : WebViewClient() {
-                        // The preview shows the agent's page and nothing else: a link or script
-                        // that would take it elsewhere opens that site in the browser instead, so a
-                        // page cannot dress itself up as the app on a screen with no address bar.
-                        override fun shouldOverrideUrlLoading(
-                            view: WebView,
-                            request: WebResourceRequest,
-                        ): Boolean {
-                            val url = request.url.toString()
-                            if (url.startsWith(baseUrl)) return false
-                            // Only a tap opens the browser: a page redirecting itself on load or on a
-                            // timer must not launch apps over and over.
-                            if (request.isForMainFrame && request.hasGesture()) UrlLauncher.openUrl(context, url)
-                            return true
+    // The view's client outlives the arguments it was built with, so it reads the latest through these.
+    val latestRecovery by rememberUpdatedState(recovery)
+    val latestOnRecoveryChange by rememberUpdatedState(onRecoveryChange)
+    if (!recovery.showsView) {
+        PageStoppedResponding(onReload = { onRecoveryChange(recovery.rebuild()) })
+        return
+    }
+    key(recovery.generation) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { viewContext ->
+                WebView(viewContext).apply {
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.allowFileAccess = false
+                    settings.allowContentAccess = false
+                    // Pinch to zoom, without the legacy on-screen zoom buttons.
+                    settings.setSupportZoom(true)
+                    settings.builtInZoomControls = true
+                    settings.displayZoomControls = false
+                    webViewClient =
+                        artifactWebViewClient(context, baseUrl) { dead, detail ->
+                            latestOnRecoveryChange(latestRecovery.rendererGone(lastUrl = null, fallbackUrl = baseUrl))
+                            dead.discardAfterRendererGone(detail)
                         }
-
-                        override fun onPageFinished(
-                            view: WebView,
-                            url: String?,
-                        ) {
-                            if (view.settings.useWideViewPort) view.evaluateJavascript(DESKTOP_VIEWPORT_SCRIPT, null)
-                        }
-                    }
-            }
-        },
-        update = { view ->
-            // Desktop lays the page out at a laptop's width and zooms out to fit; the flag is read
-            // back from the settings when the page finishes, to widen its viewport tag too.
-            view.settings.useWideViewPort = desktopLayout
-            view.settings.loadWithOverviewMode = desktopLayout
-            view.loadDataWithBaseURL(baseUrl, html, "text/html", "utf-8", null)
-        },
-        onRelease = { view -> view.destroy() },
-    )
+                }
+            },
+            update = { view ->
+                // Desktop lays the page out at a laptop's width and zooms out to fit; the flag is read
+                // back from the settings when the page finishes, to widen its viewport tag too.
+                view.settings.useWideViewPort = desktopLayout
+                view.settings.loadWithOverviewMode = desktopLayout
+                view.loadDataWithBaseURL(baseUrl, html, "text/html", "utf-8", null)
+            },
+            onRelease = ::destroyWebView,
+        )
+    }
 }
+
+/** Keeps an artifact's page to itself, and hands a dead renderer's view to [onRendererGone]. */
+private fun artifactWebViewClient(
+    context: Context,
+    baseUrl: String,
+    onRendererGone: (WebView, RenderProcessGoneDetail?) -> Unit,
+): WebViewClient =
+    object : WebViewClient() {
+        // The preview shows the agent's page and nothing else: a link or script
+        // that would take it elsewhere opens that site in the browser instead, so a
+        // page cannot dress itself up as the app on a screen with no address bar.
+        override fun shouldOverrideUrlLoading(
+            view: WebView,
+            request: WebResourceRequest,
+        ): Boolean {
+            val url = request.url.toString()
+            if (url.startsWith(baseUrl)) return false
+            // Only a tap opens the browser: a page redirecting itself on load or on a
+            // timer must not launch apps over and over.
+            if (request.isForMainFrame && request.hasGesture()) UrlLauncher.openUrl(context, url)
+            return true
+        }
+
+        override fun onPageFinished(
+            view: WebView,
+            url: String?,
+        ) {
+            if (view.settings.useWideViewPort) view.evaluateJavascript(DESKTOP_VIEWPORT_SCRIPT, null)
+        }
+
+        // Android ended the renderer (to free memory, or the page crashed it). Unhandled, the whole
+        // app goes with it; handled, the preview discards the view and offers the page back.
+        override fun onRenderProcessGone(
+            view: WebView,
+            detail: RenderProcessGoneDetail?,
+        ): Boolean {
+            onRendererGone(view, detail)
+            return true
+        }
+    }
 
 /** Longest side, in pixels, a previewed picture is decoded at. */
 private const val MAX_IMAGE_SIDE = 2048

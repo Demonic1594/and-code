@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -42,6 +43,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,6 +71,10 @@ import com.yugahashimoto.andcode.feature.browser.devtools.AndroidDevToolsMessage
 import com.yugahashimoto.andcode.feature.browser.devtools.DevToolsBridge
 import com.yugahashimoto.andcode.feature.browser.devtools.DevToolsPanel
 import com.yugahashimoto.andcode.feature.browser.devtools.DevToolsStore
+import com.yugahashimoto.andcode.ui.components.PageStoppedResponding
+import com.yugahashimoto.andcode.ui.components.WebPageRecovery
+import com.yugahashimoto.andcode.ui.components.destroyWebView
+import com.yugahashimoto.andcode.ui.components.discardAfterRendererGone
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -108,6 +114,10 @@ fun GuestBrowserScreen(
     var webView by remember { mutableStateOf<WebView?>(null) }
     var webViewUnavailable by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf<PageLoadError?>(null) }
+    // The page's WebView across the deaths of its renderer: gone until Reload builds a fresh one.
+    var recovery by remember {
+        mutableStateOf(WebPageRecovery(firstLoad = initialUrl.takeIf { it.isNotBlank() }?.let(::normalizeBrowserUrl).orEmpty()))
+    }
     // The start screen gives way to the first page that loads, whoever loads it (the agent may).
     var pageStarted by remember { mutableStateOf(false) }
     var desktopMode by rememberSaveable { mutableStateOf(false) }
@@ -146,7 +156,14 @@ fun GuestBrowserScreen(
         editingAddress = false
         loadError = null
         currentUrl = url
-        webView?.loadUrl(url)
+        // With the page gone there is no view to load it in: a fresh one is built that loads it.
+        if (recovery.showsView) webView?.loadUrl(url) else recovery = recovery.rebuild(url)
+    }
+
+    // The page again, in a fresh view when its renderer is gone: the dead view can never draw.
+    fun reload() {
+        loadError = null
+        if (recovery.showsView) webView?.reload() else recovery = recovery.rebuild()
     }
 
     BackHandler {
@@ -182,10 +199,7 @@ fun GuestBrowserScreen(
                     onEditingChange = { editingAddress = it },
                     onSubmit = ::open,
                     onClose = onBack,
-                    onReload = {
-                        loadError = null
-                        webView?.reload()
-                    },
+                    onReload = ::reload,
                     onStop = { webView?.stopLoading() },
                 )
                 Box(modifier = Modifier.fillMaxWidth().height(2.dp)) {
@@ -213,80 +227,104 @@ fun GuestBrowserScreen(
                     val pageArea = maxHeight
                     Column(modifier = Modifier.fillMaxSize()) {
                         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                            AndroidView(
-                                // WebView can draw its background outside its measured bounds, covering the
-                                // address bar even while that bar still accepts focus and keyboard input.
-                                modifier = Modifier.fillMaxSize().clipToBounds(),
-                                factory = { viewContext ->
-                                    // Only starting the system WebView provider can fail for reasons the app
-                                    // cannot fix; everything after it runs on a WebView that exists, so a failure
-                                    // there is a real bug and must not leave a half-built view behind.
-                                    val created =
-                                        viewOrNull(
-                                            create = {
-                                                // The in-guest agent drives this WebView over CDP (the devtools abstract
-                                                // socket is reachable from the guest, which shares the app's UID), so a
-                                                // page can be shown to the user and operated by human and agent at the
-                                                // same time. AgentDebugging, above, decides when that socket exists.
-                                                WebView(viewContext)
-                                            },
-                                            onFailure = { error -> Log.w(TAG, "The system WebView could not start", error) },
-                                        )
-                                    if (created == null) {
-                                        webViewUnavailable = true
-                                        return@AndroidView View(viewContext)
-                                    }
-                                    created.apply {
-                                        layoutParams =
-                                            ViewGroup.LayoutParams(
-                                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                            )
-                                        configure(
-                                            onProgress = { progress = it },
-                                            onTitle = { title = it },
-                                            onAgentActivity = { agentActions++ },
-                                            onPageStarted = { url ->
-                                                loadError = null
-                                                // The first page, if the agent opened it while the empty address
-                                                // field was waiting for input, takes over from the field.
-                                                if (!pageStarted && currentUrl.isBlank()) editingAddress = false
-                                                pageStarted = true
-                                                if (!editingAddress) currentUrl = url
-                                                bridge.onPageStarted()
-                                            },
-                                            onNavigationStateChange = { url, back, forward ->
-                                                if (!editingAddress) currentUrl = url
-                                                canGoBack = back
-                                                canGoForward = forward
-                                            },
-                                            onPageLoaded = { view -> if (findOpen && findQuery.isNotEmpty()) view.findAllAsync(findQuery) },
-                                            onMainFrameError = { url, description -> loadError = PageLoadError(url, description) },
-                                        )
-                                        setFindListener { active, count, _ -> findMatch = FindMatch(active, count) }
-                                        applyViewMode(desktopMode)
-                                        // Before the first load, so the page agent is in place for its first line.
-                                        bridge.attach(this)
-                                        webView = this
-                                        if (initialUrl.isNotBlank()) loadUrl(normalizeBrowserUrl(initialUrl))
-                                    }
-                                },
-                                onRelease = { view ->
-                                    bridge.detach()
-                                    (view as? WebView)?.destroy()
-                                },
-                            )
-                            when {
-                                webViewUnavailable -> WebViewUnavailableNotice(modifier = Modifier.fillMaxSize())
-                                loadError != null ->
-                                    PageErrorState(
-                                        error = loadError!!,
-                                        onRetry = {
-                                            loadError = null
-                                            webView?.reload()
+                            // No view while the page is gone. Each fresh one is a new generation, so Compose
+                            // builds it anew rather than keeping the holder of the dead one.
+                            if (recovery.showsView) {
+                                key(recovery.generation) {
+                                    AndroidView(
+                                        // WebView can draw its background outside its measured bounds, covering the
+                                        // address bar even while that bar still accepts focus and keyboard input.
+                                        modifier = Modifier.fillMaxSize().clipToBounds(),
+                                        factory = { viewContext ->
+                                            // Only starting the system WebView provider can fail for reasons the app
+                                            // cannot fix; everything after it runs on a WebView that exists, so a failure
+                                            // there is a real bug and must not leave a half-built view behind.
+                                            val created =
+                                                viewOrNull(
+                                                    create = {
+                                                        // The in-guest agent drives this WebView over CDP (the devtools abstract
+                                                        // socket is reachable from the guest, which shares the app's UID), so a
+                                                        // page can be shown to the user and operated by human and agent at the
+                                                        // same time. AgentDebugging, above, decides when that socket exists.
+                                                        WebView(viewContext)
+                                                    },
+                                                    onFailure = { error -> Log.w(TAG, "The system WebView could not start", error) },
+                                                )
+                                            if (created == null) {
+                                                webViewUnavailable = true
+                                                return@AndroidView View(viewContext)
+                                            }
+                                            created.apply {
+                                                layoutParams =
+                                                    ViewGroup.LayoutParams(
+                                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                                    )
+                                                configure(
+                                                    onProgress = { progress = it },
+                                                    onTitle = { title = it },
+                                                    onAgentActivity = { agentActions++ },
+                                                    onPageStarted = { url ->
+                                                        loadError = null
+                                                        // The first page, if the agent opened it while the empty address
+                                                        // field was waiting for input, takes over from the field.
+                                                        if (!pageStarted && currentUrl.isBlank()) editingAddress = false
+                                                        pageStarted = true
+                                                        if (!editingAddress) currentUrl = url
+                                                        bridge.onPageStarted()
+                                                    },
+                                                    onNavigationStateChange = { url, back, forward ->
+                                                        if (!editingAddress) currentUrl = url
+                                                        canGoBack = back
+                                                        canGoForward = forward
+                                                    },
+                                                    onPageLoaded = { view ->
+                                                        if (findOpen && findQuery.isNotEmpty()) view.findAllAsync(findQuery)
+                                                    },
+                                                    onMainFrameError = { url, description -> loadError = PageLoadError(url, description) },
+                                                    onRendererGone = { detail ->
+                                                        val dead = this@apply
+                                                        recovery = recovery.rendererGone(lastUrl = dead.url, fallbackUrl = currentUrl)
+                                                        loadError = null
+                                                        progress = 0
+                                                        canGoBack = false
+                                                        canGoForward = false
+                                                        if (webView === dead) {
+                                                            // Off the dead page first: it cannot answer the bridge again.
+                                                            runCatching { bridge.detach() }.onFailure { error ->
+                                                                Log.w(TAG, "DevTools could not let go of the dead page", error)
+                                                            }
+                                                            webView = null
+                                                        }
+                                                        dead.discardAfterRendererGone(detail)
+                                                    },
+                                                )
+                                                setFindListener { active, count, _ -> findMatch = FindMatch(active, count) }
+                                                applyViewMode(desktopMode)
+                                                // Before the first load, so the page agent is in place for its first line.
+                                                bridge.attach(this)
+                                                webView = this
+                                                // Asked for while the page was gone: the cache is every view's, so this one clears it.
+                                                if (recovery.clearCacheFirst) clearCache(true)
+                                                // The address it opened with or, rebuilt after its renderer died, the page to bring back.
+                                                recovery.firstLoad.takeIf { it.isNotBlank() }?.let { first -> loadUrl(first) }
+                                            }
+                                        },
+                                        onRelease = { view ->
+                                            // A fresh view may hold the bridge already; only this one's is let go.
+                                            if (webView == null || webView === view) bridge.detach()
+                                            destroyWebView(view)
                                         },
                                     )
-                                currentUrl.isBlank() && !pageStarted -> BrowserStartState(onOpen = ::open)
+                                }
+                            }
+                            when (browserCover(webViewUnavailable, !recovery.showsView, loadError != null, currentUrl, pageStarted)) {
+                                BrowserCover.WEBVIEW_UNAVAILABLE -> WebViewUnavailableNotice(modifier = Modifier.fillMaxSize())
+                                BrowserCover.PAGE_GONE ->
+                                    PageStoppedResponding(onReload = ::reload, detail = recovery.gone?.url?.let(::displayHost))
+                                BrowserCover.LOAD_ERROR -> loadError?.let { error -> PageErrorState(error = error, onRetry = ::reload) }
+                                BrowserCover.START -> BrowserStartState(onOpen = ::open)
+                                BrowserCover.NONE -> Unit
                             }
                             // Over the page, not above it: pushing the page down while the agent measures
                             // and taps it could move what it is about to tap.
@@ -326,9 +364,14 @@ fun GuestBrowserScreen(
                             onZoomIn = { webView?.zoomIn() },
                             onZoomOut = { webView?.zoomOut() },
                             onHardReload = {
-                                webView?.apply {
-                                    clearCache(true)
-                                    reload()
+                                if (recovery.showsView) {
+                                    webView?.apply {
+                                        clearCache(true)
+                                        reload()
+                                    }
+                                } else {
+                                    loadError = null
+                                    recovery = recovery.rebuild(clearCache = true)
                                 }
                             },
                             onCopyLink = {
@@ -401,6 +444,7 @@ private fun WebView.configure(
     onPageLoaded: (WebView) -> Unit,
     onMainFrameError: (url: String, description: String) -> Unit,
     onAgentActivity: () -> Unit,
+    onRendererGone: (RenderProcessGoneDetail?) -> Unit,
 ) {
     // Guest pages (dev servers, dashboards, tool UIs) are interactive web apps that need JS.
     settings.javaScriptEnabled = true
@@ -482,6 +526,17 @@ private fun WebView.configure(
                 if (request?.isForMainFrame == true) {
                     onMainFrameError(request.url.toString(), error?.description?.toString().orEmpty())
                 }
+            }
+
+            // Android ended the renderer under the page (to free memory, or the page crashed it).
+            // Unhandled, the whole app goes with it; handled, the screen discards this view, which
+            // also ends the agent's DevTools sessions on it, and offers the page back.
+            override fun onRenderProcessGone(
+                view: WebView?,
+                detail: RenderProcessGoneDetail?,
+            ): Boolean {
+                onRendererGone(detail)
+                return true
             }
         }
 }
