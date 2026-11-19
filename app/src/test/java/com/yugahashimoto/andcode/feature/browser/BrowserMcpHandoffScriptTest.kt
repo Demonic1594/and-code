@@ -45,10 +45,7 @@ class BrowserMcpHandoffScriptTest {
             listOf("True", "True", "True", "True", "False", "requested the app to show http://127.0.0.1:5173/ as an inline preview"),
             answers.lines(),
         )
-        assertEquals(
-            BrowserCommand.Preview("http://127.0.0.1:5173/"),
-            consumeBrowserCommand("/root/project", LocalAgent.CLAUDE_CODE, runtime),
-        )
+        assertEquals("http://127.0.0.1:5173/", (consumeBrowserCommand(LocalAgent.CLAUDE_CODE, runtime) as? BrowserCommand.Preview)?.url)
     }
 
     /**
@@ -90,11 +87,12 @@ class BrowserMcpHandoffScriptTest {
                 pending = []
                 write_command = m._write_command
                 def asked(command):
-                    write_command(command)
+                    # The id the command file really carries: the app answers with that one.
+                    mine, other = write_command(command), "other"
                     print("asked", m.STATUS_FILE.exists())
-                    mine, other = command["requestId"], "other"
                     statuses = [dict(s, requestId=mine if s.pop("mine") else other) for s in pending.pop(0)]
                     threading.Thread(target=answer, args=(statuses,), daemon=True).start()
+                    return mine
                 m._write_command = asked
                 pending.append([{"state": "agent", "mine": False}, {"state": "awaiting_user", "mine": True}, {"state": "agent", "mine": True}])
                 print(m.tool_handoff({"timeout_s": 5}) == m.HANDOFF_BACK)
@@ -112,7 +110,7 @@ class BrowserMcpHandoffScriptTest {
         assertEquals(List(4) { listOf("asked False", "True") }.flatten(), answers.dropLast(1))
         assertEquals(
             BrowserCommand.Handoff(rootfs, answers.last()),
-            consumeBrowserCommand("/root/project", LocalAgent.CLAUDE_CODE, runtime),
+            consumeBrowserCommand(LocalAgent.CLAUDE_CODE, runtime),
         )
     }
 
@@ -135,15 +133,17 @@ class BrowserMcpHandoffScriptTest {
                 m._find_devtools_socket = lambda: "webview_devtools_remote_1"
                 write_command = m._write_command
                 def replaced(command):
-                    write_command(command)
-                    write_command({"action": "handoff", "requestId": "other"})
-                    m.STATUS_FILE.write_text(json.dumps({"state": "awaiting_user", "requestId": "other"}))
+                    mine = write_command(command)
+                    other = write_command({"action": "handoff"})
+                    m.STATUS_FILE.write_text(json.dumps({"state": "awaiting_user", "requestId": other}))
+                    return mine
                 m._write_command = replaced
                 print(m.tool_handoff({"timeout_s": 5}) == m.HANDOFF_SUPERSEDED)
                 def taken(command):
-                    write_command(command)
+                    mine = write_command(command)
                     m.COMMAND_FILE.unlink()
                     m.STATUS_FILE.write_text(json.dumps({"state": "awaiting_user", "requestId": "newer"}))
+                    return mine
                 m._write_command = taken
                 print(m.tool_handoff({"timeout_s": 5}) == m.HANDOFF_SUPERSEDED)
                 """.trimIndent(),
@@ -180,12 +180,12 @@ class BrowserMcpHandoffScriptTest {
                 m.time = Clock()
                 write_command = m._write_command
                 def taken(command):
-                    write_command(command)
-                    mine = command["requestId"]
+                    mine = write_command(command)
                     m.COMMAND_FILE.unlink()
                     m.STATUS_FILE.write_text(json.dumps({"state": "agent", "requestId": "earlier"}))
                     steps.append(lambda: m.STATUS_FILE.write_text(json.dumps({"state": "awaiting_user", "requestId": mine})))
                     steps.append(lambda: m.STATUS_FILE.write_text(json.dumps({"state": "agent", "requestId": mine})))
+                    return mine
                 m._write_command = taken
                 print(m.tool_handoff({"timeout_s": 5}) == m.HANDOFF_BACK)
                 """.trimIndent(),

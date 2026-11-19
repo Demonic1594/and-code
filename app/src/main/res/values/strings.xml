@@ -1216,6 +1216,8 @@
     <string name="notification_channel_schedules">Scheduled runs</string>
     <string name="notification_channel_schedule_agent_changes">Schedules changed by agents</string>
     <string name="notification_channel_schedule_agent_changes_description">When an agent adds, changes or deletes a schedule without asking you</string>
+    <string name="notification_channel_agent_browsing">Agent browsing</string>
+    <string name="notification_channel_agent_browsing_description">While an agent browses a page out of sight, in its hidden browser</string>
     <string name="notification_schedule_agent_created_title">An agent added a schedule: %1$s</string>
     <string name="notification_schedule_agent_changed_title">An agent changed a schedule: %1$s</string>
     <string name="notification_schedule_agent_deleted_title">An agent deleted a schedule: %1$s</string>
@@ -1432,6 +1434,10 @@
     <string name="chat_preview_link">Preview</string>
     <string name="chat_preview_unavailable">The WebView on this device could not start, so the preview is unavailable.</string>
     <string name="chat_preview_minimize">Minimize preview</string>
+    <string name="agent_browsing_notice">Agent is browsing %1$s</string>
+    <string name="agent_browsing_view">View</string>
+    <string name="agent_browsing_close">Close</string>
+    <string name="agent_browsing_notification_text">In its hidden browser, out of sight. View shows you the page as it is.</string>
     <string name="setup_step_development_tools">Development tools</string>
     <string name="setup_development_tools_description">Install only the runtime by default, or include the complete development toolchain.</string>
     <string name="setup_required_tools_description">Linux, the selected agents, Git, and the support tools used by AndCode. These are always installed.</string>

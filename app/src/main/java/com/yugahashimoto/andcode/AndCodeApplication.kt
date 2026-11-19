@@ -39,6 +39,8 @@ import com.yugahashimoto.andcode.data.settings.AppPreferencesRepository
 import com.yugahashimoto.andcode.data.settings.DraftRepository
 import com.yugahashimoto.andcode.di.appModule
 import com.yugahashimoto.andcode.di.viewModelModule
+import com.yugahashimoto.andcode.feature.browser.HiddenAgentBrowser
+import com.yugahashimoto.andcode.feature.browser.startAgentBrowser
 import com.yugahashimoto.andcode.feature.schedule.AgentScheduleNotifications
 import com.yugahashimoto.andcode.feature.schedule.AppScheduleApprovalSettings
 import com.yugahashimoto.andcode.feature.schedule.AppScheduleStore
@@ -161,6 +163,10 @@ class AndCodeApplication : Application() {
 
     /** Whether an activity of the app is on screen; see [AppForeground]. */
     lateinit var appForeground: AppForeground
+        private set
+
+    /** The hidden browser agents can browse in without taking the user's screen, and the bridge its commands come through. */
+    internal lateinit var agentBrowser: HiddenAgentBrowser
         private set
 
     private val mutableIdleStopInProgress = MutableStateFlow(false)
@@ -820,6 +826,7 @@ class AndCodeApplication : Application() {
             combine(appForeground.foreground, runtimeWork.active) { foreground, working -> foreground || working }
                 .distinctUntilChanged()
         applicationScope.launch { scheduleBridge.run(scheduleBridgeActive) }
+        agentBrowser = startAgentBrowser(applicationScope, scheduleBridgeActive)
         observeAppLock()
         // Long-running guest processes the agents hand over with `andcode-run`, and the bridge that
         // command talks through. The same activity rule applies: a supervised process holds a

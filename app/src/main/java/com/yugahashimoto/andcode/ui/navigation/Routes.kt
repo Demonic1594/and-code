@@ -71,6 +71,9 @@ const val GUEST_BROWSER_ROUTE_PATTERN = "$ROUTE_GUEST_BROWSER?$GUEST_BROWSER_ARG
 
 fun guestBrowserRoute(url: String): String = "$ROUTE_GUEST_BROWSER?$GUEST_BROWSER_ARG_URL=${encodeRouteArg(url)}"
 
+/** The Guest Browser showing the hidden browser's page, as the agent left it (the notice's View). */
+const val ROUTE_GUEST_BROWSER_AGENT_PAGE = "guest-browser-agent-page"
+
 const val CODE_VIEWER_ROUTE_PATTERN = "$ROUTE_CODE_VIEWER/{runtimeId}/{workspacePath}/{filePath}"
 
 fun scheduleDetailRoute(scheduleId: String): String = "$ROUTE_SCHEDULE_DETAIL/${encodeRouteArg(scheduleId)}"

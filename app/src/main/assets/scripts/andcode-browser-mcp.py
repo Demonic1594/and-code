@@ -4,15 +4,21 @@
 Bridges the agent to the in-app Guest Browser of the AndCode Android app:
 
 - ``browser_show`` asks the app (via a command file in the guest home, never in
-  a project, so a cloned repository cannot carry one) to open the guest browser
-  so the user can watch and operate the page; ``browser_preview`` pins a page on
-  this device inside the chat instead, and ``browser_handoff`` hands the open
-  page to the user and waits for it back (through a status file beside the
-  command, which only the app writes).
-- The remaining tools drive the same WebView over CDP. While the Guest Browser is
-  open with "Let agents control this browser" on, the app enables WebView
+  a project, so a cloned repository cannot carry one) for a browser: the Guest
+  Browser on the user's screen (mode "visible"), or a hidden one the app owns
+  and never shows (mode "hidden"), which leaves the user's screen alone.
+  ``browser_preview`` pins a page on this device inside the chat instead, and
+  ``browser_handoff`` hands the page on the user's screen to them and waits for
+  it back (through a status file beside the command, which only the app
+  writes).
+- The remaining tools drive the chosen browser's page over CDP. While a browser
+  is open with "Let agents control this browser" on, the app enables WebView
   debugging, which exposes ``webview_devtools_remote_<pid>`` as a Linux abstract
   socket; the guest shares the kernel (and the app UID), so it can attach.
+- The app writes which browser is active, and the DevTools target of the hidden
+  page, to a status file beside the command (STATE_FILE), so the tools act on
+  that page only: never on another page the user has open, or the app's other
+  WebViews (an artifact preview, say).
 
 Speaks MCP over stdio (newline-delimited JSON-RPC) with no third-party deps so
 it runs on the bare runtime rootfs python3.
@@ -27,7 +33,6 @@ import struct
 import sys
 import time
 import urllib.parse
-import uuid
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -36,6 +41,15 @@ from urllib.parse import urlparse
 COMMAND_FILE = Path("/root/.local/share/and-code/browser-command.json")
 # How a handoff stands, written by the app (BROWSER_STATUS_PATH in BrowserOpenCommand.kt).
 STATUS_FILE = Path("/root/.local/share/and-code/browser-status.json")
+# Written by the app (BROWSER_STATE_PATH, AgentBrowserState.statusJson in the app): the active browser,
+# the hidden page's DevTools target, and the last request the app has answered.
+STATE_FILE = Path("/root/.local/share/and-code/browser-state.json")
+# The blank page a fresh hidden browser opens first, so the app can find its target (HiddenPageMarker).
+HIDDEN_MARKER_PREFIX = "about:blank#andcode-hidden-browser-"
+MODES = ("visible", "hidden")
+# How long browser_show waits for the app to open the hidden browser: it reads requests every second.
+HIDDEN_OPEN_TIMEOUT = 20.0
+CLOSE_TIMEOUT = 5.0
 # Logged to the page console before each action; the app shows "An agent is controlling this page".
 AGENT_ACTIVITY_MARKER = "andcode:agent-control"
 
@@ -64,6 +78,34 @@ PAGE_CLOSED = (
 AMBIGUOUS = (
     "More than one of the app's web pages could be the Guest Browser (another one may be closing). "
     "Wait a moment and retry, or close the other page."
+)
+VISIBLE_NOT_OPEN = (
+    "The Guest Browser is not open on the user's screen. Call browser_show with a URL to open it there, or "
+    'with mode "hidden" to browse without taking their screen.'
+)
+HIDDEN_REOPEN = ' Call browser_show with mode "hidden" and a URL to open a new one.'
+HIDDEN_STARTING = "The hidden browser is still starting; retry in a moment."
+# Android ended the hidden page's renderer; the app tears it down and brings nothing back on its own.
+HIDDEN_GONE = (
+    "The hidden browser's page stopped responding: Android ended the process that ran it, often to free "
+    "memory, so this action did not finish. Nothing reloads on its own." + HIDDEN_REOPEN
+)
+HIDDEN_ENDED = {
+    None: "No hidden browser is open." + HIDDEN_REOPEN,
+    "closed_by_agent": "The hidden browser was closed." + HIDDEN_REOPEN,
+    "closed_by_user": "The user closed the hidden browser from its notice." + HIDDEN_REOPEN,
+    "idle": "The hidden browser was closed after a few minutes without use." + HIDDEN_REOPEN,
+    "renderer_gone": HIDDEN_GONE,
+    "chat_ended": "The hidden browser was closed when the chat it was opened in ended." + HIDDEN_REOPEN,
+    "agent_control_off": (
+        "'Let agents control this browser' is off in the Guest Browser's menu, which keeps agents out of the "
+        "hidden browser too. Ask the user to turn it on, or work in the visible browser with them."
+    ),
+    "failed": "The hidden browser could not start: the system WebView failed, or its page could not be found." + HIDDEN_REOPEN,
+}
+VIEWED = (
+    "The user tapped View: the page is on their screen now, in the Guest Browser, as you left it, and counts "
+    "as the visible browser. The other browser_* tools still act on it while it stays there."
 )
 
 
@@ -153,6 +195,83 @@ def choose_target(targets: list[dict]) -> dict | None:
     if not on_screen and len(pages) == 1:
         return pages[0]
     raise CdpError(AMBIGUOUS)
+
+
+def read_state() -> dict | None:
+    """The status the app writes (STATE_FILE), or None before it has written one."""
+    try:
+        data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+# The browser this server's agent chose last with browser_show: each agent runs its own server.
+_last_chosen_mode: str | None = None
+
+
+def chosen_mode(state: dict | None) -> str:
+    """The browser the agent chose last: the visible one until it picks the hidden one."""
+    mode = state.get("mode") if state else None
+    return mode if mode in MODES else "visible"
+
+
+def ended_message(state: dict | None) -> str:
+    """Why there is no hidden page to drive."""
+    reason = state.get("ended") if state else None
+    return HIDDEN_ENDED.get(reason, HIDDEN_ENDED[None])
+
+
+def _is_marker(page: dict) -> bool:
+    return str(page.get("url") or "").startswith(HIDDEN_MARKER_PREFIX)
+
+
+# The virtual host the chat's inline preview serves a static site from (STATIC_PREVIEW_HOST in the app).
+STATIC_PREVIEW_HOST = "andcode.preview"
+
+
+def _is_inline_preview(page: dict) -> bool:
+    return (urllib.parse.urlsplit(str(page.get("url") or "")).hostname or "") == STATIC_PREVIEW_HOST
+
+
+def choose_page(targets: list[dict], state: dict | None) -> dict | None:
+    """The page of the browser the agent chose (state's mode), or None when it shows none.
+
+    Hidden: the one target the app named, and nothing else. Visible: the page the user took over
+    with View, by its target; otherwise the Guest Browser's page on screen, never the hidden page or
+    the chat's inline preview, and only while the app says the Guest Browser is open (the chat, and
+    with it the preview, is then off screen). Before the app has written a status at
+    all, the page on screen, as before there were modes.
+    """
+    pages = [t for t in targets if t.get("type") in ("document", "page")]
+    if chosen_mode(state) == "hidden":
+        hidden = state.get("hidden")
+        if not isinstance(hidden, dict):
+            raise CdpError(ended_message(state))
+        target_id = hidden.get("targetId")
+        if not target_id:
+            raise CdpError(HIDDEN_STARTING)
+        for page in pages:
+            if page.get("id") == target_id:
+                return page
+        # Its WebView is gone and the app has not said so yet: a renderer that died a moment ago.
+        raise PageGone(HIDDEN_GONE)
+    if state is None:
+        return choose_target(pages)
+    # This agent chose the hidden browser and it closed with its chat: the app went back to the visible
+    # browser for the next chat's agent, but this one must not land on a page the user has open.
+    if _last_chosen_mode == "hidden" and state.get("ended") not in (None, "viewed"):
+        raise CdpError(ended_message(state))
+    viewed = state.get("visibleTargetId")
+    if viewed:
+        for page in pages:
+            if page.get("id") == viewed:
+                return page
+    if not state.get("guestBrowserOpen"):
+        raise CdpError(VISIBLE_NOT_OPEN)
+    hidden = state.get("hidden") if isinstance(state.get("hidden"), dict) else {}
+    others = [p for p in pages if p.get("id") != hidden.get("targetId") and not _is_marker(p) and not _is_inline_preview(p)]
+    return choose_target(others)
 
 
 def _on_screen(page: dict) -> bool:
@@ -330,15 +449,16 @@ class CdpSession:
         return json.loads(_dechunk(body))
 
     def open_page_session(self) -> "_PageSession":
-        target = choose_target(self.list_targets())
+        state = read_state()
+        target = choose_page(self.list_targets(), state)
         if target is None:
             raise CdpError(NO_PAGE)
         ws_url = target.get("webSocketDebuggerUrl")
         if not ws_url:
-            raise CdpError("The Guest Browser's page is already being inspected; close other DevTools and retry.")
+            raise CdpError("The browser's page is already being inspected; close other DevTools and retry.")
         parsed = urlparse(ws_url)
         ws = _UnixWs(self._connect(), parsed.netloc or "localhost", parsed.path or "/")
-        page = _PageSession(ws)
+        page = _PageSession(ws, HIDDEN_GONE if chosen_mode(state) == "hidden" else PAGE_GONE)
         try:
             page.announce()
         except BaseException:
@@ -349,9 +469,11 @@ class CdpSession:
 
 
 class _PageSession:
-    def __init__(self, ws: _UnixWs):
+    def __init__(self, ws: _UnixWs, gone_message: str = PAGE_GONE):
         self.ws = ws
         self._next_id = 0
+        # What the agent is told when the renderer dies: the hidden page is not offered back to anyone.
+        self.gone_message = gone_message
 
     def call(self, method: str, **params) -> dict:
         # A page whose renderer died never answers: say so at once rather than wait out the timeout.
@@ -363,7 +485,7 @@ class _PageSession:
             while True:
                 msg = json.loads(self.ws.recv_text())
                 if msg.get("method") == "Inspector.targetCrashed":
-                    raise PageGone(PAGE_GONE)
+                    raise PageGone(self.gone_message)
                 if msg.get("id") == request_id:
                     if "error" in msg:
                         raise CdpError(f"{method}: {msg['error']}")
@@ -527,26 +649,110 @@ def is_web_url(url) -> bool:
     return parts.scheme.lower() in ("http", "https") and bool(parts.hostname)
 
 
-def _write_command(command: dict) -> None:
-    """Leaves [command] for the app in the guest home, stamped with the time it was written."""
+BAD_MODE = 'mode must be "visible" (the Guest Browser on the user\'s screen) or "hidden"'
+HIDDEN_NEEDS_URL = "pass the url to open in the hidden browser"
+NOTHING_TO_HAND_OVER = 'pass a url: no hidden page is open to show the user'
+
+
+def _new_request_id() -> str:
+    return base64.urlsafe_b64encode(os.urandom(9)).decode()
+
+
+def _write_command(command: dict) -> str:
+    """Leaves [command] for the app, stamped with the time and a request id; returns the id."""
+    request_id = _new_request_id()
     COMMAND_FILE.parent.mkdir(parents=True, exist_ok=True)
     # The app acts only on a command stamped in the last few minutes, so one left from long before the
     # user came back is dropped rather than carried out.
-    command = dict(command, createdAtMs=int(time.time() * 1000))
+    command = dict(command, requestId=request_id, createdAtMs=int(time.time() * 1000))
     # Written beside it and renamed over it, so the app never reads half a command.
     # One per server: each agent runs its own, and two could ask at once.
     partial = COMMAND_FILE.with_name(f"{COMMAND_FILE.name}.{os.getpid()}.partial")
     partial.write_text(json.dumps(command), encoding="utf-8")
     os.replace(partial, COMMAND_FILE)
+    return request_id
+
+
+def _await_answer(request_id: str, timeout: float) -> dict | None:
+    """The app's status once it has answered [request_id], or None if it has not within [timeout] seconds."""
+    deadline = time.monotonic() + timeout
+    while True:
+        state = read_state()
+        if state is not None and state.get("lastRequestId") == request_id:
+            return state
+        if time.monotonic() >= deadline:
+            return None
+        time.sleep(0.25)
+
+
+def _await_load(target_id: str, timeout: float = 5.0) -> None:
+    """Waits a few seconds for the hidden page to leave the blank page it starts on."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            name = _find_devtools_socket()
+            pages = CdpSession(name).list_targets() if name else []
+        except (OSError, ValueError, CdpError):
+            return
+        if any(page.get("id") == target_id and not _is_marker(page) for page in pages):
+            return
+        time.sleep(0.25)
 
 
 def tool_show(args: dict) -> str:
+    mode = args.get("mode") or "visible"
+    if mode not in MODES:
+        return BAD_MODE
     url = args.get("url")
+    global _last_chosen_mode
+    if url is None or (isinstance(url, str) and not url.strip()):
+        if mode == "hidden":
+            return HIDDEN_NEEDS_URL
+        state = read_state()
+        if not (state and isinstance(state.get("hidden"), dict)):
+            return NOTHING_TO_HAND_OVER
+        _write_command({"action": "open", "mode": "visible"})
+        _last_chosen_mode = "visible"
+        return (
+            "asked the app to show the hidden page to the user in the Guest Browser, as it is: it counts as "
+            "the visible browser from then on, and browser_status says when it is on their screen"
+        )
     if not is_web_url(url):
         return NOT_WEB_URL
     url = url.strip()
-    _write_command({"action": "open", "url": url})
-    return f"requested the app to open {url}"
+    request_id = _write_command({"action": "open", "mode": mode, "url": url})
+    _last_chosen_mode = mode
+    if mode == "visible":
+        return f"requested the app to open {url}"
+    state = _await_answer(request_id, HIDDEN_OPEN_TIMEOUT)
+    if state is None:
+        return (
+            "the app has not opened the hidden browser yet (it reads requests while it is on screen or an agent "
+            "is working); call browser_status in a moment"
+        )
+    hidden = state.get("hidden")
+    if chosen_mode(state) != "hidden" or not isinstance(hidden, dict) or not hidden.get("targetId"):
+        return ended_message(state)
+    _await_load(hidden["targetId"])
+    return (
+        f"opened {url} in the hidden browser; the user's screen did not change. They see \"Agent is browsing "
+        f"{urlparse(url).hostname}\" with a View button that brings this page onto their screen as it is. "
+        "The other browser_* tools act on this page now; call browser_close when you are done."
+    )
+
+
+def tool_close(args: dict) -> str:
+    state = read_state()
+    if not (state and isinstance(state.get("hidden"), dict)):
+        return "no hidden browser is open"
+    request_id = _write_command({"action": "close"})
+    if _await_answer(request_id, CLOSE_TIMEOUT) is None:
+        return "asked the app to close the hidden browser"
+    return "closed the hidden browser"
+
+
+def _describe_page(target: dict) -> str:
+    return f"page: {target.get('url', '')} ({target.get('title', '')})"
 
 
 NOT_LOOPBACK = (
@@ -634,8 +840,7 @@ def tool_handoff(args: dict) -> str:
         raise CdpError(f"could not clear the previous handoff status: {exc}") from exc
     # The status names the handoff it answers: another agent's server shares the file, and its
     # answer must not end this call.
-    request_id = uuid.uuid4().hex
-    _write_command({"action": "handoff", "requestId": request_id})
+    request_id = _write_command({"action": "handoff"})
     deadline = started + timeout
     shown = False
     # Another request's status seen on the last look after this command had left the file.
@@ -668,13 +873,27 @@ def tool_handoff(args: dict) -> str:
 
 
 def tool_status(args: dict) -> str:
+    state = read_state()
+    if chosen_mode(state) == "hidden":
+        hidden = state.get("hidden")
+        if not isinstance(hidden, dict):
+            return f"active: hidden browser / {ended_message(state)}"
+        if not hidden.get("targetId"):
+            return f"active: hidden browser / {HIDDEN_STARTING}"
+        label = "active: hidden browser (not on the user's screen)"
+    else:
+        label = "active: visible browser (the Guest Browser on the user's screen)"
     name = _find_devtools_socket()
     if name is None:
-        return f"not connected: {NOT_REACHABLE}"
-    target = choose_target(CdpSession(name).list_targets())
+        return f"{label}\nnot connected: {NOT_REACHABLE}"
+    try:
+        target = choose_page(CdpSession(name).list_targets(), state)
+    except CdpError as error:
+        return f"{label}\nconnected: {name} / {error}"
     if target is None:
-        return f"connected: {name} / {NO_PAGE}"
-    return f"connected: {name} / page: {target.get('url', '')} ({target.get('title', '')})"
+        return f"{label}\nconnected: {name} / {NO_PAGE}"
+    viewed = state is not None and state.get("ended") == "viewed" and target.get("id") == state.get("visibleTargetId")
+    return f"{label}\nconnected: {name} / {_describe_page(target)}" + (f"\n{VIEWED}" if viewed else "")
 
 
 def tool_navigate(args: dict) -> str:
@@ -1112,14 +1331,26 @@ TOOLS = [
     {
         "name": "browser_show",
         "description": (
-            "Open the AndCode in-app Guest Browser full-screen at the given URL so the user can watch "
-            "and operate the page. Use browser_preview instead when a page on this device should stay "
-            "pinned inside the chat. Call this before other browser_* tools."
+            "Open a URL in a browser of the AndCode app for the other browser_* tools to drive; call this "
+            "before them. Pick the mode: \"hidden\" for pages you only read, check or scrape yourself: an "
+            "app-owned browser the user does not see, so their screen does not change; they see \"Agent is "
+            "browsing <host>\" with a View button that brings the page onto their screen as you left it, and "
+            "it closes after a few minutes unused. \"visible\" (the default) when the user needs to look, sign "
+            "in, approve or take over: opens the in-app Guest Browser on the user's screen. With mode "
+            "\"visible\" and no url, the hidden page is handed to the user as it is. The other tools act on the "
+            "browser chosen last, never on another page the user has open. Use browser_preview instead when "
+            "a page on this device should stay pinned inside the chat."
         ),
         "inputSchema": {
             "type": "object",
-            "properties": {"url": {"type": "string"}},
-            "required": ["url"],
+            "properties": {
+                "url": {"type": "string", "description": "http(s) address; omit only to hand the hidden page to the user."},
+                "mode": {
+                    "type": "string",
+                    "enum": ["visible", "hidden"],
+                    "description": "visible (default): on the user's screen. hidden: out of sight, for your own work.",
+                },
+            },
         },
     },
     {
@@ -1138,10 +1369,12 @@ TOOLS = [
     {
         "name": "browser_handoff",
         "description": (
-            "Hand the open Guest Browser to the user for a step only they can do (signing in with "
+            "Hand the browser's page to the user for a step only they can do (signing in with "
             "their own credentials, approving a prompt, solving a captcha). Returns when the user taps "
             "'Hand back to agent' (continue), taps Cancel (stop), or after timeout_s (call it again if "
-            "they are still busy). Call browser_show first. The page the user is on is left exactly as it is."
+            "they are still busy). Call browser_show first. The page is left exactly as it is; a hidden "
+            "browser's page is first brought onto the user's screen, as View does, and counts as the "
+            "visible browser from then on."
         ),
         "inputSchema": {
             "type": "object",
@@ -1154,13 +1387,24 @@ TOOLS = [
         },
     },
     {
+        "name": "browser_close",
+        "description": (
+            "Close the hidden browser when you are done with it. It also closes after a few minutes unused, "
+            "when the chat ends, or when the user closes it."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
         "name": "browser_status",
-        "description": "Report CDP connectivity to the Guest Browser WebView and the current pages.",
+        "description": (
+            "Report which browser is active (hidden, or visible on the user's screen), its page's URL and title, "
+            "and whether the user took the hidden page over with View."
+        ),
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
         "name": "browser_navigate",
-        "description": "Navigate the open Guest Browser to a URL.",
+        "description": "Navigate the active browser's page to a URL.",
         "inputSchema": {
             "type": "object",
             "properties": {"url": {"type": "string"}},
@@ -1170,7 +1414,7 @@ TOOLS = [
     {
         "name": "browser_read",
         "description": (
-            "List what can be acted on in the Guest Browser page: links, buttons, fields and so on, "
+            "List what can be acted on in the active browser's page: links, buttons, fields and so on, "
             "one per line as [handle] kind \"name\" (at most 150, in page order; password values are "
             "never shown). Pass a handle to browser_click or browser_type instead of guessing "
             "coordinates. Handles stay valid while the element stays in the page; read again after "
@@ -1181,7 +1425,7 @@ TOOLS = [
     {
         "name": "browser_click",
         "description": (
-            "Click an element of the Guest Browser page by its handle from browser_read, or tap "
+            "Click an element of the active browser's page by its handle from browser_read, or tap "
             "viewport coordinates (x, y) when there is none."
         ),
         "inputSchema": {
@@ -1196,7 +1440,7 @@ TOOLS = [
     {
         "name": "browser_type",
         "description": (
-            "Type text into an input of the Guest Browser page: the one with the given handle from "
+            "Type text into an input of the active browser's page: the one with the given handle from "
             "browser_read, or else the focused one. Text is inserted at the cursor; existing text "
             "is not cleared. A password field is refused (best effort: fields inside iframes or a "
             "shadow root are not inspected); use browser_handoff when credentials are needed."
@@ -1213,7 +1457,7 @@ TOOLS = [
     {
         "name": "browser_console",
         "description": (
-            "Read what the Guest Browser page logged: console messages, uncaught exceptions, files that "
+            "Read what the active browser's page logged: console messages, uncaught exceptions, files that "
             "failed to load, and requests that failed or answered 4xx/5xx, oldest first (at most the "
             "last 100, from the top page only, not its iframes). Sign-in details, query values and "
             "fragments of the page's and requests' URLs are hidden. The "
@@ -1230,7 +1474,7 @@ TOOLS = [
     {
         "name": "browser_press_key",
         "description": (
-            "Press a key in the Guest Browser page, e.g. Enter to submit, Tab, Escape, the arrows, or a "
+            "Press a key in the active browser's page, e.g. Enter to submit, Tab, Escape, the arrows, or a "
             "page shortcut like ctrl+a (not the phone's own shortcuts). With a handle from browser_read "
             "the element gets focus first; otherwise the key goes to the focused element."
         ),
@@ -1246,7 +1490,7 @@ TOOLS = [
     {
         "name": "browser_scroll",
         "description": (
-            "Scroll the Guest Browser page (or, when the page itself does not scroll, the panel in the "
+            "Scroll the active browser's page (or, when the page itself does not scroll, the panel in the "
             "middle of the screen; not inside iframes) by most of a screen, or by amount CSS pixels, in "
             "a direction; or bring the element with a handle from browser_read into view."
         ),
@@ -1288,7 +1532,7 @@ TOOLS = [
     },
     {
         "name": "browser_screenshot",
-        "description": "Capture the Guest Browser page as PNG and return the saved path.",
+        "description": "Capture the active browser's page as PNG and return the saved path.",
         "inputSchema": {
             "type": "object",
             "properties": {"save_path": {"type": "string"}},
@@ -1296,7 +1540,7 @@ TOOLS = [
     },
     {
         "name": "browser_info",
-        "description": "Return the current URL and title of the Guest Browser page.",
+        "description": "Return the current URL and title of the active browser's page.",
         "inputSchema": {"type": "object", "properties": {}},
     },
 ]
@@ -1305,6 +1549,7 @@ HANDLERS = {
     "browser_show": tool_show,
     "browser_preview": tool_preview,
     "browser_handoff": tool_handoff,
+    "browser_close": tool_close,
     "browser_status": tool_status,
     "browser_navigate": tool_navigate,
     "browser_read": tool_read,

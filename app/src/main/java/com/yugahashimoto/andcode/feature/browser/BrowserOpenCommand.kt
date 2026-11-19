@@ -26,22 +26,51 @@ internal const val BROWSER_COMMAND_PATH = "root/.local/share/and-code/browser-co
  */
 internal const val BROWSER_STATUS_PATH = "root/.local/share/and-code/browser-status.json"
 
+/**
+ * Where the app tells the guest's browser tool which browser the agent is on and which page is the
+ * hidden one ([AgentBrowserState.statusJson]), beside [BROWSER_COMMAND_PATH].
+ */
+internal const val BROWSER_STATE_PATH = "root/.local/share/and-code/browser-state.json"
+
 internal const val BROWSER_STATUS_AWAITING_USER = "awaiting_user"
 internal const val BROWSER_STATUS_AGENT = "agent"
 internal const val BROWSER_STATUS_DISMISSED = "dismissed"
 
 private const val TAG = "BrowserCommand"
 
+/** Which browser an agent works in: the Guest Browser on the user's screen, or a hidden one of its own. */
+enum class BrowserMode(
+    val id: String,
+) {
+    VISIBLE("visible"),
+    HIDDEN("hidden"),
+    ;
+
+    companion object {
+        /** The mode [id] names; none named is [VISIBLE], as every command was before there were modes. */
+        fun fromId(id: String): BrowserMode? = if (id.isEmpty()) VISIBLE else entries.firstOrNull { it.id == id }
+    }
+}
+
 /** What an agent's browser tool asked of the app, through the command file. */
 sealed interface BrowserCommand {
-    /** Opens the full-screen Guest Browser at [url]. */
+    /** Names the request in the status the app writes back, so the tool knows its answer has come. */
+    val requestId: String
+
+    /**
+     * Opens [url] in the browser [mode] names: the full-screen Guest Browser, or the hidden one. A
+     * visible open without [url] hands the hidden page to the user as it is, as the notice's View does.
+     */
     data class Open(
-        val url: String,
+        val url: String?,
+        val mode: BrowserMode = BrowserMode.VISIBLE,
+        override val requestId: String = "",
     ) : BrowserCommand
 
     /** Pins [url], a page on this device, inside the conversation as a live preview. */
     data class Preview(
         val url: String,
+        override val requestId: String = "",
     ) : BrowserCommand
 
     /**
@@ -52,8 +81,12 @@ sealed interface BrowserCommand {
      */
     data class Handoff(
         val rootfs: File,
-        /** Names this handoff in the status, so its tool reads its own answer and no other. */
-        val requestId: String = "",
+        override val requestId: String = "",
+    ) : BrowserCommand
+
+    /** Closes the hidden browser. */
+    data class Close(
+        override val requestId: String = "",
     ) : BrowserCommand
 }
 
@@ -107,19 +140,20 @@ internal fun activeWorkspaceHostDirectory(
 /**
  * The browser command an agent of the active local runtime left, consumed, or null.
  *
- * Read from the rootfs that agent runs in, whichever folder is open: the Guest Browser is one for the
- * whole app. Only a command stamped in the last few minutes counts; an older one is dropped. A
- * consumed handoff is recorded as `awaiting_user` before it is handed on, so the agent never reads a
- * stale answer from an earlier one.
+ * Read from the rootfs that agent runs in, whichever folder is open: the browsers are the whole
+ * app's. Only a command stamped in the last few minutes counts; an older one, or one that is not a
+ * command, is dropped. One that [accept] turns down (a visible open while the app is in the
+ * background) stays in place for a later read. A consumed handoff is recorded as `awaiting_user`
+ * before it is handed on, so the agent never reads a stale answer from an earlier one.
  */
 internal fun consumeBrowserCommand(
-    workspacePath: String?,
     agent: LocalAgent?,
     runtimeDirectory: File,
     clock: () -> Long = System::currentTimeMillis,
+    accept: (BrowserCommand) -> Boolean = { true },
 ): BrowserCommand? {
-    // A remote workspace's agent is not on this phone, and with no workspace open none is running.
-    if (workspacePath == null || agent == null) return null
+    // A remote runtime's agent is not on this phone.
+    if (agent == null) return null
     return runCatching {
         val rootfs = guestRootfs(agent, runtimeDirectory)
         val commandFile = File(rootfs, BROWSER_COMMAND_PATH)
@@ -136,12 +170,18 @@ internal fun consumeBrowserCommand(
         // A guest script from before writes it in place rather than renaming it there, so one that does
         // not parse may be half written and is read again on the next poll. A complete one is used once
         // and removed, whether it is carried out or not (a request from long before the user came back,
-        // say); if it cannot be removed, it is not carried out, so it never runs twice.
-        browserCommandOf(JSONObject(bytes.decodeToString()), rootfs, clock())
-            .takeIf { commandFile.delete() }
-            ?.also { consumed ->
-                if (consumed is BrowserCommand.Handoff) writeBrowserStatus(rootfs, BROWSER_STATUS_AWAITING_USER, consumed.requestId)
-            }
+        // say); if it cannot be removed, it is not carried out, so it never runs twice. One the app
+        // cannot act on yet stays as it is.
+        val command = browserCommandOf(JSONObject(bytes.decodeToString()), rootfs, clock())
+        if (command != null && !accept(command)) {
+            null
+        } else {
+            command
+                .takeIf { commandFile.delete() }
+                ?.also { consumed ->
+                    if (consumed is BrowserCommand.Handoff) writeBrowserStatus(rootfs, BROWSER_STATUS_AWAITING_USER, consumed.requestId)
+                }
+        }
     }.getOrNull()
 }
 
@@ -153,15 +193,33 @@ private fun browserCommandOf(
 ): BrowserCommand? {
     val createdAtMs = json.optLong("createdAtMs", 0L)
     if (createdAtMs !in (now - MAX_COMMAND_AGE_MILLIS)..(now + MAX_CLOCK_SKEW_MILLIS)) return null
-    val url = json.optString("url")
+    val url = json.optString("url").takeIf { it.isNotEmpty() }
+    val requestId = json.optString("requestId").take(MAX_REQUEST_ID_LENGTH)
     // An open or a preview must name a real web page, never a javascript: or file: URL that would let
     // the agent reach past the browser. A preview stays on this device: the inline preview is a live
     // WebView inside the conversation, and an arbitrary public page is never loaded into it. A handoff
     // must not name one at all: it acts on the page the user is already on.
     return when (json.optString("action")) {
-        "open" -> BrowserCommand.Open(url).takeIf { isWebAddress(url) }
-        "preview" -> BrowserCommand.Preview(url).takeIf { isLoopbackPreviewUrl(url) }
-        "handoff" -> BrowserCommand.Handoff(rootfs, json.optString("requestId").take(MAX_REQUEST_ID_LENGTH)).takeIf { url.isBlank() }
+        "open" -> openCommandOf(json, url, requestId)
+        "preview" -> url?.takeIf(::isLoopbackPreviewUrl)?.let { BrowserCommand.Preview(it, requestId) }
+        "handoff" -> BrowserCommand.Handoff(rootfs, requestId).takeIf { url == null }
+        "close" -> BrowserCommand.Close(requestId)
+        else -> null
+    }
+}
+
+/** An open in the browser [json] names: only the visible one can be opened without an address, to show the hidden page. */
+private fun openCommandOf(
+    json: JSONObject,
+    url: String?,
+    requestId: String,
+): BrowserCommand.Open? {
+    val mode = BrowserMode.fromId(json.optString("mode")) ?: return null
+    return when {
+        url != null -> BrowserCommand.Open(url, mode, requestId).takeIf { isWebAddress(url) }
+        // Without an address only the hand-over, which names the visible browser itself: a command with
+        // neither, as every command was before there were modes, opens nothing.
+        mode == BrowserMode.VISIBLE && json.has("mode") -> BrowserCommand.Open(null, mode, requestId)
         else -> null
     }
 }
@@ -200,5 +258,5 @@ private const val MAX_COMMAND_BYTES = 16 * 1024
 /** The guest reads the same kernel clock; this only absorbs the write and read landing apart. */
 private const val MAX_CLOCK_SKEW_MILLIS = 60_000L
 
-/** The script's request ids are short; a longer one is cut rather than copied into the status. */
+/** The script's request ids are short; a longer one is cut rather than copied into every status. */
 private const val MAX_REQUEST_ID_LENGTH = 64

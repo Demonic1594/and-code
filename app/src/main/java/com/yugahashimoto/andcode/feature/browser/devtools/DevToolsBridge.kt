@@ -55,6 +55,9 @@ class DevToolsBridge(
         }
     }
 
+    /** Whether this bridge is attached to [view], as a handed-over page's is. */
+    fun isAttachedTo(view: WebView): Boolean = webView === view
+
     fun detach() {
         textRequests.clear()
         startScript?.remove()

@@ -1218,6 +1218,8 @@
     <string name="notification_channel_schedules">تشغيلات مجدولة</string>
     <string name="notification_channel_schedule_agent_changes">الجداول التي غيّرها الوكلاء</string>
     <string name="notification_channel_schedule_agent_changes_description">عندما يضيف وكيل جدولًا أو يغيّره أو يحذفه دون أن يسألك</string>
+    <string name="notification_channel_agent_browsing">تصفح الوكيل</string>
+    <string name="notification_channel_agent_browsing_description">عندما يتصفح وكيل صفحة بعيدًا عن الأنظار، في متصفحه المخفي</string>
     <string name="notification_schedule_agent_created_title">أضاف وكيل جدولًا: %1$s</string>
     <string name="notification_schedule_agent_changed_title">غيّر وكيل جدولًا: %1$s</string>
     <string name="notification_schedule_agent_deleted_title">حذف وكيل جدولًا: %1$s</string>
@@ -1472,6 +1474,10 @@
     <string name="chat_preview_link">معاينة</string>
     <string name="chat_preview_unavailable">تعذر بدء WebView على هذا الجهاز، لذا المعاينة غير متاحة.</string>
     <string name="chat_preview_minimize">تصغير المعاينة</string>
+    <string name="agent_browsing_notice">الوكيل يتصفح %1$s</string>
+    <string name="agent_browsing_view">عرض</string>
+    <string name="agent_browsing_close">إغلاق</string>
+    <string name="agent_browsing_notification_text">في متصفحه المخفي، بعيدًا عن الأنظار. يعرض لك «عرض» الصفحة كما هي.</string>
     <string name="setup_step_development_tools">أدوات التطوير</string>
     <string name="setup_development_tools_description">يتم تثبيت مكونات التشغيل الضرورية فقط افتراضيًا، ويمكنك إضافة مجموعة أدوات التطوير الكاملة.</string>
     <string name="setup_required_tools_description">سيتم دائمًا تثبيت Linux والوكلاء المحددين وGit وأدوات الدعم التي يستخدمها AndCode.</string>

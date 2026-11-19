@@ -50,11 +50,12 @@ import com.yugahashimoto.andcode.core.storage.DeviceStorage
 import com.yugahashimoto.andcode.data.settings.DraftRepository
 import com.yugahashimoto.andcode.feature.activity.ActivityViewModel
 import com.yugahashimoto.andcode.feature.assistant.SpeechRecognizerManager
-import com.yugahashimoto.andcode.feature.browser.BrowserCommand
+import com.yugahashimoto.andcode.feature.browser.AgentBrowsingBannerState
 import com.yugahashimoto.andcode.feature.browser.BrowserHandoff
-import com.yugahashimoto.andcode.feature.browser.GuestBrowserCommandWatcher
+import com.yugahashimoto.andcode.feature.browser.LocalAgentBrowsing
 import com.yugahashimoto.andcode.feature.browser.PreviewTarget
 import com.yugahashimoto.andcode.feature.browser.PreviewUiState
+import com.yugahashimoto.andcode.feature.browser.VisibleBrowserRequest
 import com.yugahashimoto.andcode.feature.browser.activeWorkspaceHostDirectory
 import com.yugahashimoto.andcode.feature.browser.findPreviewEntry
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
@@ -83,6 +84,7 @@ import com.yugahashimoto.andcode.ui.navigation.ClaudeSettingsActions
 import com.yugahashimoto.andcode.ui.navigation.DRAWER_ROOT_ROUTES
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ANDROID_SETUP
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_CHAT
+import com.yugahashimoto.andcode.ui.navigation.ROUTE_GUEST_BROWSER_AGENT_PAGE
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_ONBOARDING
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_REMOTE_CONNECTION
 import com.yugahashimoto.andcode.ui.navigation.ROUTE_SCHEDULES
@@ -695,6 +697,10 @@ fun AndCodeApp(
                 navController.navigate(ROUTE_CHAT) { launchSingleTop = true }
             }
             ShortcutDestination.WORKSPACES -> navController.navigate(ROUTE_WORKSPACES) { launchSingleTop = true }
+            ShortcutDestination.AGENT_BROWSER -> {
+                collapseActivePreview()
+                navController.navigate(ROUTE_GUEST_BROWSER_AGENT_PAGE) { launchSingleTop = true }
+            }
             ShortcutDestination.SCHEDULES -> {
                 navController.navigate(ROUTE_SCHEDULES) { launchSingleTop = true }
                 // An agent's schedule-change notification opens the schedule itself, over the list so
@@ -704,33 +710,60 @@ fun AndCodeApp(
         }
     }
 
-    // Lets the in-guest agent open the Guest Browser or pin a page of this device in the chat for the
-    // user, or hand the browser over and wait, by leaving a command file in the guest home (see
-    // GuestBrowserCommandWatcher).
-    GuestBrowserCommandWatcher(
-        workspacePath = chatState.sessionDirectory ?: chatState.selectedWorkspacePath,
-        agent = selectedRuntime?.agent,
-        runtimeDirectory = java.io.File(context.filesDir, "runtime"),
-        foreground = app.appForeground.foreground,
-        onCommand = { command ->
-            when (command) {
-                is BrowserCommand.Open -> {
-                    // Tear down any inline preview WebView before opening the full-screen browser
-                    // so only one WebView target is alive for CDP at a time.
-                    collapseActivePreview()
-                    navController.navigate(guestBrowserRoute(command.url)) { launchSingleTop = true }
-                }
-                is BrowserCommand.Preview -> showPreview(PreviewTarget.Url(command.url))
-                is BrowserCommand.Handoff -> {
-                    // The watcher has already recorded `awaiting_user`. A handoff never navigates:
-                    // `launchSingleTop` would reuse the same entry and the WebView only loads its
-                    // first URL, so a "navigate" here would be a no-op at best and a reload of the
-                    // sign-in the user just completed at worst.
-                    BrowserHandoff.begin(command.rootfs, command.requestId)
-                }
+    // An in-guest agent asked for something on the user's screen: the Guest Browser at an address or
+    // with the hidden page it was working in, a page of this device pinned in the chat, or a handoff.
+    // The app reads its commands (HiddenAgentBrowser) and holds these until the app is on screen.
+    val agentBrowserRequest by app.agentBrowser.visibleRequests.collectAsState()
+    LaunchedEffect(agentBrowserRequest) {
+        val request = agentBrowserRequest ?: return@LaunchedEffect
+        app.agentBrowser.consumeVisibleRequest(request)
+        when (request) {
+            is VisibleBrowserRequest.OpenUrl -> {
+                // Tear down any inline preview WebView before opening the full-screen browser, so the
+                // preview is never alive beside the page the agent drives.
+                collapseActivePreview()
+                navController.navigate(guestBrowserRoute(request.url)) { launchSingleTop = true }
             }
-        },
-    )
+            VisibleBrowserRequest.ShowHiddenPage -> {
+                collapseActivePreview()
+                navController.navigate(ROUTE_GUEST_BROWSER_AGENT_PAGE) { launchSingleTop = true }
+            }
+            is VisibleBrowserRequest.Preview -> showPreview(PreviewTarget.Url(request.url))
+            is VisibleBrowserRequest.Handoff -> {
+                // A handoff in the hidden browser first brings its page on screen, as View does; one in
+                // the Guest Browser never navigates: `launchSingleTop` would reuse the same entry and
+                // the WebView only loads its first URL, so a "navigate" here would be a no-op at best
+                // and a reload of the sign-in the user just completed at worst.
+                if (request.showHiddenPage) {
+                    collapseActivePreview()
+                    navController.navigate(ROUTE_GUEST_BROWSER_AGENT_PAGE) { launchSingleTop = true }
+                }
+                BrowserHandoff.begin(request.rootfs, request.requestId)
+            }
+        }
+    }
+    // A hidden browser belongs to the chat it was opened in: leaving that chat closes it.
+    var agentBrowserChat by remember { mutableStateOf(chatState.sessionId) }
+    LaunchedEffect(chatState.sessionId) {
+        app.agentBrowser.onChatChanged(agentBrowserChat, chatState.sessionId)
+        agentBrowserChat = chatState.sessionId
+    }
+    val agentBrowserState by app.agentBrowser.state.collectAsState()
+    val agentBrowsingHost = agentBrowserState.browsingNotice(foreground = true)?.host
+    val agentBrowsing =
+        remember(agentBrowsingHost) {
+            agentBrowsingHost?.let { host ->
+                AgentBrowsingBannerState(
+                    host = host,
+                    onView = {
+                        // Only one of the app's WebViews is alive beside the page the agent drives.
+                        collapseActivePreview()
+                        navController.navigate(ROUTE_GUEST_BROWSER_AGENT_PAGE) { launchSingleTop = true }
+                    },
+                    onClose = app.agentBrowser::closeByUser,
+                )
+            }
+        }
 
     val onHandoff: (String) -> Unit = { targetRuntimeId ->
         val prompt = buildHandoffPrompt(chatState.messages)
@@ -871,6 +904,7 @@ fun AndCodeApp(
         CompositionLocalProvider(
             LocalHapticsEnabled provides preferences.hapticsEnabled,
             LocalServerUrlOpener provides { url -> navController.navigate(guestBrowserRoute(url)) { launchSingleTop = true } },
+            LocalAgentBrowsing provides agentBrowsing,
         ) {
             ModalNavigationDrawer(
                 modifier =
