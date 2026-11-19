@@ -1355,6 +1355,15 @@
     <string name="webview_page_gone_body">このページを表示していたプロセスを Android が終了しました。多くの場合、メモリを解放するためです。再読み込みすると、もう一度開きます。</string>
     <string name="webview_page_gone_reload">再読み込み</string>
     <string name="guest_browser_agent_controlling">エージェントがこのページを操作しています</string>
+    <string name="guest_browser_handoff_title">あなたが操作中です</string>
+    <string name="guest_browser_handoff_body">エージェントにはできない手順（サインインなど）をここで済ませてから、ブラウザをエージェントに戻してください。</string>
+    <string name="guest_browser_handoff_done">エージェントに戻す</string>
+    <string name="guest_browser_handoff_cancel">キャンセル</string>
+    <string name="chat_preview_expand">ゲストブラウザで開く</string>
+    <string name="chat_preview_close">プレビューを閉じる</string>
+    <string name="chat_preview_link">プレビュー</string>
+    <string name="chat_preview_unavailable">このデバイスのWebViewを起動できなかったため、プレビューを利用できません。</string>
+    <string name="chat_preview_minimize">プレビューを最小化</string>
     <string name="setup_step_development_tools">開発ツール</string>
     <string name="setup_development_tools_description">既定では実行に必要なものだけをインストールします。完全な開発ツールチェーンも選択できます。</string>
     <string name="setup_required_tools_description">Linux、選択したエージェント、Git、および AndCode が使用するサポートツールです。これらは常にインストールされます。</string>

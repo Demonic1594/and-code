@@ -110,6 +110,7 @@ class BrowserCommandWatcherTest {
             "{\"action\":\"close\",\"url\":\"https://example.com/\",\"createdAtMs\":$NOW}",
             "{\"action\":\"open\",\"url\":\"javascript:alert(1)\",\"createdAtMs\":$NOW}",
             "{\"action\":\"open\",\"url\":\"file:///root/private\",\"createdAtMs\":$NOW}",
+            "{\"action\":\"preview\",\"url\":\"file:///root/private\",\"createdAtMs\":$NOW}",
             "{\"action\":\"open\",\"url\":\"https://\",\"createdAtMs\":$NOW}",
             "{\"action\":\"open\",\"url\":\"\",\"createdAtMs\":$NOW}",
         ).forEach { text ->
@@ -171,6 +172,61 @@ class BrowserCommandWatcherTest {
         assertFalse(big.exists())
     }
 
+    @Test
+    fun `preview commands pin a loopback page inside the chat`() {
+        val file = command("environment/rootfs").apply { writeText(json("preview", "http://127.0.0.1:5173/")) }
+
+        assertEquals(BrowserCommand.Preview("http://127.0.0.1:5173/"), consumeCommand())
+        assertFalse(file.exists())
+    }
+
+    /** The preview is a live WebView in the conversation: a public page goes to the Guest Browser instead. */
+    @Test
+    fun `preview commands for pages not on this device are dropped`() {
+        listOf("https://example.com/", "http://example.com/", "http://10.0.0.2:8080/").forEach { url ->
+            val file = command("environment/rootfs").apply { writeText(json("preview", url)) }
+
+            assertNull(consumeCommand())
+            assertFalse(url, file.exists())
+        }
+    }
+
+    @Test
+    fun `handoff waits on the current page and records that it is waiting, in the guest home`() {
+        val file = command("environment/rootfs").apply { writeText(json("handoff", "")) }
+
+        val command = consumeCommand()
+
+        assertEquals(BrowserCommand.Handoff(File(runtimeDirectory, "environment/rootfs")), command)
+        assertFalse(file.exists())
+        val status = File(File(runtimeDirectory, "environment/rootfs"), BROWSER_STATUS_PATH)
+        assertTrue(status.readText().contains(BROWSER_STATUS_AWAITING_USER))
+    }
+
+    @Test
+    fun `handoff never carries a url because it acts on the page already open`() {
+        listOf("https://example.com/login", "javascript:alert(1)").forEach { url ->
+            val file = command("environment/rootfs").apply { writeText(json("handoff", url)) }
+
+            assertNull(consumeCommand())
+            assertFalse(file.exists())
+        }
+    }
+
+    /** The guest owns its home: a link it planted there is replaced, never written through. */
+    @Test
+    fun `the handoff status replaces a link rather than writing through it`() {
+        val appFile = temporaryFolder.newFile("shared_prefs.xml").apply { writeText("keep") }
+        val rootfs = File(runtimeDirectory, "environment/rootfs")
+        val status = File(rootfs, BROWSER_STATUS_PATH).apply { parentFile!!.mkdirs() }
+        java.nio.file.Files.createSymbolicLink(status.toPath(), appFile.toPath())
+
+        writeBrowserStatus(rootfs, BROWSER_STATUS_AGENT)
+
+        assertEquals("keep", appFile.readText())
+        assertTrue(status.readText().contains(BROWSER_STATUS_AGENT))
+    }
+
     /**
      * The guest browser is only worth opening for someone looking at the app, so the watcher stays
      * parked while it is in the background and hands over what arrived the moment it returns.
@@ -180,8 +236,8 @@ class BrowserCommandWatcherTest {
     fun `watcher opens a pending command only while the app is in the foreground`() =
         runTest {
             val foreground = MutableStateFlow(false)
-            val opened = mutableListOf<String>()
-            var pending: String? = "https://www.google.com/"
+            val opened = mutableListOf<BrowserCommand>()
+            var pending: BrowserCommand? = BrowserCommand.Open("https://www.google.com/")
             val scope = TestScope(StandardTestDispatcher(testScheduler))
             try {
                 scope.launch {
@@ -189,17 +245,17 @@ class BrowserCommandWatcherTest {
                         active = foreground,
                         intervalMillis = 1_000L,
                         poll = { pending.also { pending = null } },
-                        onOpenUrl = { opened += it },
+                        onCommand = { opened += it },
                     )
                 }
                 advanceTimeBy(60_000L)
                 runCurrent()
-                assertEquals(emptyList<String>(), opened)
+                assertEquals(emptyList<BrowserCommand>(), opened)
 
                 foreground.value = true
                 runCurrent()
 
-                assertEquals(listOf("https://www.google.com/"), opened)
+                assertEquals(listOf<BrowserCommand>(BrowserCommand.Open("https://www.google.com/")), opened)
             } finally {
                 scope.cancel()
             }
@@ -209,7 +265,13 @@ class BrowserCommandWatcherTest {
         path: String?,
         agent: LocalAgent? = LocalAgent.CODEX,
         now: Long = NOW,
-    ): String? = consumeBrowserOpenCommand(path, agent, runtimeDirectory) { now }
+    ): String? = (consumeCommand(path, agent, now) as? BrowserCommand.Open)?.url
+
+    private fun consumeCommand(
+        path: String? = "/root/project",
+        agent: LocalAgent? = LocalAgent.CODEX,
+        now: Long = NOW,
+    ): BrowserCommand? = consumeBrowserCommand(path, agent, runtimeDirectory) { now }
 
     /** A command in the guest home of the rootfs at [rootfs], relative to the runtime directory. */
     private fun command(
@@ -228,6 +290,11 @@ class BrowserCommandWatcherTest {
             val stamp = createdAtMs?.let { ",\"createdAtMs\":$it" }.orEmpty()
             writeText("{\"action\":\"open\",\"url\":\"$url\"$stamp}")
         }
+
+    private fun json(
+        action: String,
+        url: String,
+    ): String = "{\"action\":\"$action\",\"url\":\"$url\",\"createdAtMs\":$NOW}"
 
     private companion object {
         const val NOW = 1_800_000_000_000L

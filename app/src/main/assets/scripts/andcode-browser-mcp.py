@@ -5,7 +5,10 @@ Bridges the agent to the in-app Guest Browser of the AndCode Android app:
 
 - ``browser_show`` asks the app (via a command file in the guest home, never in
   a project, so a cloned repository cannot carry one) to open the guest browser
-  so the user can watch and operate the page.
+  so the user can watch and operate the page; ``browser_preview`` pins a page on
+  this device inside the chat instead, and ``browser_handoff`` hands the open
+  page to the user and waits for it back (through a status file beside the
+  command, which only the app writes).
 - The remaining tools drive the same WebView over CDP. While the Guest Browser is
   open with "Let agents control this browser" on, the app enables WebView
   debugging, which exposes ``webview_devtools_remote_<pid>`` as a Linux abstract
@@ -30,6 +33,8 @@ from urllib.parse import urlparse
 # In the guest home, outside every workspace: a command file in the project could come with a cloned
 # or pulled repository. The app reads it from here (BROWSER_COMMAND_PATH in BrowserOpenCommand.kt).
 COMMAND_FILE = Path("/root/.local/share/and-code/browser-command.json")
+# How a handoff stands, written by the app (BROWSER_STATUS_PATH in BrowserOpenCommand.kt).
+STATUS_FILE = Path("/root/.local/share/and-code/browser-status.json")
 # Logged to the page console before each action; the app shows "An agent is controlling this page".
 AGENT_ACTIVITY_MARKER = "andcode:agent-control"
 
@@ -345,16 +350,20 @@ class CdpSession:
 class _PageSession:
     def __init__(self, ws: _UnixWs):
         self.ws = ws
+        self._next_id = 0
 
     def call(self, method: str, **params) -> dict:
         # A page whose renderer died never answers: say so at once rather than wait out the timeout.
         try:
-            self.ws.send_text(json.dumps({"id": 1, "method": method, "params": params}))
+            # Each call gets its own id, so a late answer to an earlier call is never taken for this one's.
+            self._next_id += 1
+            request_id = self._next_id
+            self.ws.send_text(json.dumps({"id": request_id, "method": method, "params": params}))
             while True:
                 msg = json.loads(self.ws.recv_text())
                 if msg.get("method") == "Inspector.targetCrashed":
                     raise PageGone(PAGE_GONE)
-                if msg.get("id") == 1:
+                if msg.get("id") == request_id:
                     if "error" in msg:
                         raise CdpError(f"{method}: {msg['error']}")
                     return msg.get("result", {})
@@ -517,21 +526,106 @@ def is_web_url(url) -> bool:
     return parts.scheme.lower() in ("http", "https") and bool(parts.hostname)
 
 
-def tool_show(args: dict) -> str:
-    url = args.get("url")
-    if not is_web_url(url):
-        return NOT_WEB_URL
-    url = url.strip()
+def _write_command(command: dict) -> None:
+    """Leaves [command] for the app in the guest home, stamped with the time it was written."""
     COMMAND_FILE.parent.mkdir(parents=True, exist_ok=True)
-    # The app opens only a command stamped in the last few minutes, so one left from long before the
-    # user came back is dropped rather than opened.
-    command = {"action": "open", "url": url, "createdAtMs": int(time.time() * 1000)}
+    # The app acts only on a command stamped in the last few minutes, so one left from long before the
+    # user came back is dropped rather than carried out.
+    command = dict(command, createdAtMs=int(time.time() * 1000))
     # Written beside it and renamed over it, so the app never reads half a command.
     # One per server: each agent runs its own, and two could ask at once.
     partial = COMMAND_FILE.with_name(f"{COMMAND_FILE.name}.{os.getpid()}.partial")
     partial.write_text(json.dumps(command), encoding="utf-8")
     os.replace(partial, COMMAND_FILE)
+
+
+def tool_show(args: dict) -> str:
+    url = args.get("url")
+    if not is_web_url(url):
+        return NOT_WEB_URL
+    url = url.strip()
+    _write_command({"action": "open", "url": url})
     return f"requested the app to open {url}"
+
+
+NOT_LOOPBACK = (
+    "only a page on this device (http://localhost:PORT or http://127.0.0.1:PORT) can be previewed in the "
+    "chat; open any other page with browser_show"
+)
+
+
+def is_loopback_url(url) -> bool:
+    """Whether [url] is an http(s) page served on this device, the only kind the chat previews."""
+    if not is_web_url(url):
+        return False
+    host = (urllib.parse.urlsplit(url.strip()).hostname or "").lower()
+    return host in ("localhost", "127.0.0.1", "::1")
+
+
+def tool_preview(args: dict) -> str:
+    url = args.get("url")
+    if not is_loopback_url(url):
+        return NOT_LOOPBACK
+    url = url.strip()
+    _write_command({"action": "preview", "url": url})
+    return f"requested the app to show {url} as an inline preview"
+
+
+def _read_status() -> str | None:
+    try:
+        state = json.loads(STATUS_FILE.read_text(encoding="utf-8")).get("state")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return state if isinstance(state, str) else None
+
+
+def _wait_for_socket(timeout: float) -> str | None:
+    """The app builds the WebView just after browser_show returns, so give it a moment to appear."""
+    deadline = time.monotonic() + timeout
+    while True:
+        name = _find_devtools_socket()
+        if name is not None or time.monotonic() >= deadline:
+            return name
+        time.sleep(0.25)
+
+
+HANDOFF_BACK = "the user handed the browser back; continue with the page as it is now"
+HANDOFF_CANCELLED = "the user cancelled the handoff; do not continue with the page"
+HANDOFF_TIMED_OUT = (
+    "timed out waiting for the user to hand the browser back; ask them to finish and tap "
+    '"Hand back to agent"'
+)
+
+
+def tool_handoff(args: dict) -> str:
+    """Hand the open page to the user and block until they hand it back.
+
+    This is the only way the agent can ask for something it must not do itself, signing in above
+    all: the user operates the same visible WebView, then taps "Hand back to agent". The app and
+    the agent share no memory, so the outcome travels through the status file.
+    """
+    if _wait_for_socket(10) is None:
+        raise CdpError(NOT_REACHABLE)
+    # Stay below the MCP client's timeout (LocalRuntimeInstaller.BROWSER_MCP_TIMEOUT_MILLIS = 120 s)
+    # so this tool's own timeout reply can reach the agent instead of the client killing the call.
+    timeout = max(1.0, min(float(args.get("timeout_s") or 90), 110.0))
+    try:
+        STATUS_FILE.unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        # A leftover "agent" would make the next handoff return immediately, so never ignore this.
+        raise CdpError(f"could not clear the previous handoff status: {exc}") from exc
+    _write_command({"action": "handoff"})
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        state = _read_status()
+        if state == "agent":
+            return HANDOFF_BACK
+        if state == "dismissed":
+            return HANDOFF_CANCELLED
+        time.sleep(0.5)
+    return HANDOFF_TIMED_OUT
 
 
 def tool_status(args: dict) -> str:
@@ -598,6 +692,18 @@ def tool_click(args: dict) -> str:
         page.close()
 
 
+PASSWORD_REFUSED = (
+    "refused: that is a password field. Ask the user to type their own password, or call browser_handoff "
+    "so they can."
+)
+# Whether the focused element takes a password: credentials are the user's to type.
+FOCUSED_PASSWORD_JS = (
+    "(() => { const el = document.activeElement; "
+    "return !!el && (el.type === 'password' || "
+    "el.autocomplete === 'current-password' || el.autocomplete === 'new-password'); })()"
+)
+
+
 def tool_type(args: dict) -> str:
     page = _session().open_page_session()
     try:
@@ -609,9 +715,88 @@ def tool_type(args: dict) -> str:
                 return NOT_EDITABLE
         else:
             page.call("Runtime.evaluate", expression="document.activeElement && document.activeElement.focus()")
+        # A password field means the agent should have handed the page over instead of filling it in.
+        if _evaluate(page, FOCUSED_PASSWORD_JS):
+            return PASSWORD_REFUSED
         page.call("Input.insertText", text=args["text"])
         return "typed"
     finally:
+        page.close()
+
+
+def _find_file_input(page: "_PageSession", selector: str) -> str | None:
+    page.call("DOM.enable")
+    result = page.call(
+        "Runtime.evaluate",
+        expression=f"(() => document.querySelector({json.dumps(selector)}))()",
+        returnByValue=False,
+        objectGroup="upload",
+    )
+    obj = result.get("result", {})
+    if "objectId" not in obj or obj.get("subtype") in ("null", "undefined"):
+        return None
+    return obj["objectId"]
+
+
+UPLOAD_ROOTS = ("/sdcard", "/storage")
+
+
+def upload_path(raw) -> str:
+    """The real path of a device-storage file to attach, or a CdpError saying why it is not one."""
+    if not isinstance(raw, str) or not raw.strip():
+        raise CdpError("pass the path of a file under /sdcard or /storage")
+    path = os.path.realpath(os.path.expanduser(raw.strip()))
+    if not any(path == root or path.startswith(root + os.sep) for root in UPLOAD_ROOTS):
+        raise CdpError("attaching is limited to device storage under /sdcard or /storage")
+    if not os.path.isfile(path):
+        raise CdpError(f"no such file: {path}")
+    return path
+
+
+def tool_upload(args: dict) -> str:
+    """Attach a file from device storage to the page's file input without the Android picker.
+
+    The WebView process reads the file itself, so the path must be one it can open: device storage
+    under /sdcard or /storage, which holds no links. Best effort: only an input reachable from
+    document.querySelector is found; pass click_selector for a picker the site creates lazily. The
+    file chooser dialog is intercepted so clicking such a button does not open the native chooser.
+    """
+    path = upload_path(args.get("path"))
+    selector = args.get("selector") or "input[type=file]"
+    click_selector = args.get("click_selector")
+    page = _session().open_page_session()
+    try:
+        try:
+            page.call("Page.setInterceptFileChooserDialog", enabled=True)
+        except PageGone:
+            raise
+        except CdpError:
+            pass
+        object_id = _find_file_input(page, selector)
+        if object_id is None and click_selector:
+            page.call(
+                "Runtime.evaluate",
+                expression=(
+                    f"(() => {{ const el = document.querySelector({json.dumps(click_selector)}); "
+                    "if (el) el.click(); return !!el; })()"
+                ),
+                returnByValue=True,
+                userGesture=True,
+            )
+            time.sleep(0.5)
+            object_id = _find_file_input(page, selector)
+        if object_id is None:
+            raise CdpError(
+                "no file input found: pass the site's button as click_selector, or click the "
+                "upload button yourself and retry with a selector that matches the hidden input"
+            )
+        page.call("DOM.setFileInputFiles", files=[path], objectId=object_id)
+        return f"attached {os.path.basename(path)} to {selector}"
+    finally:
+        try:
+            page.call("Page.setInterceptFileChooserDialog", enabled=False)
+        except CdpError:
+            pass
         page.close()
 
 
@@ -885,13 +1070,45 @@ TOOLS = [
     {
         "name": "browser_show",
         "description": (
-            "Open the AndCode in-app Guest Browser at the given URL so the user can watch and "
-            "operate the page. Call this before other browser_* tools."
+            "Open the AndCode in-app Guest Browser full-screen at the given URL so the user can watch "
+            "and operate the page. Use browser_preview instead when a page on this device should stay "
+            "pinned inside the chat. Call this before other browser_* tools."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {"url": {"type": "string"}},
             "required": ["url"],
+        },
+    },
+    {
+        "name": "browser_preview",
+        "description": (
+            "Show a page served on this device (http://localhost:PORT or http://127.0.0.1:PORT) as a live, "
+            "interactive preview pinned inside the AndCode chat; it reloads as files change. Any other page "
+            "opens with browser_show. The other browser_* tools do not drive the preview."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"url": {"type": "string"}},
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "browser_handoff",
+        "description": (
+            "Hand the open Guest Browser to the user for a step only they can do (signing in with "
+            "their own credentials, approving a prompt, solving a captcha). Returns when the user taps "
+            "'Hand back to agent' (continue), taps Cancel (stop), or after timeout_s (call it again if "
+            "they are still busy). Call browser_show first. The page the user is on is left exactly as it is."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "timeout_s": {
+                    "type": "number",
+                    "description": "How long to wait for the user, in seconds (default 90, max 110).",
+                },
+            },
         },
     },
     {
@@ -939,7 +1156,8 @@ TOOLS = [
         "description": (
             "Type text into an input of the Guest Browser page: the one with the given handle from "
             "browser_read, or else the focused one. Text is inserted at the cursor; existing text "
-            "is not cleared."
+            "is not cleared. A password field is refused (best effort: fields inside iframes or a "
+            "shadow root are not inspected); use browser_handoff when credentials are needed."
         ),
         "inputSchema": {
             "type": "object",
@@ -1000,6 +1218,33 @@ TOOLS = [
         },
     },
     {
+        "name": "browser_upload",
+        "description": (
+            "Attach a file from device storage (/sdcard or /storage) to the Guest Browser page's file input, "
+            "bypassing the Android file picker. Best effort: only an input reachable from "
+            "document.querySelector is found; pass click_selector to open the site's upload button "
+            "when the input is created lazily."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Absolute device-storage path, e.g. /sdcard/DCIM/Camera/photo.jpg",
+                },
+                "selector": {
+                    "type": "string",
+                    "description": "CSS selector for the file input (default input[type=file]).",
+                },
+                "click_selector": {
+                    "type": "string",
+                    "description": "Optional CSS selector for the button that reveals the file input.",
+                },
+            },
+            "required": ["path"],
+        },
+    },
+    {
         "name": "browser_screenshot",
         "description": "Capture the Guest Browser page as PNG and return the saved path.",
         "inputSchema": {
@@ -1016,11 +1261,14 @@ TOOLS = [
 
 HANDLERS = {
     "browser_show": tool_show,
+    "browser_preview": tool_preview,
+    "browser_handoff": tool_handoff,
     "browser_status": tool_status,
     "browser_navigate": tool_navigate,
     "browser_read": tool_read,
     "browser_click": tool_click,
     "browser_type": tool_type,
+    "browser_upload": tool_upload,
     "browser_console": tool_console,
     "browser_press_key": tool_press_key,
     "browser_scroll": tool_scroll,

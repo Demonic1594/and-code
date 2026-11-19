@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -21,9 +22,12 @@ import com.yugahashimoto.andcode.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class GuestBrowserScreenInstrumentedTest {
@@ -38,6 +42,31 @@ class GuestBrowserScreenInstrumentedTest {
     @Test
     fun webViewDoesNotPaintOverTheAddressBarInDarkTheme() {
         checkAddressBar(dark = true)
+    }
+
+    @Test
+    fun handoffBannerHandsControlBack() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val rootfs = File(context.cacheDir, "handoff-${System.nanoTime()}").apply { mkdirs() }
+        val statusFile = File(rootfs, BROWSER_STATUS_PATH)
+        try {
+            BrowserHandoff.begin(rootfs)
+            composeRule.setContent {
+                MaterialTheme {
+                    GuestBrowserScreen(initialUrl = "", agentControl = false, onAgentControlChange = {}, onBack = {})
+                }
+            }
+
+            val done = context.getString(R.string.guest_browser_handoff_done)
+            composeRule.onNodeWithText(done).assertIsDisplayed().performClick()
+            composeRule.waitForIdle()
+
+            assertNull(BrowserHandoff.active)
+            assertTrue(statusFile.readText().contains("\"state\":\"agent\""))
+        } finally {
+            BrowserHandoff.dismiss()
+            rootfs.deleteRecursively()
+        }
     }
 
     private fun checkAddressBar(dark: Boolean) {

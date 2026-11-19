@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -89,6 +90,8 @@ import com.yugahashimoto.andcode.core.api.OpenCodeProvider
 import com.yugahashimoto.andcode.core.api.PromptAttachment
 import com.yugahashimoto.andcode.core.api.orderThinkingLevels
 import com.yugahashimoto.andcode.data.settings.SavedPrompt
+import com.yugahashimoto.andcode.feature.browser.PreviewTarget
+import com.yugahashimoto.andcode.feature.browser.PreviewUiState
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import com.yugahashimoto.andcode.runtime.PermissionResponse
 import com.yugahashimoto.andcode.runtime.RuntimeTarget
@@ -105,6 +108,7 @@ import com.yugahashimoto.andcode.ui.theme.AndCodeTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
+import java.io.File
 
 /** What the long-press action sheet offers for one message: its id, its text to copy, and whether "Edit & resend" applies. */
 private data class MessageActionTarget(
@@ -224,6 +228,21 @@ fun ChatHomeScreen(
     onOpenUrl: (String) -> Unit = {},
     /** The chat's repository on GitHub, when its folder was cloned from there; offered in the ⋮ menu. */
     repositoryUrl: String? = null,
+    /** Where the preview is: gone, the full card, or collapsed to a floating button. */
+    previewState: PreviewUiState = PreviewUiState.None,
+    /** Whether pages on this device can be previewed: only a runtime on this phone serves them. */
+    previewsAvailable: Boolean = true,
+    /** Reopenable targets: the last one, a detected static site, and loopback links in the chat. */
+    previewTargets: List<PreviewTarget> = emptyList(),
+    /** False while backgrounded, so the preview pauses and stops reloading. */
+    isForeground: Boolean = true,
+    /** Host-side workspace directory watched for live reload; null on remote runtimes. */
+    previewWorkspaceDir: File? = null,
+    onPreviewRequested: (PreviewTarget) -> Unit = {},
+    onPreviewMinimize: () -> Unit = {},
+    onPreviewRestore: () -> Unit = {},
+    onExpandPreview: (PreviewTarget) -> Unit = {},
+    onClosePreview: () -> Unit = {},
     onImageAttachment: (Bitmap) -> Unit = {},
     /** Fetches and opens the diff dialog for a tapped [ChatPart.Patch] card. */
     onOpenPatchDiff: (ChatPart.Patch) -> Unit = {},
@@ -755,6 +774,12 @@ fun ChatHomeScreen(
                                         entry,
                                         onOpenActivity = { activityGroupId = it },
                                         onImageClick = { selectedImage = it },
+                                        // 127.0.0.1 is this phone: a remote runtime's dev server is not there.
+                                        onPreviewRequested =
+                                            {
+                                                    url: String ->
+                                                onPreviewRequested(PreviewTarget.Url(url))
+                                            }.takeIf { previewsAvailable },
                                         onOpenProviderSettings = onOpenProviderSettings,
                                         onOpenChanges = onOpenPatchDiff,
                                         onPreviewArtifact = onOpenArtifact,
@@ -879,6 +904,39 @@ fun ChatHomeScreen(
                     onUndo = onUndoFileRestore,
                     onDismiss = onDismissFileRestore,
                 )
+            }
+
+            // The page the agent or a link pinned in the conversation, above the message field.
+            when (val preview = previewState) {
+                is PreviewUiState.Active ->
+                    key(preview.target.key) {
+                        ChatPreviewCard(
+                            target = preview.target,
+                            isForeground = isForeground,
+                            workspaceDir = previewWorkspaceDir,
+                            onMinimize = onPreviewMinimize,
+                            onExpand = onExpandPreview,
+                            onClose = onClosePreview,
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        )
+                    }
+                PreviewUiState.None ->
+                    if (previewTargets.isNotEmpty()) {
+                        PreviewReopenBar(
+                            targets = previewTargets,
+                            onSelect = onPreviewRequested,
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        )
+                    }
+                is PreviewUiState.Collapsed ->
+                    // Sits directly above the message field, bottom-right, where it is easy to reach
+                    // and clearly visible against the composer.
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        FloatingPreviewButton(onClick = onPreviewRestore)
+                    }
             }
 
             if (!runtimeNotReady) {
