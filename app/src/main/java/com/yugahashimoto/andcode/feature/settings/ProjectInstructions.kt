@@ -1,20 +1,45 @@
 package com.yugahashimoto.andcode.feature.settings
 
 import com.yugahashimoto.andcode.feature.workspace.WorkspaceShell
+import com.yugahashimoto.andcode.runtime.LocalAgent
+import com.yugahashimoto.andcode.runtime.local.AntigravitySandboxLauncher
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeCommandRunner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
  * The instruction file an agent reads from a project's root, opened from that agent's settings so
- * the user can edit the rules it follows: [CLAUDE_FILE] for Claude Code, [AGENTS_FILE] for Codex and
- * OpenCode. The file is created when the project has none yet, because the editor only opens files
- * that exist. A new [AGENTS_FILE] starts as a copy of the project's [CLAUDE_FILE], if it has one:
- * OpenCode reads `CLAUDE.md` only while there is no `AGENTS.md`, so an empty one would hide those rules.
+ * the user can edit the rules it follows (see [fileFor]). The file is created when the project has
+ * none yet, because the editor only opens files that exist. A new [AGENTS_FILE] starts as a copy of
+ * the project's [CLAUDE_FILE], if it has one: OpenCode reads `CLAUDE.md` only while there is no
+ * `AGENTS.md`, so an empty one would hide those rules.
  */
 internal object ProjectInstructions {
     const val CLAUDE_FILE = "CLAUDE.md"
     const val AGENTS_FILE = "AGENTS.md"
+
+    /**
+     * The file [agent]'s settings open: [CLAUDE_FILE] for Claude Code, [AGENTS_FILE] for the rest.
+     * Antigravity reads both `AGENTS.md` and `GEMINI.md` from the folder it starts in (the chat's
+     * project) up to the repository root, and adds them together; `AGENTS.md` is the one Codex and
+     * OpenCode read too, so one file holds the rules for all three (docs/ANTIGRAVITY.md).
+     */
+    fun fileFor(agent: LocalAgent): String =
+        when (agent) {
+            LocalAgent.CLAUDE_CODE -> CLAUDE_FILE
+            LocalAgent.CODEX, LocalAgent.OPEN_CODE, LocalAgent.ANTIGRAVITY -> AGENTS_FILE
+        }
+
+    /**
+     * Whether the instructions file in [folder] is the one [agent] reads. [prepare] and the editor
+     * work in the shared guest. Antigravity runs in a guest of its own that shares only the workspace
+     * and device storage with it, and starts in the workspace for any other chat folder
+     * ([AntigravitySandboxLauncher.workingDirectoryFor]), so a file there would be silently ignored.
+     */
+    fun readableBy(
+        agent: LocalAgent,
+        folder: String,
+    ): Boolean = agent != LocalAgent.ANTIGRAVITY || AntigravitySandboxLauncher.isSharedGuestPath(folder)
 
     /**
      * A shell command that creates [file] in [workspace] when it is missing (from [CLAUDE_FILE] for

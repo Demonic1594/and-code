@@ -3,6 +3,7 @@ package com.yugahashimoto.andcode.runtime.local
 import com.yugahashimoto.andcode.core.api.PromptAttachment
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -51,6 +52,29 @@ class AntigravityAttachmentTest {
             bytes,
             folder.root.resolve("workspace/.andcode-attachments/session_unsafe/3/0-photo_one.png").readBytes(),
         )
+    }
+
+    /**
+     * The chat's whole attachment folder, not one turn's: a later turn without attachments can still
+     * ask about an earlier one ("copy that image into res/"), as it could when agy started in /workspace.
+     */
+    @Test
+    fun `the attachment directory holds every turn's attachments, once there are any`() {
+        assertNull(antigravityAttachmentDirectory(folder.root, "session/unsafe"))
+
+        val prompt =
+            prepareAntigravityPrompt(
+                folder.root,
+                "session/unsafe",
+                3,
+                "Describe this image",
+                listOf(PromptAttachment("photo.png", "image/png", "data:image/png;base64,AQ==")),
+            )
+
+        val directory = antigravityAttachmentDirectory(folder.root, "session/unsafe")
+        assertEquals("/workspace/.andcode-attachments/session_unsafe", directory)
+        assertEquals("@$directory/3/0-photo.png", prompt.lineSequence().first())
+        assertNull(antigravityAttachmentDirectory(folder.root, "other-session"))
     }
 
     @Test(expected = IllegalArgumentException::class)
