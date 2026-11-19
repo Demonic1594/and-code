@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.runtime.local
 
 import com.yugahashimoto.andcode.core.storage.DeviceStorage
+import com.yugahashimoto.andcode.feature.workspace.WorkspaceFolders
 import java.io.File
 
 object AntigravitySandboxLauncher {
@@ -18,9 +19,30 @@ object AntigravitySandboxLauncher {
 
     /**
      * The folder agy starts in: the chat's own [directory], as Claude Code's `-w` and Codex's `cwd`
-     * are, or [WORKSPACE_GUEST_DIR] for a chat that has none.
+     * are, when agy's guest shares it ([isSharedGuestPath]) and [hostDirectory] finds it on the
+     * device; [WORKSPACE_GUEST_DIR] otherwise.
+     *
+     * agy runs in a Debian guest of its own when one is installed, while the folder picker browses
+     * the shared Alpine guest, so a folder such as `/root/project` there does not exist for agy. For a
+     * folder its guest lacks - that one, or a project whose files were deleted - PRoot would start agy
+     * in `/` instead, with the whole guest as its workspace.
      */
-    fun workingDirectoryFor(directory: String): String = directory.ifBlank { WORKSPACE_GUEST_DIR }
+    fun workingDirectoryFor(
+        directory: String,
+        hostDirectory: (String) -> File?,
+    ): String = directory.takeIf { isSharedGuestPath(it) && hostDirectory(it)?.isDirectory == true } ?: WORKSPACE_GUEST_DIR
+
+    /**
+     * Whether guest [path] is under the bind mounts every guest gets the same: the app's workspace and
+     * device storage. Anything else is a folder of one guest's own.
+     */
+    fun isSharedGuestPath(path: String): Boolean {
+        if (path.isBlank()) return false
+        val normalized = WorkspaceFolders.normalize(path)
+        return normalized == WORKSPACE_GUEST_DIR ||
+            WorkspaceFolders.isInsideWorkspaceRoot(normalized) ||
+            DeviceStorage.isDeviceStoragePath(normalized)
+    }
 
     /**
      * [workingDirectory] is the folder agy starts in, and agy takes that folder as its workspace: it
@@ -56,7 +78,7 @@ object AntigravitySandboxLauncher {
             // Empty until the user grants all-files access, so the sandbox is unchanged without it.
             addAll(DeviceStorage.bindArguments())
             add("-w")
-            add(workingDirectoryFor(workingDirectory))
+            add(workingDirectory.ifBlank { WORKSPACE_GUEST_DIR })
             if (pty) {
                 add("/usr/bin/script")
                 add("-qefc")

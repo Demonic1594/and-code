@@ -29,7 +29,6 @@ import com.yugahashimoto.andcode.feature.settings.GitHubSettingsScreen
 import com.yugahashimoto.andcode.feature.settings.ModelVisibilityScreen
 import com.yugahashimoto.andcode.feature.settings.OpenCodeAgentSettingsScreen
 import com.yugahashimoto.andcode.feature.settings.OpenCodeAgentSettingsViewModel
-import com.yugahashimoto.andcode.feature.settings.ProjectInstructions
 import com.yugahashimoto.andcode.feature.settings.ProviderSettingsScreen
 import com.yugahashimoto.andcode.feature.settings.SavedPromptsScreen
 import com.yugahashimoto.andcode.feature.settings.SettingsScreenV2
@@ -76,8 +75,8 @@ fun NavGraphBuilder.settingsNavGraph(
     antigravity: () -> com.yugahashimoto.andcode.runtime.local.AntigravityControllerState,
     antigravityActions: AntigravitySettingsActions,
     onRequestWakeWordPermission: () -> Unit,
-    /** Opens the open project's instructions file of this name in the editor, creating it when missing. */
-    onOpenProjectInstructions: (String) -> Unit,
+    /** Opens the open project's instructions file for this agent in the editor, creating it when missing. */
+    onOpenProjectInstructions: (LocalAgent) -> Unit,
 ) {
     composable(ROUTE_SETTINGS) {
         val settingsState by settingsViewModel.state.collectAsState()
@@ -363,7 +362,7 @@ fun NavGraphBuilder.settingsNavGraph(
                         ?: stringResource(R.string.system_prompt_none)
                 },
             onOpenMcp = { navController.navigate(ROUTE_SETTINGS_MCP) },
-            onOpenProjectInstructions = { onOpenProjectInstructions(ProjectInstructions.fileFor(LocalAgent.OPEN_CODE)) },
+            onOpenProjectInstructions = { onOpenProjectInstructions(LocalAgent.OPEN_CODE) },
             onBack = { navController.popBackStack() },
         )
     }
@@ -393,7 +392,7 @@ fun NavGraphBuilder.settingsNavGraph(
             onOpenMcp = { navController.navigate(ROUTE_SETTINGS_MCP_CLAUDE) },
             onOpenCommandRules = { navController.navigate(ROUTE_SETTINGS_COMMAND_RULES) },
             onOpenChecks = { navController.navigate(ROUTE_SETTINGS_CLAUDE_CHECKS) },
-            onOpenProjectInstructions = { onOpenProjectInstructions(ProjectInstructions.fileFor(LocalAgent.CLAUDE_CODE)) },
+            onOpenProjectInstructions = { onOpenProjectInstructions(LocalAgent.CLAUDE_CODE) },
             onSetKeepEditsInProject = claudeActions.onSetKeepEditsInProject,
             onOpenUrl = { url ->
                 UrlLauncher.openUrl(context, url)
@@ -459,7 +458,7 @@ fun NavGraphBuilder.settingsNavGraph(
             onOpenUrl = { url ->
                 UrlLauncher.openUrl(context, url)
             },
-            onOpenProjectInstructions = { onOpenProjectInstructions(ProjectInstructions.fileFor(LocalAgent.ANTIGRAVITY)) },
+            onOpenProjectInstructions = { onOpenProjectInstructions(LocalAgent.ANTIGRAVITY) },
             onBack = { navController.popBackStack() },
         )
     }
@@ -493,7 +492,7 @@ fun NavGraphBuilder.settingsNavGraph(
             onInstall = app.codexController::install,
             onSignOut = app.codexController::signOut,
             onOpenMcp = { navController.navigate(ROUTE_SETTINGS_MCP_CODEX) },
-            onOpenProjectInstructions = { onOpenProjectInstructions(ProjectInstructions.fileFor(LocalAgent.CODEX)) },
+            onOpenProjectInstructions = { onOpenProjectInstructions(LocalAgent.CODEX) },
             onBack = { navController.popBackStack() },
         )
     }

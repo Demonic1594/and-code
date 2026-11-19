@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -68,6 +69,53 @@ class AntigravitySandboxLauncherTest {
     }
 
     private fun List<String>.workingDirectory(): String = this[indexOf("-w") + 1]
+
+    @Test
+    fun `a chat starts in its folder when the workspace or device storage has it`() {
+        val existing = Files.createTempDirectory("antigravity-project").toFile()
+        try {
+            listOf("/workspace/my-app", "/sdcard/Projects/app", "/storage/ABCD-1234/app").forEach { folder ->
+                assertEquals(folder, AntigravitySandboxLauncher.workingDirectoryFor(folder) { existing })
+            }
+        } finally {
+            existing.deleteRecursively()
+        }
+    }
+
+    /** PRoot would start agy in `/`, the whole guest, for a folder its guest does not have. */
+    @Test
+    fun `a chat whose folder is gone starts in the shared workspace`() {
+        val missing = File(Files.createTempDirectory("antigravity-project").toFile().apply { delete() }, "gone")
+
+        assertEquals("/workspace", AntigravitySandboxLauncher.workingDirectoryFor("/workspace/deleted") { missing })
+        assertEquals("/workspace", AntigravitySandboxLauncher.workingDirectoryFor("/sdcard/app") { null })
+    }
+
+    /**
+     * agy runs in a guest of its own, which shares only `/workspace` and device storage with the guest
+     * the folder picker browses, so `/root/project` there is not agy's `/root/project`.
+     */
+    @Test
+    fun `a chat whose folder is elsewhere in a guest starts in the shared workspace`() {
+        val existing = Files.createTempDirectory("antigravity-project").toFile()
+        try {
+            listOf("/root/project", "/workspace-old/app", "/", " ").forEach { folder ->
+                assertEquals(folder, "/workspace", AntigravitySandboxLauncher.workingDirectoryFor(folder) { existing })
+            }
+        } finally {
+            existing.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `only the workspace and device storage are shared with agy's guest`() {
+        listOf("/workspace", "/workspace/", "/workspace/app", "/sdcard", "/sdcard/Download", "/storage/ABCD-1234").forEach {
+            assertTrue(it, AntigravitySandboxLauncher.isSharedGuestPath(it))
+        }
+        listOf("/", "/root/project", "/workspace-old", "/home/sdcard", "", "  ").forEach {
+            assertFalse(it, AntigravitySandboxLauncher.isSharedGuestPath(it))
+        }
+    }
 
     @Test
     fun `guest settings are valid json with the alt screen disabled`() {

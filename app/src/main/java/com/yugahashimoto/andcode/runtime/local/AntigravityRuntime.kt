@@ -7,6 +7,8 @@ import com.yugahashimoto.andcode.core.api.OpenCodeModelReference
 import com.yugahashimoto.andcode.core.api.OpenCodePart
 import com.yugahashimoto.andcode.core.api.OpenCodeTime
 import com.yugahashimoto.andcode.core.api.PromptAttachment
+import com.yugahashimoto.andcode.core.storage.DeviceStorage
+import com.yugahashimoto.andcode.feature.workspace.WorkspaceFolders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -197,7 +199,12 @@ class AntigravityRuntime(
                         prompt,
                         attachments,
                     )
-                val workingDirectory = AntigravitySandboxLauncher.workingDirectoryFor(workspace)
+                val workspaceHostDir = File(runtimeDirectory, "workspace")
+                val workingDirectory =
+                    AntigravitySandboxLauncher.workingDirectoryFor(workspace) {
+                        // No rootfs: a folder of one guest's own is never agy's (see workingDirectoryFor).
+                        WorkspaceFolders.hostDirectory(null, workspaceHostDir, it, DeviceStorage.mounts())
+                    }
                 // Normally unreachable now that the app always queues a send behind a running
                 // Antigravity turn (see RuntimeCapabilities.forcesQueue) - kept as a safety net for
                 // e.g. two clients racing the same session. Marking the kill as intentional here is

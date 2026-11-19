@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.feature.settings
 
 import com.yugahashimoto.andcode.feature.workspace.WorkspaceShell
 import com.yugahashimoto.andcode.runtime.LocalAgent
+import com.yugahashimoto.andcode.runtime.local.AntigravitySandboxLauncher
 import com.yugahashimoto.andcode.runtime.local.LocalRuntimeCommandRunner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,6 +29,17 @@ internal object ProjectInstructions {
             LocalAgent.CLAUDE_CODE -> CLAUDE_FILE
             LocalAgent.CODEX, LocalAgent.OPEN_CODE, LocalAgent.ANTIGRAVITY -> AGENTS_FILE
         }
+
+    /**
+     * Whether the instructions file in [folder] is the one [agent] reads. [prepare] and the editor
+     * work in the shared guest. Antigravity runs in a guest of its own that shares only the workspace
+     * and device storage with it, and starts in the workspace for any other chat folder
+     * ([AntigravitySandboxLauncher.workingDirectoryFor]), so a file there would be silently ignored.
+     */
+    fun readableBy(
+        agent: LocalAgent,
+        folder: String,
+    ): Boolean = agent != LocalAgent.ANTIGRAVITY || AntigravitySandboxLauncher.isSharedGuestPath(folder)
 
     /**
      * A shell command that creates [file] in [workspace] when it is missing (from [CLAUDE_FILE] for

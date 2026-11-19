@@ -48,9 +48,13 @@ much harder to parse.
 
 ## Working directory and project instructions
 
-A chat's `agy` starts in that chat's project folder (PRoot `-w`, or `/workspace` for a chat with no
-folder), the way Claude Code gets `-w` and Codex gets `cwd`. Sign-in, `agy models` and chat naming
-belong to no project and still start in `/workspace`. In the pinned 1.1.7, `entrypoints.launchCLI`
+A chat's `agy` starts in that chat's project folder (PRoot `-w`), the way Claude Code gets `-w` and
+Codex gets `cwd`, when the folder is in `/workspace` or device storage and still exists. Those are
+the bind mounts agy's Debian guest shares with the Alpine guest the folder picker browses. A chat with
+no folder, a folder elsewhere in the Alpine guest (`/root/project`, which agy's guest does not have)
+or a deleted one starts in `/workspace` instead: PRoot would otherwise start agy in `/`, with the
+whole guest as its workspace. Sign-in, `agy models` and chat naming belong to no project and also
+start in `/workspace`. In the pinned 1.1.7, `entrypoints.launchCLI`
 makes the working directory the first workspace folder, then adds each `--add-dir`, before it hands
 over to `printmode.Run`. So the project folder is agy's workspace.
 
@@ -62,7 +66,9 @@ pinned 1.1.7 release says so in the reference text it carries ("Directory-Based 
 official docs (antigravity.google/docs/rules and /docs/customization-discovery). Before agy started in
 the project folder it started in `/workspace`, the parent of every project, and a project's own file
 was not found. Antigravity's settings open the project's `AGENTS.md`, which is always on for its
-folder, and Codex and OpenCode read the same file.
+folder, and Codex and OpenCode read the same file. The file is created and edited through the Alpine
+guest, so for a chat folder outside `/workspace` and device storage the settings say so instead of
+opening an `AGENTS.md` agy would never read.
 
 Two things outside the project folder still work. A chat's attachments are written under
 `/workspace/.andcode-attachments`, so the chat's folder there is passed with `--add-dir` and stays

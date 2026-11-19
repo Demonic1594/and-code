@@ -93,5 +93,22 @@ class ProjectInstructionsTest {
         )
     }
 
+    /**
+     * The file is made and edited in the shared guest; Antigravity runs in a guest of its own that
+     * shares only `/workspace` and device storage with it, so an `AGENTS.md` anywhere else is not the
+     * one agy reads.
+     */
+    @Test
+    fun `antigravity's instructions open only in a folder its guest shares`() {
+        assertTrue(ProjectInstructions.readableBy(LocalAgent.ANTIGRAVITY, "/workspace/app"))
+        assertTrue(ProjectInstructions.readableBy(LocalAgent.ANTIGRAVITY, "/sdcard/Projects/app"))
+        assertFalse(ProjectInstructions.readableBy(LocalAgent.ANTIGRAVITY, "/root/project"))
+        assertFalse(ProjectInstructions.readableBy(LocalAgent.ANTIGRAVITY, "/workspace-old/app"))
+
+        listOf(LocalAgent.CLAUDE_CODE, LocalAgent.CODEX, LocalAgent.OPEN_CODE).forEach { agent ->
+            assertTrue("$agent", ProjectInstructions.readableBy(agent, "/root/project"))
+        }
+    }
+
     private fun run(command: String): Int = ProcessBuilder("sh", "-c", command).start().waitFor()
 }
