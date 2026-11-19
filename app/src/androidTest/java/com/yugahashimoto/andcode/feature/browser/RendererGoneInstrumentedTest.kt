@@ -5,6 +5,12 @@ import android.view.ViewGroup
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -13,6 +19,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.feature.chat.ArtifactWebView
+import com.yugahashimoto.andcode.ui.components.WebPageRecovery
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
@@ -51,9 +58,47 @@ class RendererGoneInstrumentedTest {
     @Test
     fun artifactPreviewSurvivesItsRendererCrashingAndReloadsInAFreshView() {
         composeRule.setContent {
-            MaterialTheme { ArtifactWebView(html = "<p>artifact</p>", path = "page.html") }
+            MaterialTheme { HoistedArtifact(shown = true) }
         }
         killRendererAndReload(CRASH_URL)
+    }
+
+    @Test
+    fun artifactPreviewStaysStoppedWhenItLeavesTheScreenAndComesBack() {
+        // As the dialog's Source tab does: the preview leaves composition, its recovery held above it.
+        var shown by mutableStateOf(true)
+        composeRule.setContent {
+            MaterialTheme { HoistedArtifact(shown = shown) }
+        }
+        lateinit var first: WebView
+        composeRule.runOnIdle { first = requireNotNull(composeRule.activity.window.decorView.findWebView()) }
+        waitForLoad(first)
+        composeRule.runOnIdle { first.loadUrl(CRASH_URL) }
+        val title = context.getString(R.string.webview_page_gone_title)
+        composeRule.waitUntil(timeoutMillis = 15_000) { composeRule.onAllNodesWithText(title).fetchSemanticsNodes().isNotEmpty() }
+
+        composeRule.runOnIdle { shown = false }
+        composeRule.runOnIdle { shown = true }
+
+        // Still stopped, with no view built behind the user's back.
+        composeRule.onNodeWithText(title).assertIsDisplayed()
+        composeRule.runOnIdle { assertNull(composeRule.activity.window.decorView.findWebView()) }
+    }
+
+    @Composable
+    private fun HoistedArtifact(shown: Boolean) {
+        var recovery by remember { mutableStateOf(WebPageRecovery()) }
+        if (shown) {
+            ArtifactWebView(html = "<p>artifact</p>", path = "page.html", recovery = recovery, onRecoveryChange = { recovery = it })
+        }
+    }
+
+    private fun waitForLoad(view: WebView) {
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            var loaded = false
+            composeRule.runOnIdle { loaded = view.progress == 100 }
+            loaded
+        }
     }
 
     private fun killRendererAndReload(debugUrl: String) {
@@ -63,11 +108,7 @@ class RendererGoneInstrumentedTest {
             first = requireNotNull(composeRule.activity.window.decorView.findWebView())
             first.loadDataWithBaseURL(null, "<p>page</p>", "text/html", "UTF-8", null)
         }
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            var loaded = false
-            composeRule.runOnIdle { loaded = first.progress == 100 }
-            loaded
-        }
+        waitForLoad(first)
         composeRule.runOnIdle { first.loadUrl(debugUrl) }
         val title = context.getString(R.string.webview_page_gone_title)
         composeRule.waitUntil(timeoutMillis = 15_000) { composeRule.onAllNodesWithText(title).fetchSemanticsNodes().isNotEmpty() }

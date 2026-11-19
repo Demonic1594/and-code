@@ -70,6 +70,19 @@ class WebPageRecoveryTest {
     }
 
     @Test
+    fun `a reload without cache has the fresh view clear the cache first, and an ordinary one does not`() {
+        val gone = WebPageRecovery().rendererGone("https://a.example/", "")
+
+        val hard = gone.rebuild(clearCache = true)
+        val plain = hard.rendererGone("https://a.example/", "").rebuild()
+
+        assertTrue(hard.clearCacheFirst)
+        assertEquals("https://a.example/", hard.firstLoad)
+        assertFalse(plain.clearCacheFirst)
+        assertFalse(WebPageRecovery().clearCacheFirst)
+    }
+
+    @Test
     fun `each rebuild is a generation of its own, and a page gone again can come back again`() {
         val once = WebPageRecovery().rendererGone("https://a.example/", "").rebuild()
 

@@ -5,12 +5,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebView
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.Button
@@ -41,41 +44,44 @@ internal fun PageStoppedResponding(
     detail: String? = null,
 ) {
     Surface(color = MaterialTheme.colorScheme.surface, modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(Spacing.xxl),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Icon(
-                Icons.Outlined.ErrorOutline,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(48.dp),
-            )
-            Text(
-                stringResource(R.string.webview_page_gone_title),
-                style = MaterialTheme.typography.titleLarge,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = Spacing.lg),
-            )
-            if (!detail.isNullOrBlank()) {
-                Text(
-                    detail,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = Spacing.xs),
+        // Centred while it fits; scrolled from the top when it does not (a short window, a large font),
+        // so Reload can always be reached.
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(Spacing.xxl),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Icon(
+                    Icons.Outlined.ErrorOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(48.dp),
                 )
-            }
-            Text(
-                stringResource(R.string.webview_page_gone_body),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = Spacing.md).widthIn(max = 360.dp),
-            )
-            Button(onClick = onReload, modifier = Modifier.padding(top = Spacing.xl)) {
-                Text(stringResource(R.string.webview_page_gone_reload))
+                Text(
+                    stringResource(R.string.webview_page_gone_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = Spacing.lg),
+                )
+                if (!detail.isNullOrBlank()) {
+                    Text(
+                        detail,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = Spacing.xs),
+                    )
+                }
+                Text(
+                    stringResource(R.string.webview_page_gone_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = Spacing.md).widthIn(max = 360.dp),
+                )
+                Button(onClick = onReload, modifier = Modifier.padding(top = Spacing.xl)) {
+                    Text(stringResource(R.string.webview_page_gone_reload))
+                }
             }
         }
     }

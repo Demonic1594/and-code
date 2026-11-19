@@ -304,6 +304,8 @@ fun GuestBrowserScreen(
                                                 // Before the first load, so the page agent is in place for its first line.
                                                 bridge.attach(this)
                                                 webView = this
+                                                // Asked for while the page was gone: the cache is every view's, so this one clears it.
+                                                if (recovery.clearCacheFirst) clearCache(true)
                                                 // The address it opened with or, rebuilt after its renderer died, the page to bring back.
                                                 recovery.firstLoad.takeIf { it.isNotBlank() }?.let { first -> loadUrl(first) }
                                             }
@@ -368,7 +370,8 @@ fun GuestBrowserScreen(
                                         reload()
                                     }
                                 } else {
-                                    reload()
+                                    loadError = null
+                                    recovery = recovery.rebuild(clearCache = true)
                                 }
                             },
                             onCopyLink = {

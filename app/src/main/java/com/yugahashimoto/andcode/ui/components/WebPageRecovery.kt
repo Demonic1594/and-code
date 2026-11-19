@@ -25,6 +25,12 @@ internal data class WebPageRecovery(
     val firstLoad: String = "",
     /** Counts the views built after a renderer died, to key each fresh view apart from the dead one. */
     val generation: Int = 0,
+    /**
+     * Whether the view of this [generation] clears the cache before [firstLoad]: a reload without cache
+     * asked for while the page was gone. The cache is the app's, shared by every view, so the fresh
+     * one would otherwise load what the dead one had cached.
+     */
+    val clearCacheFirst: Boolean = false,
 ) {
     /** Whether a WebView belongs on screen: none while the page is gone, until the user asks for it back. */
     val showsView: Boolean get() = gone == null
@@ -43,8 +49,11 @@ internal data class WebPageRecovery(
         return copy(gone = GonePage(url))
     }
 
-    /** A fresh view that loads [url]: by default the page that went away, as Reload does. */
-    fun rebuild(url: String = gone?.url.orEmpty()): WebPageRecovery = copy(gone = null, firstLoad = url, generation = generation + 1)
+    /** A fresh view that loads [url]: by default the page that went away, as Reload does; [clearCache] first if asked. */
+    fun rebuild(
+        url: String = gone?.url.orEmpty(),
+        clearCache: Boolean = false,
+    ): WebPageRecovery = copy(gone = null, firstLoad = url, generation = generation + 1, clearCacheFirst = clearCache)
 
     private companion object {
         /**

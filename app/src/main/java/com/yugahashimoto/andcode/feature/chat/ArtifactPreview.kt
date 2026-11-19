@@ -56,6 +56,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -196,6 +197,9 @@ internal fun ArtifactPreviewDialog(
     val artifact = state.artifact
     var showSource by rememberSaveable(artifact.path) { mutableStateOf(false) }
     var desktopLayout by rememberSaveable(artifact.path) { mutableStateOf(false) }
+    // Here rather than in the preview, which Source takes off screen: a page whose renderer died stays
+    // stopped across Source and back, instead of loading again on its own.
+    var recovery by remember(artifact.path) { mutableStateOf(WebPageRecovery()) }
     val loaded = state as? ArtifactPreviewState.Loaded
     val context = LocalContext.current
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -273,7 +277,7 @@ internal fun ArtifactPreviewDialog(
                         if (showSource && !state.base64) {
                             SourceView(state.content)
                         } else {
-                            RenderedArtifact(state, desktopLayout)
+                            RenderedArtifact(state, desktopLayout, recovery, onRecoveryChange = { recovery = it })
                         }
                 }
             }
@@ -334,13 +338,24 @@ private fun SourceView(content: String) {
 private fun RenderedArtifact(
     state: ArtifactPreviewState.Loaded,
     desktopLayout: Boolean,
+    recovery: WebPageRecovery,
+    onRecoveryChange: (WebPageRecovery) -> Unit,
 ) {
     when (state.artifact.kind) {
-        ArtifactKind.HTML -> ArtifactWebView(html = state.content, path = state.artifact.path, desktopLayout = desktopLayout)
+        ArtifactKind.HTML ->
+            ArtifactWebView(
+                html = state.content,
+                path = state.artifact.path,
+                recovery = recovery,
+                onRecoveryChange = onRecoveryChange,
+                desktopLayout = desktopLayout,
+            )
         // An SVG on its own page, scaled to fit, on white: most drawings assume a light canvas.
         ArtifactKind.SVG ->
             ArtifactWebView(
                 path = state.artifact.path,
+                recovery = recovery,
+                onRecoveryChange = onRecoveryChange,
                 html =
                     "<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
                         "<style>html,body{margin:0;height:100%;background:#fff;display:flex;align-items:center;justify-content:center}" +
@@ -385,22 +400,28 @@ private fun RenderedArtifact(
  * A web view for one agent-written page. Scripts run, since interactive pages are the point, but
  * the page is cut off from the device: no file or content access, no JavaScript bridge, and links
  * stay inside the view rather than launching other apps.
+ *
+ * [recovery] is the page's WebView across the deaths of its renderer, held by the caller so it
+ * outlasts this composable: gone until Reload builds a fresh view, which loads the page again as any
+ * new view does.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 internal fun ArtifactWebView(
     html: String,
     path: String,
+    recovery: WebPageRecovery,
+    onRecoveryChange: (WebPageRecovery) -> Unit,
     desktopLayout: Boolean = false,
 ) {
     val context = LocalContext.current
     // An origin of its own per file: storage a page keeps is not another artifact's to read.
     val baseUrl = remember(path) { "https://a${path.hashCode().toUInt().toString(16)}.artifact.andcode.invalid/" }
-    // The page's WebView across the deaths of its renderer: gone until Reload builds a fresh one,
-    // which loads the page again as any new view does.
-    var recovery by remember { mutableStateOf(WebPageRecovery()) }
+    // The view's client outlives the arguments it was built with, so it reads the latest through these.
+    val latestRecovery by rememberUpdatedState(recovery)
+    val latestOnRecoveryChange by rememberUpdatedState(onRecoveryChange)
     if (!recovery.showsView) {
-        PageStoppedResponding(onReload = { recovery = recovery.rebuild() })
+        PageStoppedResponding(onReload = { onRecoveryChange(recovery.rebuild()) })
         return
     }
     key(recovery.generation) {
@@ -418,7 +439,7 @@ internal fun ArtifactWebView(
                     settings.displayZoomControls = false
                     webViewClient =
                         artifactWebViewClient(context, baseUrl) { dead, detail ->
-                            recovery = recovery.rendererGone(lastUrl = null, fallbackUrl = baseUrl)
+                            latestOnRecoveryChange(latestRecovery.rendererGone(lastUrl = null, fallbackUrl = baseUrl))
                             dead.discardAfterRendererGone(detail)
                         }
                 }
