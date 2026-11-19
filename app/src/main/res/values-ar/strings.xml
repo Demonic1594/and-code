@@ -150,6 +150,7 @@
     <string name="notification_complete_title">انتهى التنفيذ</string>
     <string name="notification_complete_body">المحادثة %1$s خاملة</string>
     <string name="permission_chat_confirmation">تنتظر هذه المحادثة موافقتك. اختر ما يُسمح للوكيل بفعله:</string>
+    <string name="permission_response_not_applied">تعذّر على OpenCode تطبيق رد الموافقة هذا</string>
     <string name="notification_error_title">خطأ في التنفيذ</string>
     <string name="notification_error_body">فشلت جلسة</string>
     <string name="chat_stall_title">توقّف هذا التنفيذ عن الاستجابة</string>
@@ -239,6 +240,8 @@
     <string name="question_free_text_label">أخرى (اكتب إجابتك)</string>
     <string name="question_cancel">رفض الإجابة</string>
     <string name="question_dismiss">إغلاق السؤال</string>
+    <string name="question_answer_required">الإجابة مطلوبة</string>
+    <string name="question_failed">فشل سؤال OpenCode</string>
     <string name="capability_version">OpenCode %1$s</string>
 
     <string name="rename_session">إعادة تسمية</string>
@@ -2049,5 +2052,6 @@
     <string name="context_breakdown_memory_large">ملف كبير: يتجاوز على الأرجح الحجم الذي يحذّر عنده Claude Code من أن الملف يبطئه.</string>
     <string name="context_breakdown_compact">ضغط المحادثة الآن</string>
     <string name="context_breakdown_compact_caption">يستبدل الرسائل الأقدم بملخّص، ليبقى في الدردشة متسع للمتابعة. يعمل مثل دور.</string>
+    <string name="chat_compact_failed">تعذّر ضغط المحادثة</string>
     <string name="context_category_in_use">التعليمات والأدوات والرسائل</string>
 </resources>

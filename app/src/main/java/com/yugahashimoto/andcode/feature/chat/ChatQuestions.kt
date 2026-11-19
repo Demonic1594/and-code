@@ -51,6 +51,10 @@ internal class ChatQuestions(
     private val scope: CoroutineScope,
     private val uiState: MutableStateFlow<ChatUiState>,
     private val onQuestionResolved: (String) -> Unit,
+    /** Shown on a card submitted without an answer to every question; read when it is shown. */
+    private val answerRequiredMessage: () -> String,
+    /** Shown on a card whose answer or decline the runtime refused; read when it is shown. */
+    private val failedMessage: () -> String,
 ) {
     /**
      * Questions the user hid with [dismissQuestion]. A recovery fetch must not resurrect them:
@@ -96,12 +100,13 @@ internal class ChatQuestions(
                 )
             }
         if (answers.any { it.isEmpty() }) {
+            val message = answerRequiredMessage()
             uiState.update { state ->
                 state.copy(
                     pendingQuestions =
                         state.pendingQuestions.map { pending ->
                             if (pending.request.id == questionId) {
-                                pending.copy(error = "Answer required")
+                                pending.copy(error = message)
                             } else {
                                 pending
                             }
@@ -133,6 +138,7 @@ internal class ChatQuestions(
                 )
             }.onSuccess { accepted ->
                 if (accepted) onQuestionResolved(questionId)
+                val message = if (accepted) null else failedMessage()
                 uiState.update { state ->
                     if (accepted) {
                         state.copy(
@@ -143,7 +149,7 @@ internal class ChatQuestions(
                             pendingQuestions =
                                 state.pendingQuestions.map { pending ->
                                     if (pending.request.id == questionId) {
-                                        pending.copy(isSubmitting = false, error = "OpenCode question failed")
+                                        pending.copy(isSubmitting = false, error = message)
                                     } else {
                                         pending
                                     }
@@ -231,14 +237,15 @@ internal class ChatQuestions(
         }
     }
 
+    /**
+     * Declines the question. Its card stays, its buttons waiting, until the runtime has taken the
+     * decline: the agent is still blocked on the question until then, and the card is the only way
+     * left to answer it.
+     */
     fun cancelQuestion(questionId: String) {
         val pendingQuestion = uiState.value.pendingQuestions.firstOrNull { it.request.id == questionId } ?: return
-        uiState.update { state ->
-            state.copy(
-                pendingQuestions = state.pendingQuestions.filterNot { it.request.id == questionId },
-            )
-        }
         val currentBackend = backend ?: return
+        updatePendingQuestion(questionId) { it.copy(isSubmitting = true, error = null) }
         scope.launch {
             runCatching {
                 currentBackend.rejectQuestion(
@@ -246,10 +253,31 @@ internal class ChatQuestions(
                     directory = pendingQuestion.workspaceDirectory(),
                 )
             }.onSuccess { rejected ->
-                if (rejected) onQuestionResolved(questionId)
+                if (rejected) {
+                    onQuestionResolved(questionId)
+                    uiState.update { state ->
+                        state.copy(pendingQuestions = state.pendingQuestions.filterNot { it.request.id == questionId })
+                    }
+                } else {
+                    val message = failedMessage()
+                    updatePendingQuestion(questionId) { it.copy(isSubmitting = false, error = message) }
+                }
             }.onFailure { error ->
-                uiState.update { it.copy(error = error.safeMessage()) }
+                updatePendingQuestion(questionId) { it.copy(isSubmitting = false) }
+                val message = error.safeMessage(failedMessage())
+                uiState.update { it.copy(error = message) }
             }
+        }
+    }
+
+    private fun updatePendingQuestion(
+        questionId: String,
+        transform: (PendingQuestionUi) -> PendingQuestionUi,
+    ) {
+        uiState.update { state ->
+            state.copy(
+                pendingQuestions = state.pendingQuestions.map { if (it.request.id == questionId) transform(it) else it },
+            )
         }
     }
 

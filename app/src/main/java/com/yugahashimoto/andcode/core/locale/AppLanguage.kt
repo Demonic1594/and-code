@@ -3,6 +3,7 @@ package com.yugahashimoto.andcode.core.locale
 import android.content.Context
 import android.content.res.Configuration
 import android.os.LocaleList
+import androidx.annotation.StringRes
 import com.yugahashimoto.andcode.data.connection.SecureSettingsRepository
 import java.util.Locale
 
@@ -40,5 +41,19 @@ object AppLanguage {
         val configuration = Configuration(base.resources.configuration)
         configuration.setLocales(LocaleList(localeFor(language)))
         return base.createConfigurationContext(configuration)
+    }
+
+    /**
+     * Reads string [id] in the language the app is set to at the time of each call, for something
+     * that outlives the Activity, such as a ViewModel. Changing the language recreates the Activity
+     * but keeps its ViewModels, so a string resolved when one was built would stay in the old
+     * language. Holds only the application context.
+     */
+    fun stringResolver(
+        context: Context,
+        @StringRes id: Int,
+    ): () -> String {
+        val appContext = context.applicationContext
+        return { applyTo(appContext).getString(id) }
     }
 }

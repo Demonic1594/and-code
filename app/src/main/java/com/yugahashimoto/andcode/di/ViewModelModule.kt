@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.di
 
 import com.yugahashimoto.andcode.AndCodeApplication
+import com.yugahashimoto.andcode.core.locale.AppLanguage
 import com.yugahashimoto.andcode.data.connection.SecureSettingsRepository
 import com.yugahashimoto.andcode.data.repository.PriceCatalogRepository
 import com.yugahashimoto.andcode.data.settings.AppPreferencesRepository
@@ -48,6 +49,15 @@ val viewModelModule =
                     androidContext().getString(
                         com.yugahashimoto.andcode.R.string.chat_workspace_attachment_note,
                     ),
+                // Read when shown, as in ui/AndCodeApp.kt: a language change keeps the view model.
+                compactFailedMessage =
+                    AppLanguage.stringResolver(androidContext(), com.yugahashimoto.andcode.R.string.chat_compact_failed),
+                permissionNotAppliedMessage =
+                    AppLanguage.stringResolver(androidContext(), com.yugahashimoto.andcode.R.string.permission_response_not_applied),
+                questionAnswerRequiredMessage =
+                    AppLanguage.stringResolver(androidContext(), com.yugahashimoto.andcode.R.string.question_answer_required),
+                questionFailedMessage =
+                    AppLanguage.stringResolver(androidContext(), com.yugahashimoto.andcode.R.string.question_failed),
             )
         }
 

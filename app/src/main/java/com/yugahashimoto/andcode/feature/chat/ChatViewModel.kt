@@ -202,6 +202,18 @@ class ChatViewModel(
     private val restoreFailedMessage: String = "The files could not be put back.",
     /** Shown when a restore was refused because an ignored file is in the way, named when known; localized by the app. */
     private val restoreRefusedMessage: (String?) -> String = { path -> "Nothing was changed: ${path ?: "an ignored file"} is in the way." },
+    /**
+     * Shown when compacting failed and the runtime gave no reason; localized by the app. Read when
+     * shown, as are the three below, not when this view model is built: a language change recreates
+     * the screen but keeps the view model (see AppLanguage.stringResolver).
+     */
+    private val compactFailedMessage: () -> String = { "Could not compact the conversation" },
+    /** Shown when the runtime refused an answer to a permission card; localized by the app. */
+    private val permissionNotAppliedMessage: () -> String = { "OpenCode could not apply that permission response" },
+    /** Shown on a question card submitted without an answer to every question; localized by the app. */
+    private val questionAnswerRequiredMessage: () -> String = { "Answer required" },
+    /** Shown on a question card whose answer or decline the runtime refused; localized by the app. */
+    private val questionFailedMessage: () -> String = { "OpenCode question failed" },
     /** Persists the Codex fast-mode choice (null = follow the model default). */
     private val onCodexFastModeChanged: (Boolean?) -> Unit = {},
     /** The user's saved Codex fast-mode choice, read when the ViewModel starts. */
@@ -238,7 +250,7 @@ class ChatViewModel(
 
     private val systemPrompt = SystemPromptDraft(_uiState, onApplySystemPrompt)
 
-    private val contextUsage = ContextUsage(backend, viewModelScope, _uiState, priceCatalog)
+    private val contextUsage = ContextUsage(backend, viewModelScope, _uiState, priceCatalog, compactFailedMessage)
 
     private val restorePoints =
         RestorePoints(viewModelScope, _uiState, turnSnapshots, restoreFailedMessage, restoreRefusedMessage) { drainHeldPrompts() }
@@ -258,9 +270,10 @@ class ChatViewModel(
 
     private val previews = ChatPreviews(backend, viewModelScope, _uiState, turnSnapshots, restorePoints)
 
-    private val permissions = ChatPermissions(backend, viewModelScope, _uiState, onPermissionResolved)
+    private val permissions = ChatPermissions(backend, viewModelScope, _uiState, onPermissionResolved, permissionNotAppliedMessage)
 
-    private val questions = ChatQuestions(backend, viewModelScope, _uiState, onQuestionResolved)
+    private val questions =
+        ChatQuestions(backend, viewModelScope, _uiState, onQuestionResolved, questionAnswerRequiredMessage, questionFailedMessage)
 
     private val modelSelection =
         ModelSelection(_uiState, onCodexFastModeChanged, initialCodexFastMode, onClaudeUltracodeChanged, initialClaudeUltracode)
@@ -1046,7 +1059,7 @@ class ChatViewModel(
         // (OpenCode expands the template server-side) rather than sent as a plain prompt.
         val slashCommand = if (fromComposer) matchSlashCommand(normalized) else null
         if (slashCommand != null) {
-            sendSlashCommand(slashCommand.first, slashCommand.second, sendNow)
+            sendSlashCommand(slashCommand.first, slashCommand.second, sendNow, usesComposer)
             return
         }
 
@@ -1329,6 +1342,11 @@ class ChatViewModel(
         command: String,
         arguments: String,
         sendNow: Boolean = false,
+        /**
+         * False for a held command going out once the turn it waited for ends. The composer may
+         * hold the next message by then, and its stored draft is not this command's to clear.
+         */
+        usesComposer: Boolean = true,
     ) {
         if (_uiState.value.isRewinding || restorePoints.inFlight) return
         val currentBackend = backend
@@ -1456,7 +1474,7 @@ class ChatViewModel(
                     .onSuccess { title ->
                         if (title.isNotBlank()) _uiState.update { it.copy(sessionTitle = title) }
                     }
-                clearDraft(targetSessionId)
+                if (usesComposer) clearDraft(targetSessionId)
                 var sessionCompleted = false
 
                 fun isStillActive() = _uiState.value.sessionId == targetSessionId
