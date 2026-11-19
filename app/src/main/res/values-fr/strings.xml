@@ -685,6 +685,7 @@
     <string name="project_instructions_settings_row">Instructions du projet</string>
     <string name="project_instructions_no_project">Ouvrez d’abord un projet dans une discussion : le fichier d’instructions se trouve dans son dossier.</string>
     <string name="project_instructions_failed">Impossible de créer %1$s dans ce projet.</string>
+    <string name="project_instructions_not_shared">Antigravity ne lit les instructions que dans les projets situés dans /workspace ou dans les fichiers de l’appareil, et le dossier de cette discussion n’est dans aucun des deux.</string>
     <string name="command_rules_title">Règles de commandes</string>
     <string name="command_rules_caption">Une commande bloquée est refusée sans demander, même au sein d’une commande plus longue, et l’agent est prié de ne pas réessayer. Les options peuvent venir dans n’importe quel ordre, donc bloquer « rm -rf » bloque aussi « rm -fr », mais elles doivent s’écrire pareil : « --force » n’est pas « -f ». Les commandes que vous avez toujours autorisées lors d’une approbation s’exécutent sans demander.</string>
     <string name="command_rules_block_label">Bloquer les commandes contenant</string>
@@ -1371,6 +1372,9 @@
     <string name="devtools_viewport">Fenêtre d’affichage</string>
     <string name="devtools_user_agent">Agent utilisateur</string>
     <string name="guest_browser_webview_unavailable">Le navigateur invité ne peut pas démarrer, car WebView n\'a pas pu se charger sur cet appareil. Mettre à jour ou réactiver Android System WebView peut résoudre le problème.</string>
+    <string name="webview_page_gone_title">Cette page ne répond plus</string>
+    <string name="webview_page_gone_body">Android a fermé le processus qui l\'affichait, souvent pour libérer de la mémoire. Rechargez-la pour l\'ouvrir à nouveau.</string>
+    <string name="webview_page_gone_reload">Recharger</string>
     <string name="guest_browser_agent_controlling">Un agent contrôle cette page</string>
     <string name="setup_step_development_tools">Outils de développement</string>
     <string name="setup_development_tools_description">Installe uniquement le nécessaire par défaut, ou incluez la chaîne complète d’outils.</string>

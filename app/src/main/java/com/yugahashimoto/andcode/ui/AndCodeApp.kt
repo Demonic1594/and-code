@@ -1112,11 +1112,14 @@ fun AndCodeApp(
                                 startWakeWordAfterPermission = true
                                 microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                             },
-                            onOpenProjectInstructions = { file ->
+                            onOpenProjectInstructions = { agent ->
+                                val file = ProjectInstructions.fileFor(agent)
                                 val runtime = selectedRuntime
                                 val path = chatState.sessionDirectory ?: chatState.selectedWorkspacePath
                                 if (runtime == null || path == null || !runtime.capabilities.fileEditing) {
                                     Toast.makeText(context, R.string.project_instructions_no_project, Toast.LENGTH_LONG).show()
+                                } else if (!ProjectInstructions.readableBy(agent, path)) {
+                                    Toast.makeText(context, R.string.project_instructions_not_shared, Toast.LENGTH_LONG).show()
                                 } else {
                                     drawerScope.launch {
                                         if (!ProjectInstructions.prepare(app.commandRunner, path, file)) {

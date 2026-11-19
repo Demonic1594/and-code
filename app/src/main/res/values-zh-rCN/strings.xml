@@ -653,6 +653,7 @@
     <string name="project_instructions_settings_row">项目说明</string>
     <string name="project_instructions_no_project">请先在对话中打开一个项目：说明文件位于该项目的文件夹中。</string>
     <string name="project_instructions_failed">无法在此项目中创建 %1$s。</string>
+    <string name="project_instructions_not_shared">Antigravity 只读取 /workspace 或设备文件中项目的说明文件，而此对话的文件夹不在其中。</string>
     <string name="command_rules_title">命令规则</string>
     <string name="command_rules_caption">被阻止的命令会直接被拒绝（即使位于更长的命令中），并告知智能体不要重试。参数顺序不限（阻止“rm -rf”也会阻止“rm -fr”），但写法须一致：“--force”与“-f”不同。在审批时选择“始终允许”的命令会直接运行，不再询问。</string>
     <string name="command_rules_block_label">阻止包含以下内容的命令</string>
@@ -1333,6 +1334,9 @@
     <string name="devtools_viewport">视口</string>
     <string name="devtools_user_agent">用户代理</string>
     <string name="guest_browser_webview_unavailable">无法启动访客浏览器，因为此设备上的 WebView 加载失败。更新或重新启用 Android System WebView 可能会解决此问题。</string>
+    <string name="webview_page_gone_title">此页面已停止响应</string>
+    <string name="webview_page_gone_body">Android 关闭了显示此页面的进程，通常是为了释放内存。重新加载即可再次打开。</string>
+    <string name="webview_page_gone_reload">重新加载</string>
     <string name="guest_browser_agent_controlling">智能体正在操控此页面</string>
     <string name="setup_step_development_tools">开发工具</string>
     <string name="setup_development_tools_description">默认只安装运行所需组件，也可以一并安装完整开发工具链。</string>
