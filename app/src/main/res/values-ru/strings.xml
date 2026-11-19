@@ -1392,6 +1392,15 @@
     <string name="webview_page_gone_body">Android завершил процесс, который её показывал, чаще всего чтобы освободить память. Обновите, чтобы открыть её снова.</string>
     <string name="webview_page_gone_reload">Обновить</string>
     <string name="guest_browser_agent_controlling">Агент управляет этой страницей</string>
+    <string name="guest_browser_handoff_title">Управление у вас</string>
+    <string name="guest_browser_handoff_body">Выполните здесь шаг, который агент не может сделать (например, вход), затем верните браузер агенту.</string>
+    <string name="guest_browser_handoff_done">Вернуть агенту</string>
+    <string name="guest_browser_handoff_cancel">Отмена</string>
+    <string name="chat_preview_expand">Открыть в гостевом браузере</string>
+    <string name="chat_preview_close">Закрыть просмотр</string>
+    <string name="chat_preview_link">Просмотр</string>
+    <string name="chat_preview_unavailable">WebView на этом устройстве не удалось запустить, поэтому просмотр недоступен.</string>
+    <string name="chat_preview_minimize">Свернуть просмотр</string>
     <string name="setup_step_development_tools">Инструменты разработки</string>
     <string name="setup_development_tools_description">По умолчанию устанавливаются только необходимые компоненты. При желании можно добавить полный набор инструментов.</string>
     <string name="setup_required_tools_description">Linux, выбранные агенты, Git и вспомогательные инструменты AndCode. Они устанавливаются всегда.</string>

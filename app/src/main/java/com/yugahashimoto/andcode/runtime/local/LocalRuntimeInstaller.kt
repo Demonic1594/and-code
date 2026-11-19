@@ -730,7 +730,10 @@ class LocalRuntimeInstaller(
         private const val CA_BUNDLE_PATH = "etc/ssl/certs/ca-certificates.crt"
         private const val BROWSER_MCP_NAME = "and-code-browser"
         private const val BROWSER_MCP_BIN = "/usr/local/bin/andcode-browser-mcp.py"
-        private const val BROWSER_MCP_TIMEOUT_MILLIS = 30000
+
+        // Above browser_handoff's own 110 s deadline (it blocks until the user finishes signing
+        // in), so the server's timed-out reply reaches the agent before the client kills the call.
+        private const val BROWSER_MCP_TIMEOUT_MILLIS = 120000
         private const val SCHEDULE_MCP_NAME = "and-code-schedule"
         private const val SCHEDULE_MCP_BIN = "/usr/local/bin/andcode-schedule-mcp.py"
         private const val SCHEDULE_MCP_TIMEOUT_MILLIS = 120000
