@@ -1516,7 +1516,7 @@
         <item quantity="other">Комментарии (последние: %1$d; более ранние пропущены: %2$d)</item>
     </plurals>
     <plurals name="chat_issue_prompt_comments_partial">
-        <item quantity="one">Комментарии (последний %1$d из первых %2$d; остальные на GitHub)</item>
+        <item quantity="one">Комментарии (показан %1$d из первых %2$d; остальные на GitHub)</item>
         <item quantity="few">Комментарии (последние %1$d из первых %2$d; остальные на GitHub)</item>
         <item quantity="many">Комментарии (последние %1$d из первых %2$d; остальные на GitHub)</item>
         <item quantity="other">Комментарии (последние %1$d из первых %2$d; остальные на GitHub)</item>

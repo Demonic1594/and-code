@@ -317,7 +317,9 @@ class ScheduleExecutionService : Service() {
                         when (settlement.timeout) {
                             // A stream that stopped early explains the silence better than the
                             // timeout does.
-                            ScheduleRunTimeout.IDLE -> state.streamFailure ?: text.getString(R.string.schedule_completion_timeout)
+                            ScheduleRunTimeout.IDLE ->
+                                state.streamFailure?.describe { text.getString(R.string.schedule_event_stream_ended) }
+                                    ?: text.getString(R.string.schedule_completion_timeout)
                             ScheduleRunTimeout.MAX_DURATION -> text.getString(R.string.schedule_max_duration)
                         }
                     recordFailed(run, message)
@@ -443,17 +445,17 @@ class ScheduleExecutionService : Service() {
         autoAccept: Boolean,
         state: ScheduleExecutionState,
     ): ScheduleCompletion {
-        val reason =
+        val failure =
             try {
                 watchForCompletion(target, schedule, run, autoAccept, state)?.let { return it }
-                text.getString(R.string.schedule_event_stream_ended)
+                StreamFailure.Ended
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Exception) {
-                error.message?.takeIf(String::isNotBlank) ?: error.javaClass.simpleName
+                StreamFailure.Error(error.message?.takeIf(String::isNotBlank) ?: error.javaClass.simpleName)
             }
-        Log.w(TAG, "Event stream stopped before the run settled: $reason")
-        state.streamFailure = reason
+        Log.w(TAG, "Event stream stopped before the run settled: $failure")
+        state.streamFailure = failure
         awaitCancellation()
     }
 

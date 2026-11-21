@@ -1496,7 +1496,7 @@
         <item quantity="other">Comentários (os %1$d mais recentes; %2$d anteriores omitidos)</item>
     </plurals>
     <plurals name="chat_issue_prompt_comments_partial">
-        <item quantity="one">Comentários (o último %1$d dos primeiros %2$d; o restante está no GitHub)</item>
+        <item quantity="one">Comentários (%1$d comentário mantido dos primeiros %2$d; o restante está no GitHub)</item>
         <item quantity="many">Comentários (os últimos %1$d dos primeiros %2$d; o restante está no GitHub)</item>
         <item quantity="other">Comentários (os últimos %1$d dos primeiros %2$d; o restante está no GitHub)</item>
     </plurals>

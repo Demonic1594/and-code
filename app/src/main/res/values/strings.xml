@@ -1518,7 +1518,7 @@
     </plurals>
     <!-- Only the first %2$d comments were read from GitHub, and the last %1$d of those are kept; %1$d picks the plural form. -->
     <plurals name="chat_issue_prompt_comments_partial">
-        <item quantity="one">Comments (the last %1$d comment of the first %2$d; the rest are on GitHub)</item>
+        <item quantity="one">Comments (%1$d comment kept from the first %2$d; the rest are on GitHub)</item>
         <item quantity="other">Comments (the last %1$d comments of the first %2$d; the rest are on GitHub)</item>
     </plurals>
     <!-- After a description or comment cut short; %1$d characters of it were left out. -->

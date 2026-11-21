@@ -3,6 +3,7 @@ package com.yugahashimoto.andcode.runtime.local
 import android.content.Context
 import android.system.Os
 import android.util.Log
+import androidx.annotation.StringRes
 import com.yugahashimoto.andcode.BuildConfig
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.locale.AppLanguage
@@ -115,7 +116,7 @@ class LocalRuntimeInstaller(
                     architecture.alpineSha256,
                     0.05f,
                     0.22f,
-                    text.getString(R.string.install_step_downloading_alpine),
+                    R.string.install_step_downloading_alpine,
                     onShared,
                 )
                 val withOpenCode = LocalAgent.OPEN_CODE in requestedAgents
@@ -127,7 +128,7 @@ class LocalRuntimeInstaller(
                             architecture.openCodeSha256,
                             0.24f,
                             0.72f,
-                            text.getString(R.string.install_step_downloading_opencode),
+                            R.string.install_step_downloading_opencode,
                             onShared,
                         )
                     }
@@ -437,19 +438,20 @@ class LocalRuntimeInstaller(
         }
     }
 
+    /** [label] is read for every progress update, so a language picked mid-download shows at once. */
     private suspend fun download(
         url: String,
         destination: File,
         expectedSha256: String,
         startProgress: Float,
         endProgress: Float,
-        label: String,
+        @StringRes label: Int,
         onProgress: (Float?, String) -> Unit,
     ) {
         if (destination.isFile) {
             runCatching { RuntimeArchive.verifySha256(destination, expectedSha256) }
                 .onSuccess {
-                    onProgress(endProgress, label)
+                    onProgress(endProgress, text.getString(label))
                     return
                 }
             destination.delete()
@@ -463,11 +465,11 @@ class LocalRuntimeInstaller(
                     fraction?.let {
                         startProgress + (endProgress - startProgress) * it.coerceIn(0f, 1f)
                     },
-                    label,
+                    text.getString(label),
                 )
             },
         )
-        onProgress(endProgress, label)
+        onProgress(endProgress, text.getString(label))
     }
 
     private fun installPackages(
