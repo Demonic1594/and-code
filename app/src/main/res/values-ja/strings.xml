@@ -120,6 +120,7 @@
     <string name="notification_complete_title">実行が完了しました</string>
     <string name="notification_complete_body">チャット「%1$s」が待機中です</string>
     <string name="permission_chat_confirmation">このチャットは承認待ちです。エージェントに許可する操作を選んでください:</string>
+    <string name="permission_response_not_applied">OpenCode はその承認結果を適用できませんでした</string>
     <string name="notification_error_title">実行エラー</string>
     <string name="notification_error_body">セッションが失敗しました</string>
     <string name="chat_stall_title">応答が止まっている可能性があります</string>
@@ -199,6 +200,8 @@
     <string name="question_free_text_label">その他（自由入力）</string>
     <string name="question_cancel">回答しない</string>
     <string name="question_dismiss">質問を閉じる</string>
+    <string name="question_answer_required">回答が必要です</string>
+    <string name="question_failed">OpenCode の質問を処理できませんでした</string>
     <string name="capability_version">OpenCode %1$s</string>
 
     <string name="rename_session">名前を変更</string>
@@ -664,6 +667,7 @@
     <string name="project_instructions_settings_row">プロジェクトの指示</string>
     <string name="project_instructions_no_project">先にチャットでプロジェクトを開いてください。指示ファイルはそのフォルダーにあります。</string>
     <string name="project_instructions_failed">このプロジェクトに %1$s を作成できませんでした。</string>
+    <string name="project_instructions_not_shared">Antigravity が指示を読むのは /workspace か端末のファイルにあるプロジェクトだけです。このチャットのフォルダーはどちらにもありません。</string>
     <string name="command_rules_title">コマンドルール</string>
     <string name="command_rules_caption">ブロックしたコマンドは、長いコマンドの一部であっても確認なしで拒否され、エージェントには再試行しないよう伝えます。オプションの順序は問いません（「rm -rf」をブロックすると「rm -fr」もブロックされます）が、表記は一致する必要があります。「--force」と「-f」は別のものとして扱われます。承認時に「常に許可」したコマンドは確認なしで実行されます。</string>
     <string name="command_rules_block_label">次を含むコマンドをブロック</string>
@@ -1380,6 +1384,9 @@
     <string name="devtools_viewport">ビューポート</string>
     <string name="devtools_user_agent">ユーザーエージェント</string>
     <string name="guest_browser_webview_unavailable">この端末の WebView を読み込めないため、ゲストブラウザを開けません。Android System WebView を更新するか、有効にし直すと解決する場合があります。</string>
+    <string name="webview_page_gone_title">このページは応答しなくなりました</string>
+    <string name="webview_page_gone_body">このページを表示していたプロセスを Android が終了しました。多くの場合、メモリを解放するためです。再読み込みすると、もう一度開きます。</string>
+    <string name="webview_page_gone_reload">再読み込み</string>
     <string name="guest_browser_agent_controlling">エージェントがこのページを操作しています</string>
     <string name="setup_step_development_tools">開発ツール</string>
     <string name="setup_development_tools_description">既定では実行に必要なものだけをインストールします。完全な開発ツールチェーンも選択できます。</string>
@@ -1922,5 +1929,6 @@
     <string name="context_breakdown_memory_large">大きいファイル：Claude Code が動作を遅くすると警告するサイズを、おそらく超えています。</string>
     <string name="context_breakdown_compact">今すぐ圧縮</string>
     <string name="context_breakdown_compact_caption">古いメッセージを要約に置き換えて、チャットを続ける余地を作ります。ターンと同じように実行されます。</string>
+    <string name="chat_compact_failed">会話を圧縮できませんでした</string>
     <string name="context_category_in_use">指示、ツール、メッセージ</string>
 </resources>

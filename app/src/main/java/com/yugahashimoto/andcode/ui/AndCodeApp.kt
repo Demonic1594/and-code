@@ -45,6 +45,7 @@ import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.LocalServerUrlOpener
 import com.yugahashimoto.andcode.core.UrlLauncher
 import com.yugahashimoto.andcode.core.diagnostics.CrashLog
+import com.yugahashimoto.andcode.core.locale.AppLanguage
 import com.yugahashimoto.andcode.data.settings.DraftRepository
 import com.yugahashimoto.andcode.feature.activity.ActivityViewModel
 import com.yugahashimoto.andcode.feature.assistant.SpeechRecognizerManager
@@ -331,6 +332,11 @@ fun AndCodeApp(
                         videoNotSupportedMessage = context.getString(R.string.error_video_not_supported),
                         rewindNothingMessage = context.getString(R.string.rewind_nothing),
                         workspaceAttachmentNoteTemplate = context.getString(R.string.chat_workspace_attachment_note),
+                        // Read when shown: a language change recreates this screen but keeps the view model.
+                        compactFailedMessage = AppLanguage.stringResolver(context, R.string.chat_compact_failed),
+                        permissionNotAppliedMessage = AppLanguage.stringResolver(context, R.string.permission_response_not_applied),
+                        questionAnswerRequiredMessage = AppLanguage.stringResolver(context, R.string.question_answer_required),
+                        questionFailedMessage = AppLanguage.stringResolver(context, R.string.question_failed),
                     )
                 },
         )
@@ -1106,11 +1112,14 @@ fun AndCodeApp(
                                 startWakeWordAfterPermission = true
                                 microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                             },
-                            onOpenProjectInstructions = { file ->
+                            onOpenProjectInstructions = { agent ->
+                                val file = ProjectInstructions.fileFor(agent)
                                 val runtime = selectedRuntime
                                 val path = chatState.sessionDirectory ?: chatState.selectedWorkspacePath
                                 if (runtime == null || path == null || !runtime.capabilities.fileEditing) {
                                     Toast.makeText(context, R.string.project_instructions_no_project, Toast.LENGTH_LONG).show()
+                                } else if (!ProjectInstructions.readableBy(agent, path)) {
+                                    Toast.makeText(context, R.string.project_instructions_not_shared, Toast.LENGTH_LONG).show()
                                 } else {
                                     drawerScope.launch {
                                         if (!ProjectInstructions.prepare(app.commandRunner, path, file)) {

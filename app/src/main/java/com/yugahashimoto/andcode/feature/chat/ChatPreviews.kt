@@ -56,7 +56,11 @@ internal class ChatPreviews(
         }
     }
 
+    /** Bumped by every [openArtifact], so only the latest read fills the preview. */
+    private var artifactRequest = 0L
+
     fun openArtifact(artifact: Artifact.File) {
+        val request = ++artifactRequest
         uiState.update { it.copy(artifactPreview = ArtifactPreviewState.Loading(artifact)) }
         val currentBackend = backend
         val directory = uiState.value.sessionDirectory ?: uiState.value.selectedWorkspacePath
@@ -68,8 +72,10 @@ internal class ChatPreviews(
             val read = artifactReadPair(artifact.path, directory)
             val result = runCatching { currentBackend.readFile(read.first, read.second) }
             uiState.update {
-                // Dismissed, or another artifact opened, while the file was on its way.
-                if (it.artifactPreview?.artifact != artifact) return@update it
+                // Dismissed, or another artifact opened, while the file was on its way. An equal
+                // one opened since is a newer read's to fill: the same file read again, or another
+                // workspace's file at the same relative path.
+                if (request != artifactRequest || it.artifactPreview?.artifact != artifact) return@update it
                 it.copy(
                     artifactPreview =
                         result.fold(

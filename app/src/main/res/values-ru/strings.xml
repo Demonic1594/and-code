@@ -138,6 +138,7 @@
     <string name="notification_complete_title">Выполнение завершено</string>
     <string name="notification_complete_body">Чат %1$s бездействует</string>
     <string name="permission_chat_confirmation">Этот чат ожидает вашего подтверждения. Выберите, что разрешено агенту:</string>
+    <string name="permission_response_not_applied">OpenCode не смог применить этот ответ на одобрение</string>
     <string name="notification_error_title">Ошибка выполнения</string>
     <string name="notification_error_body">Сессия завершилась с ошибкой</string>
     <string name="chat_stall_title">Выполнение перестало отвечать</string>
@@ -223,6 +224,8 @@
     <string name="question_free_text_label">Другое (введите свой ответ)</string>
     <string name="question_cancel">Не отвечать</string>
     <string name="question_dismiss">Закрыть вопрос</string>
+    <string name="question_answer_required">Требуется ответ</string>
+    <string name="question_failed">Не удалось обработать вопрос OpenCode</string>
     <string name="capability_version">OpenCode %1$s</string>
 
     <string name="rename_session">Переименовать</string>
@@ -698,6 +701,7 @@
     <string name="project_instructions_settings_row">Инструкции проекта</string>
     <string name="project_instructions_no_project">Сначала откройте проект в чате: файл инструкций находится в его папке.</string>
     <string name="project_instructions_failed">Не удалось создать %1$s в этом проекте.</string>
+    <string name="project_instructions_not_shared">Antigravity читает инструкции только из проектов в /workspace или в файлах устройства, а папка этого чата не находится ни там, ни там.</string>
     <string name="command_rules_title">Правила команд</string>
     <string name="command_rules_caption">Заблокированная команда отклоняется без вопроса, даже внутри более длинной команды, и агенту сообщается, что повторять её не нужно. Флаги могут идти в любом порядке, поэтому блокировка «rm -rf» блокирует и «rm -fr», но писать их нужно так же: «--force» — это не «-f». Команды, которые вы всегда разрешили при подтверждении, выполняются без вопроса.</string>
     <string name="command_rules_block_label">Блокировать команды, содержащие</string>
@@ -1417,6 +1421,9 @@
     <string name="devtools_viewport">Область просмотра</string>
     <string name="devtools_user_agent">Агент пользователя</string>
     <string name="guest_browser_webview_unavailable">Гостевой браузер не запускается: на этом устройстве не удалось загрузить WebView. Обновление или повторное включение Android System WebView может помочь.</string>
+    <string name="webview_page_gone_title">Эта страница перестала отвечать</string>
+    <string name="webview_page_gone_body">Android завершил процесс, который её показывал, чаще всего чтобы освободить память. Обновите, чтобы открыть её снова.</string>
+    <string name="webview_page_gone_reload">Обновить</string>
     <string name="guest_browser_agent_controlling">Агент управляет этой страницей</string>
     <string name="setup_step_development_tools">Инструменты разработки</string>
     <string name="setup_development_tools_description">По умолчанию устанавливаются только необходимые компоненты. При желании можно добавить полный набор инструментов.</string>
@@ -2010,5 +2017,6 @@
     <string name="context_breakdown_memory_large">Большой файл: вероятно, больше размера, при котором Claude Code предупреждает, что файл замедляет его работу.</string>
     <string name="context_breakdown_compact">Сжать сейчас</string>
     <string name="context_breakdown_compact_caption">Заменяет старые сообщения сводкой, чтобы в чате осталось место для продолжения. Выполняется как отдельный ход.</string>
+    <string name="chat_compact_failed">Не удалось сжать разговор</string>
     <string name="context_category_in_use">Инструкции, инструменты и сообщения</string>
 </resources>

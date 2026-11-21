@@ -126,6 +126,7 @@
     <string name="notification_complete_title">Run finished</string>
     <string name="notification_complete_body">Chat %1$s is idle</string>
     <string name="permission_chat_confirmation">This chat is waiting for your approval. Choose what the agent may do:</string>
+    <string name="permission_response_not_applied">OpenCode could not apply that permission response</string>
     <string name="notification_error_title">Run error</string>
     <string name="notification_error_body">A session failed</string>
     <string name="chat_stall_title">This run has gone quiet</string>
@@ -194,6 +195,8 @@
     <string name="question_free_text_label">Other (type your own answer)</string>
     <string name="question_cancel">Decline to answer</string>
     <string name="question_dismiss">Dismiss question</string>
+    <string name="question_answer_required">Answer required</string>
+    <string name="question_failed">OpenCode question failed</string>
     <string name="capability_version">OpenCode %1$s</string>
 
     <string name="rename_session">Rename</string>
@@ -670,6 +673,7 @@
     <string name="project_instructions_settings_row">Project instructions</string>
     <string name="project_instructions_no_project">Open a project in a chat first: the instructions file lives in its folder.</string>
     <string name="project_instructions_failed">Could not create %1$s in this project.</string>
+    <string name="project_instructions_not_shared">Antigravity only reads instructions from projects in /workspace or in device files, and this chat\'s folder is in neither.</string>
     <string name="command_rules_title">Command rules</string>
     <string name="command_rules_caption">A blocked command is refused without asking, also inside a longer command, and the agent is told not to retry it. Flags may come in any order, so blocking “rm -rf” also blocks “rm -fr”, but must be spelled the same: “--force” is not “-f”. Commands you marked “Always allow” on an approval run without asking again.</string>
     <string name="command_rules_block_label">Block commands containing</string>
@@ -1415,6 +1419,9 @@
     <string name="devtools_user_agent">User agent</string>
     <string name="devtools_url" translatable="false">URL</string>
     <string name="guest_browser_webview_unavailable">The Guest Browser cannot start because the WebView on this device failed to load. Updating or re-enabling Android System WebView may fix this.</string>
+    <string name="webview_page_gone_title">This page stopped responding</string>
+    <string name="webview_page_gone_body">Android closed the process that was showing it, often to free up memory. Reload to open it again.</string>
+    <string name="webview_page_gone_reload">Reload</string>
     <string name="guest_browser_agent_controlling">An agent is controlling this page</string>
     <string name="setup_step_development_tools">Development tools</string>
     <string name="setup_development_tools_description">Install only the runtime by default, or include the complete development toolchain.</string>
@@ -1981,5 +1988,6 @@
     <string name="context_breakdown_memory_large">Large: probably past the size at which Claude Code warns that a file slows it down.</string>
     <string name="context_breakdown_compact">Compact now</string>
     <string name="context_breakdown_compact_caption">Replaces the older messages with a summary, so the chat has room to keep going. It runs like a turn.</string>
+    <string name="chat_compact_failed">Could not compact the conversation</string>
     <string name="context_category_in_use">Instructions, tools and messages</string>
 </resources>

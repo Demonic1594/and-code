@@ -7,6 +7,8 @@ import com.yugahashimoto.andcode.core.api.OpenCodeModelReference
 import com.yugahashimoto.andcode.core.api.OpenCodePart
 import com.yugahashimoto.andcode.core.api.OpenCodeTime
 import com.yugahashimoto.andcode.core.api.PromptAttachment
+import com.yugahashimoto.andcode.core.storage.DeviceStorage
+import com.yugahashimoto.andcode.feature.workspace.WorkspaceFolders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -16,6 +18,8 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.util.Base64
 
 @Serializable
@@ -186,14 +190,21 @@ class AntigravityRuntime(
                 val runtime = installedRuntimeProvider() ?: error("Linux environment is not installed")
                 require(isInstalled()) { "Antigravity is not installed" }
                 AntigravityGuestSettings.repair(runtime)
+                val turn = records[sessionId]?.lastStep ?: 0
                 val promptWithAttachments =
                     prepareAntigravityPrompt(
                         runtimeDirectory,
                         sessionId,
-                        records[sessionId]?.lastStep ?: 0,
+                        turn,
                         prompt,
                         attachments,
                     )
+                val workspaceHostDir = File(runtimeDirectory, "workspace")
+                val workingDirectory =
+                    AntigravitySandboxLauncher.workingDirectoryFor(workspace) {
+                        // No rootfs: a folder of one guest's own is never agy's (see workingDirectoryFor).
+                        WorkspaceFolders.hostDirectory(null, workspaceHostDir, it, DeviceStorage.mounts())
+                    }
                 // Normally unreachable now that the app always queues a send behind a running
                 // Antigravity turn (see RuntimeCapabilities.forcesQueue) - kept as a safety net for
                 // e.g. two clients racing the same session. Marking the kill as intentional here is
@@ -206,23 +217,16 @@ class AntigravityRuntime(
                 // AntigravityProcessGate), so a send queues behind any in-flight launch and the two
                 // run one at a time instead of racing each other into a deadlock.
                 AntigravityProcessGate.serialize {
-                    // `--print` takes the prompt as its value, so it must come last with the prompt
-                    // immediately after it. Every other flag goes first: with `--print` leading, the CLI
-                    // took the *next* token as the prompt, so a message sent with any flag set asked the
-                    // model about "--conversation" or "--mode" instead of what the user typed.
                     val args =
-                        buildList {
-                            add("--output-format")
-                            add("stream-json")
-                            if (conversationId != null) {
-                                add("--conversation")
-                                add(conversationId)
-                            }
-                            addAll(AntigravityModels.cliArgs(model, variant))
-                            addAll(permissionMode.cliArgs)
-                            add("--print")
-                            add(promptWithAttachments)
-                        }
+                        antigravityPrintArguments(
+                            prompt = promptWithAttachments,
+                            conversationId = conversationId,
+                            model = model,
+                            variant = variant,
+                            permissionMode = permissionMode,
+                            workingDirectory = workingDirectory,
+                            attachmentDirectory = antigravityAttachmentDirectory(runtimeDirectory, sessionId),
+                        )
                     val stderrLog = File(runtimeDirectory, "logs/agy-stderr.log").also { it.parentFile?.mkdirs() }
                     val process =
                         ProcessBuilder(
@@ -233,6 +237,7 @@ class AntigravityRuntime(
                                 }.absolutePath,
                                 args,
                                 false,
+                                workingDirectory,
                             ),
                         )
                             .directory(runtimeDirectory)
@@ -417,10 +422,10 @@ class AntigravityRuntime(
             currentRootfs()?.let { AgentTranscriptFiles.deleteAntigravity(it, listOf(conversationId)) }
         }
         messageStore.remove(sessionId)
-        val safeSession = sessionId.replace(Regex("[^A-Za-z0-9._-]"), "_")
+        val safeSession = attachmentSessionName(sessionId)
         // The workspace is the guest's: never follow a link it left among the attachments.
         if (safeSession != "." && safeSession != "..") {
-            GuestFiles.deleteTree(File(runtimeDirectory, "workspace"), "$ATTACHMENT_DIRECTORY/$safeSession")
+            GuestFiles.deleteTree(File(runtimeDirectory, "workspace"), attachmentDirectory(sessionId))
         }
         persistRecords()
         persistMessages()
@@ -610,6 +615,73 @@ private fun writeAtomically(
 }
 
 /**
+ * agy's arguments for one `--print` turn of a chat that starts in [workingDirectory].
+ *
+ * `--print` takes the prompt as its value, so it must come last with the prompt immediately after
+ * it. Every other flag goes first: with `--print` leading, the CLI took the *next* token as the
+ * prompt, so a message sent with any flag set asked the model about "--conversation" or "--mode"
+ * instead of what the user typed.
+ *
+ * agy's workspace is the folder it starts in plus each `--add-dir`. The chat's attachments are in
+ * [attachmentDirectory] under the shared `/workspace`, outside a project folder, so that folder is
+ * added to the workspace unless agy already starts in or above it - as agy did before it started in
+ * the project, when attachments were always inside its workspace.
+ */
+internal fun antigravityPrintArguments(
+    prompt: String,
+    conversationId: String?,
+    model: String?,
+    variant: String?,
+    permissionMode: AntigravityPermissionMode,
+    workingDirectory: String,
+    attachmentDirectory: String?,
+): List<String> =
+    buildList {
+        add("--output-format")
+        add("stream-json")
+        if (conversationId != null) {
+            add("--conversation")
+            add(conversationId)
+        }
+        addAll(AntigravityModels.cliArgs(model, variant))
+        addAll(permissionMode.cliArgs)
+        if (attachmentDirectory != null && !isGuestPathWithin(attachmentDirectory, workingDirectory)) {
+            add("--add-dir")
+            add(attachmentDirectory)
+        }
+        add("--print")
+        add(prompt)
+    }
+
+/** Whether guest [path] is [directory] or inside it; `/workspace-old` is not inside `/workspace`. */
+private fun isGuestPathWithin(
+    path: String,
+    directory: String,
+): Boolean {
+    val parent = directory.trimEnd('/')
+    return path == parent || path.startsWith("$parent/")
+}
+
+/**
+ * The guest folder holding every attachment of [sessionId]'s chat, one subfolder per turn (see
+ * [prepareAntigravityPrompt]), or null while the chat has none. The whole chat's folder, so a turn
+ * can still refer to an earlier turn's attachment. A link the guest left in its place is not one.
+ */
+internal fun antigravityAttachmentDirectory(
+    runtimeDirectory: File,
+    sessionId: String,
+): String? =
+    attachmentDirectory(sessionId)
+        .takeIf { Files.isDirectory(File(runtimeDirectory, "workspace/$it").toPath(), LinkOption.NOFOLLOW_LINKS) }
+        ?.let { "${AntigravitySandboxLauncher.WORKSPACE_GUEST_DIR}/$it" }
+
+/** The chat's attachment folder relative to the workspace. */
+private fun attachmentDirectory(sessionId: String): String = "$ATTACHMENT_DIRECTORY/${attachmentSessionName(sessionId)}"
+
+/** [sessionId] as a single folder name. */
+private fun attachmentSessionName(sessionId: String): String = sessionId.replace(Regex("[^A-Za-z0-9._-]"), "_")
+
+/**
  * Materializes inline attachments in the shared workspace and references them through agy's native
  * `@path` context syntax. This is the non-interactive equivalent of attaching a file in its TUI.
  */
@@ -621,9 +693,8 @@ internal fun prepareAntigravityPrompt(
     attachments: List<PromptAttachment>,
 ): String {
     if (attachments.isEmpty()) return prompt
-    val safeSession = sessionId.replace(Regex("[^A-Za-z0-9._-]"), "_")
     val workspace = File(runtimeDirectory, "workspace")
-    val attachmentDir = "$ATTACHMENT_DIRECTORY/$safeSession/$turn"
+    val attachmentDir = "${attachmentDirectory(sessionId)}/$turn"
     val references =
         attachments.mapIndexed { index, attachment ->
             require(attachment.mime.startsWith("image/") || attachment.mime == "application/pdf") {
@@ -640,7 +711,7 @@ internal fun prepareAntigravityPrompt(
             // not have the attachment land among this app's own files.
             val fileName = "$index-$safeName"
             GuestFiles.write(workspace, "$attachmentDir/$fileName", Base64.getDecoder().decode(encoded))
-            "@/workspace/$attachmentDir/$fileName"
+            "@${AntigravitySandboxLauncher.WORKSPACE_GUEST_DIR}/$attachmentDir/$fileName"
         }
     return (references + prompt).joinToString("\n")
 }

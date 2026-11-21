@@ -150,6 +150,7 @@
     <string name="notification_complete_title">انتهى التنفيذ</string>
     <string name="notification_complete_body">المحادثة %1$s خاملة</string>
     <string name="permission_chat_confirmation">تنتظر هذه المحادثة موافقتك. اختر ما يُسمح للوكيل بفعله:</string>
+    <string name="permission_response_not_applied">تعذّر على OpenCode تطبيق رد الموافقة هذا</string>
     <string name="notification_error_title">خطأ في التنفيذ</string>
     <string name="notification_error_body">فشلت جلسة</string>
     <string name="chat_stall_title">توقّف هذا التنفيذ عن الاستجابة</string>
@@ -239,6 +240,8 @@
     <string name="question_free_text_label">أخرى (اكتب إجابتك)</string>
     <string name="question_cancel">رفض الإجابة</string>
     <string name="question_dismiss">إغلاق السؤال</string>
+    <string name="question_answer_required">الإجابة مطلوبة</string>
+    <string name="question_failed">فشل سؤال OpenCode</string>
     <string name="capability_version">OpenCode %1$s</string>
 
     <string name="rename_session">إعادة تسمية</string>
@@ -730,6 +733,7 @@
     <string name="project_instructions_settings_row">تعليمات المشروع</string>
     <string name="project_instructions_no_project">افتح مشروعًا في محادثة أولًا: ملف التعليمات موجود في مجلده.</string>
     <string name="project_instructions_failed">تعذّر إنشاء %1$s في هذا المشروع.</string>
+    <string name="project_instructions_not_shared">لا يقرأ Antigravity التعليمات إلا من المشاريع الموجودة في /workspace أو في ملفات الجهاز، ومجلد هذه المحادثة ليس في أيٍّ منهما.</string>
     <string name="command_rules_title">قواعد الأوامر</string>
     <string name="command_rules_caption">يُرفض الأمر المحظور دون سؤال، حتى داخل أمر أطول، ويُطلب من الوكيل عدم إعادة المحاولة. يمكن أن تأتي الخيارات بأي ترتيب، لذا فإن حظر «rm -rf» يحظر أيضًا «rm -fr»، لكن يجب أن تُكتب بالطريقة نفسها: «--force» ليس «-f». الأوامر التي سمحت بها دائمًا عند الموافقة تعمل دون سؤال.</string>
     <string name="command_rules_block_label">حظر الأوامر التي تحتوي على</string>
@@ -1455,6 +1459,9 @@
     <string name="devtools_viewport">إطار العرض</string>
     <string name="devtools_user_agent">وكيل المستخدم</string>
     <string name="guest_browser_webview_unavailable">يتعذّر تشغيل المتصفح الضيف لأن WebView لم يُحمَّل على هذا الجهاز. قد يحل تحديث Android System WebView أو إعادة تفعيله المشكلة.</string>
+    <string name="webview_page_gone_title">توقفت هذه الصفحة عن الاستجابة</string>
+    <string name="webview_page_gone_body">أغلق Android العملية التي كانت تعرضها، غالبًا لتحرير الذاكرة. أعد التحميل لفتحها مرة أخرى.</string>
+    <string name="webview_page_gone_reload">إعادة تحميل</string>
     <string name="guest_browser_agent_controlling">وكيل يتحكم في هذه الصفحة</string>
     <string name="setup_step_development_tools">أدوات التطوير</string>
     <string name="setup_development_tools_description">يتم تثبيت مكونات التشغيل الضرورية فقط افتراضيًا، ويمكنك إضافة مجموعة أدوات التطوير الكاملة.</string>
@@ -2082,5 +2089,6 @@
     <string name="context_breakdown_memory_large">ملف كبير: يتجاوز على الأرجح الحجم الذي يحذّر عنده Claude Code من أن الملف يبطئه.</string>
     <string name="context_breakdown_compact">ضغط المحادثة الآن</string>
     <string name="context_breakdown_compact_caption">يستبدل الرسائل الأقدم بملخّص، ليبقى في الدردشة متسع للمتابعة. يعمل مثل دور.</string>
+    <string name="chat_compact_failed">تعذّر ضغط المحادثة</string>
     <string name="context_category_in_use">التعليمات والأدوات والرسائل</string>
 </resources>

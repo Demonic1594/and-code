@@ -148,7 +148,7 @@ fun CodexAgentSettingsScreen(
                 onClick = onOpenMcp,
             )
             SettingsDivider()
-            ProjectInstructionsRow(ProjectInstructions.AGENTS_FILE, onOpenProjectInstructions)
+            ProjectInstructionsRow(ProjectInstructions.fileFor(LocalAgent.CODEX), onOpenProjectInstructions)
         }
     }
     if (signInDialog != null) {
@@ -190,6 +190,7 @@ fun AntigravityAgentSettingsScreen(
     onSignOut: () -> Unit,
     onOpenMcp: () -> Unit,
     onOpenUrl: (String) -> Unit,
+    onOpenProjectInstructions: () -> Unit,
     onBack: () -> Unit,
 ) {
     AgentSettingsScaffold(title = stringResource(LocalAgent.ANTIGRAVITY.displayNameRes), onBack = onBack) {
@@ -222,6 +223,8 @@ fun AntigravityAgentSettingsScreen(
                 title = stringResource(R.string.mcp_settings_row),
                 onClick = onOpenMcp,
             )
+            SettingsDivider()
+            ProjectInstructionsRow(ProjectInstructions.fileFor(LocalAgent.ANTIGRAVITY), onOpenProjectInstructions)
         }
     }
 }
@@ -314,7 +317,7 @@ fun ClaudeCodeAgentSettingsScreen(
                 onCheckedChange = onSetKeepEditsInProject,
             )
             SettingsDivider()
-            ProjectInstructionsRow(ProjectInstructions.CLAUDE_FILE, onOpenProjectInstructions)
+            ProjectInstructionsRow(ProjectInstructions.fileFor(LocalAgent.CLAUDE_CODE), onOpenProjectInstructions)
         }
     }
 }
@@ -419,7 +422,7 @@ fun OpenCodeAgentSettingsScreen(
                 onClick = onOpenMcp,
             )
             SettingsDivider()
-            ProjectInstructionsRow(ProjectInstructions.AGENTS_FILE, onOpenProjectInstructions)
+            ProjectInstructionsRow(ProjectInstructions.fileFor(LocalAgent.OPEN_CODE), onOpenProjectInstructions)
         }
     }
 
