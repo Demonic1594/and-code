@@ -1,8 +1,6 @@
 package com.yugahashimoto.andcode.feature.wakeword
 
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
@@ -21,6 +19,8 @@ import androidx.core.content.ContextCompat
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.MainActivity
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.locale.AppLanguage
+import com.yugahashimoto.andcode.core.notification.AppNotificationChannels
 import com.yugahashimoto.andcode.feature.assistant.AndCodeVoiceInteractionService
 import com.yugahashimoto.andcode.feature.assistant.AssistantStatus
 import kotlinx.coroutines.CoroutineScope
@@ -172,17 +172,10 @@ class WakeWordService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification())
     }
 
+    /** Built in the language picked now, on a channel named in it; this service's own context ignores the app's language. */
     private fun buildNotification(): Notification {
-        val channel =
-            NotificationChannel(
-                CHANNEL_ID,
-                getString(R.string.wake_word_notification_channel),
-                NotificationManager.IMPORTANCE_LOW,
-            ).apply {
-                setShowBadge(false)
-            }
-        val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(channel)
+        AppNotificationChannels.ensure(this, AppNotificationChannels.WAKE_WORD)
+        val text = AppLanguage.current(this)
 
         val tapIntent =
             PendingIntent.getActivity(
@@ -200,17 +193,17 @@ class WakeWordService : Service() {
             )
 
         val notification =
-            NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle(getString(R.string.wake_word_notification_title))
+            NotificationCompat.Builder(this, AppNotificationChannels.WAKE_WORD.id)
+                .setContentTitle(text.getString(R.string.wake_word_notification_title))
                 .setContentText(
-                    getString(
+                    text.getString(
                         R.string.wake_word_notification_text,
                         WakeWordGrammar.normalize(settings()?.wakeWordPhrase.orEmpty()),
                     ),
                 )
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentIntent(tapIntent)
-                .addAction(0, getString(R.string.wake_word_notification_stop), stopIntent)
+                .addAction(0, text.getString(R.string.wake_word_notification_stop), stopIntent)
                 .setOngoing(true)
                 .setSilent(true)
                 .build()
@@ -498,7 +491,6 @@ class WakeWordService : Service() {
 
     companion object {
         private const val TAG = "WakeWordService"
-        private const val CHANNEL_ID = "wakeword_channel"
         private const val NOTIFICATION_ID = 9001
         private const val ACTION_STOP = "com.yugahashimoto.andcode.action.STOP_WAKEWORD"
         private const val EXTRA_LANGUAGE = "wake_word_model_language"

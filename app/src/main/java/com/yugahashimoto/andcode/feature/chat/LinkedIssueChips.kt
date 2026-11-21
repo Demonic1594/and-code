@@ -68,7 +68,9 @@ internal fun issuePromptLabels(context: Context): IssuePromptLabels {
         commentsLatest = { shown, skipped ->
             res.getQuantityString(R.plurals.chat_issue_prompt_comments_latest, skipped, shown, skipped)
         },
-        commentsPartial = { shown, read -> res.getString(R.string.chat_issue_prompt_comments_partial, shown, read) },
+        commentsPartial = { shown, read ->
+            res.getQuantityString(R.plurals.chat_issue_prompt_comments_partial, shown, shown, read)
+        },
         cut = { res.getQuantityString(R.plurals.chat_issue_prompt_cut, it, it) },
     )
 }

@@ -3,8 +3,6 @@ package com.yugahashimoto.andcode.core.notification
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -21,13 +19,25 @@ import com.yugahashimoto.andcode.core.api.PermissionRequest
 import com.yugahashimoto.andcode.core.api.QuestionRequest
 import com.yugahashimoto.andcode.core.diagnostics.StallDiagnosis
 import com.yugahashimoto.andcode.core.diagnostics.explain
+import com.yugahashimoto.andcode.core.locale.AppLanguage
 import com.yugahashimoto.andcode.runtime.PermissionResponse
 
 class RuntimeNotificationHelper(private val context: Context) {
     private val manager = NotificationManagerCompat.from(context)
 
+    /**
+     * Where every word of a notice is read: the language picked in AndCode now, not the one
+     * [context] got when the process started. [context] stays for intents and system services.
+     */
+    private val text: Context get() = AppLanguage.current(context)
+
     init {
-        ensureChannels()
+        AppNotificationChannels.ensure(
+            context,
+            AppNotificationChannels.APPROVALS,
+            AppNotificationChannels.STATUS,
+            AppNotificationChannels.LIVE_RUNS,
+        )
     }
 
     fun notifyPermission(
@@ -51,17 +61,17 @@ class RuntimeNotificationHelper(private val context: Context) {
         val reject = permissionActionIntent(request, runtimeId, PermissionResponse.REJECT, remember = false)
 
         val notification =
-            NotificationCompat.Builder(context, CHANNEL_APPROVALS)
+            NotificationCompat.Builder(context, AppNotificationChannels.APPROVALS.id)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(
-                    context.getString(R.string.notification_approval_title) + " · " +
-                        (chatTitle?.takeIf(String::isNotBlank) ?: context.getString(R.string.new_chat)),
+                    text.getString(R.string.notification_approval_title) + " · " +
+                        (chatTitle?.takeIf(String::isNotBlank) ?: text.getString(R.string.new_chat)),
                 )
                 .setContentText(request.permission)
                 .setStyle(
                     NotificationCompat.BigTextStyle().bigText(
                         buildString {
-                            append(chatTitle?.takeIf(String::isNotBlank) ?: context.getString(R.string.new_chat))
+                            append(chatTitle?.takeIf(String::isNotBlank) ?: text.getString(R.string.new_chat))
                             append('\n')
                             append(request.permission)
                             if (request.patterns.isNotEmpty()) {
@@ -78,12 +88,12 @@ class RuntimeNotificationHelper(private val context: Context) {
                     // Approving from the shade would let anyone holding the phone run a tool past
                     // the app lock; with it on, the notification only opens the (locked) app.
                     if (!appLocked()) {
-                        addAction(0, context.getString(R.string.allow_once), allowOnce)
+                        addAction(0, text.getString(R.string.allow_once), allowOnce)
                         // Same rule as the card: never offer an "always" that cannot persist.
                         if (request.canAlwaysAllow) {
-                            addAction(0, context.getString(R.string.always_allow), allowAlways)
+                            addAction(0, text.getString(R.string.always_allow), allowAlways)
                         }
-                        addAction(0, context.getString(R.string.reject), reject)
+                        addAction(0, text.getString(R.string.reject), reject)
                     }
                 }
                 .lockAware()
@@ -110,17 +120,17 @@ class RuntimeNotificationHelper(private val context: Context) {
             )
         val prompt = request.questions.firstOrNull()?.question?.takeIf(String::isNotBlank)
         val notification =
-            NotificationCompat.Builder(context, CHANNEL_APPROVALS)
+            NotificationCompat.Builder(context, AppNotificationChannels.APPROVALS.id)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(
-                    context.getString(R.string.notification_question_title) + " · " +
-                        (chatTitle?.takeIf(String::isNotBlank) ?: context.getString(R.string.new_chat)),
+                    text.getString(R.string.notification_question_title) + " · " +
+                        (chatTitle?.takeIf(String::isNotBlank) ?: text.getString(R.string.new_chat)),
                 )
-                .setContentText(prompt ?: context.getString(R.string.notification_question_body))
+                .setContentText(prompt ?: text.getString(R.string.notification_question_body))
                 .setStyle(
                     NotificationCompat.BigTextStyle().bigText(
                         buildString {
-                            append(chatTitle?.takeIf(String::isNotBlank) ?: context.getString(R.string.new_chat))
+                            append(chatTitle?.takeIf(String::isNotBlank) ?: text.getString(R.string.new_chat))
                             if (prompt != null) {
                                 append('\n')
                                 append(prompt)
@@ -155,13 +165,13 @@ class RuntimeNotificationHelper(private val context: Context) {
                     ),
             )
         val notification =
-            NotificationCompat.Builder(context, CHANNEL_STATUS)
+            NotificationCompat.Builder(context, AppNotificationChannels.STATUS.id)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(context.getString(R.string.notification_complete_title))
+                .setContentTitle(text.getString(R.string.notification_complete_title))
                 .setContentText(
-                    context.getString(
+                    text.getString(
                         R.string.notification_complete_body,
-                        chatTitle?.takeIf(String::isNotBlank) ?: context.getString(R.string.new_chat),
+                        chatTitle?.takeIf(String::isNotBlank) ?: text.getString(R.string.new_chat),
                     ),
                 )
                 .setContentIntent(intent)
@@ -190,10 +200,10 @@ class RuntimeNotificationHelper(private val context: Context) {
                     ),
             )
         val notification =
-            NotificationCompat.Builder(context, CHANNEL_STATUS)
+            NotificationCompat.Builder(context, AppNotificationChannels.STATUS.id)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(context.getString(R.string.notification_error_title))
-                .setContentText(message ?: context.getString(R.string.notification_error_body))
+                .setContentTitle(text.getString(R.string.notification_error_title))
+                .setContentText(message ?: text.getString(R.string.notification_error_body))
                 .setContentIntent(intent)
                 .lockAware()
                 .apply {
@@ -225,10 +235,10 @@ class RuntimeNotificationHelper(private val context: Context) {
                 extras = mapOf(EXTRA_OPEN_ACTIVITY to true),
             )
         val notification =
-            NotificationCompat.Builder(context, CHANNEL_STATUS)
+            NotificationCompat.Builder(context, AppNotificationChannels.STATUS.id)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(context.getString(R.string.notification_schedule_not_started_title))
-                .setContentText(context.getString(R.string.notification_schedule_not_started_body, scheduleName, reason))
+                .setContentTitle(text.getString(R.string.notification_schedule_not_started_title))
+                .setContentText(text.getString(R.string.notification_schedule_not_started_body, scheduleName, reason))
                 // Every miss carries the same title, so the schedule has to be named in the
                 // expanded text too or two of them are indistinguishable in the shade.
                 .setStyle(NotificationCompat.BigTextStyle().bigText("$scheduleName\n$reason"))
@@ -261,13 +271,13 @@ class RuntimeNotificationHelper(private val context: Context) {
                         EXTRA_RUNTIME_ID to runtimeId,
                     ),
             )
-        val reason = diagnosis.explain(context)
-        val title = chatTitle?.takeIf(String::isNotBlank) ?: context.getString(R.string.new_chat)
+        val reason = diagnosis.explain(text)
+        val title = chatTitle?.takeIf(String::isNotBlank) ?: text.getString(R.string.new_chat)
         val notification =
-            NotificationCompat.Builder(context, CHANNEL_STATUS)
+            NotificationCompat.Builder(context, AppNotificationChannels.STATUS.id)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(context.getString(R.string.notification_stalled_title))
-                .setContentText(context.getString(R.string.notification_stalled_body, title, reason))
+                .setContentTitle(text.getString(R.string.notification_stalled_title))
+                .setContentText(text.getString(R.string.notification_stalled_body, title, reason))
                 // Every stall notice carries the same title, so the chat has to be named in the
                 // expanded text too or two of them are indistinguishable once opened.
                 .setStyle(NotificationCompat.BigTextStyle().bigText("$title\n$reason"))
@@ -308,10 +318,10 @@ class RuntimeNotificationHelper(private val context: Context) {
     ) {
         if (!canPostNotifications()) return
         val notification =
-            NotificationCompat.Builder(context, CHANNEL_STATUS)
+            NotificationCompat.Builder(context, AppNotificationChannels.STATUS.id)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle(context.getString(R.string.notification_reply_failed))
-                .setContentText(context.getString(R.string.notification_reply_failed_body))
+                .setContentTitle(text.getString(R.string.notification_reply_failed))
+                .setContentText(text.getString(R.string.notification_reply_failed_body))
                 .setContentIntent(openChatIntent(sessionId, runtimeId.orEmpty(), "replyfail"))
                 .addReplyUnlessLocked(sessionId, runtimeId, notificationId)
                 .lockAware()
@@ -342,11 +352,11 @@ class RuntimeNotificationHelper(private val context: Context) {
     ): NotificationCompat.Action {
         val input =
             RemoteInput.Builder(NotificationActionReceiver.KEY_REPLY)
-                .setLabel(context.getString(R.string.notification_reply_hint))
+                .setLabel(text.getString(R.string.notification_reply_hint))
                 .build()
         return NotificationCompat.Action.Builder(
             0,
-            context.getString(R.string.notification_reply),
+            text.getString(R.string.notification_reply),
             NotificationActionReceiver.replyIntent(context, sessionId, runtimeId, notificationId),
         )
             .addRemoteInput(input)
@@ -376,6 +386,8 @@ class RuntimeNotificationHelper(private val context: Context) {
         notification: Notification,
     ) {
         if (!canPostNotifications()) return
+        // Renames the channel first if the language changed since it was named.
+        AppNotificationChannels.ensure(context, notification.channelId)
         runCatching { manager.notify(id, notification) }
     }
 
@@ -426,35 +438,6 @@ class RuntimeNotificationHelper(private val context: Context) {
         )
     }
 
-    private fun ensureChannels() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val notificationManager = context.getSystemService(NotificationManager::class.java) ?: return
-        notificationManager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_APPROVALS,
-                context.getString(R.string.notification_channel_approvals),
-                NotificationManager.IMPORTANCE_HIGH,
-            ),
-        )
-        notificationManager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_STATUS,
-                context.getString(R.string.notification_channel_status),
-                NotificationManager.IMPORTANCE_DEFAULT,
-            ),
-        )
-        notificationManager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_LIVE,
-                context.getString(R.string.notification_channel_live),
-                NotificationManager.IMPORTANCE_LOW,
-            ).apply {
-                description = context.getString(R.string.notification_channel_live_description)
-                setShowBadge(false)
-            },
-        )
-    }
-
     // A narrow hash window made unrelated sessions collide onto one notification id, so one chat's
     // notice visibly replaced another's and tapping it carried the wrong content intent. The wider
     // mask makes that collision vanishingly unlikely.
@@ -470,10 +453,6 @@ class RuntimeNotificationHelper(private val context: Context) {
     ): Int = NOTIFICATION_ID_BASE_STATUS + ((sessionId + kind).hashCode() and NOTIFICATION_ID_MASK)
 
     companion object {
-        const val CHANNEL_APPROVALS = "opencode_approvals"
-        const val CHANNEL_STATUS = "opencode_status"
-        const val CHANNEL_LIVE = "opencode_live_runs"
-
         fun canPost(context: Context): Boolean {
             if (Build.VERSION.SDK_INT < 33) return true
             return ContextCompat.checkSelfPermission(

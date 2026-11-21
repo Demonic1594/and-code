@@ -196,7 +196,7 @@ class ClaudeCodeController(
                     }.onSuccess {
                         refreshBlocking()
                     }.onFailure { error ->
-                        report(ClaudeInstallStatus.Failed(error.message ?: messages.installFailed))
+                        report(ClaudeInstallStatus.Failed(messages.describe(error) ?: messages.installFailed))
                     }
                 }
             }
@@ -216,7 +216,7 @@ class ClaudeCodeController(
                             // reports come from the same read of the sandbox.
                             mutableState.value = mutableState.value.copy(lastUpdate = result)
                         }
-                        .onFailure { error -> report(ClaudeInstallStatus.Failed(error.message ?: messages.updateFailed)) }
+                        .onFailure { error -> report(ClaudeInstallStatus.Failed(messages.describe(error) ?: messages.updateFailed)) }
                 }
             }
     }

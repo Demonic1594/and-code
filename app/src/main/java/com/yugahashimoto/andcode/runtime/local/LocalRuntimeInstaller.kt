@@ -3,8 +3,10 @@ package com.yugahashimoto.andcode.runtime.local
 import android.content.Context
 import android.system.Os
 import android.util.Log
+import androidx.annotation.StringRes
 import com.yugahashimoto.andcode.BuildConfig
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.locale.AppLanguage
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -25,6 +27,12 @@ class LocalRuntimeInstaller(
     private val downloader: VerifiedRuntimeDownloader = VerifiedRuntimeDownloader(httpClient),
     private val accessCoordinator: LocalRuntimeAccessCoordinator = LocalRuntimeAccessCoordinator(),
 ) {
+    /**
+     * Where step text is read: the language picked now. The steps reach the runtime's notification
+     * and screen, and [context] is the Application's, which keeps the one the process started in.
+     */
+    private val text: Context get() = AppLanguage.current(context)
+
     private val json: Json =
         Json {
             ignoreUnknownKeys = true
@@ -67,7 +75,7 @@ class LocalRuntimeInstaller(
             val onAntigravity: (Float?, String) -> Unit = { progress, step -> onProgress(progress, step, LocalAgent.ANTIGRAVITY) }
             val onCodex: (Float?, String) -> Unit = { progress, step -> onProgress(progress, step, LocalAgent.CODEX) }
             runtimeDirectory.mkdirs()
-            onShared(0.02f, context.getString(R.string.install_step_preparing_command_env))
+            onShared(0.02f, text.getString(R.string.install_step_preparing_command_env))
             val existingMetadata = installedMetadata()
             val requestedAgents =
                 agents + (
@@ -108,7 +116,7 @@ class LocalRuntimeInstaller(
                     architecture.alpineSha256,
                     0.05f,
                     0.22f,
-                    context.getString(R.string.install_step_downloading_alpine),
+                    R.string.install_step_downloading_alpine,
                     onShared,
                 )
                 val withOpenCode = LocalAgent.OPEN_CODE in requestedAgents
@@ -120,29 +128,29 @@ class LocalRuntimeInstaller(
                             architecture.openCodeSha256,
                             0.24f,
                             0.72f,
-                            context.getString(R.string.install_step_downloading_opencode),
+                            R.string.install_step_downloading_opencode,
                             onShared,
                         )
                     }
 
                 val rootfs = File(staging, "rootfs").apply { mkdirs() }
-                onShared(0.75f, context.getString(R.string.install_step_extracting_linux_env))
+                onShared(0.75f, text.getString(R.string.install_step_extracting_linux_env))
                 alpineArchive.inputStream().use { RuntimeArchive.extractTarGz(it, rootfs) }
 
                 val openCodeBinary =
                     openCodeArchive?.let { archive ->
-                        onShared(0.85f, context.getString(R.string.install_step_extracting_opencode))
+                        onShared(0.85f, text.getString(R.string.install_step_extracting_opencode))
                         extractOpenCode(archive, staging, rootfs)
                     }
                 configureRootfs(rootfs, commandSuite)
                 val antigravityRootfs =
                     if (LocalAgent.ANTIGRAVITY in requestedAgents) {
-                        onAntigravity(0.90f, context.getString(R.string.install_step_preparing_antigravity_rootfs))
+                        onAntigravity(0.90f, text.getString(R.string.install_step_preparing_antigravity_rootfs))
                         DebianRootfsInstaller(runtimeDirectory, abi, downloader, httpClient, commandSuite).installInto(
                             File(staging, "antigravity-rootfs"),
                             installFullDevelopmentTools = includeFullDevelopmentTools,
                         ) { progress ->
-                            onAntigravity(0.90f + progress * 0.03f, context.getString(R.string.install_step_preparing_antigravity_rootfs))
+                            onAntigravity(0.90f + progress * 0.03f, text.getString(R.string.install_step_preparing_antigravity_rootfs))
                         }
                     } else {
                         null
@@ -164,7 +172,7 @@ class LocalRuntimeInstaller(
                 ensureAndCodeAgentContext(rootfs, context)
                 onShared(
                     0.91f,
-                    context.getString(
+                    text.getString(
                         if (includeFullDevelopmentTools) {
                             R.string.install_step_installing_dev_tools
                         } else {
@@ -183,23 +191,23 @@ class LocalRuntimeInstaller(
                         },
                 )
                 if (LocalAgent.CLAUDE_CODE in requestedAgents) {
-                    onClaude(0.93f, context.getString(R.string.install_step_installing_claude_code))
+                    onClaude(0.93f, text.getString(R.string.install_step_installing_claude_code))
                     ClaudeCodeInstaller.installInto(rootfs, commandSuite, runtimeDirectory)
                     provisionClaudePermissionHook(rootfs)
                 }
                 if (LocalAgent.CODEX in requestedAgents) {
-                    onCodex(0.935f, context.getString(R.string.install_step_downloading_codex))
+                    onCodex(0.935f, text.getString(R.string.install_step_downloading_codex))
                     // Into the staging rootfs like every other agent here, so it is swapped in with the
                     // environment and is not lost when a later install rebuilds the sandbox.
                     CodexInstaller.install(rootfs, abi, runtimeDirectory, accessCoordinator, httpClient)
                 }
                 if (LocalAgent.ANTIGRAVITY in requestedAgents) {
-                    onAntigravity(0.94f, context.getString(R.string.install_step_downloading_antigravity))
+                    onAntigravity(0.94f, text.getString(R.string.install_step_downloading_antigravity))
                     val antigravityRelease = resolveAntigravityRelease(abi, httpClient)
                     AntigravityInstaller(runtimeDirectory, downloader).installInto(
                         antigravityRootfs ?: rootfs,
                         { progress ->
-                            onAntigravity(0.94f + progress * 0.04f, context.getString(R.string.install_step_installing_antigravity))
+                            onAntigravity(0.94f + progress * 0.04f, text.getString(R.string.install_step_installing_antigravity))
                         },
                         antigravityRelease,
                     )
@@ -217,7 +225,7 @@ class LocalRuntimeInstaller(
                         fullDebianDevelopmentToolsInstalled = includeFullDevelopmentTools && antigravityRootfs != null,
                     )
                 File(staging, METADATA_FILE).writeText(json.encodeToString(metadata))
-                onShared(0.96f, context.getString(R.string.install_step_activating_runtime))
+                onShared(0.96f, text.getString(R.string.install_step_activating_runtime))
                 accessCoordinator.write {
                     activateRuntimeEnvironment(
                         active = active,
@@ -231,7 +239,7 @@ class LocalRuntimeInstaller(
                         },
                     )
                 }
-                onShared(1f, context.getString(R.string.install_step_done))
+                onShared(1f, text.getString(R.string.install_step_done))
                 InstalledRuntime(
                     metadata,
                     commandSuite,
@@ -334,19 +342,17 @@ class LocalRuntimeInstaller(
                 val active = File(runtimeDirectory, "environment")
                 val rootfs = File(active, "rootfs")
                 val metadataFile = File(runtimeDirectory, METADATA_FILE)
-                require(rootfs.isDirectory && metadataFile.isFile) {
-                    "The Linux environment is not installed"
-                }
+                if (!rootfs.isDirectory || !metadataFile.isFile) throw InstallerErrors.Environment.missing()
                 val metadata =
                     json.decodeFromString<LocalRuntimeMetadata>(metadataFile.readText())
                 if (metadata.hasFullDevelopmentTools()) return@write metadata
 
                 val suite = EmbeddedCommandSuite(context, runtimeDirectory, abi).ensureInstalled()
-                onProgress(null, context.getString(R.string.install_step_installing_dev_tools), null)
+                onProgress(null, text.getString(R.string.install_step_installing_dev_tools), null)
                 if (!metadata.fullDevelopmentToolsInstalled) installPackages(rootfs, suite, OPTIONAL_DEVELOPMENT_PACKAGES)
                 if (metadata.has(LocalAgent.ANTIGRAVITY) && !metadata.fullDebianDevelopmentToolsInstalled) {
                     val antigravityRootfs = File(active, "antigravity-rootfs")
-                    require(antigravityRootfs.isDirectory) { "The Antigravity Linux environment is not installed" }
+                    if (!antigravityRootfs.isDirectory) throw InstallerErrors.Environment.antigravityMissing()
                     DebianRootfsInstaller(runtimeDirectory, abi, downloader, httpClient, suite)
                         .installFullDevelopmentTools(antigravityRootfs)
                 }
@@ -359,7 +365,7 @@ class LocalRuntimeInstaller(
                 val encoded = json.encodeToString(updated)
                 File(active, METADATA_FILE).writeText(encoded)
                 replaceFileAtomically(File(active, METADATA_FILE), metadataFile)
-                onProgress(1f, context.getString(R.string.install_step_done), null)
+                onProgress(1f, text.getString(R.string.install_step_done), null)
                 updated
             }
         }
@@ -382,7 +388,7 @@ class LocalRuntimeInstaller(
      * controller that owns both actions runs one at a time.
      */
     suspend fun updateAntigravity(onProgress: (Float) -> Unit = {}): String {
-        val runtime = installedRuntime() ?: error("The Linux environment is not installed")
+        val runtime = installedRuntime() ?: throw InstallerErrors.Environment.missing()
         val rootfs = runtime.antigravityRootfs ?: runtime.rootfs
         val release = resolveAntigravityRelease(abi, httpClient)
         val installed = AntigravityInstaller.installedVersion(rootfs)
@@ -401,13 +407,11 @@ class LocalRuntimeInstaller(
             val sourceBinary =
                 extractDir.walkTopDown()
                     .firstOrNull { it.isFile && it.name == "opencode" }
-                    ?: error("OpenCode archive did not contain the opencode binary")
+                    ?: throw InstallerErrors.Environment.openCodeBinaryMissing()
             val binary = File(rootfs, "usr/local/bin/opencode")
             binary.parentFile?.mkdirs()
             sourceBinary.copyTo(binary, overwrite = true)
-            require(binary.setExecutable(true, false) || binary.canExecute()) {
-                "Unable to mark OpenCode executable"
-            }
+            if (!binary.setExecutable(true, false) && !binary.canExecute()) throw InstallerErrors.Environment.openCodeNotExecutable()
             return binary
         } finally {
             extractDir.deleteRecursively()
@@ -434,19 +438,20 @@ class LocalRuntimeInstaller(
         }
     }
 
+    /** [label] is read for every progress update, so a language picked mid-download shows at once. */
     private suspend fun download(
         url: String,
         destination: File,
         expectedSha256: String,
         startProgress: Float,
         endProgress: Float,
-        label: String,
+        @StringRes label: Int,
         onProgress: (Float?, String) -> Unit,
     ) {
         if (destination.isFile) {
             runCatching { RuntimeArchive.verifySha256(destination, expectedSha256) }
                 .onSuccess {
-                    onProgress(endProgress, label)
+                    onProgress(endProgress, text.getString(label))
                     return
                 }
             destination.delete()
@@ -460,11 +465,11 @@ class LocalRuntimeInstaller(
                     fraction?.let {
                         startProgress + (endProgress - startProgress) * it.coerceIn(0f, 1f)
                     },
-                    label,
+                    text.getString(label),
                 )
             },
         )
-        onProgress(endProgress, label)
+        onProgress(endProgress, text.getString(label))
     }
 
     private fun installPackages(
@@ -526,13 +531,12 @@ class LocalRuntimeInstaller(
             // locks would survive the tracer kill. See [killManagedProcessTrees].
             process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)
             runCatching { killManagedProcessTrees(runtimeDirectory, process) }
-            error("Development tool installation timed out. $PACKAGE_INSTALL_RETRY_HINT")
+            throw InstallerErrors.Environment.toolsTimedOut()
         }
-        require(process.exitValue() == 0) {
+        if (process.exitValue() != 0) {
             // The hint sits between the headline and the raw log, or a 4000-character tail scrolls
             // it off the screen the error is read on.
-            "Unable to install runtime packages. $PACKAGE_INSTALL_RETRY_HINT\n\n" +
-                "Last log lines:\n${readTail(installLog, 4000)}"
+            throw InstallerErrors.Environment.packagesFailed(readTail(installLog, 4000))
         }
     }
 
@@ -588,7 +592,7 @@ class LocalRuntimeInstaller(
         installAndroidHelperScripts(rootfs)
         provisionBrowserMcp(rootfs)
         provisionScheduleMcp(rootfs)
-        require(suite.proot.isFile) { "PRoot launcher is unavailable" }
+        if (!suite.proot.isFile) throw InstallerErrors.Environment.prootMissing()
     }
 
     /**

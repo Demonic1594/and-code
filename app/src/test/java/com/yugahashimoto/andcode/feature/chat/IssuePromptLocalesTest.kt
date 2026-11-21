@@ -80,6 +80,7 @@ class IssuePromptLocalesTest {
             val strings = Strings(dir, tag)
             listOf(
                 "chat_issue_prompt_comments_latest" to arrayOf<Any>(20, 5),
+                "chat_issue_prompt_comments_partial" to arrayOf<Any>(20, 100),
                 "chat_issue_prompt_cut" to arrayOf<Any>(1000),
             ).forEach { (name, args) ->
                 val forms = strings.plurals.getValue(name)
@@ -88,6 +89,31 @@ class IssuePromptLocalesTest {
                     val text = String.format(strings.locale, value, *args)
                     assertFalse("$dir: $name/$quantity is formatted", text.contains('%'))
                 }
+            }
+        }
+    }
+
+    /**
+     * Each count in the inserted issue is a plural with every form its language has, so a heading
+     * reads right for one comment as well as for twenty. Russian and Arabic pick among several.
+     */
+    @Test
+    fun `every issue plural has each form its language uses`() {
+        val forms =
+            mapOf(
+                "values" to setOf("one", "other"),
+                "values-ar" to setOf("zero", "one", "two", "few", "many", "other"),
+                "values-es" to setOf("one", "many", "other"),
+                "values-fr" to setOf("one", "many", "other"),
+                "values-ja" to setOf("other"),
+                "values-pt-rBR" to setOf("one", "many", "other"),
+                "values-ru" to setOf("one", "few", "many", "other"),
+                "values-zh-rCN" to setOf("other"),
+            )
+        locales.forEach { (dir, tag) ->
+            val strings = Strings(dir, tag)
+            listOf("chat_issue_prompt_comments_latest", "chat_issue_prompt_comments_partial", "chat_issue_prompt_cut").forEach { name ->
+                assertEquals("$dir: $name", forms.getValue(dir), strings.plurals[name]?.keys)
             }
         }
     }
@@ -107,7 +133,7 @@ class IssuePromptLocalesTest {
             noDescription = strings.string("chat_issue_prompt_no_description"),
             comments = strings.string("chat_issue_prompt_comments"),
             commentsLatest = { shown, skipped -> strings.plural("chat_issue_prompt_comments_latest", skipped, shown, skipped) },
-            commentsPartial = { shown, read -> strings.string("chat_issue_prompt_comments_partial", shown, read) },
+            commentsPartial = { shown, read -> strings.plural("chat_issue_prompt_comments_partial", shown, shown, read) },
             cut = { strings.plural("chat_issue_prompt_cut", it, it) },
         )
     }

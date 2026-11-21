@@ -913,6 +913,36 @@
     <string name="runtime_error_start_after_rollback_failed">回退后无法启动 OpenCode</string>
     <string name="runtime_error_command_timed_out">检查超时</string>
     <string name="runtime_error_restored_but_cannot_start">已恢复 OpenCode %1$s，但无法启动：%2$s</string>
+    <string name="installer_error_retry_hint">这通常只是网络超时——在稳定的网络连接下重新安装通常就能成功。</string>
+    <string name="installer_error_debian_token_http">Debian 镜像仓库令牌请求失败，HTTP %1$d</string>
+    <string name="installer_error_debian_token_missing">Debian 镜像仓库的响应中没有令牌</string>
+    <string name="installer_error_debian_activate">无法启用 Antigravity 的 Debian rootfs</string>
+    <string name="installer_error_debian_pty_missing">未能安装 Debian 的 PTY 工具</string>
+    <string name="installer_error_debian_apt_refused">无法在 Antigravity 的 Linux 环境中配置 apt：%1$s。请将该链接替换为环境中真实的文件夹或文件，然后重试。</string>
+    <string name="installer_error_debian_tools_timeout">Debian 开发工具安装超时。%1$s</string>
+    <string name="installer_error_debian_packages_failed">无法安装 Debian 环境的软件包。%1$s\n\n日志最后几行：\n%2$s</string>
+    <string name="installer_error_github_cli_timeout">GitHub CLI 安装超时</string>
+    <string name="installer_error_github_cli_failed">无法安装 GitHub CLI：%1$s</string>
+    <string name="installer_error_glibc_loader_missing">缺少 Debian 的 glibc 加载器：%1$s</string>
+    <string name="installer_error_tools_timeout">开发工具安装超时。%1$s</string>
+    <string name="installer_error_packages_failed">无法安装环境的软件包。%1$s\n\n日志最后几行：\n%2$s</string>
+    <string name="installer_error_environment_missing">尚未安装 Linux 环境</string>
+    <string name="installer_error_antigravity_environment_missing">尚未安装 Antigravity 的 Linux 环境</string>
+    <string name="installer_error_opencode_binary_missing">OpenCode 压缩包中没有 opencode 可执行文件</string>
+    <string name="installer_error_opencode_not_executable">无法将 OpenCode 设为可执行</string>
+    <string name="installer_error_proot_missing">PRoot 启动器不可用</string>
+    <string name="installer_error_claude_timeout">Claude Code 软件包操作在 %1$d 分钟后超时。%2$s</string>
+    <string name="installer_error_claude_install_failed">Claude Code 安装失败（退出码 %1$d）：%2$s\n%3$s%4$s</string>
+    <string name="installer_error_claude_update_failed">Claude Code 更新失败（退出码 %1$d）：%2$s\n%3$s%4$s</string>
+    <string name="installer_error_claude_binary_missing">Claude Code 报告成功，但缺少 %1$s</string>
+    <string name="installer_error_codex_abi">Codex 不支持此 Android ABI：%1$s</string>
+    <string name="installer_error_codex_download_http">Codex 下载失败，HTTP %1$d</string>
+    <string name="installer_error_codex_download_empty">Codex 下载的响应为空</string>
+    <string name="installer_error_codex_checksum">Codex 下载的 SHA-512 不匹配：应为 %1$s，实际为 %2$s</string>
+    <string name="installer_error_codex_tarball_incomplete">Codex 的 tar 压缩包中没有 %1$s</string>
+    <string name="installer_error_codex_binary_missing">Codex 报告下载成功，但缺少 %1$s</string>
+    <string name="installer_error_antigravity_space">Antigravity 至少需要 300 MB 可用空间（可用：%1$d 字节）</string>
+    <string name="installer_error_antigravity_binary_missing">Antigravity 官方压缩包中没有 agy 可执行文件</string>
     <string name="runtime_step_preparing_update">正在准备更新</string>
     <string name="runtime_step_rolling_back_to">正在回退到 OpenCode %1$s</string>
     <string name="install_step_installing_claude_code">正在安装 Claude Code</string>
@@ -1434,7 +1464,9 @@
     <plurals name="chat_issue_prompt_comments_latest">
         <item quantity="other">评论（最新 %1$d 条；省略了更早的 %2$d 条）</item>
     </plurals>
-    <string name="chat_issue_prompt_comments_partial">评论（前 %2$d 条中的最后 %1$d 条；其余在 GitHub 上）</string>
+    <plurals name="chat_issue_prompt_comments_partial">
+        <item quantity="other">评论（前 %2$d 条中的最后 %1$d 条；其余在 GitHub 上）</item>
+    </plurals>
     <plurals name="chat_issue_prompt_cut">
         <item quantity="other">[… 已截断，GitHub 上还有 %1$d 个字符]</item>
     </plurals>

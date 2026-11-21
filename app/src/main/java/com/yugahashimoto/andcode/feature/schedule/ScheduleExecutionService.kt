@@ -1,13 +1,11 @@
 package com.yugahashimoto.andcode.feature.schedule
 
 import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
 import android.util.Log
@@ -18,6 +16,8 @@ import com.yugahashimoto.andcode.MainActivity
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
 import com.yugahashimoto.andcode.core.api.PromptRequest
+import com.yugahashimoto.andcode.core.locale.AppLanguage
+import com.yugahashimoto.andcode.core.notification.AppNotificationChannels
 import com.yugahashimoto.andcode.data.schedule.Schedule
 import com.yugahashimoto.andcode.data.schedule.ScheduleRun
 import com.yugahashimoto.andcode.data.schedule.ScheduleRunStatus
@@ -59,16 +59,22 @@ class ScheduleExecutionService : Service() {
     /** Active schedule IDs; different schedules use independent sessions concurrently. */
     private val executionCoordinator = ScheduleExecutionCoordinator()
 
+    /**
+     * Where the notification and every reason recorded for the user are read: the language picked
+     * now. This service's own context ignores the app's language, and the Application's keeps the
+     * one the process started in.
+     */
+    private val text: Context get() = AppLanguage.current(this)
+
     override fun onCreate() {
         super.onCreate()
         app = application as AndCodeApplication
-        createChannel()
         // Android 14+ can still reject the foreground promotion here even though the start itself
         // was accepted. Bailing out is the only safe answer: a service that cannot enter the
         // foreground is killed with a crash by the system anyway.
         inForeground =
             runCatching {
-                startForeground(NOTIFICATION_ID, notification(app.getString(R.string.schedule_notification_starting)))
+                startForeground(NOTIFICATION_ID, notification(text.getString(R.string.schedule_notification_starting)))
             }.onFailure { error -> Log.w(TAG, "Could not enter the foreground", error) }
                 .isSuccess
     }
@@ -93,7 +99,7 @@ class ScheduleExecutionService : Service() {
             app.scheduleRepository.schedule(scheduleId)?.let { schedule ->
                 app.reportScheduleStartFailure(
                     schedule = schedule,
-                    reason = getString(R.string.schedule_foreground_start_blocked),
+                    reason = text.getString(R.string.schedule_foreground_start_blocked),
                     failedAttempts = failedAttempts,
                     retryable = automatic,
                 )
@@ -107,7 +113,7 @@ class ScheduleExecutionService : Service() {
             app.scheduleRepository.schedule(scheduleId)?.let { schedule ->
                 app.reportScheduleStartFailure(
                     schedule = schedule,
-                    reason = getString(R.string.schedule_run_overlapping),
+                    reason = text.getString(R.string.schedule_run_overlapping),
                     failedAttempts = failedAttempts,
                     retryable = false,
                 )
@@ -170,7 +176,7 @@ class ScheduleExecutionService : Service() {
         if (app.scheduleRepository.hasActiveRun(scheduleId)) {
             // Not retryable, for the same reason as the in-service check above: while this
             // schedule's own run is in flight every retry reaches the same answer.
-            cannotStart(getString(R.string.schedule_run_overlapping), retryable = false)
+            cannotStart(text.getString(R.string.schedule_run_overlapping), retryable = false)
             return
         }
 
@@ -180,7 +186,7 @@ class ScheduleExecutionService : Service() {
             // so this is never a runtime that has yet to appear - it is one the schedule points at
             // that no longer exists, a connection deleted or a profile that stopped building. An
             // hour of retries would only wake the device to reach the same answer.
-            cannotStart(getString(R.string.schedule_runtime_unavailable), retryable = false)
+            cannotStart(text.getString(R.string.schedule_runtime_unavailable), retryable = false)
             return
         }
         var activeRun: ScheduleRun? = null
@@ -198,7 +204,7 @@ class ScheduleExecutionService : Service() {
                 }
             }
             if (!connectWithRetry(target)) {
-                cannotStart(getString(R.string.schedule_runtime_connection_failed))
+                cannotStart(text.getString(R.string.schedule_runtime_connection_failed))
                 return
             }
             val session =
@@ -210,14 +216,14 @@ class ScheduleExecutionService : Service() {
             activeRun = run
             // The slot is covered; a retry armed by an earlier attempt would now start a second run.
             app.scheduleManager.cancelRetry(schedule.id)
-            updateForegroundNotification(app.getString(R.string.schedule_notification_running))
+            updateForegroundNotification(text.getString(R.string.schedule_notification_running))
             runPrompt(target, schedule, run, ScheduleExecutionState())
         } catch (cancellation: CancellationException) {
             // The system stopped the service under us. Settle the run so hasActiveRun does not go
             // on blocking the schedule until the next process start, but never report it as a
             // start failure: the cancellation's own message is internal wording that would go
             // straight into a user-facing notification.
-            activeRun?.let { recordFailed(it, getString(R.string.schedule_run_interrupted)) }
+            activeRun?.let { recordFailed(it, text.getString(R.string.schedule_run_interrupted)) }
             throw cancellation
         } catch (error: Exception) {
             val message = error.message?.takeIf(String::isNotBlank) ?: error.javaClass.simpleName
@@ -226,7 +232,7 @@ class ScheduleExecutionService : Service() {
                 // Nothing was recorded yet - createSession threw, say - so there is no run to fail.
                 // Reporting it as a failed start is what keeps this from vanishing entirely.
                 Log.w(TAG, "Schedule $scheduleId could not open a session", error)
-                cannotStart(getString(R.string.schedule_session_not_created) + ": " + message)
+                cannotStart(text.getString(R.string.schedule_session_not_created) + ": " + message)
             } else {
                 recordFailed(run, message)
                 // Announced whatever runtime is on screen, unlike settle(): a run that threw on the
@@ -311,8 +317,10 @@ class ScheduleExecutionService : Service() {
                         when (settlement.timeout) {
                             // A stream that stopped early explains the silence better than the
                             // timeout does.
-                            ScheduleRunTimeout.IDLE -> state.streamFailure ?: getString(R.string.schedule_completion_timeout)
-                            ScheduleRunTimeout.MAX_DURATION -> getString(R.string.schedule_max_duration)
+                            ScheduleRunTimeout.IDLE ->
+                                state.streamFailure?.describe { text.getString(R.string.schedule_event_stream_ended) }
+                                    ?: text.getString(R.string.schedule_completion_timeout)
+                            ScheduleRunTimeout.MAX_DURATION -> text.getString(R.string.schedule_max_duration)
                         }
                     recordFailed(run, message)
                     // Unlike a settled failure this is never something the user is watching happen,
@@ -395,17 +403,17 @@ class ScheduleExecutionService : Service() {
             is LocalRuntimeStatus.Ready -> return LocalRuntimeReadiness.Ready
             is LocalRuntimeStatus.NotInstalled ->
                 return LocalRuntimeReadiness.Blocked(
-                    getString(R.string.notification_runtime_not_installed),
+                    text.getString(R.string.notification_runtime_not_installed),
                     retryable = false,
                 )
             is LocalRuntimeStatus.Broken ->
                 return LocalRuntimeReadiness.Blocked(
-                    getString(R.string.notification_runtime_broken) + ": " + status.reason,
+                    text.getString(R.string.notification_runtime_broken) + ": " + status.reason,
                     retryable = false,
                 )
             is LocalRuntimeStatus.UnsupportedAbi ->
                 return LocalRuntimeReadiness.Blocked(
-                    getString(R.string.unsupported_abi, status.abi),
+                    text.getString(R.string.unsupported_abi, status.abi),
                     retryable = false,
                 )
             else -> Unit
@@ -419,7 +427,7 @@ class ScheduleExecutionService : Service() {
         return if (ready != null) {
             LocalRuntimeReadiness.Ready
         } else {
-            LocalRuntimeReadiness.Blocked(getString(R.string.schedule_runtime_not_ready), retryable = true)
+            LocalRuntimeReadiness.Blocked(text.getString(R.string.schedule_runtime_not_ready), retryable = true)
         }
     }
 
@@ -437,17 +445,17 @@ class ScheduleExecutionService : Service() {
         autoAccept: Boolean,
         state: ScheduleExecutionState,
     ): ScheduleCompletion {
-        val reason =
+        val failure =
             try {
                 watchForCompletion(target, schedule, run, autoAccept, state)?.let { return it }
-                getString(R.string.schedule_event_stream_ended)
+                StreamFailure.Ended
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Exception) {
-                error.message?.takeIf(String::isNotBlank) ?: error.javaClass.simpleName
+                StreamFailure.Error(error.message?.takeIf(String::isNotBlank) ?: error.javaClass.simpleName)
             }
-        Log.w(TAG, "Event stream stopped before the run settled: $reason")
-        state.streamFailure = reason
+        Log.w(TAG, "Event stream stopped before the run settled: $failure")
+        state.streamFailure = failure
         awaitCancellation()
     }
 
@@ -569,24 +577,14 @@ class ScheduleExecutionService : Service() {
         app.scheduleRepository.finishRun(run.id, ScheduleRunStatus.FAILED, error = error)
     }
 
-    private fun updateForegroundNotification(text: String) {
+    private fun updateForegroundNotification(body: String) {
         val manager = getSystemService(NotificationManager::class.java) ?: return
-        manager.notify(NOTIFICATION_ID, notification(text))
+        manager.notify(NOTIFICATION_ID, notification(body))
     }
 
-    private fun createChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val manager = getSystemService(NotificationManager::class.java) ?: return
-        manager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                getString(R.string.notification_channel_schedules),
-                NotificationManager.IMPORTANCE_LOW,
-            ),
-        )
-    }
-
-    private fun notification(text: String): Notification {
+    /** On a channel named in the language picked now. */
+    private fun notification(body: String): Notification {
+        AppNotificationChannels.ensure(this, AppNotificationChannels.SCHEDULE_RUNS)
         val openIntent =
             PendingIntent.getActivity(
                 this,
@@ -596,10 +594,10 @@ class ScheduleExecutionService : Service() {
                 },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        return NotificationCompat.Builder(this, AppNotificationChannels.SCHEDULE_RUNS.id)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(getString(R.string.schedule_notification_title))
-            .setContentText(text)
+            .setContentTitle(text.getString(R.string.schedule_notification_title))
+            .setContentText(body)
             .setContentIntent(openIntent)
             .setOngoing(true)
             .build()
@@ -628,7 +626,6 @@ class ScheduleExecutionService : Service() {
         const val EXTRA_ATTEMPT = "schedule_attempt"
         const val EXTRA_AUTOMATIC = "schedule_automatic"
         private const val TAG = "ScheduleExecution"
-        private const val CHANNEL_ID = "andcode_schedule_runs"
         private const val NOTIFICATION_ID = 4201
 
         /** How long the run may go without a sign of life before it counts as dead. */

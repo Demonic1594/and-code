@@ -33,11 +33,25 @@ class ScheduleExecutionCoordinatorTest {
         val first = ScheduleExecutionState()
         val second = ScheduleExecutionState()
 
-        first.streamFailure = "first failure"
+        first.streamFailure = StreamFailure.Error("first failure")
         first.lastProgressAt = 1L
 
         assertNotSame(first, second)
         assertNotEquals(first.streamFailure, second.streamFailure)
         assertNotEquals(first.lastProgressAt, second.lastProgressAt)
+    }
+
+    @Test
+    fun `a stream that just ended is worded when the failure is reported, in the language picked then`() {
+        // The stream ends while the app is in Japanese; the run times out after the user picked Spanish.
+        var language = "ja"
+        val failure: StreamFailure = StreamFailure.Ended
+        language = "es"
+        assertEquals("stream ended (es)", failure.describe { "stream ended ($language)" })
+    }
+
+    @Test
+    fun `a runtime error is reported as the runtime worded it`() {
+        assertEquals("socket closed", StreamFailure.Error("socket closed").describe { "stream ended" })
     }
 }

@@ -51,7 +51,7 @@ class ClaudeCodeInstallerTest {
     }
 
     @Test
-    fun `failureMessage puts the primary error on the first line so compact views show it`() {
+    fun `the failure message puts the primary error on the first line so compact views show it`() {
         val log =
             File.createTempFile("claude-install", ".log").apply {
                 deleteOnExit()
@@ -59,7 +59,7 @@ class ClaudeCodeInstallerTest {
                     "OK: 28595 distinct packages available\nERROR: unable to select packages:\n1 error; 2322.8 MiB in 392 packages\n",
                 )
             }
-        val message = ClaudeCodeInstaller.failureMessage("installation", 1, log)
+        val message = ClaudeCodeInstaller.failure(update = false, exitCode = 1, log = log).message.orEmpty()
         val firstLine = message.lineSequence().first()
         assertTrue(
             firstLine.startsWith("Claude Code installation failed (exit 1): ERROR: unable to select packages:"),
@@ -68,7 +68,7 @@ class ClaudeCodeInstallerTest {
     }
 
     @Test
-    fun `failureMessage prefers a real error over apk's bare error count`() {
+    fun `the failure message prefers a real error over apk's bare error count`() {
         val log =
             File.createTempFile("claude-update", ".log").apply {
                 deleteOnExit()
@@ -76,14 +76,14 @@ class ClaudeCodeInstallerTest {
                     "1 error; 2322.8 MiB in 392 packages\nERROR: unable to select packages:\n",
                 )
             }
-        val message = ClaudeCodeInstaller.failureMessage("update", 1, log)
+        val message = ClaudeCodeInstaller.failure(update = true, exitCode = 1, log = log).message.orEmpty()
         assertTrue(
             message.lineSequence().first().endsWith("ERROR: unable to select packages:"),
         )
     }
 
     @Test
-    fun `failureMessage carries the network retry hint before the log dump`() {
+    fun `the failure message carries the network retry hint before the log dump`() {
         // Issue #290: the raw apk summary reads like a broken build when it is usually just a
         // timed-out download, and a hint buried under the log tail is never read.
         val log =
@@ -91,7 +91,7 @@ class ClaudeCodeInstallerTest {
                 deleteOnExit()
                 writeText("1 error; 1435.7 MiB in 257 packages\n")
             }
-        val message = ClaudeCodeInstaller.failureMessage("installation", 1, log)
+        val message = ClaudeCodeInstaller.failure(update = false, exitCode = 1, log = log).message.orEmpty()
         val lines = message.lineSequence().toList()
         assertTrue(lines.indexOfFirst { it.contains(PACKAGE_INSTALL_RETRY_HINT) } > 0)
         assertTrue(
