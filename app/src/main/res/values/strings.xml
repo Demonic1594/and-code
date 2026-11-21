@@ -126,6 +126,7 @@
     <string name="notification_complete_title">Run finished</string>
     <string name="notification_complete_body">Chat %1$s is idle</string>
     <string name="permission_chat_confirmation">This chat is waiting for your approval. Choose what the agent may do:</string>
+    <string name="permission_response_not_applied">OpenCode could not apply that permission response</string>
     <string name="notification_error_title">Run error</string>
     <string name="notification_error_body">A session failed</string>
     <string name="chat_stall_title">This run has gone quiet</string>
@@ -194,6 +195,8 @@
     <string name="question_free_text_label">Other (type your own answer)</string>
     <string name="question_cancel">Decline to answer</string>
     <string name="question_dismiss">Dismiss question</string>
+    <string name="question_answer_required">Answer required</string>
+    <string name="question_failed">OpenCode question failed</string>
     <string name="capability_version">OpenCode %1$s</string>
 
     <string name="rename_session">Rename</string>
@@ -1955,5 +1958,6 @@
     <string name="context_breakdown_memory_large">Large: probably past the size at which Claude Code warns that a file slows it down.</string>
     <string name="context_breakdown_compact">Compact now</string>
     <string name="context_breakdown_compact_caption">Replaces the older messages with a summary, so the chat has room to keep going. It runs like a turn.</string>
+    <string name="chat_compact_failed">Could not compact the conversation</string>
     <string name="context_category_in_use">Instructions, tools and messages</string>
 </resources>

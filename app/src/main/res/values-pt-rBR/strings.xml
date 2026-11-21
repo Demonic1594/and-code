@@ -132,6 +132,7 @@
     <string name="notification_complete_title">Execução concluída</string>
     <string name="notification_complete_body">O chat %1$s está ocioso</string>
     <string name="permission_chat_confirmation">Este chat aguarda sua aprovação. Escolha o que o agente pode fazer:</string>
+    <string name="permission_response_not_applied">O OpenCode não conseguiu aplicar essa resposta de aprovação</string>
     <string name="notification_error_title">Erro de execução</string>
     <string name="notification_error_body">Uma sessão falhou</string>
     <string name="chat_stall_title">Esta execução ficou em silêncio</string>
@@ -215,6 +216,8 @@
     <string name="question_free_text_label">Outro (digite sua resposta)</string>
     <string name="question_cancel">Não responder</string>
     <string name="question_dismiss">Fechar a pergunta</string>
+    <string name="question_answer_required">Resposta obrigatória</string>
+    <string name="question_failed">A pergunta do OpenCode falhou</string>
     <string name="capability_version">OpenCode %1$s</string>
 
     <string name="rename_session">Renomear</string>
@@ -1953,5 +1956,6 @@
     <string name="context_breakdown_memory_large">Grande: provavelmente passa do tamanho a partir do qual o Claude Code avisa que um arquivo o deixa mais lento.</string>
     <string name="context_breakdown_compact">Compactar agora</string>
     <string name="context_breakdown_compact_caption">Substitui as mensagens mais antigas por um resumo, para que o chat tenha espaço para continuar. Ele é executado como um turno.</string>
+    <string name="chat_compact_failed">Não foi possível compactar a conversa</string>
     <string name="context_category_in_use">Instruções, ferramentas e mensagens</string>
 </resources>

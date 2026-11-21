@@ -138,6 +138,7 @@
     <string name="notification_complete_title">Выполнение завершено</string>
     <string name="notification_complete_body">Чат %1$s бездействует</string>
     <string name="permission_chat_confirmation">Этот чат ожидает вашего подтверждения. Выберите, что разрешено агенту:</string>
+    <string name="permission_response_not_applied">OpenCode не смог применить этот ответ на одобрение</string>
     <string name="notification_error_title">Ошибка выполнения</string>
     <string name="notification_error_body">Сессия завершилась с ошибкой</string>
     <string name="chat_stall_title">Выполнение перестало отвечать</string>
@@ -223,6 +224,8 @@
     <string name="question_free_text_label">Другое (введите свой ответ)</string>
     <string name="question_cancel">Не отвечать</string>
     <string name="question_dismiss">Закрыть вопрос</string>
+    <string name="question_answer_required">Требуется ответ</string>
+    <string name="question_failed">Не удалось обработать вопрос OpenCode</string>
     <string name="capability_version">OpenCode %1$s</string>
 
     <string name="rename_session">Переименовать</string>
@@ -1988,5 +1991,6 @@
     <string name="context_breakdown_memory_large">Большой файл: вероятно, больше размера, при котором Claude Code предупреждает, что файл замедляет его работу.</string>
     <string name="context_breakdown_compact">Сжать сейчас</string>
     <string name="context_breakdown_compact_caption">Заменяет старые сообщения сводкой, чтобы в чате осталось место для продолжения. Выполняется как отдельный ход.</string>
+    <string name="chat_compact_failed">Не удалось сжать разговор</string>
     <string name="context_category_in_use">Инструкции, инструменты и сообщения</string>
 </resources>
