@@ -28,9 +28,8 @@ class AntigravityInstaller(
         release: AntigravityRelease,
     ): String =
         withContext(Dispatchers.IO) {
-            require(runtimeDirectory.usableSpace >= AntigravityManifest.MIN_FREE_BYTES) {
-                "Antigravity needs at least 300 MB free space (available ${runtimeDirectory.usableSpace} bytes)"
-            }
+            val available = runtimeDirectory.usableSpace
+            if (available < AntigravityManifest.MIN_FREE_BYTES) throw InstallerErrors.Antigravity.lowSpace(available)
             val asset = release.asset
             // Versioned cache name: a stale archive of a different release must never be mistaken
             // for this one (the SHA-256 check would catch it, but only after a wasted re-download).
@@ -44,7 +43,7 @@ class AntigravityInstaller(
                 archive.inputStream().use { RuntimeArchive.extractTarGz(it, extraction) }
                 val source =
                     extraction.walkTopDown().firstOrNull { it.isFile && (it.name == AntigravityManifest.BINARY_NAME || it.name == "antigravity") }
-                        ?: error("Official Antigravity archive did not contain an agy binary")
+                        ?: throw InstallerErrors.Antigravity.binaryMissing()
                 // Renamed over the old binary in one step, so there is never a moment without one and no
                 // backup to restore; through GuestFiles, because an update runs on the live rootfs,
                 // where the guest could have linked the binary or its folder to one of this app's files.

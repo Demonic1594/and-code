@@ -14,6 +14,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.UrlLauncher
+import com.yugahashimoto.andcode.core.notification.AppNotificationChannels
 import com.yugahashimoto.andcode.data.settings.AppPreferences
 import com.yugahashimoto.andcode.data.settings.AppPreferencesRepository
 import com.yugahashimoto.andcode.feature.assistant.TtsPreview
@@ -112,6 +113,8 @@ fun NavGraphBuilder.settingsNavGraph(
             onLanguageChange = { language ->
                 appPreferences.setLanguage(language)
                 QuickInputWidgetProvider.refreshAll(context)
+                // The system settings list each notification channel under the name it was created with.
+                AppNotificationChannels.relabel(context)
                 (context as? android.app.Activity)?.recreate()
             },
             uiFontSize = preferences().uiFontSize,

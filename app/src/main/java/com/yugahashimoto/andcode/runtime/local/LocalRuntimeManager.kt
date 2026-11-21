@@ -139,7 +139,7 @@ class LocalRuntimeManager(
             }.onFailure { error ->
                 mutableState.value =
                     LocalRuntimeStatus.Broken(
-                        error.message ?: messages.installFailed,
+                        messages.describe(error) ?: messages.installFailed,
                     )
             }
         }
@@ -188,7 +188,7 @@ class LocalRuntimeManager(
             }.onFailure { error ->
                 mutableState.value =
                     LocalRuntimeStatus.Broken(
-                        error.message ?: messages.stopFailed,
+                        messages.describe(error) ?: messages.stopFailed,
                     )
             }
         }
@@ -210,7 +210,7 @@ class LocalRuntimeManager(
             }.onFailure { error ->
                 mutableState.value =
                     LocalRuntimeStatus.Broken(
-                        error.message ?: messages.deleteFailed,
+                        messages.describe(error) ?: messages.deleteFailed,
                     )
             }
         }
@@ -241,7 +241,7 @@ class LocalRuntimeManager(
             }.onFailure { error ->
                 mutableState.value =
                     LocalRuntimeStatus.Broken(
-                        error.message ?: messages.reinstallFailed,
+                        messages.describe(error) ?: messages.reinstallFailed,
                     )
             }
         }
@@ -291,13 +291,13 @@ class LocalRuntimeManager(
                     }
                 if (restoreError != null) {
                     error.addSuppressed(restoreError)
-                    mutableState.value = LocalRuntimeStatus.Broken(error.message ?: messages.installFailed)
+                    mutableState.value = LocalRuntimeStatus.Broken(messages.describe(error) ?: messages.installFailed)
                 }
                 if (error is CancellationException) throw error
                 mutableLastOperation.value =
                     LocalRuntimeOperationResult.Failed(
                         operation = "development-tools-install",
-                        message = error.message ?: messages.installFailed,
+                        message = messages.describe(error) ?: messages.installFailed,
                     )
                 Result.failure(error)
             }
@@ -317,7 +317,7 @@ class LocalRuntimeManager(
                     mutableLastOperation.value =
                         LocalRuntimeOperationResult.Failed(
                             operation = "update-check",
-                            message = error.message ?: messages.updateCheckFailed,
+                            message = messages.describe(error) ?: messages.updateCheckFailed,
                         )
                 }
         }
@@ -351,7 +351,7 @@ class LocalRuntimeManager(
                     mutableLastOperation.value =
                         LocalRuntimeOperationResult.Failed(
                             "update-check",
-                            error.message ?: messages.updateCheckFailed,
+                            messages.describe(error) ?: messages.updateCheckFailed,
                         )
                     return Result.failure(error)
                 }
@@ -394,7 +394,7 @@ class LocalRuntimeManager(
                 mutableLastOperation.value =
                     LocalRuntimeOperationResult.Failed(
                         "update-prepare",
-                        error.message ?: messages.updatePrepareFailed,
+                        messages.describe(error) ?: messages.updatePrepareFailed,
                     )
                 return Result.failure(error)
             }
@@ -441,7 +441,7 @@ class LocalRuntimeManager(
                     mutableLastOperation.value =
                         LocalRuntimeOperationResult.Failed(
                             "rollback-check",
-                            error.message ?: messages.rollbackCheckFailed,
+                            messages.describe(error) ?: messages.rollbackCheckFailed,
                         )
                     return Result.failure(error)
                 }
@@ -504,13 +504,13 @@ class LocalRuntimeManager(
                         LocalRuntimeOperationResult.RollbackFailedRestored(
                             attemptedVersion = attemptedVersion,
                             restoredVersion = ready.version,
-                            reason = originalError.message ?: messages.startAfterRollbackFailed,
+                            reason = messages.describe(originalError) ?: messages.startAfterRollbackFailed,
                         )
                     } else {
                         LocalRuntimeOperationResult.AutomaticRollback(
                             failedVersion = attemptedVersion,
                             restoredVersion = ready.version,
-                            reason = originalError.message ?: messages.startAfterUpdateFailed,
+                            reason = messages.describe(originalError) ?: messages.startAfterUpdateFailed,
                         )
                     }
                 Result.failure(originalError)
@@ -519,12 +519,12 @@ class LocalRuntimeManager(
                 originalError.addSuppressed(restartError)
                 mutableState.value =
                     LocalRuntimeStatus.Broken(
-                        messages.restoredButCannotStart(restoredMetadata.version, restartError.message.orEmpty()),
+                        messages.restoredButCannotStart(restoredMetadata.version, messages.describe(restartError).orEmpty()),
                     )
                 mutableLastOperation.value =
                     LocalRuntimeOperationResult.Failed(
                         operation = if (rollbackOperation) "rollback-recovery" else "update-recovery",
-                        message = originalError.message ?: messages.restoreFailed,
+                        message = messages.describe(originalError) ?: messages.restoreFailed,
                     )
                 Result.failure(originalError)
             },
@@ -584,7 +584,7 @@ class LocalRuntimeManager(
         }.onFailure { error ->
             mutableState.value =
                 LocalRuntimeStatus.Broken(
-                    error.message ?: messages.startFailed,
+                    messages.describe(error) ?: messages.startFailed,
                 )
         }
 

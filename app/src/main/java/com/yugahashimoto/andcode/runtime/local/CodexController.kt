@@ -51,6 +51,8 @@ class CodexController(
     /** Required for the same reason as in [AntigravityController]: install is real work with no other lease. */
     private val runtimeWork: RuntimeWorkTracker,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
+    /** What the user reads about a failed install: installer failures in the app's language (see [describeFailure]). */
+    private val describeFailure: (Throwable) -> String? = Throwable::message,
 ) {
     private val mutableState = MutableStateFlow(CodexUiState())
     val state: StateFlow<CodexUiState> = mutableState.asStateFlow()
@@ -120,8 +122,9 @@ class CodexController(
                         runCatching { rehydrate() }
                     }
                     .onFailure { error ->
-                        val detail = error.cause?.message?.takeIf { it.isNotBlank() }
-                        val message = listOfNotNull(error.message, detail).joinToString(": ").ifBlank { null }
+                        // An installer failure already words its cause, so only other errors add theirs.
+                        val detail = error.cause?.takeIf { error !is InstallerException }?.let(describeFailure)?.takeIf { it.isNotBlank() }
+                        val message = listOfNotNull(describeFailure(error), detail).joinToString(": ").ifBlank { null }
                         mutableState.update { it.copy(install = CodexInstallStatus.Failed(message)) }
                     }
             }

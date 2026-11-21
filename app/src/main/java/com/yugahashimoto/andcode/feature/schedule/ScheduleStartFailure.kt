@@ -3,6 +3,7 @@ package com.yugahashimoto.andcode.feature.schedule
 import android.util.Log
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.locale.AppLanguage
 import com.yugahashimoto.andcode.data.schedule.Schedule
 
 private const val TAG = "ScheduleStart"
@@ -35,7 +36,8 @@ fun AndCodeApplication.reportScheduleStartFailure(
     // bury the day's real outcome under three near-identical skips.
     val recorded =
         if (failedAttempts > 1) {
-            getString(R.string.schedule_run_not_started_attempts, reason, failedAttempts)
+            // In the language picked now, like the notification it goes into.
+            AppLanguage.current(this).getString(R.string.schedule_run_not_started_attempts, reason, failedAttempts)
         } else {
             reason
         }

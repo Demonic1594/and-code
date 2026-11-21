@@ -81,6 +81,8 @@ class AntigravityController(
      */
     private val runtimeWork: RuntimeWorkTracker,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
+    /** What the user reads about a failed install or update: installer failures in the app's language (see [describeFailure]). */
+    private val describeFailure: (Throwable) -> String? = Throwable::message,
 ) {
     private val mutableState = MutableStateFlow(AntigravityControllerState())
 
@@ -169,7 +171,9 @@ class AntigravityController(
                     }
                     .onFailure { error ->
                         mutableState.value =
-                            AntigravityControllerState(install = AntigravityInstallStatus.Failed(error.message ?: "Install failed"))
+                            AntigravityControllerState(
+                                install = AntigravityInstallStatus.Failed(describeFailure(error) ?: "Install failed"),
+                            )
                     }
             }
         }
@@ -217,7 +221,7 @@ class AntigravityController(
                 }.onFailure { error ->
                     mutableState.value =
                         mutableState.value.copy(
-                            install = AntigravityInstallStatus.Failed(error.message ?: "Update failed"),
+                            install = AntigravityInstallStatus.Failed(describeFailure(error) ?: "Update failed"),
                         )
                 }
             }

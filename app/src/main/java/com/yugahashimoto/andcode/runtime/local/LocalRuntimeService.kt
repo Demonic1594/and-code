@@ -1,6 +1,5 @@
 package com.yugahashimoto.andcode.runtime.local
 
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
@@ -16,6 +15,8 @@ import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.MainActivity
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.lifecycle.AppForeground
+import com.yugahashimoto.andcode.core.locale.AppLanguage
+import com.yugahashimoto.andcode.core.notification.AppNotificationChannels
 import com.yugahashimoto.andcode.core.runtime.RuntimeWorkTracker
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import com.yugahashimoto.andcode.runtime.LocalRuntimeStatus
@@ -315,7 +316,6 @@ class LocalRuntimeService : Service() {
         manager = app.localRuntimeManager
         runtimeWork = app.runtimeWork
         appForeground = app.appForeground
-        createChannel()
         // The platform can refuse the foreground promotion for a service the app started while it
         // was in the background. Giving up beats being killed for never calling startForeground.
         inForeground = enterForeground()
@@ -623,7 +623,10 @@ class LocalRuntimeService : Service() {
         releaseWakeLock()
     }
 
+    /** Built in the language picked now, on a channel named in it; this service's own context ignores the app's language. */
     private fun notification(status: LocalRuntimeStatus): android.app.Notification {
+        AppNotificationChannels.ensure(this, AppNotificationChannels.LOCAL_RUNTIME)
+        val text = AppLanguage.current(this)
         val openIntent =
             PendingIntent.getActivity(
                 this,
@@ -638,54 +641,54 @@ class LocalRuntimeService : Service() {
                 Intent(this, LocalRuntimeService::class.java).setAction(ACTION_STOP),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-        val (title, text, indeterminate, progress) =
+        val shown =
             when (status) {
                 LocalRuntimeStatus.NotInstalled ->
                     NotificationState(
-                        getString(R.string.app_name),
-                        getString(R.string.notification_runtime_not_installed),
+                        text.getString(R.string.app_name),
+                        text.getString(R.string.notification_runtime_not_installed),
                     )
                 is LocalRuntimeStatus.Installing ->
                     NotificationState(
-                        getString(R.string.notification_runtime_setting_up),
+                        text.getString(R.string.notification_runtime_setting_up),
                         status.step,
                         status.progress == null,
                         ((status.progress ?: 0f) * 100).toInt(),
                     )
                 is LocalRuntimeStatus.Starting ->
                     NotificationState(
-                        getString(R.string.notification_runtime_starting),
-                        getString(R.string.capability_version, status.version),
+                        text.getString(R.string.notification_runtime_starting),
+                        text.getString(R.string.capability_version, status.version),
                         true,
                     )
                 is LocalRuntimeStatus.Updating ->
                     NotificationState(
-                        getString(R.string.notification_runtime_updating),
+                        text.getString(R.string.notification_runtime_updating),
                         status.step,
                         status.progress == null,
                         ((status.progress ?: 0f) * 100).toInt(),
                     )
                 is LocalRuntimeStatus.Stopped ->
                     NotificationState(
-                        getString(R.string.notification_runtime_stopped),
-                        getString(R.string.capability_version, status.version),
+                        text.getString(R.string.notification_runtime_stopped),
+                        text.getString(R.string.capability_version, status.version),
                     )
                 is LocalRuntimeStatus.Ready ->
                     NotificationState(
-                        getString(R.string.notification_runtime_ready),
-                        getString(R.string.notification_runtime_ready_detail, status.version, status.port),
+                        text.getString(R.string.notification_runtime_ready),
+                        text.getString(R.string.notification_runtime_ready_detail, status.version, status.port),
                     )
-                is LocalRuntimeStatus.Broken -> NotificationState(getString(R.string.notification_runtime_broken), status.reason)
+                is LocalRuntimeStatus.Broken -> NotificationState(text.getString(R.string.notification_runtime_broken), status.reason)
                 is LocalRuntimeStatus.UnsupportedAbi ->
                     NotificationState(
-                        getString(R.string.notification_runtime_unsupported_device),
-                        getString(R.string.unsupported_abi, status.abi),
+                        text.getString(R.string.notification_runtime_unsupported_device),
+                        text.getString(R.string.unsupported_abi, status.abi),
                     )
             }
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        return NotificationCompat.Builder(this, AppNotificationChannels.LOCAL_RUNTIME.id)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title)
-            .setContentText(text)
+            .setContentTitle(shown.title)
+            .setContentText(shown.text)
             .setContentIntent(openIntent)
             .setOngoing(
                 status is LocalRuntimeStatus.Ready ||
@@ -694,21 +697,9 @@ class LocalRuntimeService : Service() {
                     status is LocalRuntimeStatus.Updating,
             )
             .setOnlyAlertOnce(true)
-            .setProgress(if (indeterminate || progress > 0) 100 else 0, progress, indeterminate)
-            .addAction(0, getString(R.string.stop_run), stopIntent)
+            .setProgress(if (shown.indeterminate || shown.progress > 0) 100 else 0, shown.progress, shown.indeterminate)
+            .addAction(0, text.getString(R.string.stop_run), stopIntent)
             .build()
-    }
-
-    private fun createChannel() {
-        val channel =
-            NotificationChannel(
-                CHANNEL_ID,
-                getString(R.string.local_runtime_screen_title),
-                NotificationManager.IMPORTANCE_LOW,
-            ).apply {
-                description = getString(R.string.notification_channel_local_runtime_description)
-            }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
     private data class NotificationState(
@@ -720,7 +711,6 @@ class LocalRuntimeService : Service() {
 
     companion object {
         private const val TAG = "LocalRuntimeService"
-        private const val CHANNEL_ID = "local_opencode_runtime"
         private const val NOTIFICATION_ID = 4107
         private const val WAKELOCK_TAG = "opencode:runtime"
         private const val WAKELOCK_TIMEOUT_MILLIS = 10 * 60 * 1000L

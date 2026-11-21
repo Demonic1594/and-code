@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.runtime.local
 
 import android.content.Context
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.locale.AppLanguage
 
 /**
  * User-visible text produced by the Codex runtime.
@@ -48,20 +49,23 @@ interface CodexMessages {
 }
 
 class AndroidCodexMessages(private val context: Context) : CodexMessages {
-    override val runtimeMissing get() = context.getString(R.string.claude_error_runtime_missing)
-    override val notInstalled get() = context.getString(R.string.codex_error_not_installed)
-    override val installFailed get() = context.getString(R.string.codex_error_install_failed)
-    override val loginFailed get() = context.getString(R.string.codex_error_login_failed)
-    override val signInChatgptLabel get() = context.getString(R.string.codex_sign_in_method_chatgpt)
-    override val signInApiKeyLabel get() = context.getString(R.string.codex_sign_in_method_api_key)
-    override val signInBrowserInstructions get() = context.getString(R.string.codex_sign_in_browser_instructions)
-    override val stopped get() = context.getString(R.string.codex_error_stopped)
+    /** In the language picked now: [context] is the Application's, which keeps the one the process started in. */
+    private val text: Context get() = AppLanguage.current(context)
+
+    override val runtimeMissing get() = text.getString(R.string.claude_error_runtime_missing)
+    override val notInstalled get() = text.getString(R.string.codex_error_not_installed)
+    override val installFailed get() = text.getString(R.string.codex_error_install_failed)
+    override val loginFailed get() = text.getString(R.string.codex_error_login_failed)
+    override val signInChatgptLabel get() = text.getString(R.string.codex_sign_in_method_chatgpt)
+    override val signInApiKeyLabel get() = text.getString(R.string.codex_sign_in_method_api_key)
+    override val signInBrowserInstructions get() = text.getString(R.string.codex_sign_in_browser_instructions)
+    override val stopped get() = text.getString(R.string.codex_error_stopped)
 
     override fun processExited(
         exitCode: Int?,
         detail: String?,
     ): String {
         val cause = detail ?: exitCode?.let { "exit code $it" } ?: "process exited"
-        return context.getString(R.string.codex_error_process_exited, cause)
+        return text.getString(R.string.codex_error_process_exited, cause)
     }
 }

@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.runtime.local
 
 import android.content.Context
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.locale.AppLanguage
 
 /**
  * User-visible text produced by the Claude Code runtime.
@@ -18,6 +19,9 @@ interface ClaudeMessages {
     val updateFailed: String
 
     fun signInExited(exitCode: Int): String
+
+    /** What the user reads about [error]; see [LocalRuntimeMessages.describe]. */
+    fun describe(error: Throwable): String? = error.message
 
     fun processExited(
         exitCode: Int?,
@@ -46,20 +50,25 @@ interface ClaudeMessages {
 }
 
 class AndroidClaudeMessages(private val context: Context) : ClaudeMessages {
-    override val runtimeMissing get() = context.getString(R.string.claude_error_runtime_missing)
-    override val signInStartFailed get() = context.getString(R.string.claude_error_sign_in_start)
-    override val signInIncomplete get() = context.getString(R.string.claude_error_sign_in_incomplete)
-    override val submitCodeFailed get() = context.getString(R.string.claude_error_submit_code)
-    override val installFailed get() = context.getString(R.string.claude_error_install_failed)
-    override val updateFailed get() = context.getString(R.string.claude_error_update_failed)
+    /** In the language picked now: [context] is the Application's, which keeps the one the process started in. */
+    private val text: Context get() = AppLanguage.current(context)
 
-    override fun signInExited(exitCode: Int): String = context.getString(R.string.claude_error_sign_in_exit, exitCode)
+    override val runtimeMissing get() = text.getString(R.string.claude_error_runtime_missing)
+    override val signInStartFailed get() = text.getString(R.string.claude_error_sign_in_start)
+    override val signInIncomplete get() = text.getString(R.string.claude_error_sign_in_incomplete)
+    override val submitCodeFailed get() = text.getString(R.string.claude_error_submit_code)
+    override val installFailed get() = text.getString(R.string.claude_error_install_failed)
+    override val updateFailed get() = text.getString(R.string.claude_error_update_failed)
+
+    override fun signInExited(exitCode: Int): String = text.getString(R.string.claude_error_sign_in_exit, exitCode)
+
+    override fun describe(error: Throwable): String? = context.describeFailure(error)
 
     override fun processExited(
         exitCode: Int?,
         detail: String?,
     ): String {
         val cause = detail ?: exitCode?.let { "exit code $it" } ?: "process exited"
-        return context.getString(R.string.claude_error_process_exited, cause)
+        return text.getString(R.string.claude_error_process_exited, cause)
     }
 }

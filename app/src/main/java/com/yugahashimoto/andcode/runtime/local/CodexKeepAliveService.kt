@@ -1,8 +1,6 @@
 package com.yugahashimoto.andcode.runtime.local
 
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
@@ -13,6 +11,8 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.yugahashimoto.andcode.MainActivity
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.locale.AppLanguage
+import com.yugahashimoto.andcode.core.notification.AppNotificationChannels
 
 /**
  * Keeps the app in the foreground while Codex is signing in or running a turn.
@@ -30,7 +30,6 @@ class CodexKeepAliveService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        createChannel()
         // The platform can refuse the promotion for a service started while the app was in the
         // background; giving up beats being killed for never calling startForeground.
         if (!enterForeground()) stopSelf()
@@ -53,14 +52,10 @@ class CodexKeepAliveService : Service() {
             .onFailure { error -> Log.w(TAG, "Could not enter the foreground", error) }
             .isSuccess
 
-    private fun createChannel() {
-        val manager = getSystemService(NotificationManager::class.java) ?: return
-        manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, getString(R.string.notification_channel_codex), NotificationManager.IMPORTANCE_LOW),
-        )
-    }
-
+    /** Built in the language picked now, on a channel named in it; this service's own context ignores the app's language. */
     private fun notification(): Notification {
+        AppNotificationChannels.ensure(this, AppNotificationChannels.CODEX_KEEP_ALIVE)
+        val text = AppLanguage.current(this)
         val openIntent =
             PendingIntent.getActivity(
                 this,
@@ -68,10 +63,10 @@ class CodexKeepAliveService : Service() {
                 Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        return NotificationCompat.Builder(this, AppNotificationChannels.CODEX_KEEP_ALIVE.id)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(getString(R.string.codex_keepalive_notification_title))
-            .setContentText(getString(R.string.codex_keepalive_notification_text))
+            .setContentTitle(text.getString(R.string.codex_keepalive_notification_title))
+            .setContentText(text.getString(R.string.codex_keepalive_notification_text))
             .setContentIntent(openIntent)
             .setOngoing(true)
             .build()
@@ -79,7 +74,6 @@ class CodexKeepAliveService : Service() {
 
     companion object {
         private const val TAG = "CodexKeepAlive"
-        private const val CHANNEL_ID = "andcode_codex_keepalive"
         private const val NOTIFICATION_ID = 4301
 
         fun start(context: Context) {

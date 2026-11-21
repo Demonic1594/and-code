@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.runtime.local
 
 import android.content.Context
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.locale.AppLanguage
 
 /**
  * User-visible text produced by the local runtime layer.
@@ -41,6 +42,12 @@ interface LocalRuntimeMessages {
     val diagnosticsCaCertificates: String
 
     fun unsupportedAbi(abi: String): String
+
+    /**
+     * What the user reads about [error]: an installer's [InstallerException] worded in the app's
+     * language, any other error by its message. English unless overridden; null when there is none.
+     */
+    fun describe(error: Throwable): String? = error.message
 
     fun preparingUpdate(): String
 
@@ -133,60 +140,65 @@ interface LocalRuntimeMessages {
 }
 
 class AndroidLocalRuntimeMessages(private val context: Context) : LocalRuntimeMessages {
-    override val installFailed get() = context.getString(R.string.runtime_error_install_failed)
-    override val reinstallFailed get() = context.getString(R.string.runtime_error_reinstall_failed)
-    override val startFailed get() = context.getString(R.string.runtime_error_start_failed)
-    override val stopFailed get() = context.getString(R.string.runtime_error_stop_failed)
-    override val deleteFailed get() = context.getString(R.string.runtime_error_delete_failed)
-    override val deleteIncomplete get() = context.getString(R.string.runtime_error_delete_incomplete)
-    override val missingFiles get() = context.getString(R.string.runtime_error_missing_files)
-    override val updateCheckFailed get() = context.getString(R.string.runtime_error_update_check_failed)
-    override val updatePrepareFailed get() = context.getString(R.string.runtime_error_update_prepare_failed)
-    override val rollbackCheckFailed get() = context.getString(R.string.runtime_error_rollback_check_failed)
-    override val restoreFailed get() = context.getString(R.string.runtime_error_restore_failed)
-    override val startAfterUpdateFailed get() = context.getString(R.string.runtime_error_start_after_update_failed)
-    override val startAfterRollbackFailed get() = context.getString(R.string.runtime_error_start_after_rollback_failed)
-    override val notInstalled get() = context.getString(R.string.runtime_status_not_installed)
-    override val commandTimedOut get() = context.getString(R.string.runtime_error_command_timed_out)
-    override val runtimeStopped get() = context.getString(R.string.runtime_status_stopped_reason)
-    override val runtimeConnecting get() = context.getString(R.string.runtime_status_connecting_reason)
-    override val localRuntimeUnhealthy get() = context.getString(R.string.runtime_connection_unhealthy)
-    override val localRuntimeConnectionFailed get() = context.getString(R.string.runtime_connection_failed)
-    override val adbRequiresAndroid11 get() = context.getString(R.string.adb_requires_android_11)
-    override val adbServiceUnavailable get() = context.getString(R.string.adb_service_unavailable)
-    override val adbDiscoveryFailed get() = context.getString(R.string.adb_discovery_failed)
-    override val adbPairFailed get() = context.getString(R.string.adb_pair_failed)
-    override val adbConnectFailed get() = context.getString(R.string.adb_connect_failed)
-    override val diagnosticsToolAvailable get() = context.getString(R.string.diagnostics_tool_available)
-    override val diagnosticsToolCheckFailed get() = context.getString(R.string.diagnostics_tool_check_failed)
-    override val diagnosticsToolNotInstalled get() = context.getString(R.string.diagnostics_tool_not_installed)
-    override val diagnosticsCaCertificates get() = context.getString(R.string.diagnostics_tool_ca_certificates)
+    /** In the language picked now: [context] is the Application's, which keeps the one the process started in. */
+    private val text: Context get() = AppLanguage.current(context)
 
-    override fun unsupportedAbi(abi: String): String = context.getString(R.string.unsupported_abi, abi)
+    override val installFailed get() = text.getString(R.string.runtime_error_install_failed)
+    override val reinstallFailed get() = text.getString(R.string.runtime_error_reinstall_failed)
+    override val startFailed get() = text.getString(R.string.runtime_error_start_failed)
+    override val stopFailed get() = text.getString(R.string.runtime_error_stop_failed)
+    override val deleteFailed get() = text.getString(R.string.runtime_error_delete_failed)
+    override val deleteIncomplete get() = text.getString(R.string.runtime_error_delete_incomplete)
+    override val missingFiles get() = text.getString(R.string.runtime_error_missing_files)
+    override val updateCheckFailed get() = text.getString(R.string.runtime_error_update_check_failed)
+    override val updatePrepareFailed get() = text.getString(R.string.runtime_error_update_prepare_failed)
+    override val rollbackCheckFailed get() = text.getString(R.string.runtime_error_rollback_check_failed)
+    override val restoreFailed get() = text.getString(R.string.runtime_error_restore_failed)
+    override val startAfterUpdateFailed get() = text.getString(R.string.runtime_error_start_after_update_failed)
+    override val startAfterRollbackFailed get() = text.getString(R.string.runtime_error_start_after_rollback_failed)
+    override val notInstalled get() = text.getString(R.string.runtime_status_not_installed)
+    override val commandTimedOut get() = text.getString(R.string.runtime_error_command_timed_out)
+    override val runtimeStopped get() = text.getString(R.string.runtime_status_stopped_reason)
+    override val runtimeConnecting get() = text.getString(R.string.runtime_status_connecting_reason)
+    override val localRuntimeUnhealthy get() = text.getString(R.string.runtime_connection_unhealthy)
+    override val localRuntimeConnectionFailed get() = text.getString(R.string.runtime_connection_failed)
+    override val adbRequiresAndroid11 get() = text.getString(R.string.adb_requires_android_11)
+    override val adbServiceUnavailable get() = text.getString(R.string.adb_service_unavailable)
+    override val adbDiscoveryFailed get() = text.getString(R.string.adb_discovery_failed)
+    override val adbPairFailed get() = text.getString(R.string.adb_pair_failed)
+    override val adbConnectFailed get() = text.getString(R.string.adb_connect_failed)
+    override val diagnosticsToolAvailable get() = text.getString(R.string.diagnostics_tool_available)
+    override val diagnosticsToolCheckFailed get() = text.getString(R.string.diagnostics_tool_check_failed)
+    override val diagnosticsToolNotInstalled get() = text.getString(R.string.diagnostics_tool_not_installed)
+    override val diagnosticsCaCertificates get() = text.getString(R.string.diagnostics_tool_ca_certificates)
 
-    override fun preparingUpdate(): String = context.getString(R.string.runtime_step_preparing_update)
+    override fun unsupportedAbi(abi: String): String = text.getString(R.string.unsupported_abi, abi)
 
-    override fun rollingBackTo(version: String): String = context.getString(R.string.runtime_step_rolling_back_to, version)
+    override fun describe(error: Throwable): String? = context.describeFailure(error)
+
+    override fun preparingUpdate(): String = text.getString(R.string.runtime_step_preparing_update)
+
+    override fun rollingBackTo(version: String): String = text.getString(R.string.runtime_step_rolling_back_to, version)
 
     override fun insufficientFreeSpace(
         requiredBytes: Long,
         availableBytes: Long,
-    ): String = context.getString(R.string.runtime_update_insufficient_space, requiredBytes, availableBytes)
+    ): String = text.getString(R.string.runtime_update_insufficient_space, requiredBytes, availableBytes)
 
-    override fun downloadingOpenCode(version: String): String = context.getString(R.string.runtime_step_downloading_opencode, version)
+    override fun downloadingOpenCode(version: String): String = text.getString(R.string.runtime_step_downloading_opencode, version)
 
-    override fun extractingUpdate(): String = context.getString(R.string.runtime_step_extracting_update)
+    override fun extractingUpdate(): String = text.getString(R.string.runtime_step_extracting_update)
 
-    override fun verifyingUpdate(): String = context.getString(R.string.runtime_step_verifying_update)
+    override fun verifyingUpdate(): String = text.getString(R.string.runtime_step_verifying_update)
 
-    override fun updateCandidateReady(): String = context.getString(R.string.runtime_step_update_candidate_ready)
+    override fun updateCandidateReady(): String = text.getString(R.string.runtime_step_update_candidate_ready)
 
-    override fun diagnosticsToolExitCode(code: Int): String = context.getString(R.string.diagnostics_tool_exit_code, code)
+    override fun diagnosticsToolExitCode(code: Int): String = text.getString(R.string.diagnostics_tool_exit_code, code)
 
-    override fun adbDiscoveryStartFailed(code: Int): String = context.getString(R.string.adb_discovery_start_failed, code)
+    override fun adbDiscoveryStartFailed(code: Int): String = text.getString(R.string.adb_discovery_start_failed, code)
 
     override fun restoredButCannotStart(
         version: String,
         reason: String,
-    ): String = context.getString(R.string.runtime_error_restored_but_cannot_start, version, reason)
+    ): String = text.getString(R.string.runtime_error_restored_but_cannot_start, version, reason)
 }

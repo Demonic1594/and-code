@@ -1,7 +1,6 @@
 package com.yugahashimoto.andcode.runtime.local
 
 import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
@@ -15,6 +14,8 @@ import androidx.core.content.ContextCompat
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.MainActivity
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.core.locale.AppLanguage
+import com.yugahashimoto.andcode.core.notification.AppNotificationChannels
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -46,7 +47,6 @@ class SupervisedProcessService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        createChannel()
         if (!enterForeground(emptyList())) {
             stopSelf()
             return
@@ -116,14 +116,10 @@ class SupervisedProcessService : Service() {
         getSystemService(NotificationManager::class.java)?.notify(NOTIFICATION_ID, notification(running))
     }
 
-    private fun createChannel() {
-        val manager = getSystemService(NotificationManager::class.java) ?: return
-        manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, getString(R.string.notification_channel_supervised), NotificationManager.IMPORTANCE_LOW),
-        )
-    }
-
+    /** Built in the language picked now, on a channel named in it; this service's own context ignores the app's language. */
     private fun notification(running: List<SupervisedProcess>): Notification {
+        AppNotificationChannels.ensure(this, AppNotificationChannels.SUPERVISED_PROCESSES)
+        val text = AppLanguage.current(this)
         val openIntent =
             PendingIntent.getActivity(
                 this,
@@ -139,21 +135,20 @@ class SupervisedProcessService : Service() {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
         val names = running.joinToString(", ") { process -> process.port?.let { "${process.spec.name} (:$it)" } ?: process.spec.name }
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        return NotificationCompat.Builder(this, AppNotificationChannels.SUPERVISED_PROCESSES.id)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(getString(R.string.supervised_notification_title, running.size))
-            .setContentText(names.ifEmpty { getString(R.string.supervised_notification_keeping_awake) })
-            .setSubText(getString(R.string.supervised_notification_keeping_awake))
+            .setContentTitle(text.getString(R.string.supervised_notification_title, running.size))
+            .setContentText(names.ifEmpty { text.getString(R.string.supervised_notification_keeping_awake) })
+            .setSubText(text.getString(R.string.supervised_notification_keeping_awake))
             .setContentIntent(openIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .addAction(0, getString(R.string.supervised_stop_all), stopAll)
+            .addAction(0, text.getString(R.string.supervised_stop_all), stopAll)
             .build()
     }
 
     companion object {
         private const val TAG = "SupervisedProcesses"
-        private const val CHANNEL_ID = "andcode_supervised_processes"
         private const val NOTIFICATION_ID = 4302
         private const val ACTION_STOP_ALL = "com.yugahashimoto.andcode.supervised.STOP_ALL"
         private const val WAKE_LOCK_CAP_MILLIS = 24L * 60 * 60 * 1000
