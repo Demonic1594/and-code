@@ -32,7 +32,7 @@ class BrowserCommandWatcherTest {
 
             assertEquals("https://www.google.com/", consume("/root/project", agent))
             assertFalse(file.exists())
-            assertNull(consume("/root/project", agent))
+            assertNull(consumeCommand("/root/project", agent))
         }
     }
 
@@ -71,8 +71,8 @@ class BrowserCommandWatcherTest {
         val inRootfs = writeCommand(File(runtimeDirectory, "environment/rootfs/root/project/.and-code"), "https://phishing.example/")
         val inWorkspace = writeCommand(File(runtimeDirectory, "workspace/project/.and-code"), "https://phishing.example/")
 
-        assertNull(consume("/root/project"))
-        assertNull(consume("/workspace/project"))
+        assertNull(consumeCommand("/root/project"))
+        assertNull(consumeCommand("/workspace/project"))
         assertTrue("the user's checkout is left as it is", inRootfs.exists())
         assertTrue(inWorkspace.exists())
     }
@@ -81,14 +81,14 @@ class BrowserCommandWatcherTest {
     fun `remote runtimes and absent workspaces leave local commands untouched`() {
         val file = command("environment/rootfs")
 
-        assertNull(consume("/workspace/project", agent = null))
-        assertNull(consume(null))
+        assertNull(consumeCommand("/workspace/project", agent = null))
+        assertNull(consumeCommand(null))
         assertTrue(file.exists())
     }
 
     @Test
     fun `missing command does not open the browser`() {
-        assertNull(consume("/workspace/project"))
+        assertNull(consumeCommand("/workspace/project"))
     }
 
     @Test
@@ -96,7 +96,7 @@ class BrowserCommandWatcherTest {
         val file = command("environment/rootfs")
         file.writeText("{\"action\":\"open\",\"url\":")
 
-        assertNull(consume("/workspace/project"))
+        assertNull(consumeCommand("/workspace/project"))
         assertTrue(file.exists())
 
         file.writeText("{\"action\":\"open\",\"url\":\"http://127.0.0.1:8080/\",\"createdAtMs\":$NOW}")
@@ -115,7 +115,7 @@ class BrowserCommandWatcherTest {
             "{\"action\":\"open\",\"url\":\"\",\"createdAtMs\":$NOW}",
         ).forEach { text ->
             val file = command("environment/rootfs").apply { writeText(text) }
-            assertNull(consume("/workspace/project"))
+            assertNull(consumeCommand("/workspace/project"))
             assertFalse(text, file.exists())
         }
     }
@@ -124,7 +124,7 @@ class BrowserCommandWatcherTest {
     fun `a command without the time it was written is not opened`() {
         val file = command("environment/rootfs", createdAtMs = null)
 
-        assertNull(consume("/workspace/project"))
+        assertNull(consumeCommand("/workspace/project"))
         assertFalse(file.exists())
     }
 
@@ -133,7 +133,7 @@ class BrowserCommandWatcherTest {
     fun `a command older than a few minutes is dropped unopened`() {
         val file = command("environment/rootfs", createdAtMs = NOW - 5 * 60_000L - 1)
 
-        assertNull(consume("/workspace/project"))
+        assertNull(consumeCommand("/workspace/project"))
         assertFalse(file.exists())
     }
 
@@ -141,7 +141,7 @@ class BrowserCommandWatcherTest {
     fun `a command stamped in the future is not opened`() {
         val file = command("environment/rootfs", createdAtMs = NOW + 60_000L + 1)
 
-        assertNull(consume("/workspace/project"))
+        assertNull(consumeCommand("/workspace/project"))
         assertFalse(file.exists())
     }
 
@@ -163,12 +163,12 @@ class BrowserCommandWatcherTest {
         val link = File(File(runtimeDirectory, "environment/rootfs"), BROWSER_COMMAND_PATH).apply { parentFile!!.mkdirs() }
         java.nio.file.Files.createSymbolicLink(link.toPath(), appFile.toPath())
 
-        assertNull(consume("/workspace/project"))
+        assertNull(consumeCommand("/workspace/project"))
         assertFalse(java.nio.file.Files.exists(link.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS))
         assertTrue(appFile.exists())
 
         val big = command("environment/rootfs").apply { appendText(" ".repeat(70_000)) }
-        assertNull(consume("/workspace/project"))
+        assertNull(consumeCommand("/workspace/project"))
         assertFalse(big.exists())
     }
 
@@ -201,6 +201,41 @@ class BrowserCommandWatcherTest {
         assertFalse(file.exists())
         val status = File(File(runtimeDirectory, "environment/rootfs"), BROWSER_STATUS_PATH)
         assertTrue(status.readText().contains(BROWSER_STATUS_AWAITING_USER))
+    }
+
+    /** Agents' servers share the status file: each reads only the answer to its own request. */
+    @Test
+    fun `handoff names its request in the status it records`() {
+        command("environment/rootfs").writeText("{\"action\":\"handoff\",\"url\":\"\",\"requestId\":\"r1\",\"createdAtMs\":$NOW}")
+        val rootfs = File(runtimeDirectory, "environment/rootfs")
+
+        assertEquals(BrowserCommand.Handoff(rootfs, "r1"), consumeCommand())
+
+        val status = File(rootfs, BROWSER_STATUS_PATH).readText()
+        assertTrue(status, status.contains("\"state\":\"$BROWSER_STATUS_AWAITING_USER\""))
+        assertTrue(status, status.contains("\"requestId\":\"r1\""))
+    }
+
+    /** Taking the banner down without the answer would leave the agent waiting for a tap the user cannot give. */
+    @Test
+    fun `the handoff banner stays until the agent can read the answer`() {
+        val rootfs = File(runtimeDirectory, "environment/rootfs")
+        // A file where the status folder goes: the status cannot be written.
+        val blocked = File(rootfs, BROWSER_STATUS_PATH).parentFile!!.apply { parentFile!!.mkdirs() }
+        blocked.writeText("not a folder")
+        BrowserHandoff.begin(rootfs, "r2")
+        try {
+            assertFalse(writeBrowserStatus(rootfs, BROWSER_STATUS_AGENT))
+            BrowserHandoff.handBack()
+            assertEquals("r2", BrowserHandoff.active?.requestId)
+
+            blocked.delete()
+            BrowserHandoff.handBack()
+            assertNull(BrowserHandoff.active)
+            assertTrue(File(rootfs, BROWSER_STATUS_PATH).readText().contains("\"requestId\":\"r2\""))
+        } finally {
+            BrowserHandoff.dismiss()
+        }
     }
 
     @Test

@@ -42,8 +42,11 @@ opens the page there with `browser_show` and asks for it with `browser_handoff`.
 `awaiting_user` in `/root/.local/share/and-code/browser-status.json` in the guest home (written
 without following a link the guest planted) and shows **"You have control"** over the Guest
 Browser's page; the agent waits until the user taps **Hand back to agent** (or **Cancel**, which
-writes `dismissed`). A handoff never carries a URL, so it cannot reload the sign-in the user just
-completed. `browser_type` refuses a password field it can see.
+writes `dismissed`). Each handoff carries a request ID that the status repeats, so an agent reads
+only the answer to its own request; one that a newer handoff replaced before the user answered is
+told so. If the answer cannot be written, the banner stays so the user can tap again. A handoff
+never carries a URL, so it cannot reload the sign-in the user just completed. `browser_type`
+refuses a password field it can see.
 
 `browser_upload(path)` attaches a file from device storage (`/sdcard`, `/storage`) to the page's
 file input with CDP `DOM.setFileInputFiles`, so the Android file picker never opens. It is best
@@ -55,7 +58,8 @@ open a site button that creates one lazily.
 While a preview is `Active` and the app is foregrounded, the workspace is polled for changes to
 web-facing files (html/css/js/…), debounced so one burst of writes causes one reload. Vendored and
 generated directories (`node_modules`, `.git`, `build`, `dist`, …) are skipped, and the scan is
-capped. Collapsing or backgrounding cancels the watcher, so a hidden preview does no work.
+capped. Collapsing or backgrounding cancels the watcher, so a hidden preview does no work; the
+fingerprint of what the page shows is kept, so changes made meanwhile reload it when the app is back.
 Remote (PC) runtimes are not watched from the phone; their dev server's own hot reload applies.
 
 ## Static serving

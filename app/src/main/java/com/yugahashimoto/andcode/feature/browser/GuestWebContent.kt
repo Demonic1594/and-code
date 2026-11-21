@@ -23,6 +23,7 @@ import com.yugahashimoto.andcode.ui.components.PageStoppedResponding
 import com.yugahashimoto.andcode.ui.components.WebPageRecovery
 import com.yugahashimoto.andcode.ui.components.destroyWebView
 import com.yugahashimoto.andcode.ui.components.discardAfterRendererGone
+import java.io.ByteArrayInputStream
 
 private const val TAG = "GuestWebContent"
 
@@ -102,7 +103,25 @@ fun GuestWebContent(
                             override fun shouldInterceptRequest(
                                 view: WebView,
                                 request: WebResourceRequest,
-                            ): WebResourceResponse? = currentIntercept?.invoke(request.url) ?: super.shouldInterceptRequest(view, request)
+                            ): WebResourceResponse? {
+                                // A form posted to another site never reaches shouldOverrideUrlLoading: the page
+                                // it loads would show in the chat. It is refused here; a plain GET to a web page
+                                // that got this far goes to the Guest Browser instead, as a link would.
+                                val target = request.url.toString()
+                                if (request.isForMainFrame && !isPreviewPage(target)) {
+                                    val web = request.url.scheme?.lowercase() in setOf("http", "https")
+                                    if (web && request.method.equals("GET", ignoreCase = true)) view.post { currentOnLeave(target) }
+                                    return WebResourceResponse(
+                                        "text/plain",
+                                        "UTF-8",
+                                        204,
+                                        "No Content",
+                                        emptyMap(),
+                                        ByteArrayInputStream(ByteArray(0)),
+                                    )
+                                }
+                                return currentIntercept?.invoke(request.url) ?: super.shouldInterceptRequest(view, request)
+                            }
 
                             // A preview stays a page on this device: a link, a script or a redirect to any
                             // other page goes to [onLeavePreview] (the Guest Browser) instead of into the chat.

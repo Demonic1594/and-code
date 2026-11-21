@@ -51,35 +51,101 @@ class BrowserMcpHandoffScriptTest {
         )
     }
 
-    /** The app writes the status; the tool clears a stale one first, asks, and reads the answer. */
+    /**
+     * The app writes the status; the tool clears a stale one first, asks, and reads only the answer to
+     * its own request. Each answer is written once the request is in the command file, and the next
+     * only after the tool has read it, so no step depends on timing.
+     */
     @Test
-    fun `browser_handoff waits for the user's answer in the status file`() {
+    fun `browser_handoff waits for the answer to its own request in the status file`() {
         val runtime = folder.newFolder("runtime")
         val rootfs = File(runtime, "environment/rootfs")
         val answers =
             run(
                 """
-                import threading, time
+                import json, threading
                 from pathlib import Path
                 m.COMMAND_FILE = Path(r'''${File(rootfs, BROWSER_COMMAND_PATH).absolutePath}''')
                 m.STATUS_FILE = Path(r'''${File(rootfs, BROWSER_STATUS_PATH).absolutePath}''')
+                m.HANDOFF_POLL_S = 0.01
                 m._find_devtools_socket = lambda: "webview_devtools_remote_1"
                 m.STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
-                m.STATUS_FILE.write_text('{"state": "agent"}')
-                def answer(state):
-                    time.sleep(0.3)
-                    print("asked", m.COMMAND_FILE.exists(), m.STATUS_FILE.exists())
-                    m.STATUS_FILE.write_text('{"state": "%s"}' % state)
-                for state, expected in (("agent", m.HANDOFF_BACK), ("dismissed", m.HANDOFF_CANCELLED)):
-                    threading.Thread(target=answer, args=(state,)).start()
-                    print(m.tool_handoff({"timeout_s": 5}) == expected)
-                print(m.tool_handoff({"timeout_s": 0.1}) == m.HANDOFF_TIMED_OUT or "stale")
+                m.STATUS_FILE.write_text(json.dumps({"state": "agent", "requestId": "before"}))
+                read = threading.Event()
+                read_status = m._read_status
+                def reading():
+                    status = read_status()
+                    read.set()
+                    return status
+                m._read_status = reading
+                def answer(statuses):
+                    for index, status in enumerate(statuses):
+                        m.STATUS_FILE.write_text(json.dumps(status))
+                        if index == len(statuses) - 1:
+                            return
+                        # Twice: the first read may have started before the write.
+                        for _ in range(2):
+                            read.clear()
+                            read.wait(5)
+                pending = []
+                write_command = m._write_command
+                def asked(command):
+                    write_command(command)
+                    print("asked", m.STATUS_FILE.exists())
+                    mine, other = command["requestId"], "other"
+                    statuses = [dict(s, requestId=mine if s.pop("mine") else other) for s in pending.pop(0)]
+                    threading.Thread(target=answer, args=(statuses,), daemon=True).start()
+                m._write_command = asked
+                pending.append([{"state": "agent", "mine": False}, {"state": "awaiting_user", "mine": True}, {"state": "agent", "mine": True}])
+                print(m.tool_handoff({"timeout_s": 5}) == m.HANDOFF_BACK)
+                pending.append([{"state": "dismissed", "mine": True}])
+                print(m.tool_handoff({"timeout_s": 5}) == m.HANDOFF_CANCELLED)
+                pending.append([{"state": "dismissed", "mine": False}, {"state": "awaiting_user", "mine": True}, {"state": "awaiting_user", "mine": False}])
+                print(m.tool_handoff({"timeout_s": 5}) == m.HANDOFF_SUPERSEDED)
+                pending.append([])
+                print(m.tool_handoff({"timeout_s": 0.1}) == m.HANDOFF_TIMED_OUT)
+                print(json.loads(m.COMMAND_FILE.read_text())["requestId"])
+                """.trimIndent(),
+            ).lines()
+
+        // Another request's answer, before this one was shown, never ends it: it is someone else's.
+        assertEquals(List(4) { listOf("asked False", "True") }.flatten(), answers.dropLast(1))
+        assertEquals(
+            BrowserCommand.Handoff(rootfs, answers.last()),
+            consumeBrowserCommand("/root/project", LocalAgent.CLAUDE_CODE, runtime),
+        )
+    }
+
+    /** The MCP client gives up at 120 s: the wait for the browser must come out of the tool's own timeout. */
+    @Test
+    fun `browser_handoff counts the wait for the browser against its timeout`() {
+        val answer =
+            run(
+                """
+                import tempfile
+                from pathlib import Path
+                class Clock:
+                    now = 0.0
+                    def monotonic(self):
+                        return self.now
+                    def sleep(self, seconds):
+                        self.now += seconds
+                    def time(self):
+                        return 1800000000.0
+                clock = Clock()
+                m.time = clock
+                folder = Path(tempfile.mkdtemp())
+                m.COMMAND_FILE = folder / "browser-command.json"
+                m.STATUS_FILE = folder / "browser-status.json"
+                def socket_after(timeout):
+                    clock.now += 8.0
+                    return "webview_devtools_remote_1"
+                m._wait_for_socket = socket_after
+                print(m.tool_handoff({"timeout_s": 10}) == m.HANDOFF_TIMED_OUT, clock.now <= 10.5)
                 """.trimIndent(),
             )
 
-        // A stale answer from the handoff before never ends this one: it is cleared before asking.
-        assertEquals(listOf("asked True False", "True", "asked True False", "True", "True"), answers.lines())
-        assertEquals(BrowserCommand.Handoff(rootfs), consumeBrowserCommand("/root/project", LocalAgent.CLAUDE_CODE, runtime))
+        assertEquals("True True", answer)
     }
 
     @Test

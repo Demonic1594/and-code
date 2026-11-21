@@ -1,5 +1,9 @@
 package com.yugahashimoto.andcode.feature.browser
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Rule
@@ -46,4 +50,55 @@ class WorkspaceFingerprintTest {
 
         assertEquals(before, workspaceFingerprint(root))
     }
+
+    /**
+     * The watch stops while the app is in the background; the agent may change the site meanwhile.
+     * The page on screen still shows the old files, so it reloads as soon as the watch starts again.
+     */
+    @Test
+    fun `files changed while nothing watched reload the page when the watch starts again`() =
+        runBlocking {
+            val root = temporaryFolder.newFolder()
+            val page = File(root, "index.html").apply { writeText("a") }
+            val shown = workspaceFingerprint(root)
+            page.writeText("a longer body")
+
+            val reloaded = CompletableDeferred<Unit>()
+            val reported = mutableListOf<Long>()
+            val watch =
+                launch {
+                    watchWorkspaceChanges(root, shown = shown, intervalMillis = 60_000, onShown = { reported += it }) {
+                        reloaded.complete(Unit)
+                    }
+                }
+            withTimeout(5_000) { reloaded.await() }
+            watch.cancel()
+
+            assertEquals(listOf(workspaceFingerprint(root)), reported)
+        }
+
+    @Test
+    fun `a page already showing the current files is not reloaded when the watch starts`() =
+        runBlocking {
+            val root = temporaryFolder.newFolder()
+            File(root, "index.html").writeText("a")
+            val baseline = CompletableDeferred<Long>()
+            var reloads = 0
+
+            val watch =
+                launch {
+                    watchWorkspaceChanges(
+                        root,
+                        shown = workspaceFingerprint(root),
+                        intervalMillis = 60_000,
+                        onShown = { baseline.complete(it) },
+                    ) {
+                        reloads++
+                    }
+                }
+            assertEquals(workspaceFingerprint(root), withTimeout(5_000) { baseline.await() })
+            watch.cancel()
+
+            assertEquals(0, reloads)
+        }
 }

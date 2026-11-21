@@ -59,4 +59,16 @@ class PreviewEntryTest {
 
         assertNull(findPreviewEntry(root))
     }
+
+    /** A linked entry would be offered and then not served: the next regular one is offered instead. */
+    @Test
+    fun `a linked index html is passed over for a regular one`() {
+        val root = temporaryFolder.newFolder()
+        val elsewhere = temporaryFolder.newFile("page.html").apply { writeText("<html></html>") }
+        java.nio.file.Files.createSymbolicLink(File(root, "index.html").toPath(), elsewhere.toPath())
+        File(root, "public").mkdirs()
+        File(root, "public/index.html").writeText("")
+
+        assertEquals("public/index.html", findPreviewEntry(root))
+    }
 }

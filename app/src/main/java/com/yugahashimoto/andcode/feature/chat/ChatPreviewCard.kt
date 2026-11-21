@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,13 +84,7 @@ fun ChatPreviewCard(
             is PreviewTarget.Static -> File(target.rootDir)
             is PreviewTarget.Url -> workspaceDir
         }
-    LaunchedEffect(target.key, reloadRoot, isForeground) {
-        // Only runs while the card is open and the app is visible; minimizing, cancelling, or
-        // backgrounding cancels this effect, so a hidden preview does no polling at all.
-        if (isForeground && reloadRoot != null) {
-            watchWorkspaceChanges(reloadRoot) { webView?.reload() }
-        }
-    }
+    LiveReload(target, reloadRoot, isForeground) { webView?.reload() }
     LaunchedEffect(isForeground, webView) {
         if (isForeground) webView?.onResume() else webView?.onPause()
     }
@@ -165,6 +160,28 @@ private fun initialPreviewUrl(target: PreviewTarget): String =
         is PreviewTarget.Url -> target.url
         is PreviewTarget.Static -> staticPreviewUrl(target.entry)
     }
+
+/**
+ * Reloads the preview when the agent writes to the files under [reloadRoot]. Only runs while the card
+ * is open and the app is visible: minimizing, cancelling or backgrounding stops it, so a hidden
+ * preview does no polling at all. What the page on screen was loaded from is kept meanwhile, so
+ * changes made while it was stopped reload it as soon as the app is back.
+ */
+@Composable
+private fun LiveReload(
+    target: PreviewTarget,
+    reloadRoot: File?,
+    isForeground: Boolean,
+    reload: () -> Unit,
+) {
+    var shownFingerprint by remember(target, reloadRoot) { mutableStateOf<Long?>(null) }
+    val currentReload by rememberUpdatedState(reload)
+    LaunchedEffect(target.key, reloadRoot, isForeground) {
+        if (isForeground && reloadRoot != null) {
+            watchWorkspaceChanges(reloadRoot, shown = shownFingerprint, onShown = { shownFingerprint = it }) { currentReload() }
+        }
+    }
+}
 
 @Composable
 private fun PreviewToolbar(

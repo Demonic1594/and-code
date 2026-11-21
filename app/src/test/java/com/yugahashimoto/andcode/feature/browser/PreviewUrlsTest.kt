@@ -23,6 +23,16 @@ class PreviewUrlsTest {
         assertEquals(listOf("http://127.0.0.1:8080/"), loopbackUrlsIn("see (http://127.0.0.1:8080/)."))
     }
 
+    /** A closing bracket the URL itself opened is part of it; one that closes the sentence is not. */
+    @Test
+    fun `keeps the brackets a url opened and drops the ones around it`() {
+        assertEquals(listOf("http://[::1]"), loopbackUrlsIn("try http://[::1] now"))
+        assertEquals(listOf("http://[::1]"), loopbackUrlsIn("(http://[::1])."))
+        assertEquals(listOf("http://[::1]:8080/"), loopbackUrlsIn("[http://[::1]:8080/]"))
+        assertEquals(listOf("http://localhost:3000/item(1)"), loopbackUrlsIn("open http://localhost:3000/item(1)."))
+        assertEquals(listOf("http://localhost:3000/item(1)"), loopbackUrlsIn("(see http://localhost:3000/item(1))"))
+    }
+
     @Test
     fun `finds ipv6 loopback urls`() {
         assertEquals(listOf("http://[::1]:8080/"), loopbackUrlsIn("go to http://[::1]:8080/ now"))

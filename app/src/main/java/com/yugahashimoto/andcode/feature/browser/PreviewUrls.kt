@@ -9,7 +9,24 @@ private const val URL_TRAILING_PUNCTUATION = ".,;:!?)]}'\"`"
 fun loopbackUrlsIn(text: String): List<String> =
     URL_CANDIDATE_REGEX
         .findAll(text)
-        .map { match -> match.value.trimEnd { it in URL_TRAILING_PUNCTUATION } }
+        .map { match -> trimProse(match.value) }
         .filter(::isLoopbackPreviewUrl)
         .distinct()
         .toList()
+
+/**
+ * [candidate] without the prose punctuation that follows a link: a closing `]` or `)` stays when the
+ * URL opened it (`http://[::1]`, `/item(1)`), and goes when it closes the sentence around the link.
+ */
+private fun trimProse(candidate: String): String {
+    var url = candidate
+    while (url.isNotEmpty() && url.last() in URL_TRAILING_PUNCTUATION) {
+        val last = url.last()
+        val opener = BRACKET_PAIRS[last]
+        if (opener != null && url.count { it == opener } >= url.count { it == last }) break
+        url = url.dropLast(1)
+    }
+    return url
+}
+
+private val BRACKET_PAIRS = mapOf(')' to '(', ']' to '[', '}' to '{')

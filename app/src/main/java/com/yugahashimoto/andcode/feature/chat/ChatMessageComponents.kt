@@ -572,13 +572,21 @@ private fun ParagraphPreviewChip(
     paragraph: MarkdownBlock.Paragraph,
     onPreviewRequested: (String) -> Unit,
 ) {
-    val previewUrl =
-        paragraph.inlines.firstNotNullOfOrNull {
-                inline ->
-            (inline as? MarkdownInline.Link)?.url?.takeIf(::isLoopbackPreviewUrl)
-        }
+    val previewUrl = firstLoopbackLink(paragraph.inlines)
     if (previewUrl != null) PreviewLinkChip(previewUrl, onPreviewRequested)
 }
+
+/** The first link to a page on this device among [inlines], inside bold, italic or struck-through text too. */
+internal fun firstLoopbackLink(inlines: List<MarkdownInline>): String? =
+    inlines.firstNotNullOfOrNull { inline ->
+        when (inline) {
+            is MarkdownInline.Link -> inline.url.takeIf(::isLoopbackPreviewUrl)
+            is MarkdownInline.Bold -> firstLoopbackLink(inline.inlines)
+            is MarkdownInline.Italic -> firstLoopbackLink(inline.inlines)
+            is MarkdownInline.Strikethrough -> firstLoopbackLink(inline.inlines)
+            else -> null
+        }
+    }
 
 @Composable
 internal fun MarkdownBlockView(

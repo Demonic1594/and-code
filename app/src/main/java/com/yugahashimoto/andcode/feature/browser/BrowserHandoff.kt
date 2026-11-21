@@ -22,9 +22,16 @@ object BrowserHandoff {
     var active by mutableStateOf<Session?>(null)
         private set
 
-    /** Shows the handoff banner after the watcher has recorded `awaiting_user` in [rootfs]'s guest home. */
-    fun begin(rootfs: File) {
-        active = Session(rootfs)
+    /**
+     * Shows the handoff banner after the watcher has recorded `awaiting_user` for [requestId] in
+     * [rootfs]'s guest home. A newer handoff replaces an unanswered one, whose tool then reads that
+     * its request was superseded.
+     */
+    fun begin(
+        rootfs: File,
+        requestId: String = "",
+    ) {
+        active = Session(rootfs, requestId)
     }
 
     /** The user finished what the agent could not do; it may continue. */
@@ -33,13 +40,16 @@ object BrowserHandoff {
     /** The user declined to continue; the agent must stop waiting. */
     fun dismiss() = finish(BROWSER_STATUS_DISMISSED)
 
+    // Only once the agent can read the answer: a banner taken down without it would leave the agent
+    // waiting for a tap the user can no longer give. Tapping again tries the write again. A rootfs
+    // that is gone has no agent left to answer.
     private fun finish(state: String) {
         val session = active ?: return
-        writeBrowserStatus(session.rootfs, state)
-        active = null
+        if (writeBrowserStatus(session.rootfs, state, session.requestId) || !session.rootfs.isDirectory) active = null
     }
 
     class Session internal constructor(
         val rootfs: File,
+        val requestId: String,
     )
 }

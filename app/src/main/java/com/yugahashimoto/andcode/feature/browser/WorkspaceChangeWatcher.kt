@@ -68,13 +68,21 @@ private val WATCH_EXCLUDED_DIRS =
  * and is bounded by the extension filter and [MAX_FILES], so a large repository costs a short walk
  * rather than a watch on every inode. Cancellation (leaving the preview, backgrounding the app)
  * stops the loop through [delay].
+ *
+ * [shown] is the fingerprint an earlier watch reported through [onShown] for the page on screen:
+ * files that changed while nothing watched (the app in the background) reload it as soon as this
+ * watch starts. [onShown] receives the fingerprint of the files the page shows from then on.
  */
 internal suspend fun watchWorkspaceChanges(
     rootDir: File,
+    shown: Long? = null,
     intervalMillis: Long = DEFAULT_INTERVAL_MILLIS,
+    onShown: (Long) -> Unit = {},
     onChanged: () -> Unit,
 ) {
     var previous = withContext(Dispatchers.IO) { workspaceFingerprint(rootDir) }
+    onShown(previous)
+    if (shown != null && shown != previous) onChanged()
     while (true) {
         delay(intervalMillis)
         val next = withContext(Dispatchers.IO) { workspaceFingerprint(rootDir) }
@@ -82,6 +90,7 @@ internal suspend fun watchWorkspaceChanges(
         // Let a burst of writes settle so one agent step causes one reload, not one per file.
         delay(DEBOUNCE_MILLIS)
         previous = withContext(Dispatchers.IO) { workspaceFingerprint(rootDir) }
+        onShown(previous)
         onChanged()
     }
 }

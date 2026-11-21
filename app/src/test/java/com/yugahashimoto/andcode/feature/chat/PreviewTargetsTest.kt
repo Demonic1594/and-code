@@ -21,6 +21,24 @@ class PreviewTargetsTest {
         )
     }
 
+    /** `**Open [the app](http://127.0.0.1:5173/)**` is how agents often write it. */
+    @Test
+    fun `a link to a page on this device is found inside emphasis too`() {
+        val link = MarkdownInline.Link("the app", "http://127.0.0.1:5173/")
+
+        assertEquals(
+            "http://127.0.0.1:5173/",
+            firstLoopbackLink(
+                listOf(
+                    MarkdownInline.Plain("Open "),
+                    MarkdownInline.Link("docs", "https://example.com/"),
+                    MarkdownInline.Bold(listOf(MarkdownInline.Italic(listOf(MarkdownInline.Strikethrough(listOf(link)))))),
+                ),
+            ),
+        )
+        assertEquals(null, firstLoopbackLink(listOf(MarkdownInline.Bold(listOf(MarkdownInline.Link("x", "https://example.com/"))))))
+    }
+
     @Test
     fun `deduplicates repeated urls`() {
         val messages =

@@ -27,6 +27,7 @@ import struct
 import sys
 import time
 import urllib.parse
+import uuid
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -571,12 +572,13 @@ def tool_preview(args: dict) -> str:
     return f"requested the app to show {url} as an inline preview"
 
 
-def _read_status() -> str | None:
+def _read_status() -> dict | None:
+    """The handoff status the app last wrote: its "state" and the "requestId" it answers."""
     try:
-        state = json.loads(STATUS_FILE.read_text(encoding="utf-8")).get("state")
-    except (OSError, ValueError, AttributeError):
+        status = json.loads(STATUS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
         return None
-    return state if isinstance(state, str) else None
+    return status if isinstance(status, dict) else None
 
 
 def _wait_for_socket(timeout: float) -> str | None:
@@ -591,6 +593,10 @@ def _wait_for_socket(timeout: float) -> str | None:
 
 HANDOFF_BACK = "the user handed the browser back; continue with the page as it is now"
 HANDOFF_CANCELLED = "the user cancelled the handoff; do not continue with the page"
+HANDOFF_SUPERSEDED = (
+    "another handoff took the user's screen before they answered this one; do not continue with the page"
+)
+HANDOFF_POLL_S = 0.5
 HANDOFF_TIMED_OUT = (
     "timed out waiting for the user to hand the browser back; ask them to finish and tap "
     '"Hand back to agent"'
@@ -604,11 +610,13 @@ def tool_handoff(args: dict) -> str:
     all: the user operates the same visible WebView, then taps "Hand back to agent". The app and
     the agent share no memory, so the outcome travels through the status file.
     """
-    if _wait_for_socket(10) is None:
-        raise CdpError(NOT_REACHABLE)
     # Stay below the MCP client's timeout (LocalRuntimeInstaller.BROWSER_MCP_TIMEOUT_MILLIS = 120 s)
     # so this tool's own timeout reply can reach the agent instead of the client killing the call.
+    # Measured from here: the wait for the browser counts against it too.
+    started = time.monotonic()
     timeout = max(1.0, min(float(args.get("timeout_s") or 90), 110.0))
+    if _wait_for_socket(min(10.0, timeout)) is None:
+        raise CdpError(NOT_REACHABLE)
     try:
         STATUS_FILE.unlink()
     except FileNotFoundError:
@@ -616,15 +624,24 @@ def tool_handoff(args: dict) -> str:
     except OSError as exc:
         # A leftover "agent" would make the next handoff return immediately, so never ignore this.
         raise CdpError(f"could not clear the previous handoff status: {exc}") from exc
-    _write_command({"action": "handoff"})
-    deadline = time.monotonic() + timeout
+    # The status names the handoff it answers: another agent's server shares the file, and its
+    # answer must not end this call.
+    request_id = uuid.uuid4().hex
+    _write_command({"action": "handoff", "requestId": request_id})
+    deadline = started + timeout
+    shown = False
     while time.monotonic() < deadline:
-        state = _read_status()
-        if state == "agent":
-            return HANDOFF_BACK
-        if state == "dismissed":
-            return HANDOFF_CANCELLED
-        time.sleep(0.5)
+        status = _read_status() or {}
+        if status.get("requestId") == request_id:
+            shown = True
+            if status.get("state") == "agent":
+                return HANDOFF_BACK
+            if status.get("state") == "dismissed":
+                return HANDOFF_CANCELLED
+        elif shown and status.get("requestId"):
+            # The app showed this handoff and then a newer one: the user can no longer answer it.
+            return HANDOFF_SUPERSEDED
+        time.sleep(HANDOFF_POLL_S)
     return HANDOFF_TIMED_OUT
 
 
@@ -793,11 +810,14 @@ def tool_upload(args: dict) -> str:
         page.call("DOM.setFileInputFiles", files=[path], objectId=object_id)
         return f"attached {os.path.basename(path)} to {selector}"
     finally:
+        # The page is closed whatever the clean-up runs into: an open session holds the WebView's
+        # only DevTools connection for this tool.
         try:
             page.call("Page.setInterceptFileChooserDialog", enabled=False)
-        except CdpError:
+        except (CdpError, OSError):
             pass
-        page.close()
+        finally:
+            page.close()
 
 
 # Reads the page agent's log (assets/devtools/andcode-devtools.js): console lines, uncaught errors,

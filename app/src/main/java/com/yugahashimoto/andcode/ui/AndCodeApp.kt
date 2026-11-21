@@ -379,7 +379,8 @@ fun AndCodeApp(
             )
         }
     var staticPreviewTarget by remember { mutableStateOf<PreviewTarget.Static?>(null) }
-    LaunchedEffect(previewWorkspaceDir) {
+    // Scanned again as each turn starts and ends: the agent may have just written the page.
+    LaunchedEffect(previewWorkspaceDir, chatState.isRunning) {
         staticPreviewTarget =
             withContext(Dispatchers.IO) {
                 previewWorkspaceDir?.let { directory ->
@@ -396,9 +397,10 @@ fun AndCodeApp(
             }.distinctBy { target -> target.key }
         }
     var previewSessionInitialized by remember { mutableStateOf(false) }
-    LaunchedEffect(chatState.sessionId) {
-        // Switching chats closes the old chat's preview, but the first composition must not clear a
-        // preview the agent may have just requested before the session id settled.
+    // The project too: a draft in one project and a draft in another both have no session id yet.
+    LaunchedEffect(chatState.sessionId, chatState.selectedWorkspacePath) {
+        // Switching chats or projects closes the old one's preview, but the first composition must not
+        // clear a preview the agent may have just requested before the session id settled.
         if (previewSessionInitialized) {
             BrowserHandoff.dismiss()
             previewState = PreviewUiState.None
@@ -724,7 +726,7 @@ fun AndCodeApp(
                     // `launchSingleTop` would reuse the same entry and the WebView only loads its
                     // first URL, so a "navigate" here would be a no-op at best and a reload of the
                     // sign-in the user just completed at worst.
-                    BrowserHandoff.begin(command.rootfs)
+                    BrowserHandoff.begin(command.rootfs, command.requestId)
                 }
             }
         },

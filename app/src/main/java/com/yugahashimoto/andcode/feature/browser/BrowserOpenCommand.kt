@@ -52,24 +52,29 @@ sealed interface BrowserCommand {
      */
     data class Handoff(
         val rootfs: File,
+        /** Names this handoff in the status, so its tool reads its own answer and no other. */
+        val requestId: String = "",
     ) : BrowserCommand
 }
 
 /**
- * Records how a handoff stands for the agent's tool to read, in the guest home of [rootfs]. The guest
- * owns that home, so the write goes through [GuestFiles]: a link planted on the way is refused and one
- * at the file is replaced, never written through.
+ * Records how the handoff [requestId] stands for the agent's tool to read, in the guest home of
+ * [rootfs]; false when it could not be written. The guest owns that home, so the write goes through
+ * [GuestFiles]: a link planted on the way is refused and one at the file is replaced, never written
+ * through.
  */
 internal fun writeBrowserStatus(
     rootfs: File,
     state: String,
-) {
+    requestId: String = "",
+): Boolean =
     try {
-        GuestFiles.write(rootfs, BROWSER_STATUS_PATH, JSONObject().put("state", state).toString())
+        GuestFiles.write(rootfs, BROWSER_STATUS_PATH, JSONObject().put("state", state).put("requestId", requestId).toString())
+        true
     } catch (error: IOException) {
         Log.w(TAG, "The handoff status could not be written", error)
+        false
     }
-}
 
 /** The rootfs the active local agent runs in: Antigravity's own Debian one when it has it. */
 internal fun guestRootfs(
@@ -134,7 +139,9 @@ internal fun consumeBrowserCommand(
         // say); if it cannot be removed, it is not carried out, so it never runs twice.
         browserCommandOf(JSONObject(bytes.decodeToString()), rootfs, clock())
             .takeIf { commandFile.delete() }
-            ?.also { consumed -> if (consumed is BrowserCommand.Handoff) writeBrowserStatus(rootfs, BROWSER_STATUS_AWAITING_USER) }
+            ?.also { consumed ->
+                if (consumed is BrowserCommand.Handoff) writeBrowserStatus(rootfs, BROWSER_STATUS_AWAITING_USER, consumed.requestId)
+            }
     }.getOrNull()
 }
 
@@ -154,7 +161,7 @@ private fun browserCommandOf(
     return when (json.optString("action")) {
         "open" -> BrowserCommand.Open(url).takeIf { isWebAddress(url) }
         "preview" -> BrowserCommand.Preview(url).takeIf { isLoopbackPreviewUrl(url) }
-        "handoff" -> BrowserCommand.Handoff(rootfs).takeIf { url.isBlank() }
+        "handoff" -> BrowserCommand.Handoff(rootfs, json.optString("requestId").take(MAX_REQUEST_ID_LENGTH)).takeIf { url.isBlank() }
         else -> null
     }
 }
@@ -192,3 +199,6 @@ private const val MAX_COMMAND_BYTES = 16 * 1024
 
 /** The guest reads the same kernel clock; this only absorbs the write and read landing apart. */
 private const val MAX_CLOCK_SKEW_MILLIS = 60_000L
+
+/** The script's request ids are short; a longer one is cut rather than copied into the status. */
+private const val MAX_REQUEST_ID_LENGTH = 64

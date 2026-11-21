@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.feature.browser
 
 import java.io.File
 import java.nio.file.Files
+import java.nio.file.LinkOption
 
 /** What a chat preview is showing: a loopback dev server or a static site in the workspace. */
 sealed interface PreviewTarget {
@@ -66,7 +67,8 @@ fun findPreviewEntry(rootDir: File): String? {
                     ".",
                 ) && !Files.isSymbolicLink(directory.toPath())
         }
-        .filter { it.isFile && it.name.equals("index.html", ignoreCase = true) }
+        // Only a regular file: one linked elsewhere would win here and then not be served (a 404).
+        .filter { it.name.equals("index.html", ignoreCase = true) && Files.isRegularFile(it.toPath(), LinkOption.NOFOLLOW_LINKS) }
         .minByOrNull { it.relativeTo(rootDir).invariantSeparatorsPath.count { char -> char == '/' } }
         ?.relativeTo(rootDir)
         ?.invariantSeparatorsPath
