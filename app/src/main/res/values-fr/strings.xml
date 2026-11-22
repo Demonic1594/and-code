@@ -973,7 +973,7 @@
     <string name="installer_error_codex_checksum">Le SHA-512 du téléchargement de Codex ne correspond pas : %1$s attendu, %2$s obtenu</string>
     <string name="installer_error_codex_tarball_incomplete">L\'archive tar de Codex ne contient pas %1$s</string>
     <string name="installer_error_codex_binary_missing">Codex a signalé un téléchargement réussi, mais %1$s est introuvable</string>
-    <string name="installer_error_antigravity_space">Antigravity a besoin d\'au moins 300 Mo d\'espace libre (disponible : %1$d octets)</string>
+    <string name="installer_error_antigravity_space_needed">Antigravity a besoin d\'au moins %1$d Mo d\'espace libre (disponible : %2$d octets)</string>
     <string name="installer_error_antigravity_binary_missing">L\'archive officielle d\'Antigravity ne contenait pas de binaire agy</string>
     <string name="runtime_step_preparing_update">Préparation de la mise à jour</string>
     <string name="runtime_step_rolling_back_to">Retour à OpenCode %1$s</string>
@@ -1041,7 +1041,7 @@
     <string name="setup_agents_description">Choisissez les agents de codage à installer sur cet appareil. Ils s’exécutent tous dans le même environnement Linux et vous pourrez ajouter les autres plus tard.</string>
     <string name="setup_agent_claude_code_desc">Connectez-vous avec votre compte Claude dans le navigateur. Télécharge environ 80 Mo.</string>
     <string name="setup_agent_opencode_desc">Connectez-vous avec votre propre clé d’API de fournisseur de modèles. Télécharge environ 120 Mo.</string>
-    <string name="setup_agent_antigravity_desc">Connectez-vous avec votre compte Google dans le navigateur. Télécharge environ 50 Mo.</string>
+    <string name="setup_agent_antigravity_desc">Connectez-vous avec votre compte Google dans le navigateur. Télécharge environ 100 Mo.</string>
     <string name="setup_agents_required">Sélectionnez au moins un agent pour continuer.</string>
     <string name="setup_step_sign_in">Connexion</string>
     <string name="setup_sign_in_description">Connectez les comptes qu’utiliseront vos agents.</string>

@@ -941,7 +941,7 @@
     <string name="installer_error_codex_checksum">Codex 下载的 SHA-512 不匹配：应为 %1$s，实际为 %2$s</string>
     <string name="installer_error_codex_tarball_incomplete">Codex 的 tar 压缩包中没有 %1$s</string>
     <string name="installer_error_codex_binary_missing">Codex 报告下载成功，但缺少 %1$s</string>
-    <string name="installer_error_antigravity_space">Antigravity 至少需要 300 MB 可用空间（可用：%1$d 字节）</string>
+    <string name="installer_error_antigravity_space_needed">Antigravity 至少需要 %1$d MB 可用空间（可用：%2$d 字节）</string>
     <string name="installer_error_antigravity_binary_missing">Antigravity 官方压缩包中没有 agy 可执行文件</string>
     <string name="runtime_step_preparing_update">正在准备更新</string>
     <string name="runtime_step_rolling_back_to">正在回退到 OpenCode %1$s</string>
@@ -1009,7 +1009,7 @@
     <string name="setup_agents_description">选择要安装在此设备上的编码智能体。它们都运行在同一个 Linux 环境中，之后也可以再添加其他的。</string>
     <string name="setup_agent_claude_code_desc">在浏览器中使用 Claude 账号登录。下载约 80 MB。</string>
     <string name="setup_agent_opencode_desc">使用你自己的模型提供方 API 密钥登录。下载约 120 MB。</string>
-    <string name="setup_agent_antigravity_desc">在浏览器中使用 Google 账号登录。下载约 50 MB。</string>
+    <string name="setup_agent_antigravity_desc">在浏览器中使用 Google 账号登录。下载约 100 MB。</string>
     <string name="setup_agents_required">请至少选择一个智能体以继续。</string>
     <string name="setup_step_sign_in">登录</string>
     <string name="setup_sign_in_description">连接智能体将使用的账号。</string>

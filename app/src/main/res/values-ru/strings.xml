@@ -989,7 +989,7 @@
     <string name="installer_error_codex_checksum">SHA-512 загрузки Codex не совпадает: ожидалось %1$s, получено %2$s</string>
     <string name="installer_error_codex_tarball_incomplete">В архиве tar Codex нет %1$s</string>
     <string name="installer_error_codex_binary_missing">Codex сообщил об успешной загрузке, но %1$s отсутствует</string>
-    <string name="installer_error_antigravity_space">Для Antigravity нужно не меньше 300 МБ свободного места (доступно байт: %1$d)</string>
+    <string name="installer_error_antigravity_space_needed">Для Antigravity нужно не меньше %1$d МБ свободного места (доступно байт: %2$d)</string>
     <string name="installer_error_antigravity_binary_missing">В официальном архиве Antigravity нет исполняемого файла agy</string>
     <string name="runtime_step_preparing_update">Подготовка обновления</string>
     <string name="runtime_step_rolling_back_to">Откат к OpenCode %1$s</string>
@@ -1057,7 +1057,7 @@
     <string name="setup_agents_description">Выберите агентов программирования для установки на это устройство. Все они работают в одной среде Linux, остальных можно добавить позже.</string>
     <string name="setup_agent_claude_code_desc">Войдите в аккаунт Claude через браузер. Загрузка около 80 МБ.</string>
     <string name="setup_agent_opencode_desc">Войдите с собственным API-ключом поставщика моделей. Загрузка около 120 МБ.</string>
-    <string name="setup_agent_antigravity_desc">Войдите в аккаунт Google через браузер. Загрузка около 50 МБ.</string>
+    <string name="setup_agent_antigravity_desc">Войдите в аккаунт Google через браузер. Загрузка около 100 МБ.</string>
     <string name="setup_agents_required">Выберите хотя бы одного агента, чтобы продолжить.</string>
     <string name="setup_step_sign_in">Вход</string>
     <string name="setup_sign_in_description">Подключите учётные записи для ваших агентов.</string>
