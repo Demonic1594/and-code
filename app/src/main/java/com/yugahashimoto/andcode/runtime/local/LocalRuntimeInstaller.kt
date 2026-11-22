@@ -378,7 +378,7 @@ class LocalRuntimeInstaller(
      * The release is resolved at update time — GitHub's `latest`, with this build's pin only as the
      * fallback when the lookup fails — so users no longer wait for an app release to receive new
      * Antigravity versions. When the guest already runs the resolved release (or something newer,
-     * which a pin-degraded lookup can report) the ~50 MB download is skipped. Going through
+     * which a pin-degraded lookup can report) the ~90 MB download is skipped. Going through
      * [install] for any of this would provision a whole new environment directory to replace one
      * file; [AntigravityInstaller] swaps `agy` in place instead, leaving the Debian rootfs and
      * every agent's credentials untouched.
@@ -734,7 +734,10 @@ class LocalRuntimeInstaller(
         private const val CA_BUNDLE_PATH = "etc/ssl/certs/ca-certificates.crt"
         private const val BROWSER_MCP_NAME = "and-code-browser"
         private const val BROWSER_MCP_BIN = "/usr/local/bin/andcode-browser-mcp.py"
-        private const val BROWSER_MCP_TIMEOUT_MILLIS = 30000
+
+        // Above browser_handoff's own 110 s deadline (it blocks until the user finishes signing
+        // in), so the server's timed-out reply reaches the agent before the client kills the call.
+        private const val BROWSER_MCP_TIMEOUT_MILLIS = 120000
         private const val SCHEDULE_MCP_NAME = "and-code-schedule"
         private const val SCHEDULE_MCP_BIN = "/usr/local/bin/andcode-schedule-mcp.py"
         private const val SCHEDULE_MCP_TIMEOUT_MILLIS = 120000

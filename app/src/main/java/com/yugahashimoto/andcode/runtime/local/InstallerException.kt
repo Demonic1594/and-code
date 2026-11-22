@@ -181,12 +181,18 @@ internal object InstallerErrors {
 
     /** [AntigravityInstaller]. */
     object Antigravity {
-        fun lowSpace(availableBytes: Long) =
-            failure(
-                R.string.installer_error_antigravity_space,
-                "Antigravity needs at least 300 MB free space (available $availableBytes bytes)",
+        /** States the gate from [AntigravityManifest.MIN_FREE_BYTES] itself, so the two cannot drift apart. */
+        fun lowSpace(availableBytes: Long): InstallerException {
+            val minimumMegabytes = AntigravityManifest.MIN_FREE_BYTES / BYTES_PER_MEGABYTE
+            return failure(
+                R.string.installer_error_antigravity_space_needed,
+                "Antigravity needs at least $minimumMegabytes MB free space (available $availableBytes bytes)",
+                minimumMegabytes,
                 availableBytes,
             )
+        }
+
+        private const val BYTES_PER_MEGABYTE = 1024L * 1024L
 
         fun binaryMissing() =
             failure(R.string.installer_error_antigravity_binary_missing, "Official Antigravity archive did not contain an agy binary")

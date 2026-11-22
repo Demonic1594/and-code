@@ -106,6 +106,14 @@ class AntigravityInstallerTest {
         assertEquals("1.2.3", AntigravityInstaller.installedVersion(rootfs))
     }
 
+    @Test
+    fun `the insufficient space message reports the 800 MB gate and available bytes`() {
+        val message = InstallerErrors.Antigravity.lowSpace(123_456_789L).message.orEmpty()
+
+        assertTrue(message.contains("800 MB"))
+        assertTrue(message.contains("123456789"))
+    }
+
     private fun asset(
         url: String,
         bytes: ByteArray? = null,

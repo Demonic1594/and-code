@@ -80,6 +80,7 @@ import androidx.compose.ui.unit.dp
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.core.ProvideSafeUriHandler
 import com.yugahashimoto.andcode.core.api.PermissionRequest
+import com.yugahashimoto.andcode.feature.browser.isLoopbackPreviewUrl
 import com.yugahashimoto.andcode.runtime.PermissionResponse
 import com.yugahashimoto.andcode.ui.theme.AppShapes
 import com.yugahashimoto.andcode.ui.theme.CodeFontFamily
@@ -185,12 +186,13 @@ fun TimelineEntryRow(
     onOpenProviderSettings: (() -> Unit)? = null,
     onOpenChanges: (ChatPart.Patch) -> Unit = {},
     onPreviewArtifact: (Artifact.File) -> Unit = {},
+    onPreviewRequested: ((String) -> Unit)? = null,
     /** The action row a finished reply's footer carries; see [ReplyActionRow]. */
     replyActions: @Composable (TimelineEntry.Footer) -> Unit = {},
 ) {
     when (entry) {
         is TimelineEntry.UserMessage -> MessageBubble(entry.message, onImageClick)
-        is TimelineEntry.Body -> MarkdownText(entry.part.text, onImageClick = onImageClick)
+        is TimelineEntry.Body -> MarkdownText(entry.part.text, onImageClick = onImageClick, onPreviewRequested = onPreviewRequested)
         is TimelineEntry.Image -> ImagePartView(entry.part, onImageClick)
         is TimelineEntry.Error -> ErrorPartCard(entry.part, onOpenProviderSettings)
         is TimelineEntry.Activity ->
@@ -536,10 +538,11 @@ internal fun RowScope.TableCellText(
 internal fun MarkdownText(
     text: String,
     onImageClick: (ChatImageSource) -> Unit = {},
+    onPreviewRequested: ((String) -> Unit)? = null,
 ) {
     val blocks = remember(text) { MarkdownLite.parse(text) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        blocks.forEach { block -> MarkdownBlockView(block, onImageClick) }
+        blocks.forEach { block -> MarkdownBlockView(block, onImageClick, onPreviewRequested = onPreviewRequested) }
     }
 }
 
@@ -565,11 +568,35 @@ internal fun LazyMarkdownDocument(
     }
 }
 
+/** A dev server the paragraph links to, offered to pin in the conversation. */
+@Composable
+private fun ParagraphPreviewChip(
+    paragraph: MarkdownBlock.Paragraph,
+    onPreviewRequested: (String) -> Unit,
+) {
+    val previewUrl = firstLoopbackLink(paragraph.inlines)
+    if (previewUrl != null) PreviewLinkChip(previewUrl, onPreviewRequested)
+}
+
+/** The first link to a page on this device among [inlines], inside bold, italic or struck-through text too. */
+internal fun firstLoopbackLink(inlines: List<MarkdownInline>): String? =
+    inlines.firstNotNullOfOrNull { inline ->
+        when (inline) {
+            is MarkdownInline.Link -> inline.url.takeIf(::isLoopbackPreviewUrl)
+            is MarkdownInline.Bold -> firstLoopbackLink(inline.inlines)
+            is MarkdownInline.Italic -> firstLoopbackLink(inline.inlines)
+            is MarkdownInline.Strikethrough -> firstLoopbackLink(inline.inlines)
+            else -> null
+        }
+    }
+
 @Composable
 internal fun MarkdownBlockView(
     block: MarkdownBlock,
     onImageClick: (ChatImageSource) -> Unit,
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
+    /** Opens a page on this device a paragraph links to in the inline preview; null offers no chip. */
+    onPreviewRequested: ((String) -> Unit)? = null,
 ) {
     val codeInlineBackground = MaterialTheme.colorScheme.surfaceVariant
     val linkColor = MaterialTheme.colorScheme.primary
@@ -613,6 +640,7 @@ internal fun MarkdownBlockView(
                     }
                 }
                 flushInlines()
+                onPreviewRequested?.let { ParagraphPreviewChip(block, it) }
             }
         is MarkdownBlock.CodeBlock -> CodeBlockView(block.code)
         is MarkdownBlock.BulletList ->
