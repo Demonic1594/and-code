@@ -896,11 +896,9 @@ def tool_handoff(args: dict) -> str:
     request_id = _write_command(_with_own_hidden({"action": "handoff"}))
     deadline = started + timeout
     shown = False
-    # Another request's status seen on the last look after this command had left the file.
-    other_before = None
     while time.monotonic() < deadline:
         # The command file first: a command the app takes between the two reads still counts as
-        # waiting, so an earlier handoff's status read just after is not taken for a newer one.
+        # waiting, so the status read just after is judged as if the command were still there.
         waiting = _command_waiting(request_id)
         status = _read_status() or {}
         answering = status.get("requestId")
@@ -910,17 +908,13 @@ def tool_handoff(args: dict) -> str:
                 return HANDOFF_BACK
             if status.get("state") == "dismissed":
                 return HANDOFF_CANCELLED
-        elif answering and shown:
-            # The app showed this handoff and then a newer one: the user can no longer answer it.
+        elif answering and (shown or not waiting):
+            # Another request's status once this command has left the file. The app records a
+            # handoff's `awaiting_user` before it removes the command, and never answers a replaced
+            # handoff over a newer one's status, so a newer handoff took over: the app showed it, or
+            # it replaced this command before the app took it. While this command still waits,
+            # such a status is an earlier handoff's and is ignored, however long the app takes.
             return HANDOFF_SUPERSEDED
-        other = answering if answering and answering != request_id and not waiting else None
-        # Another request's status after this command left the file: a newer handoff took over, or
-        # the app has just taken this command and is about to write its `awaiting_user` (it removes
-        # the command first). Only the same status on the next look as well means the former. While
-        # the command still waits, such a status is an earlier handoff's and is ignored.
-        if other is not None and other == other_before:
-            return HANDOFF_SUPERSEDED
-        other_before = other
         time.sleep(HANDOFF_POLL_S)
     return HANDOFF_TIMED_OUT
 

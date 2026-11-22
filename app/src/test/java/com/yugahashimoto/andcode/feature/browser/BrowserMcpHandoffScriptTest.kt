@@ -153,12 +153,12 @@ class BrowserMcpHandoffScriptTest {
     }
 
     /**
-     * The app removes a command just before it writes `awaiting_user` for it. A look that falls
-     * between the two sees an earlier handoff's answer with the command already gone: that alone must
-     * not end this handoff. Each poll's sleep writes the app's next step, so the order is exact.
+     * However long the app takes to get to a handoff, an earlier handoff's answer read meanwhile never
+     * ends it: the command still waits, and the app records `awaiting_user` before it removes the
+     * command. Each poll's sleep runs the app's next step, so the order is exact.
      */
     @Test
-    fun `browser_handoff is not superseded by an earlier answer while the app takes its command`() {
+    fun `browser_handoff ignores an earlier answer however long the app takes to show it`() {
         val answer =
             run(
                 """
@@ -179,14 +179,18 @@ class BrowserMcpHandoffScriptTest {
                             steps.pop(0)()
                 m.time = Clock()
                 write_command = m._write_command
-                def taken(command):
+                def delayed(command):
                     mine = write_command(command)
-                    m.COMMAND_FILE.unlink()
                     m.STATUS_FILE.write_text(json.dumps({"state": "agent", "requestId": "earlier"}))
-                    steps.append(lambda: m.STATUS_FILE.write_text(json.dumps({"state": "awaiting_user", "requestId": mine})))
+                    def take():
+                        # The app's order: the status first, then the command goes.
+                        m.STATUS_FILE.write_text(json.dumps({"state": "awaiting_user", "requestId": mine}))
+                        m.COMMAND_FILE.unlink()
+                    steps.extend([lambda: None] * 5)
+                    steps.append(take)
                     steps.append(lambda: m.STATUS_FILE.write_text(json.dumps({"state": "agent", "requestId": mine})))
                     return mine
-                m._write_command = taken
+                m._write_command = delayed
                 print(m.tool_handoff({"timeout_s": 5}) == m.HANDOFF_BACK)
                 """.trimIndent(),
             )

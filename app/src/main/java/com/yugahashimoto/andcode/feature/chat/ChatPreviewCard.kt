@@ -49,6 +49,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.feature.browser.GuestWebContent
 import com.yugahashimoto.andcode.feature.browser.PreviewTarget
+import com.yugahashimoto.andcode.feature.browser.ShownPage
 import com.yugahashimoto.andcode.feature.browser.StaticAssetInterceptor
 import com.yugahashimoto.andcode.feature.browser.staticPreviewUrl
 import com.yugahashimoto.andcode.feature.browser.watchWorkspaceChanges
@@ -174,11 +175,12 @@ private fun LiveReload(
     isForeground: Boolean,
     reload: () -> Unit,
 ) {
-    var shownFingerprint by remember(target, reloadRoot) { mutableStateOf<Long?>(null) }
+    val shownPage = remember(target, reloadRoot) { ShownPage() }
     val currentReload by rememberUpdatedState(reload)
     LaunchedEffect(target.key, reloadRoot, isForeground) {
         if (isForeground && reloadRoot != null) {
-            watchWorkspaceChanges(reloadRoot, shown = shownFingerprint, onShown = { shownFingerprint = it }) { currentReload() }
+            val run = shownPage.startRun()
+            watchWorkspaceChanges(reloadRoot, shown = run.shown, onShown = run.onShown) { currentReload() }
         }
     }
 }

@@ -238,6 +238,36 @@ class BrowserCommandWatcherTest {
         }
     }
 
+    /** A replaced handoff's banner answered late must not overwrite the newer handoff's status, which its tool reads. */
+    @Test
+    fun `an answer to a replaced handoff leaves the newer handoff's status alone`() {
+        val rootfs = File(runtimeDirectory, "environment/rootfs").apply { mkdirs() }
+        BrowserHandoff.begin(rootfs, "old")
+        try {
+            writeBrowserStatus(rootfs, BROWSER_STATUS_AWAITING_USER, "new")
+            BrowserHandoff.handBack()
+
+            assertNull(BrowserHandoff.active)
+            val status = File(rootfs, BROWSER_STATUS_PATH).readText()
+            assertTrue(status, status.contains("\"requestId\":\"new\"") && status.contains(BROWSER_STATUS_AWAITING_USER))
+        } finally {
+            BrowserHandoff.dismiss()
+        }
+    }
+
+    @Test
+    fun `an answer is written while the status names its own handoff, or none`() {
+        val rootfs = File(runtimeDirectory, "environment/rootfs").apply { mkdirs() }
+        val status = File(rootfs, BROWSER_STATUS_PATH)
+
+        assertTrue(answerBrowserHandoff(rootfs, BROWSER_STATUS_AGENT, "r1"))
+        assertTrue(status.readText(), status.readText().contains("\"requestId\":\"r1\""))
+
+        writeBrowserStatus(rootfs, BROWSER_STATUS_AWAITING_USER, "r2")
+        assertTrue(answerBrowserHandoff(rootfs, BROWSER_STATUS_DISMISSED, "r2"))
+        assertTrue(status.readText(), status.readText().contains("\"state\":\"$BROWSER_STATUS_DISMISSED\""))
+    }
+
     @Test
     fun `handoff never carries a url because it acts on the page already open`() {
         listOf("https://example.com/login", "javascript:alert(1)").forEach { url ->
