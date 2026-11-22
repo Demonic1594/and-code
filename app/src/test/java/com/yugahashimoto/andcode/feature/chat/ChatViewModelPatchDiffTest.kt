@@ -253,6 +253,57 @@ class ChatViewModelPatchDiffTest {
         return viewModel to backend
     }
 
+    /**
+     * Retrying a reply can start from the files as they were before it. The retry is a new turn, so
+     * the restore's Undo goes as it does for any message sent after a restore.
+     */
+    @Test
+    fun `a retry that restores the files first puts them back, then sends the prompt again`() =
+        runTest(dispatcher) {
+            val backend = FakeTarget(diffCapable = false)
+            val snapshots = FakeSnapshots()
+            val viewModel = ChatViewModel(backend = backend, eventFlow = backend.events, turnSnapshots = snapshots).also { advanceUntilIdle() }
+            viewModel.selectWorkspace("/workspace/app")
+            viewModel.sendMessage("Hello")
+            advanceUntilIdle()
+            backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+            val promptId = viewModel.uiState.value.messages.first { it.isUser }.id
+
+            viewModel.retryReply(promptId, restoreFilesFirst = true)
+            advanceUntilIdle()
+
+            assertEquals(listOf(0), snapshots.restored)
+            assertEquals(listOf("Hello", "Hello"), backend.sent.map { it.text })
+            assertEquals(null, viewModel.uiState.value.fileRestore)
+        }
+
+    /** The user chose to start from the old files: if they could not be put back, nothing is sent. */
+    @Test
+    fun `a retry whose restore fails sends nothing`() =
+        runTest(dispatcher) {
+            val backend = FakeTarget(diffCapable = false)
+            val snapshots = FakeSnapshots().apply { restoreResult = RestoreResult.Failed }
+            val viewModel =
+                ChatViewModel(
+                    backend = backend,
+                    eventFlow = backend.events,
+                    turnSnapshots = snapshots,
+                    restoreFailedMessage = "restore failed",
+                ).also { advanceUntilIdle() }
+            viewModel.selectWorkspace("/workspace/app")
+            viewModel.sendMessage("Hello")
+            advanceUntilIdle()
+            backend.events.tryEmit(OpenCodeEvent.SessionIdle("s1"))
+            advanceUntilIdle()
+
+            viewModel.retryReply(viewModel.uiState.value.messages.first { it.isUser }.id, restoreFilesFirst = true)
+            advanceUntilIdle()
+
+            assertEquals(listOf("Hello"), backend.sent.map { it.text })
+            assertEquals("restore failed", viewModel.uiState.value.error)
+        }
+
     @Test
     fun `nothing is sent while files are being restored, and sending works again after`() =
         runTest(dispatcher) {

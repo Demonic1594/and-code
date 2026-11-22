@@ -9,6 +9,7 @@ import com.yugahashimoto.andcode.core.api.OpenCodeEvent
 import com.yugahashimoto.andcode.core.api.OpenCodeHealth
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
 import com.yugahashimoto.andcode.core.api.OpenCodeMessageInfo
+import com.yugahashimoto.andcode.core.api.OpenCodeModelReference
 import com.yugahashimoto.andcode.core.api.OpenCodePart
 import com.yugahashimoto.andcode.core.api.OpenCodeSession
 import com.yugahashimoto.andcode.core.api.OpenCodeSessionRevert
@@ -1514,6 +1515,55 @@ class ChatViewModelTest {
             advanceUntilIdle()
 
             assertFalse(viewModel.uiState.value.contextBreakdownAvailable)
+        }
+
+    /**
+     * Retry sends the reply's prompt again as the user sent it: to the model and agent it went to,
+     * even after the picker moved on to the model the reply came from.
+     */
+    @Test
+    fun `retrying the latest reply sends its prompt again, to the model and agent it went to`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            backend.historyMessages =
+                listOf(
+                    sessionUserMessage("s1", "u1", "Fix the bug", created = 1)
+                        .let { it.copy(info = it.info.copy(model = OpenCodeModelReference("anthropic", "claude-a"), agent = "build")) },
+                    sessionAssistantMessage("s1", "a1", "Fixed.")
+                        .let { it.copy(info = it.info.copy(model = OpenCodeModelReference("openai", "gpt-x"))) },
+                )
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.openSession("s1")
+            advanceUntilIdle()
+            assertEquals("gpt-x", viewModel.uiState.value.selectedModelId)
+
+            viewModel.retryReply("u1", restoreFilesFirst = false)
+            advanceUntilIdle()
+
+            val (sessionId, request) = backend.sentPrompts.single()
+            assertEquals("s1", sessionId)
+            assertEquals("Fix the bug", request.text)
+            assertEquals("anthropic", request.providerId)
+            assertEquals("claude-a", request.modelId)
+            assertEquals("build", request.agent)
+            assertEquals("the picker is left as it was", "gpt-x", viewModel.uiState.value.selectedModelId)
+        }
+
+    @Test
+    fun `a retry asked for while the agent is working is not sent`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.sendMessage("first")
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.isRunning)
+
+            viewModel.retryReply(viewModel.uiState.value.messages.first { it.isUser }.id, restoreFilesFirst = false)
+            advanceUntilIdle()
+
+            assertEquals(listOf("first"), backend.sentPrompts.map { it.second.text })
         }
 
     @Test

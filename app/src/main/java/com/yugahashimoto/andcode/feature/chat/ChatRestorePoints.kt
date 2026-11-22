@@ -89,7 +89,11 @@ internal class RestorePoints(
             turnSnapshots.has(sessionId, turn)
     }
 
-    fun restoreFilesTo(messageId: String) {
+    /** [onRestored] runs once the files are back, in the same chat, and nothing is in flight any more. */
+    fun restoreFilesTo(
+        messageId: String,
+        onRestored: () -> Unit = {},
+    ) {
         val state = uiState.value
         val snapshots = turnSnapshots
         val sessionId = state.sessionId
@@ -102,6 +106,7 @@ internal class RestorePoints(
         restoreJob =
             scope.launch {
                 val result = snapshotCall<RestoreResult>(RestoreResult.Failed) { snapshots.restore(sessionId, turn, directory) }
+                val stillHere = uiState.value.sessionId == sessionId
                 uiState.update {
                     when {
                         // The chat changed meanwhile: its Undo must not appear in another one.
@@ -114,6 +119,7 @@ internal class RestorePoints(
                     }
                 }
                 finishRestoreJob()
+                if (stillHere && result is RestoreResult.Restored) onRestored()
             }
     }
 
