@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +39,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -204,6 +206,10 @@ fun GuestBrowserScreen(
                 )
                 Box(modifier = Modifier.fillMaxWidth().height(2.dp)) {
                     if (loading) LinearProgressIndicator(progress = { progress / 100f }, modifier = Modifier.fillMaxSize())
+                }
+                // The agent handed the page to the user (browser_handoff): it waits until they hand it back.
+                if (BrowserHandoff.active != null) {
+                    GuestBrowserHandoffBanner(onHandBack = BrowserHandoff::handBack, onDismiss = BrowserHandoff::dismiss)
                 }
                 AnimatedVisibility(visible = findOpen) {
                     FindInPageBar(
@@ -401,6 +407,40 @@ fun GuestBrowserScreen(
     }
 }
 
+/**
+ * Shown while the agent has handed the page to the user. The page stays live underneath, so the
+ * user can sign in (or do any other step only they can do) and then give control back in one tap.
+ */
+@Composable
+internal fun GuestBrowserHandoffBanner(
+    onHandBack: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Surface(color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.guest_browser_handoff_title),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = stringResource(R.string.guest_browser_handoff_body),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.guest_browser_handoff_cancel))
+            }
+            Button(onClick = onHandBack, modifier = Modifier.padding(start = 8.dp)) {
+                Text(stringResource(R.string.guest_browser_handoff_done))
+            }
+        }
+    }
+}
+
 /** Shown instead of the page when the system WebView cannot start, which the app cannot repair. */
 @Composable
 private fun WebViewUnavailableNotice(modifier: Modifier = Modifier) {
@@ -435,7 +475,6 @@ private fun WebView.applyViewMode(desktop: Boolean) {
     settings.loadWithOverviewMode = desktop
 }
 
-@SuppressLint("SetJavaScriptEnabled")
 private fun WebView.configure(
     onProgress: (Int) -> Unit,
     onTitle: (String) -> Unit,
@@ -446,23 +485,9 @@ private fun WebView.configure(
     onAgentActivity: () -> Unit,
     onRendererGone: (RenderProcessGoneDetail?) -> Unit,
 ) {
-    // Guest pages (dev servers, dashboards, tool UIs) are interactive web apps that need JS.
-    settings.javaScriptEnabled = true
-    settings.domStorageEnabled = true
-    // Pages are web pages: a file: or content: address (typed, linked from a page, or asked for by an
-    // agent) must not show the app's own files or the phone's media. Off by default only from API 30.
-    settings.allowFileAccess = false
-    settings.allowContentAccess = false
-    // Media may play, with sound, without a tap first, also in a cross-origin embed (a YouTube player
-    // the page unmutes); the agent drives pages nobody taps. With the default, a muted embed asked to
-    // unmute pauses instead.
-    settings.mediaPlaybackRequiresUserGesture = false
+    applyGuestBrowserSettings()
     // A download (a release asset, an archive) goes to the phone's browser: this one cannot save it.
     setDownloadListener { url, _, _, _, _ -> UrlLauncher.openUrl(context, url) }
-    // Pinch to zoom, without the legacy on-screen zoom buttons; the menu zooms in steps too.
-    settings.setSupportZoom(true)
-    settings.builtInZoomControls = true
-    settings.displayZoomControls = false
     webChromeClient =
         object : WebChromeClient() {
             override fun onProgressChanged(
@@ -539,6 +564,26 @@ private fun WebView.configure(
                 return true
             }
         }
+}
+
+/** What every page the user or the agent browses in the app gets: the Guest Browser's, and the inline preview's. */
+@SuppressLint("SetJavaScriptEnabled")
+internal fun WebView.applyGuestBrowserSettings() {
+    // Guest pages (dev servers, dashboards, tool UIs) are interactive web apps that need JS.
+    settings.javaScriptEnabled = true
+    settings.domStorageEnabled = true
+    // Pages are web pages: a file: or content: address (typed, linked from a page, or asked for by an
+    // agent) must not show the app's own files or the phone's media. Off by default only from API 30.
+    settings.allowFileAccess = false
+    settings.allowContentAccess = false
+    // Media may play, with sound, without a tap first, also in a cross-origin embed (a YouTube player
+    // the page unmutes); the agent drives pages nobody taps. With the default, a muted embed asked to
+    // unmute pauses instead.
+    settings.mediaPlaybackRequiresUserGesture = false
+    // Pinch to zoom, without the legacy on-screen zoom buttons; the menu zooms in steps too.
+    settings.setSupportZoom(true)
+    settings.builtInZoomControls = true
+    settings.displayZoomControls = false
 }
 
 /**

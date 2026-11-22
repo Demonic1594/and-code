@@ -16,6 +16,8 @@ import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.core.UrlLauncher
 import com.yugahashimoto.andcode.data.settings.AppPreferences
 import com.yugahashimoto.andcode.feature.activity.ActivityUiState
+import com.yugahashimoto.andcode.feature.browser.PreviewTarget
+import com.yugahashimoto.andcode.feature.browser.PreviewUiState
 import com.yugahashimoto.andcode.feature.chat.ChatHomeScreen
 import com.yugahashimoto.andcode.feature.chat.ChatUiState
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
@@ -47,6 +49,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 // The chat screen's route: what it shows from the app's state, the effects that belong to it (a
 // chat or handoff waiting to be opened, pull request badges kept fresh, the repository link) and
@@ -59,6 +62,7 @@ internal fun ChatRoute(
     fallbackModelId: String?,
     waiting: ChatRouteWaiting,
     actions: ChatRouteActions,
+    preview: ChatPreviewProps = ChatPreviewProps(),
 ) {
     val context = LocalContext.current
     val sendGate = LocalSendGate.current
@@ -146,6 +150,16 @@ internal fun ChatRoute(
     ) {
         ChatHomeScreen(
             repositoryUrl = repositoryUrl,
+            previewState = preview.state,
+            previewsAvailable = preview.available,
+            previewTargets = preview.targets,
+            isForeground = preview.isForeground,
+            previewWorkspaceDir = preview.workspaceDir,
+            onPreviewRequested = preview.actions.onRequested,
+            onPreviewMinimize = preview.actions.onMinimize,
+            onPreviewRestore = preview.actions.onRestore,
+            onExpandPreview = preview.actions.onExpand,
+            onClosePreview = preview.actions.onClose,
             issueLookup = app.githubApi::getIssueThread,
             // No runtime given: the lifecycle looks the chat's owner up, so a runtime switched while
             // the dialog was open cannot pair this chat with another agent.
@@ -342,6 +356,26 @@ internal fun ChatRoute(
         )
     }
 }
+
+/** The live preview pinned in the chat: where it is, what can be reopened, and what its controls do. */
+internal class ChatPreviewProps(
+    val state: PreviewUiState = PreviewUiState.None,
+    /** Whether pages on this device can be previewed: only a runtime on this phone serves them. */
+    val available: Boolean = true,
+    val targets: List<PreviewTarget> = emptyList(),
+    val isForeground: Boolean = true,
+    val workspaceDir: File? = null,
+    val actions: ChatPreviewActions = ChatPreviewActions(),
+)
+
+/** What the preview's controls do. */
+internal class ChatPreviewActions(
+    val onRequested: (PreviewTarget) -> Unit = {},
+    val onMinimize: () -> Unit = {},
+    val onRestore: () -> Unit = {},
+    val onExpand: (PreviewTarget) -> Unit = {},
+    val onClose: () -> Unit = {},
+)
 
 /** The app objects the chat route works with. */
 internal class ChatRouteDeps(

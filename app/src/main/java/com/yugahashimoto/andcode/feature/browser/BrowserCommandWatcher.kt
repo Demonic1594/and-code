@@ -15,14 +15,16 @@ private const val POLL_INTERVAL_MILLIS = 1000L
 
 /**
  * Watches for a browser command written by an in-guest agent ([BROWSER_COMMAND_PATH], e.g.
- * `{"action":"open","url":"http://127.0.0.1:8080/","createdAtMs":1800000000000}`) and opens the guest
- * browser at the requested URL so the user can watch and join in. Only a command stamped in the last
- * few minutes opens (see [consumeBrowserOpenCommand]).
+ * `{"action":"open","url":"http://127.0.0.1:8080/","createdAtMs":1800000000000}`) and hands it to
+ * [onCommand]: an `open` fills the Guest Browser, a `preview` pins a page on this device inside the
+ * conversation, and a `handoff` asks the user to take over (to sign in, say) and pauses the agent until
+ * they hand the browser back. Only a command stamped in the last few minutes counts (see
+ * [consumeBrowserCommand]).
  *
  * Only polls while [foreground] is `true`: opening a browser nobody is looking at achieves nothing,
  * and a composition outlives the activity being stopped, so without the gate this read the disk
  * every second for as long as the process was alive. A command written while the app was away is
- * opened as soon as it returns, if that is within those few minutes.
+ * carried out as soon as it returns, if that is within those few minutes.
  *
  * [foreground] keys the effect, so it must be a reference that stays the same across recompositions
  * (the app's own `StateFlow` is); a flow built inline would restart the watcher, and its immediate
@@ -34,15 +36,15 @@ fun GuestBrowserCommandWatcher(
     agent: LocalAgent?,
     runtimeDirectory: File,
     foreground: Flow<Boolean>,
-    onOpenUrl: (String) -> Unit,
+    onCommand: (BrowserCommand) -> Unit,
 ) {
-    val openUrl by rememberUpdatedState(onOpenUrl)
+    val currentOnCommand by rememberUpdatedState(onCommand)
     LaunchedEffect(workspacePath, agent, runtimeDirectory, foreground) {
         if (workspacePath == null || agent == null) return@LaunchedEffect
         watchBrowserCommands(
             active = foreground,
-            poll = { withContext(Dispatchers.IO) { consumeBrowserOpenCommand(workspacePath, agent, runtimeDirectory) } },
-            onOpenUrl = { url -> openUrl(url) },
+            poll = { withContext(Dispatchers.IO) { consumeBrowserCommand(workspacePath, agent, runtimeDirectory) } },
+            onCommand = { command -> currentOnCommand(command) },
         )
     }
 }
@@ -51,14 +53,14 @@ fun GuestBrowserCommandWatcher(
  * The watcher's loop, apart from Compose so the gating can be tested with a virtual clock.
  *
  * [poll] suspends while it reads the command file, so a gate that closes in that instant can drop
- * the URL it has just consumed. That is a window of milliseconds at the moment the app is leaving
+ * the command it has just consumed. That is a window of milliseconds at the moment the app is leaving
  * the screen, when nobody is left to watch the browser open.
  */
 internal suspend fun watchBrowserCommands(
     active: Flow<Boolean>,
-    poll: suspend () -> String?,
-    onOpenUrl: (String) -> Unit,
+    poll: suspend () -> BrowserCommand?,
+    onCommand: (BrowserCommand) -> Unit,
     intervalMillis: Long = POLL_INTERVAL_MILLIS,
 ) {
-    active.pollWhileActive(intervalMillis) { poll()?.let(onOpenUrl) }
+    active.pollWhileActive(intervalMillis) { poll()?.let(onCommand) }
 }

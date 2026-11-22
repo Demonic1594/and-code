@@ -953,7 +953,7 @@
     <string name="installer_error_codex_checksum">Codex のダウンロードの SHA-512 が一致しません: 期待値 %1$s、実際の値 %2$s</string>
     <string name="installer_error_codex_tarball_incomplete">Codex の tar アーカイブに %1$s が含まれていません</string>
     <string name="installer_error_codex_binary_missing">Codex はダウンロードの成功を報告しましたが、%1$s がありません</string>
-    <string name="installer_error_antigravity_space">Antigravity には 300 MB 以上の空き容量が必要です (空き: %1$d バイト)</string>
+    <string name="installer_error_antigravity_space_needed">Antigravity には %1$d MB 以上の空き容量が必要です (空き: %2$d バイト)</string>
     <string name="installer_error_antigravity_binary_missing">Antigravity の公式アーカイブに agy バイナリが含まれていませんでした</string>
     <string name="runtime_step_preparing_update">更新を準備しています</string>
     <string name="runtime_step_rolling_back_to">OpenCode %1$sへロールバックしています</string>
@@ -1021,7 +1021,7 @@
     <string name="setup_agents_description">この端末に導入するコーディングエージェントを選んでください。いずれも同じLinux環境で動作し、後から追加もできます。</string>
     <string name="setup_agent_claude_code_desc">Claudeアカウントにブラウザでサインインします。約80MBをダウンロードします。</string>
     <string name="setup_agent_opencode_desc">モデルプロバイダーのAPIキーでサインインします。約120MBをダウンロードします。</string>
-    <string name="setup_agent_antigravity_desc">Googleアカウントにブラウザでサインインします。約50MBをダウンロードします。</string>
+    <string name="setup_agent_antigravity_desc">Googleアカウントにブラウザでサインインします。約100MBをダウンロードします。</string>
     <string name="setup_agents_required">続けるには少なくとも1つ選んでください。</string>
     <string name="setup_step_sign_in">サインイン</string>
     <string name="setup_sign_in_description">エージェントが使用するアカウントを接続します。</string>
@@ -1388,6 +1388,15 @@
     <string name="webview_page_gone_body">このページを表示していたプロセスを Android が終了しました。多くの場合、メモリを解放するためです。再読み込みすると、もう一度開きます。</string>
     <string name="webview_page_gone_reload">再読み込み</string>
     <string name="guest_browser_agent_controlling">エージェントがこのページを操作しています</string>
+    <string name="guest_browser_handoff_title">あなたが操作中です</string>
+    <string name="guest_browser_handoff_body">エージェントにはできない手順（サインインなど）をここで済ませてから、ブラウザをエージェントに戻してください。</string>
+    <string name="guest_browser_handoff_done">エージェントに戻す</string>
+    <string name="guest_browser_handoff_cancel">キャンセル</string>
+    <string name="chat_preview_expand">ゲストブラウザで開く</string>
+    <string name="chat_preview_close">プレビューを閉じる</string>
+    <string name="chat_preview_link">プレビュー</string>
+    <string name="chat_preview_unavailable">このデバイスのWebViewを起動できなかったため、プレビューを利用できません。</string>
+    <string name="chat_preview_minimize">プレビューを最小化</string>
     <string name="setup_step_development_tools">開発ツール</string>
     <string name="setup_development_tools_description">既定では実行に必要なものだけをインストールします。完全な開発ツールチェーンも選択できます。</string>
     <string name="setup_required_tools_description">Linux、選択したエージェント、Git、および AndCode が使用するサポートツールです。これらは常にインストールされます。</string>

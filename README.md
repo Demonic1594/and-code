@@ -117,6 +117,8 @@ On-device agents run inside a Linux environment via PRoot. OpenCode, Claude Code
 - **Git support** — Browse status and review diffs from the GUI (this fork adds a full Git panel, below)
 - **Diff viewer** — Review code changes inline before accepting
 - **Embedded terminal** — An interactive shell (real PTY) inside the on-device runtime: streamed output, stdin, Ctrl+C, colours, and it opens in the workspace you came from. Dev servers started in it (Vite, `python -m http.server`, …) show up as chips that open the page in the in-app browser. Full-screen programs such as `vim` are not supported yet
+- **Inline live preview** — A loopback dev server or a static site from the workspace can be pinned inside the conversation as a live, interactive card (requested by the agent's `browser_preview` tool or a localhost link). It auto-reloads as files change, can be minimized to a floating button or cancelled, and expands to the full-screen Guest Browser. Only pages on the device are previewed in the chat
+- **Agent-driven browser** — The agent can open a page in the Guest Browser or preview one in the chat, and, while **Let agents control this browser** is on (in the Guest Browser's ⋮ menu) and the browser is on screen, operate it for you: hand it to you to sign in (`browser_handoff`) and attach a photo from `/sdcard` (`browser_upload`). Password fields are refused
 - **Pull request badges** — Pull requests opened in a chat stay pinned above the composer with their diff size and state (draft, open, conflict, merged, closed); tap to open them on GitHub
 - **Tool approvals** — Approve or reject dangerous tool operations (this fork adds risk labels, rules and history, below)
 - **Session management** — Create, resume, rename, and delete sessions
@@ -267,8 +269,8 @@ The setup process (triggered from Workspaces):
 Pinned versions (updatable via app releases without agent changes; see [`local-runtime-manifest.json`](app/src/main/assets/local-runtime-manifest.json)):
 
 - Alpine Linux 3.24.1
-- OpenCode 1.18.5
-- Google Antigravity CLI 1.1.7 (Debian Bookworm rootfs)
+- OpenCode 1.19.6
+- Google Antigravity CLI 1.5.13 (Debian Bookworm rootfs)
 - Architectures: arm64-v8a, x86_64
 
 ## Handoff (Runtime Switching Mid-Conversation)

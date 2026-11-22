@@ -25,19 +25,13 @@ class BrowserMcpScriptTest {
     @get:Rule
     val folder = TemporaryFolder()
 
-    private val script =
-        listOf("src/main/assets/scripts/andcode-browser-mcp.py", "app/src/main/assets/scripts/andcode-browser-mcp.py")
-            .map(::File)
-            .first { it.isFile }
+    private val script = BrowserMcpScriptRunner.script
+    private val runner by lazy { BrowserMcpScriptRunner(folder) }
 
     @Before
     fun needsPython() {
         // Only whether python3 starts: a broken script must fail the tests, not skip them.
-        val starts =
-            runCatching {
-                ProcessBuilder("python3", "-c", "pass").start().waitFor(30, TimeUnit.SECONDS)
-            }.getOrDefault(false)
-        assumeTrue("needs python3", starts)
+        assumeTrue("needs python3", BrowserMcpScriptRunner.pythonStarts())
     }
 
     @Test
@@ -439,7 +433,7 @@ class BrowserMcpScriptTest {
             )
 
         assertEquals("/$BROWSER_COMMAND_PATH\nrequested the app to open http://127.0.0.1:5173/", answer)
-        assertEquals("http://127.0.0.1:5173/", consumeBrowserOpenCommand("/root/project", LocalAgent.CLAUDE_CODE, runtime))
+        assertEquals(BrowserCommand.Open("http://127.0.0.1:5173/"), consumeBrowserCommand("/root/project", LocalAgent.CLAUDE_CODE, runtime))
     }
 
     @Test
@@ -638,34 +632,7 @@ class BrowserMcpScriptTest {
     }
 
     /** Loads the script as module `m` and runs [code], returning what it printed. */
-    private fun run(code: String): String {
-        val driver =
-            folder.newFile("driver.py").apply {
-                writeText(
-                    "import importlib.util\n" +
-                        "spec = importlib.util.spec_from_file_location('m', r'''${script.absolutePath}''')\n" +
-                        "m = importlib.util.module_from_spec(spec)\n" +
-                        "spec.loader.exec_module(m)\n" +
-                        code + "\n",
-                )
-            }
-        val out = File(folder.root, "out.txt")
-        // -B: loading the script must not leave a __pycache__ beside it in the assets.
-        val process =
-            ProcessBuilder("python3", "-I", "-B", driver.absolutePath)
-                .redirectErrorStream(true)
-                .redirectOutput(out)
-                .start()
-        if (!process.waitFor(30, TimeUnit.SECONDS)) {
-            process.destroyForcibly()
-            error("python3 timed out")
-        }
-        val output = out.readText()
-        check(process.exitValue() == 0) { output }
-        driver.delete()
-        out.delete()
-        return output.trim()
-    }
+    private fun run(code: String): String = runner.run(code)
 
     private fun isLinux(): Boolean = System.getProperty("os.name").orEmpty().contains("Linux", ignoreCase = true)
 }

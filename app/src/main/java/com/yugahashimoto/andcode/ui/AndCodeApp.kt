@@ -46,13 +46,21 @@ import com.yugahashimoto.andcode.core.LocalServerUrlOpener
 import com.yugahashimoto.andcode.core.UrlLauncher
 import com.yugahashimoto.andcode.core.diagnostics.CrashLog
 import com.yugahashimoto.andcode.core.locale.AppLanguage
+import com.yugahashimoto.andcode.core.storage.DeviceStorage
 import com.yugahashimoto.andcode.data.settings.DraftRepository
 import com.yugahashimoto.andcode.feature.activity.ActivityViewModel
 import com.yugahashimoto.andcode.feature.assistant.SpeechRecognizerManager
+import com.yugahashimoto.andcode.feature.browser.BrowserCommand
+import com.yugahashimoto.andcode.feature.browser.BrowserHandoff
 import com.yugahashimoto.andcode.feature.browser.GuestBrowserCommandWatcher
+import com.yugahashimoto.andcode.feature.browser.PreviewTarget
+import com.yugahashimoto.andcode.feature.browser.PreviewUiState
+import com.yugahashimoto.andcode.feature.browser.activeWorkspaceHostDirectory
+import com.yugahashimoto.andcode.feature.browser.findPreviewEntry
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
 import com.yugahashimoto.andcode.feature.chat.SubagentInfo
 import com.yugahashimoto.andcode.feature.chat.buildHandoffPrompt
+import com.yugahashimoto.andcode.feature.chat.loopbackPreviewTargets
 import com.yugahashimoto.andcode.feature.git.GitClient
 import com.yugahashimoto.andcode.feature.inbox.InboxViewModel
 import com.yugahashimoto.andcode.feature.onboarding.AndroidSetupScreen
@@ -134,6 +142,10 @@ fun AndCodeApp(
     var notificationsEnabled by remember { mutableStateOf(true) }
     var showCloneDialog by remember { mutableStateOf(false) }
     var showDiagnostics by remember { mutableStateOf(false) }
+    // The chat preview: gone, the full card, or collapsed to a floating button. The last target is
+    // kept after Cancel so the "Preview" chip can restart it without asking the agent again.
+    var previewState by remember { mutableStateOf<PreviewUiState>(PreviewUiState.None) }
+    var lastPreviewTarget by remember { mutableStateOf<PreviewTarget?>(null) }
 
     val selectedRuntime by app.runtimeRegistry.selected.collectAsState()
     val turnSnapshots = app.turnSnapshots
@@ -353,6 +365,60 @@ fun AndCodeApp(
         previousChatViewModel.value = chatViewModel
     }
     val chatState by chatViewModel.uiState.collectAsState()
+    val appForeground by app.appForeground.foreground.collectAsState()
+
+    // Where the live-reload watcher and the static preview read files from. Null on remote runtimes,
+    // which have no host-side files on this phone.
+    val previewWorkspaceDir =
+        remember(chatState.sessionDirectory, chatState.selectedWorkspacePath, selectedRuntime?.id) {
+            activeWorkspaceHostDirectory(
+                workspacePath = chatState.sessionDirectory ?: chatState.selectedWorkspacePath,
+                agent = selectedRuntime?.agent,
+                runtimeDirectory = java.io.File(context.filesDir, "runtime"),
+                deviceStorage = DeviceStorage.mounts(),
+            )
+        }
+    var staticPreviewTarget by remember { mutableStateOf<PreviewTarget.Static?>(null) }
+    // Scanned again as each turn starts and ends: the agent may have just written the page.
+    LaunchedEffect(previewWorkspaceDir, chatState.isRunning) {
+        staticPreviewTarget =
+            withContext(Dispatchers.IO) {
+                previewWorkspaceDir?.let { directory ->
+                    findPreviewEntry(directory)?.let { entry -> PreviewTarget.Static(directory.path, entry) }
+                }
+            }
+    }
+    val sessionPreviewTargets =
+        remember(chatState.sessionId, chatState.messages, lastPreviewTarget, staticPreviewTarget) {
+            buildList {
+                lastPreviewTarget?.let(::add)
+                staticPreviewTarget?.let(::add)
+                addAll(loopbackPreviewTargets(chatState.messages))
+            }.distinctBy { target -> target.key }
+        }
+    var previewSessionInitialized by remember { mutableStateOf(false) }
+    // The project too: a draft in one project and a draft in another both have no session id yet.
+    LaunchedEffect(chatState.sessionId, chatState.selectedWorkspacePath) {
+        // Switching chats or projects closes the old one's preview, but the first composition must not
+        // clear a preview the agent may have just requested before the session id settled.
+        if (previewSessionInitialized) {
+            BrowserHandoff.dismiss()
+            previewState = PreviewUiState.None
+            lastPreviewTarget = null
+        }
+        previewSessionInitialized = true
+    }
+
+    fun showPreview(target: PreviewTarget) {
+        lastPreviewTarget = target
+        previewState = PreviewUiState.Active(target)
+    }
+
+    fun collapseActivePreview() {
+        (previewState as? PreviewUiState.Active)?.let {
+            previewState = PreviewUiState.Collapsed(it.target)
+        }
+    }
 
     val speechManager = remember { SpeechRecognizerManager(context.applicationContext) }
     val voiceScope = rememberCoroutineScope()
@@ -638,15 +704,31 @@ fun AndCodeApp(
         }
     }
 
-    // Lets the in-guest agent pop the guest browser open for the user by leaving a command file in
-    // the guest home (see GuestBrowserCommandWatcher).
+    // Lets the in-guest agent open the Guest Browser or pin a page of this device in the chat for the
+    // user, or hand the browser over and wait, by leaving a command file in the guest home (see
+    // GuestBrowserCommandWatcher).
     GuestBrowserCommandWatcher(
         workspacePath = chatState.sessionDirectory ?: chatState.selectedWorkspacePath,
         agent = selectedRuntime?.agent,
         runtimeDirectory = java.io.File(context.filesDir, "runtime"),
         foreground = app.appForeground.foreground,
-        onOpenUrl = { url ->
-            navController.navigate(guestBrowserRoute(url)) { launchSingleTop = true }
+        onCommand = { command ->
+            when (command) {
+                is BrowserCommand.Open -> {
+                    // Tear down any inline preview WebView before opening the full-screen browser
+                    // so only one WebView target is alive for CDP at a time.
+                    collapseActivePreview()
+                    navController.navigate(guestBrowserRoute(command.url)) { launchSingleTop = true }
+                }
+                is BrowserCommand.Preview -> showPreview(PreviewTarget.Url(command.url))
+                is BrowserCommand.Handoff -> {
+                    // The watcher has already recorded `awaiting_user`. A handoff never navigates:
+                    // `launchSingleTop` would reuse the same entry and the WebView only loads its
+                    // first URL, so a "navigate" here would be a no-op at best and a reload of the
+                    // sign-in the user just completed at worst.
+                    BrowserHandoff.begin(command.rootfs, command.requestId)
+                }
+            }
         },
     )
 
@@ -1015,6 +1097,38 @@ fun AndCodeApp(
                                     ),
                                 fallbackProviderId = fallbackProviderId,
                                 fallbackModelId = fallbackModelId,
+                                preview =
+                                    ChatPreviewProps(
+                                        state = previewState,
+                                        available = selectedRuntime?.agent != null,
+                                        targets = sessionPreviewTargets.takeIf { selectedRuntime?.agent != null }.orEmpty(),
+                                        isForeground = appForeground,
+                                        workspaceDir = previewWorkspaceDir,
+                                        actions =
+                                            ChatPreviewActions(
+                                                onRequested = { target -> showPreview(target) },
+                                                onMinimize = ::collapseActivePreview,
+                                                onRestore = {
+                                                    (previewState as? PreviewUiState.Collapsed)?.let {
+                                                        previewState =
+                                                            PreviewUiState.Active(
+                                                                it.target,
+                                                            )
+                                                    }
+                                                },
+                                                onExpand = { target ->
+                                                    when (target) {
+                                                        is PreviewTarget.Url -> {
+                                                            collapseActivePreview()
+                                                            navController.navigate(guestBrowserRoute(target.url)) { launchSingleTop = true }
+                                                        }
+                                                        // A static site expands in the card's own full-screen view.
+                                                        is PreviewTarget.Static -> Unit
+                                                    }
+                                                },
+                                                onClose = { previewState = PreviewUiState.None },
+                                            ),
+                                    ),
                                 waiting =
                                     ChatRouteWaiting(
                                         session = pendingSession,
