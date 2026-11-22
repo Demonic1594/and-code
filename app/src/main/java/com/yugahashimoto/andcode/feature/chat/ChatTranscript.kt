@@ -327,5 +327,9 @@ internal fun toChatMessage(message: OpenCodeMessage): ChatMessage? {
         timestamp = message.info.time.created,
         completedAt = message.info.time.completed,
         isStreaming = false,
+        model = message.info.effectiveModel,
+        agent = message.info.agent,
+        tokens = message.info.tokens,
+        costUsd = message.info.cost,
     )
 }

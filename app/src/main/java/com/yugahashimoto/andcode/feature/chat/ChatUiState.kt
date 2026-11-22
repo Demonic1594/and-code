@@ -4,6 +4,8 @@ import android.graphics.Bitmap
 import com.yugahashimoto.andcode.core.api.ConnectionQuality
 import com.yugahashimoto.andcode.core.api.OpenCodeCommand
 import com.yugahashimoto.andcode.core.api.OpenCodeFileChange
+import com.yugahashimoto.andcode.core.api.OpenCodeModelReference
+import com.yugahashimoto.andcode.core.api.OpenCodeSessionTokens
 import com.yugahashimoto.andcode.core.api.OpenCodeSkill
 import com.yugahashimoto.andcode.core.api.PermissionRequest
 import com.yugahashimoto.andcode.core.api.PromptAttachment
@@ -95,6 +97,14 @@ data class ChatMessage(
     val timestamp: Long = System.currentTimeMillis(),
     val completedAt: Long? = null,
     val isStreaming: Boolean = false,
+    /** The model that wrote it, or for a prompt the one it was sent to, when the runtime says. */
+    val model: OpenCodeModelReference? = null,
+    /** The agent that wrote it, or for a prompt the one it was sent to, when the runtime says. */
+    val agent: String? = null,
+    /** The tokens it took, when the runtime reports them. */
+    val tokens: OpenCodeSessionTokens? = null,
+    /** What it cost in USD, when the runtime reports it. */
+    val costUsd: Double? = null,
 ) {
     val text: String
         get() = parts.filterIsInstance<ChatPart.Text>().joinToString("") { it.text }
