@@ -2,6 +2,7 @@ package com.yugahashimoto.andcode.feature.chat
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
@@ -239,7 +240,8 @@ internal fun copyReplyText(
 ): Boolean {
     val copied = text.length <= MAX_CLIPBOARD_TRANSCRIPT_CHARS && runCatching { setClipboard(text) }.isSuccess
     if (copied) {
-        Toast.makeText(context, R.string.reply_copied, Toast.LENGTH_SHORT).show()
+        // Android 13 and later confirm a copy themselves.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) Toast.makeText(context, R.string.reply_copied, Toast.LENGTH_SHORT).show()
     } else {
         Toast.makeText(context, R.string.reply_copy_too_long, Toast.LENGTH_LONG).show()
         shareChatTranscript(context, title, text, context.getString(R.string.reply_action_share))
@@ -294,16 +296,22 @@ internal class ReplySpeaker(
             override fun onDone(utteranceId: String?) = finished(utteranceId)
 
             @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) = finished(utteranceId)
+            override fun onError(utteranceId: String?) = failed(utteranceId)
 
             override fun onError(
                 utteranceId: String?,
                 errorCode: Int,
-            ) = finished(utteranceId?.substringBefore(PIECE_SEPARATOR))
+            ) = failed(utteranceId)
         }
 
     private fun finished(utteranceId: String?) {
         mainHandler.post { if (utteranceId != null && utteranceId == speakingKey) speakingKey = null }
+    }
+
+    /** A piece the engine could not speak ends the reply: the pieces queued after it are dropped too. */
+    private fun failed(utteranceId: String?) {
+        val key = utteranceId?.substringBefore(PIECE_SEPARATOR)
+        mainHandler.post { if (key != null && key == speakingKey) stop() }
     }
 
     /** Reads [text] as [key], or stops if [key] is the reply being read. */
@@ -357,7 +365,8 @@ internal class ReplySpeaker(
             val id = if (index == pieces.lastIndex) key else "$key$PIECE_SEPARATOR$index"
             val queue = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
             if (tts.speak(piece, queue, null, id) == TextToSpeech.ERROR) {
-                speakingKey = null
+                // The pieces already queued would otherwise go on being read.
+                stop()
                 return
             }
         }

@@ -1537,6 +1537,7 @@ class ChatViewModelTest {
             viewModel.openSession("s1")
             advanceUntilIdle()
             assertEquals("gpt-x", viewModel.uiState.value.selectedModelId)
+            viewModel.selectVariant("high")
 
             viewModel.retryReply("u1", restoreFilesFirst = false)
             advanceUntilIdle()
@@ -1547,6 +1548,7 @@ class ChatViewModelTest {
             assertEquals("anthropic", request.providerId)
             assertEquals("claude-a", request.modelId)
             assertEquals("build", request.agent)
+            assertNull("a variant is the picker's model's, not the retry's", request.variant)
             assertEquals("the picker is left as it was", "gpt-x", viewModel.uiState.value.selectedModelId)
         }
 

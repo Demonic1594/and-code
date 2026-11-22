@@ -215,6 +215,8 @@ fun groupConversationTimeline(messages: List<ChatMessage>): List<TimelineEntry> 
                 }
                 part !is ChatPart.Text -> {
                     pending += part
+                    // The runtimes with snapshots report an edit as a writing tool naming its files.
+                    if (part is ChatPart.Tool && part.filePaths.isNotEmpty()) reply.changedFiles()
                     if (part is ChatPart.Patch && part.files.isNotEmpty()) {
                         if (turnPatchMessageId == null) turnPatchMessageId = part.messageId
                         turnFiles += part.files

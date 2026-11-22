@@ -105,6 +105,19 @@ class ReplyActionsTest {
         assertTrue(footer.reply!!.changedFiles)
     }
 
+    /**
+     * The runtimes with snapshots (Claude Code, Codex, Antigravity, OpenCode V2) report an edit as a
+     * writing tool with the files it names, not as a patch part.
+     */
+    @Test
+    fun `a turn whose writing tool names files changed them, as an edit tool reports it`() {
+        val edit = ChatPart.Tool(id = "tool1", name = "Edit", status = ToolStatus.COMPLETED, filePaths = listOf("src/A.kt"))
+        val read = ChatPart.Tool(id = "tool2", name = "Read", status = ToolStatus.COMPLETED)
+
+        assertTrue(footers(user("u1", "edit it"), assistant("a1", edit, ChatPart.Text("t1", "Edited A."))).single().reply!!.changedFiles)
+        assertFalse(footers(user("u1", "read it"), assistant("a1", read, ChatPart.Text("t1", "Read A."))).single().reply!!.changedFiles)
+    }
+
     @Test
     fun `the reply's model is its last message's, and its tokens and cost add up over the turn`() {
         val footer =

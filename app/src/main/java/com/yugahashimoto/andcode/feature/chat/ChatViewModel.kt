@@ -889,8 +889,8 @@ class ChatViewModel(
     /**
      * Sends [promptMessageId], the prompt behind the latest reply, again: to the model and agent it
      * went to, with its own attachments, leaving the composer alone. The earlier reply stays. With
-     * [restoreFilesFirst], the files are first put back to how they were before that prompt (which
-     * [undoFileRestore] can take back), and nothing is sent if they could not be.
+     * [restoreFilesFirst], the files are first put back to how they were before that prompt, which
+     * drops the reply's changes once the retry goes out, and nothing is sent if they could not be.
      */
     fun retryReply(
         promptMessageId: String,
@@ -902,7 +902,8 @@ class ChatViewModel(
         val retry =
             QueuedPrompt(
                 text = prompt.text,
-                attachments = prompt.attachments,
+                // A file copied into the workspace is already a note in the text, not an attachment.
+                attachments = prompt.attachments.filter { it.workspacePath.isNullOrBlank() },
                 imagePreviews = prompt.imagePreviews,
                 sessionId = state.sessionId,
                 chatGeneration = state.chatGeneration,
@@ -1063,11 +1064,11 @@ class ChatViewModel(
         val providerAtSend = heldModel?.providerId ?: _uiState.value.selectedProviderId
         val modelAtSend = heldModel?.modelId ?: _uiState.value.selectedModelId
         val agentAtSend = held?.agent ?: _uiState.value.selectedAgentId
-        val variantAtSend =
-            _uiState.value.selectedVariant.takeIf {
-                providerAtSend == _uiState.value.selectedProviderId && modelAtSend == _uiState.value.selectedModelId
-            }
-        val ultracodeAtSend = modelSelection.ultracodeForPrompt
+        val pickerModel = providerAtSend == _uiState.value.selectedProviderId && modelAtSend == _uiState.value.selectedModelId
+        val variantAtSend = _uiState.value.selectedVariant.takeIf { pickerModel }
+        // Like the variant, ultracode and the service tier are settings of the picker's model.
+        val ultracodeAtSend = pickerModel && modelSelection.ultracodeForPrompt
+        val serviceTierAtSend = modelSelection.serviceTierForPrompt().takeIf { pickerModel }
         val pendingPreviewsByFilename =
             pendingAttachments
                 .filter { it.mime.startsWith("image/") }
@@ -1250,7 +1251,7 @@ class ChatViewModel(
                         agent = agentAtSend,
                         variant = variantAtSend,
                         attachments = modelAttachments,
-                        serviceTier = modelSelection.serviceTierForPrompt(),
+                        serviceTier = serviceTierAtSend,
                         ultracode = ultracodeAtSend,
                     ),
                 )
