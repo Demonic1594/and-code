@@ -50,13 +50,16 @@ class BrowserMcpModeScriptTest {
         ]
         """.trimIndent()
 
+    // This server's agent opened the hidden page the app answered as r1. One line, to sit in any block.
+    private val choseHidden = """m._last_chosen_mode = "hidden"; m._hidden_requests.add("r1"); m._last_hidden_request = "r1""""
+
     @Test
     fun `the hidden browser drives the target the app named and nothing else`() {
         val chosen =
             run(
-                targets + "\n" +
+                targets + "\n" + choseHidden + "\n" +
                     """
-                    state = {"mode": "hidden", "hidden": {"state": "ready", "targetId": "HID"}, "guestBrowserOpen": True}
+                    state = {"mode": "hidden", "hidden": {"state": "ready", "targetId": "HID", "requestId": "r1"}, "guestBrowserOpen": True}
                     print(m.choose_page(targets, state)["id"])
                     for gone in ([t for t in targets if t["id"] != "HID"], []):
                         try:
@@ -73,29 +76,92 @@ class BrowserMcpModeScriptTest {
     fun `with no hidden page the agent learns why, and never falls through to a page on screen`() {
         val answers =
             run(
-                targets + "\n" +
+                targets + "\n" + choseHidden + "\n" +
                     """
                     for state in (
                         {"mode": "hidden", "hidden": None, "ended": "closed_by_user"},
                         {"mode": "hidden", "hidden": None, "ended": "renderer_gone"},
                         {"mode": "hidden", "hidden": None, "ended": "agent_control_off"},
                         {"mode": "hidden", "hidden": None, "ended": None},
-                        {"mode": "hidden", "hidden": {"state": "starting", "targetId": None}},
+                        {"mode": "hidden", "hidden": {"state": "starting", "targetId": None, "requestId": "r1"}},
+                        {"mode": "hidden", "hidden": {"state": "ready", "targetId": "HID", "requestId": "theirs"}},
                     ):
                         try:
                             print(m.choose_page(targets, state))
                         except m.CdpError as error:
                             print(str(error))
+                    # No WebView left to hold the socket open: still why the hidden browser went, not the Guest Browser's.
+                    m._find_devtools_socket = lambda: None
+                    m.read_state = lambda: {"mode": "hidden", "hidden": None, "ended": "idle"}
+                    try:
+                        m._session()
+                    except m.CdpError as error:
+                        print(str(error) == m.HIDDEN_ENDED["idle"])
                     """.trimIndent(),
             )
 
         val lines = answers.lines()
-        assertEquals(5, lines.size)
+        assertEquals(7, lines.size)
         assertTrue(lines[0], lines[0].startsWith("The user closed the hidden browser"))
         assertTrue(lines[1], lines[1].startsWith("The hidden browser's page stopped responding") && "Nothing reloads" in lines[1])
         assertTrue(lines[2], lines[2].contains("'Let agents control this browser' is off"))
         assertTrue(lines[3], lines[3].startsWith("No hidden browser is open."))
         assertEquals("The hidden browser is still starting; retry in a moment.", lines[4])
+        assertTrue(lines[5], lines[5].startsWith("Another agent has opened a page of its own in the hidden browser"))
+        assertEquals("True", lines[6])
+    }
+
+    /**
+     * The status is the app's, shared by every agent's server: one agent opening the hidden browser
+     * moves no other agent's tools onto it, and one that chose it too is told its page is gone.
+     */
+    @Test
+    fun `each agent keeps the browser it chose, whatever another agent opens`() {
+        val answers =
+            run(
+                targets + "\n" +
+                    """
+                    on_screen = '{"attached": true, "visible": true}'
+                    pages = [dict(t, description=on_screen) if t["id"] == "GUEST" else t for t in targets if t["id"] != "ART"]
+                    theirs = {"mode": "hidden", "hidden": {"state": "ready", "targetId": "HID", "requestId": "b1"}, "guestBrowserOpen": True}
+                    print(m.chosen_mode(theirs), m.choose_page(pages, theirs)["id"])
+                    m._last_chosen_mode = "visible"
+                    print(m.chosen_mode(theirs), m.choose_page(pages, theirs)["id"])
+                    m._last_chosen_mode = "hidden"
+                    m._hidden_requests.add("a1")
+                    try:
+                        m.choose_page(pages, theirs)
+                    except m.CdpError as error:
+                        print(str(error) == m.HIDDEN_TAKEN)
+                    """.trimIndent(),
+            )
+
+        // A server that chose nothing yet starts on the visible browser too.
+        assertEquals("visible GUEST\nvisible GUEST\nTrue", answers)
+    }
+
+    /** Only the page the agent opened last becomes its visible browser with View: an earlier one it viewed does not. */
+    @Test
+    fun `a page the agent viewed earlier never stands in for the hidden page it opened since`() {
+        val answers =
+            run(
+                targets + "\n" + choseHidden + "\n" +
+                    """
+                    m._hidden_requests.add("r2")
+                    m._last_hidden_request = "r2"
+                    viewed = {"mode": "visible", "ended": "viewed", "guestBrowserOpen": True, "visibleTargetId": "GUEST", "viewedRequestId": "r1"}
+                    closed = dict(viewed, mode="hidden", hidden=None, ended="closed_by_user")
+                    taken = dict(viewed, mode="hidden", hidden={"state": "ready", "targetId": "HID", "requestId": "theirs"}, ended=None)
+                    for state in (closed, taken, viewed):
+                        try:
+                            m.choose_page(targets, state)
+                        except m.CdpError as error:
+                            print(m.chosen_mode(state), str(error) in (m.HIDDEN_ENDED["closed_by_user"], m.HIDDEN_TAKEN, m.HIDDEN_ENDED["viewed"]))
+                    print(m.chosen_mode(dict(viewed, viewedRequestId="r2")))
+                    """.trimIndent(),
+            )
+
+        assertEquals("hidden True\nhidden True\nhidden True\nvisible", answers)
     }
 
     /** With the hidden browser holding the DevTools socket open, an artifact or chat preview on screen is reachable too. */
@@ -156,6 +222,7 @@ class BrowserMcpModeScriptTest {
                     """
                     from pathlib import Path
                     m.STATE_FILE = Path(r'''${file.absolutePath}''')
+                    $choseHidden
                     state = m.read_state()
                     print(m.chosen_mode(state), state["lastRequestId"], m.choose_page(targets, state)["id"])
                     """.trimIndent(),
@@ -177,8 +244,10 @@ class BrowserMcpModeScriptTest {
                 m._await_load = lambda target_id: None
                 m.HIDDEN_OPEN_TIMEOUT = 0
                 show = {"url": "https://example.com/a", "mode": "hidden"}
-                m.read_state = lambda: {"mode": "hidden", "lastRequestId": "r1", "hidden": {"state": "ready", "targetId": "HID"}}
+                m.read_state = lambda: {"mode": "hidden", "lastRequestId": "r1", "hidden": {"state": "ready", "targetId": "HID", "requestId": "r1"}}
                 print(m.tool_show(show).startswith("opened https://example.com/a in the hidden browser"))
+                m.read_state = lambda: {"mode": "visible", "lastRequestId": "r1", "hidden": None, "ended": "viewed", "viewedRequestId": "r1"}
+                print(m.tool_show(show).startswith("the user tapped View as the hidden browser opened"))
                 m.read_state = lambda: {"mode": "hidden", "lastRequestId": "r1", "hidden": None, "ended": "agent_control_off"}
                 print(m.tool_show(show) == m.HIDDEN_ENDED["agent_control_off"])
                 m.read_state = lambda: {"mode": "visible", "lastRequestId": "older"}
@@ -189,7 +258,7 @@ class BrowserMcpModeScriptTest {
                 """.trimIndent(),
             )
 
-        assertEquals(List(6) { "True" }.joinToString("\n"), answers)
+        assertEquals(List(7) { "True" }.joinToString("\n"), answers)
         assertEquals(
             BrowserCommand.Open("https://example.com/a", BrowserMode.HIDDEN, "r1"),
             consumeBrowserCommand(LocalAgent.CLAUDE_CODE, runtime),
@@ -206,7 +275,8 @@ class BrowserMcpModeScriptTest {
             m.COMMAND_FILE = Path(r'''${home.absolutePath}''')
             m._new_request_id = lambda: "r2"
             m.CLOSE_TIMEOUT = 0
-            open_state = {"mode": "hidden", "hidden": {"state": "ready", "targetId": "HID"}}
+            m._hidden_requests.add("r1")
+            open_state = {"mode": "hidden", "hidden": {"state": "ready", "targetId": "HID", "requestId": "r1"}}
             m.read_state = lambda: open_state
             """.trimIndent()
 
@@ -214,9 +284,26 @@ class BrowserMcpModeScriptTest {
         assertEquals(BrowserCommand.Close("r2"), consumeBrowserCommand(LocalAgent.CLAUDE_CODE, runtime))
 
         assertTrue(run(prelude + "\nprint(m.tool_show({'mode': 'visible'}))").startsWith("asked the app to show the hidden page"))
-        assertEquals(BrowserCommand.Open(null, BrowserMode.VISIBLE, "r2"), consumeBrowserCommand(LocalAgent.CLAUDE_CODE, runtime))
+        assertEquals(
+            BrowserCommand.Open(null, BrowserMode.VISIBLE, "r2", ownHidden = "r1"),
+            consumeBrowserCommand(LocalAgent.CLAUDE_CODE, runtime),
+        )
+        // A visible open closes this agent's hidden page only: it names that one, and no other agent's.
+        val url = "https://example.com/b"
+        run(prelude + "\nm.tool_show({'url': '$url'})")
+        assertEquals(
+            BrowserCommand.Open(url, BrowserMode.VISIBLE, "r2", ownHidden = "r1"),
+            consumeBrowserCommand(LocalAgent.CLAUDE_CODE, runtime),
+        )
+        run(prelude + "\nopen_state['hidden']['requestId'] = 'theirs'\nm.tool_show({'url': '$url'})")
+        assertEquals(BrowserCommand.Open(url, BrowserMode.VISIBLE, "r2"), consumeBrowserCommand(LocalAgent.CLAUDE_CODE, runtime))
 
-        assertEquals("no hidden browser is open", run(prelude + "\nopen_state['hidden'] = None\nprint(m.tool_close({}))"))
+        val none = "no hidden browser of this agent's is open"
+        assertEquals(none, run(prelude + "\nopen_state['hidden'] = None\nprint(m.tool_close({}))"))
+        // Another agent's hidden page is not this one's to close or hand over.
+        val theirs = prelude + "\nopen_state['hidden']['requestId'] = 'theirs'\n"
+        assertEquals(none, run(theirs + "print(m.tool_close({}))"))
+        assertEquals("True", run(theirs + "print(m.tool_show({'mode': 'visible'}) == m.NOTHING_TO_HAND_OVER)"))
     }
 
     @Test
@@ -227,9 +314,12 @@ class BrowserMcpModeScriptTest {
                     """
                     m._find_devtools_socket = lambda: "webview_devtools_remote_1"
                     m.CdpSession.list_targets = lambda self: targets
-                    m.read_state = lambda: {"mode": "hidden", "hidden": {"state": "ready", "targetId": "HID"}}
+                    $choseHidden
+                    m.read_state = lambda: {"mode": "hidden", "hidden": {"state": "ready", "targetId": "HID", "requestId": "r1"}}
                     print(m.tool_status({}))
-                    m.read_state = lambda: {"mode": "visible", "ended": "viewed", "guestBrowserOpen": True, "visibleTargetId": "HID"}
+                    m.read_state = lambda: {
+                        "mode": "visible", "ended": "viewed", "guestBrowserOpen": True, "visibleTargetId": "HID", "viewedRequestId": "r1",
+                    }
                     print(m.tool_status({}))
                     m.read_state = lambda: {"mode": "hidden", "hidden": None, "ended": "idle"}
                     print(m.tool_status({}))
@@ -262,12 +352,12 @@ class BrowserMcpModeScriptTest {
                     guest = [dict(t, description=on_screen) for t in targets if t["id"] == "GUEST"]
                     after = {"mode": "visible", "hidden": None, "ended": "chat_ended", "guestBrowserOpen": True}
                     print(m.choose_page(guest, after)["id"])
-                    m._last_chosen_mode = "hidden"
+                    $choseHidden
                     try:
                         m.choose_page(guest, after)
                     except m.CdpError as error:
                         print(str(error) == m.HIDDEN_ENDED["chat_ended"])
-                    viewed = {"mode": "visible", "ended": "viewed", "guestBrowserOpen": True, "visibleTargetId": "GUEST"}
+                    viewed = {"mode": "visible", "ended": "viewed", "guestBrowserOpen": True, "visibleTargetId": "GUEST", "viewedRequestId": "r1"}
                     print(m.choose_page(guest, viewed)["id"])
                     """.trimIndent(),
             )

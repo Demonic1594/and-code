@@ -422,6 +422,14 @@ fun AndCodeApp(
         }
     }
 
+    // View: the hidden page, if one is open, goes to the Guest Browser as it is, in place of any page
+    // handed over before. Only one of the app's WebViews is alive beside the page the agent drives.
+    fun viewAgentPage() {
+        collapseActivePreview()
+        app.agentBrowser.handOver()
+        navController.navigate(ROUTE_GUEST_BROWSER_AGENT_PAGE) { launchSingleTop = true }
+    }
+
     val speechManager = remember { SpeechRecognizerManager(context.applicationContext) }
     val voiceScope = rememberCoroutineScope()
 
@@ -697,10 +705,7 @@ fun AndCodeApp(
                 navController.navigate(ROUTE_CHAT) { launchSingleTop = true }
             }
             ShortcutDestination.WORKSPACES -> navController.navigate(ROUTE_WORKSPACES) { launchSingleTop = true }
-            ShortcutDestination.AGENT_BROWSER -> {
-                collapseActivePreview()
-                navController.navigate(ROUTE_GUEST_BROWSER_AGENT_PAGE) { launchSingleTop = true }
-            }
+            ShortcutDestination.AGENT_BROWSER -> viewAgentPage()
             ShortcutDestination.SCHEDULES -> {
                 navController.navigate(ROUTE_SCHEDULES) { launchSingleTop = true }
                 // An agent's schedule-change notification opens the schedule itself, over the list so
@@ -724,20 +729,14 @@ fun AndCodeApp(
                 collapseActivePreview()
                 navController.navigate(guestBrowserRoute(request.url)) { launchSingleTop = true }
             }
-            VisibleBrowserRequest.ShowHiddenPage -> {
-                collapseActivePreview()
-                navController.navigate(ROUTE_GUEST_BROWSER_AGENT_PAGE) { launchSingleTop = true }
-            }
+            VisibleBrowserRequest.ShowHiddenPage -> viewAgentPage()
             is VisibleBrowserRequest.Preview -> showPreview(PreviewTarget.Url(request.url))
             is VisibleBrowserRequest.Handoff -> {
                 // A handoff in the hidden browser first brings its page on screen, as View does; one in
                 // the Guest Browser never navigates: `launchSingleTop` would reuse the same entry and
                 // the WebView only loads its first URL, so a "navigate" here would be a no-op at best
                 // and a reload of the sign-in the user just completed at worst.
-                if (request.showHiddenPage) {
-                    collapseActivePreview()
-                    navController.navigate(ROUTE_GUEST_BROWSER_AGENT_PAGE) { launchSingleTop = true }
-                }
+                if (request.showHiddenPage) viewAgentPage()
                 BrowserHandoff.begin(request.rootfs, request.requestId)
             }
         }
@@ -755,11 +754,7 @@ fun AndCodeApp(
             agentBrowsingHost?.let { host ->
                 AgentBrowsingBannerState(
                     host = host,
-                    onView = {
-                        // Only one of the app's WebViews is alive beside the page the agent drives.
-                        collapseActivePreview()
-                        navController.navigate(ROUTE_GUEST_BROWSER_AGENT_PAGE) { launchSingleTop = true }
-                    },
+                    onView = ::viewAgentPage,
                     onClose = app.agentBrowser::closeByUser,
                 )
             }

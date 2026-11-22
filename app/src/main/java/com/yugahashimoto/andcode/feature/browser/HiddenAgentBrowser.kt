@@ -11,6 +11,9 @@ import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.yugahashimoto.andcode.R
 import com.yugahashimoto.andcode.feature.browser.devtools.AndroidDevToolsMessages
 import com.yugahashimoto.andcode.feature.browser.devtools.DevToolsBridge
@@ -71,9 +74,12 @@ internal sealed interface VisibleBrowserRequest {
 internal class AgentPageHandoff(
     val view: WebView,
     val bridge: DevToolsBridge,
-    val targetId: String?,
+    targetId: String?,
     private val context: MutableContextWrapper,
 ) {
+    /** Set when the app finds the page after the user took it with View, so the screen names it from then on. */
+    var targetId by mutableStateOf(targetId)
+
     /** Puts the view in [host]'s window: an activity's, so its pickers and popups have one to open in. */
     fun adoptInto(host: Context): WebView {
         (view.parent as? ViewGroup)?.removeView(view)
@@ -126,14 +132,22 @@ internal class HiddenAgentBrowser(
     private val statusFile = AgentBrowserStatusFile(runtimeDirectory)
 
     private var page: PageHolder? = null
-    private var handoff: AgentPageHandoff? = null
+
+    /** The page View handed over last, until the Guest Browser screen showing it releases it. */
+    var handedOver: AgentPageHandoff? = null
+        private set
+
+    private val mutableHandovers = MutableStateFlow(0)
+
+    /** Counts the pages View has handed over: the Guest Browser's agent page is built anew for each. */
+    val handovers: StateFlow<Int> = mutableHandovers.asStateFlow()
 
     /**
-     * Whether the handoff still holds the DevTools socket for the page it carries. It lets go once a
-     * Guest Browser shows the page (which holds the socket itself) or releases it, not before: letting
-     * go first would close the socket for a moment in release builds and cut the agent's call short.
+     * The handoffs that still hold the DevTools socket for the page they carry. Each lets go once a
+     * Guest Browser shows its page (holding the socket itself) or releases it, not before: letting go
+     * first would close the socket for a moment in release builds and cut the agent's call short.
      */
-    private var handoffHoldsDebugging = false
+    private val debuggingHolds = HashSet<AgentPageHandoff>()
 
     /** The Guest Browser screens open now, each with the handed-over page it shows, if one. */
     private val guestBrowsers = LinkedHashMap<Any, String?>()
@@ -157,7 +171,7 @@ internal class HiddenAgentBrowser(
             }
         }
         launch(Dispatchers.Main) { agentControl.collect { allowed -> if (!allowed) close(HiddenBrowserEnd.AGENT_CONTROL_OFF) } }
-        launch(Dispatchers.Main) { runtime.distinctUntilChanged().drop(1).collect { close(HiddenBrowserEnd.CHAT_ENDED) } }
+        launch(Dispatchers.Main) { runtime.distinctUntilChanged().drop(1).collect { endChat() } }
         watchBrowserCommands(
             active = active,
             poll = { withContext(Dispatchers.IO) { consumeBrowserCommand(selectedAgent(), runtimeDirectory, clock, ::canActOnNow) } },
@@ -183,24 +197,27 @@ internal class HiddenAgentBrowser(
             is BrowserCommand.Preview -> mutableVisibleRequests.value = VisibleBrowserRequest.Preview(command.url)
             is BrowserCommand.Handoff ->
                 mutableVisibleRequests.value =
-                    VisibleBrowserRequest.Handoff(command.rootfs, showHiddenPage = page != null, requestId = command.requestId)
+                    VisibleBrowserRequest.Handoff(command.rootfs, showHiddenPage = owns(command.ownHidden), requestId = command.requestId)
             is BrowserCommand.Open ->
                 when {
                     command.mode == BrowserMode.HIDDEN -> openHidden(command.url.orEmpty(), command.requestId)
                     command.url == null -> {
                         // Handed over as it is: the Guest Browser takes the page when it opens (handOver).
                         mutableState.update { it.copy(lastRequestId = command.requestId) }
-                        if (page != null) mutableVisibleRequests.value = VisibleBrowserRequest.ShowHiddenPage
+                        if (owns(command.ownHidden)) mutableVisibleRequests.value = VisibleBrowserRequest.ShowHiddenPage
                     }
                     else -> {
-                        // Choosing the visible browser closes the hidden one: the agent works in one at a time.
-                        close(HiddenBrowserEnd.CLOSED_BY_AGENT)
+                        // Choosing the visible browser closes the agent's hidden one: it works in one at a time.
+                        if (owns(command.ownHidden)) close(HiddenBrowserEnd.CLOSED_BY_AGENT)
                         mutableState.update { it.visibleOpened(command.requestId) }
                         mutableVisibleRequests.value = VisibleBrowserRequest.OpenUrl(command.url)
                     }
                 }
         }
     }
+
+    /** Whether the hidden page open now is the one [ownHidden] names, the asking agent's own. */
+    private fun owns(ownHidden: String?): Boolean = page != null && ownHidden != null && state.value.hidden?.requestId == ownHidden
 
     private fun answer(requestId: String) = mutableState.update { it.hiddenEnded(HiddenBrowserEnd.CLOSED_BY_AGENT, requestId) }
 
@@ -240,7 +257,11 @@ internal class HiddenAgentBrowser(
         if (page !== created) {
             // Handed to the user while it was being found: it still opens what the agent asked for. Closed
             // instead (the user closed it, agent control went off): there is nothing left to answer.
-            if (targetId != null && handoff?.view === created.view) created.view.loadUrl(url)
+            val handoff = handedOver?.takeIf { it.view === created.view }
+            if (targetId != null && handoff != null) {
+                handoff.targetId = targetId
+                created.view.loadUrl(url)
+            }
             return
         }
         if (targetId == null) {
@@ -281,49 +302,53 @@ internal class HiddenAgentBrowser(
         previous: String?,
         current: String?,
     ) {
-        if (chatEnded(previous, current)) close(HiddenBrowserEnd.CHAT_ENDED)
+        if (chatEnded(previous, current)) endChat()
+    }
+
+    /** A hidden page open goes with its chat; with none, the next chat's agent still starts on the visible browser. */
+    private fun endChat() {
+        if (page != null) close(HiddenBrowserEnd.CHAT_ENDED) else mutableState.update { it.chatEnded() }
     }
 
     /**
-     * Hands the hidden page to the Guest Browser (View): the same WebView, state and history, with no
-     * reload. From then on it is the Guest Browser's page, on the user's screen, and the agent's tools
-     * treat it as the visible browser. The same handoff comes back until the screen has [released] it, so a screen
-     * built again (after a rotation) takes the same page.
+     * View: hands the hidden page, if one is open, to the Guest Browser: the same WebView, state and
+     * history, with no reload. From then on it is the Guest Browser's page, on the user's screen, and
+     * the agent's tools treat it as the visible browser. It stays [handedOver] until the screen
+     * showing it has [released] it, so a screen built again (after a rotation) takes the same page; a
+     * later View hands over the newer hidden page in its place, and the earlier page goes with its screen.
      */
-    fun handOver(): AgentPageHandoff? {
-        handoff?.let { return it }
-        val current = page ?: return null
+    fun handOver() {
+        val current = page ?: return
         page = null
-        // The socket stays held until the Guest Browser holds it for itself (shown) or lets the page go.
-        handoffHoldsDebugging = true
         mutableVisibleRequests.update { if (it == VisibleBrowserRequest.ShowHiddenPage) null else it }
-        return AgentPageHandoff(current.view, current.bridge, current.targetId, current.context).also {
-            handoff = it
-            mutableState.update { state -> state.viewed() }
-        }
+        val handoff = AgentPageHandoff(current.view, current.bridge, current.targetId, current.context)
+        // The socket stays held until the Guest Browser holds it for itself (shown) or lets the page go.
+        debuggingHolds += handoff
+        handedOver = handoff
+        mutableState.update { it.viewed() }
+        mutableHandovers.update { it + 1 }
     }
 
     override fun released(handoff: AgentPageHandoff) {
-        if (this.handoff === handoff) this.handoff = null
-        releaseHandoffDebugging()
+        if (handedOver === handoff) handedOver = null
+        releaseDebugging(handoff)
     }
 
-    private fun releaseHandoffDebugging() {
-        if (!handoffHoldsDebugging) return
-        handoffHoldsDebugging = false
-        AgentDebugging.release()
+    private fun releaseDebugging(handoff: AgentPageHandoff) {
+        if (debuggingHolds.remove(handoff)) AgentDebugging.release()
     }
 
     fun consumeVisibleRequest(request: VisibleBrowserRequest) = mutableVisibleRequests.compareAndSet(request, null)
 
     override fun shown(
         token: Any,
+        agentPage: AgentPageHandoff?,
         viewedTargetId: String?,
     ) {
         guestBrowsers[token] = viewedTargetId
         publishGuestBrowsers()
         // Called from the screen's effects after its own hold on the socket is in place.
-        if (handoff != null) releaseHandoffDebugging()
+        agentPage?.let(::releaseDebugging)
     }
 
     override fun gone(token: Any) {

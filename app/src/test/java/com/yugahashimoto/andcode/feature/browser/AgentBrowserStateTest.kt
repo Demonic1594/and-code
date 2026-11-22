@@ -80,6 +80,19 @@ class AgentBrowserStateTest {
         assertNull(ended.hidden)
     }
 
+    /** The hidden page closed before the chat ended: the next chat's agent still starts on the visible browser. */
+    @Test
+    fun `a chat ending after its hidden page closed returns to the visible browser, keeping why it closed`() {
+        val idle = start.startHidden("r1", "https://example.com/", now = 10).hiddenReady("T1").hiddenEnded(HiddenBrowserEnd.IDLE)
+
+        val next = idle.chatEnded()
+
+        assertEquals(BrowserMode.VISIBLE, next.mode)
+        assertEquals(HiddenBrowserEnd.IDLE, next.ended)
+        val open = start.startHidden("r2", "https://example.com/", now = 10)
+        assertEquals(open, open.chatEnded())
+    }
+
     @Test
     fun `a request that could not be met is answered with the reason`() {
         val refused = start.hiddenEnded(HiddenBrowserEnd.AGENT_CONTROL_OFF, requestId = "r9")
@@ -107,7 +120,22 @@ class AgentBrowserStateTest {
         assertNull(viewed.hidden)
         assertEquals(HiddenBrowserEnd.VIEWED, viewed.ended)
         assertEquals("T1", viewed.viewedTargetId)
+        assertEquals("r1", viewed.viewedRequestId)
         assertNull(viewed.browsingNotice(foreground = true))
+    }
+
+    /** View before the app found the page: the open it was starting for is answered, not left to time out. */
+    @Test
+    fun `viewing a page that is still starting answers its open`() {
+        val earlier = start.visibleOpened("r0")
+
+        val viewed = earlier.startHidden("r1", "https://example.com/", now = 10).viewed()
+
+        assertEquals("r1", viewed.lastRequestId)
+        assertEquals("r1", viewed.viewedRequestId)
+        assertNull(viewed.viewedTargetId)
+        val answeredSince = earlier.startHidden("r1", "https://example.com/", now = 10).hiddenReady("T1").copy(lastRequestId = "r2")
+        assertEquals("r2", answeredSince.viewed().lastRequestId)
     }
 
     @Test
@@ -189,6 +217,7 @@ class AgentBrowserStateTest {
         assertEquals(JsonNull, json.getValue("ended"))
         assertEquals("false", json.getValue("guestBrowserOpen").jsonPrimitive.content)
         assertEquals(JsonNull, json.getValue("visibleTargetId"))
+        assertEquals(JsonNull, json.getValue("viewedRequestId"))
         assertEquals("1234", json.getValue("updatedAtMs").jsonPrimitive.content)
     }
 
@@ -201,6 +230,7 @@ class AgentBrowserStateTest {
         val viewed = start.startHidden("r1", "https://example.com/", now = 0).hiddenReady("T1").viewed().guestBrowserShown("T1")
         assertEquals("visible", status(viewed).getValue("mode").jsonPrimitive.content)
         assertEquals("T1", status(viewed).getValue("visibleTargetId").jsonPrimitive.content)
+        assertEquals("r1", status(viewed).getValue("viewedRequestId").jsonPrimitive.content)
         assertEquals("true", status(viewed).getValue("guestBrowserOpen").jsonPrimitive.content)
 
         val starting = start.startHidden("r2", "https://example.com/", now = 0)

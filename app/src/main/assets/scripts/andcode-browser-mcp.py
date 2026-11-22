@@ -102,11 +102,16 @@ HIDDEN_ENDED = {
         "hidden browser too. Ask the user to turn it on, or work in the visible browser with them."
     ),
     "failed": "The hidden browser could not start: the system WebView failed, or its page could not be found." + HIDDEN_REOPEN,
+    # Taken onto the user's screen, but not the page this agent opened last: another agent's, or an earlier one.
+    "viewed": "The user took the hidden browser's page onto their screen with View, and it is not the page this agent opened last."
+    + HIDDEN_REOPEN,
 }
 VIEWED = (
     "The user tapped View: the page is on their screen now, in the Guest Browser, as you left it, and counts "
     "as the visible browser. The other browser_* tools still act on it while it stays there."
 )
+# One hidden browser serves every agent: another agent's browser_show sent it to a page of its own.
+HIDDEN_TAKEN = "Another agent has opened a page of its own in the hidden browser since, so this agent's page is gone." + HIDDEN_REOPEN
 
 
 def socket_names_from_proc_net_unix(text: str) -> list[str]:
@@ -206,14 +211,57 @@ def read_state() -> dict | None:
     return data if isinstance(data, dict) else None
 
 
-# The browser this server's agent chose last with browser_show: each agent runs its own server.
+# The browser this server's agent chose last with browser_show: each agent runtime starts its own server.
 _last_chosen_mode: str | None = None
+# This agent's requests for a hidden page: the app names the one its hidden page last answered.
+_hidden_requests: set[str] = set()
+# The last of them: only the page it opened, once the user takes it with View, is this agent's visible one.
+_last_hidden_request: str | None = None
+
+
+def _mine(request_id: object) -> bool:
+    return isinstance(request_id, str) and request_id in _hidden_requests
 
 
 def chosen_mode(state: dict | None) -> str:
-    """The browser the agent chose last: the visible one until it picks the hidden one."""
-    mode = state.get("mode") if state else None
-    return mode if mode in MODES else "visible"
+    """The browser this server's agent chose last: the visible one until it picks the hidden one.
+
+    Another agent's choice never moves this one's tools, though the app's status is shared. The
+    hidden page the user took over with View counts as the visible browser from then on.
+    """
+    if _last_chosen_mode != "hidden":
+        return "visible"
+    state = state or {}
+    hidden = state.get("hidden")
+    if isinstance(hidden, dict) and _mine(hidden.get("requestId")):
+        return "hidden"
+    viewed = state.get("viewedRequestId")
+    return "visible" if viewed is not None and viewed == _last_hidden_request else "hidden"
+
+
+def _own_hidden_request(state: dict | None) -> str | None:
+    """The request this agent's hidden page last answered, while it is open: what a command may act on."""
+    hidden = state.get("hidden") if state else None
+    request_id = hidden.get("requestId") if isinstance(hidden, dict) else None
+    return request_id if _mine(request_id) else None
+
+
+def _with_own_hidden(command: dict) -> dict:
+    """[command], naming this agent's hidden page if one is open, so the app closes or shows only that one."""
+    own = _own_hidden_request(read_state())
+    return dict(command, hidden=own) if own else command
+
+
+def own_hidden_page(state: dict | None) -> dict:
+    """This agent's hidden page as the app last wrote it, or CdpError saying why there is none to drive."""
+    hidden = state.get("hidden") if state else None
+    if not isinstance(hidden, dict):
+        raise CdpError(ended_message(state))
+    if not _mine(hidden.get("requestId")):
+        raise CdpError(HIDDEN_TAKEN)
+    if not hidden.get("targetId"):
+        raise CdpError(HIDDEN_STARTING)
+    return hidden
 
 
 def ended_message(state: dict | None) -> str:
@@ -235,22 +283,18 @@ def _is_inline_preview(page: dict) -> bool:
 
 
 def choose_page(targets: list[dict], state: dict | None) -> dict | None:
-    """The page of the browser the agent chose (state's mode), or None when it shows none.
+    """The page of the browser this agent chose (chosen_mode), or None when it shows none.
 
-    Hidden: the one target the app named, and nothing else. Visible: the page the user took over
-    with View, by its target; otherwise the Guest Browser's page on screen, never the hidden page or
-    the chat's inline preview, and only while the app says the Guest Browser is open (the chat, and
-    with it the preview, is then off screen). Before the app has written a status at
-    all, the page on screen, as before there were modes.
+    Hidden: the one target the app named for this agent's page, and nothing else; an agent whose
+    hidden page is gone is told why, and never falls through to a page the user has open. Visible: the
+    page the user took over with View, by its target; otherwise the Guest Browser's page on screen,
+    never the hidden page or the chat's inline preview, and only while the app says the Guest Browser
+    is open (the chat, and with it the preview, is then off screen). Before the app has written a
+    status at all, the page on screen, as before there were modes.
     """
     pages = [t for t in targets if t.get("type") in ("document", "page")]
     if chosen_mode(state) == "hidden":
-        hidden = state.get("hidden")
-        if not isinstance(hidden, dict):
-            raise CdpError(ended_message(state))
-        target_id = hidden.get("targetId")
-        if not target_id:
-            raise CdpError(HIDDEN_STARTING)
+        target_id = own_hidden_page(state)["targetId"]
         for page in pages:
             if page.get("id") == target_id:
                 return page
@@ -258,10 +302,6 @@ def choose_page(targets: list[dict], state: dict | None) -> dict | None:
         raise PageGone(HIDDEN_GONE)
     if state is None:
         return choose_target(pages)
-    # This agent chose the hidden browser and it closed with its chat: the app went back to the visible
-    # browser for the next chat's agent, but this one must not land on a page the user has open.
-    if _last_chosen_mode == "hidden" and state.get("ended") not in (None, "viewed"):
-        raise CdpError(ended_message(state))
     viewed = state.get("visibleTargetId")
     if viewed:
         for page in pages:
@@ -510,6 +550,10 @@ class _PageSession:
 
 
 def _session() -> CdpSession:
+    # A hidden browser that has gone says why, also when no WebView of the app keeps the socket open.
+    state = read_state()
+    if chosen_mode(state) == "hidden":
+        own_hidden_page(state)
     name = _find_devtools_socket()
     if name is None:
         raise CdpError(NOT_REACHABLE)
@@ -704,14 +748,14 @@ def tool_show(args: dict) -> str:
     if mode not in MODES:
         return BAD_MODE
     url = args.get("url")
-    global _last_chosen_mode
+    global _last_chosen_mode, _last_hidden_request
     if url is None or (isinstance(url, str) and not url.strip()):
         if mode == "hidden":
             return HIDDEN_NEEDS_URL
-        state = read_state()
-        if not (state and isinstance(state.get("hidden"), dict)):
+        command = _with_own_hidden({"action": "open", "mode": "visible"})
+        if "hidden" not in command:
             return NOTHING_TO_HAND_OVER
-        _write_command({"action": "open", "mode": "visible"})
+        _write_command(command)
         _last_chosen_mode = "visible"
         return (
             "asked the app to show the hidden page to the user in the Guest Browser, as it is: it counts as "
@@ -720,18 +764,25 @@ def tool_show(args: dict) -> str:
     if not is_web_url(url):
         return NOT_WEB_URL
     url = url.strip()
+    if mode == "visible":
+        # The app closes this agent's hidden page with it, and leaves another agent's alone.
+        _write_command(_with_own_hidden({"action": "open", "mode": mode, "url": url}))
+        _last_chosen_mode = mode
+        return f"requested the app to open {url}"
     request_id = _write_command({"action": "open", "mode": mode, "url": url})
     _last_chosen_mode = mode
-    if mode == "visible":
-        return f"requested the app to open {url}"
+    _hidden_requests.add(request_id)
+    _last_hidden_request = request_id
     state = _await_answer(request_id, HIDDEN_OPEN_TIMEOUT)
     if state is None:
         return (
             "the app has not opened the hidden browser yet (it reads requests while it is on screen or an agent "
             "is working); call browser_status in a moment"
         )
+    if state.get("viewedRequestId") == request_id:
+        return f"the user tapped View as the hidden browser opened, so {url} is on their screen. " + VIEWED
     hidden = state.get("hidden")
-    if chosen_mode(state) != "hidden" or not isinstance(hidden, dict) or not hidden.get("targetId"):
+    if not isinstance(hidden, dict) or hidden.get("requestId") != request_id or not hidden.get("targetId"):
         return ended_message(state)
     _await_load(hidden["targetId"])
     return (
@@ -743,8 +794,9 @@ def tool_show(args: dict) -> str:
 
 def tool_close(args: dict) -> str:
     state = read_state()
-    if not (state and isinstance(state.get("hidden"), dict)):
-        return "no hidden browser is open"
+    # Another agent's page is that agent's to close.
+    if _own_hidden_request(state) is None:
+        return "no hidden browser of this agent's is open"
     request_id = _write_command({"action": "close"})
     if _await_answer(request_id, CLOSE_TIMEOUT) is None:
         return "asked the app to close the hidden browser"
@@ -840,7 +892,8 @@ def tool_handoff(args: dict) -> str:
         raise CdpError(f"could not clear the previous handoff status: {exc}") from exc
     # The status names the handoff it answers: another agent's server shares the file, and its
     # answer must not end this call.
-    request_id = _write_command({"action": "handoff"})
+    # Only this agent's own hidden page is brought on screen for it; otherwise the page on screen is handed over.
+    request_id = _write_command(_with_own_hidden({"action": "handoff"}))
     deadline = started + timeout
     shown = False
     # Another request's status seen on the last look after this command had left the file.
@@ -875,11 +928,10 @@ def tool_handoff(args: dict) -> str:
 def tool_status(args: dict) -> str:
     state = read_state()
     if chosen_mode(state) == "hidden":
-        hidden = state.get("hidden")
-        if not isinstance(hidden, dict):
-            return f"active: hidden browser / {ended_message(state)}"
-        if not hidden.get("targetId"):
-            return f"active: hidden browser / {HIDDEN_STARTING}"
+        try:
+            own_hidden_page(state)
+        except CdpError as error:
+            return f"active: hidden browser / {error}"
         label = "active: hidden browser (not on the user's screen)"
     else:
         label = "active: visible browser (the Guest Browser on the user's screen)"

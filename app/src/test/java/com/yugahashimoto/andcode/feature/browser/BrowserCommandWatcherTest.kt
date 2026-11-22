@@ -212,6 +212,8 @@ class BrowserCommandWatcherTest {
         val status = File(rootfs, BROWSER_STATUS_PATH).readText()
         assertTrue(status, status.contains("\"state\":\"$BROWSER_STATUS_AWAITING_USER\""))
         assertTrue(status, status.contains("\"requestId\":\"r1\""))
+        command("environment/rootfs").writeText("{\"action\":\"handoff\",\"hidden\":\"r0\",\"requestId\":\"r2\",\"createdAtMs\":$NOW}")
+        assertEquals(BrowserCommand.Handoff(rootfs, "r2", ownHidden = "r0"), consumeCommand())
     }
 
     /** Taking the banner down without the answer would leave the agent waiting for a tap the user cannot give. */
@@ -317,6 +319,9 @@ class BrowserCommandWatcherTest {
         val file = command("environment/rootfs")
         file.writeText("{\"action\":\"open\",\"mode\":\"visible\",\"requestId\":\"r1\",\"createdAtMs\":$NOW}")
         assertEquals(BrowserCommand.Open(null, BrowserMode.VISIBLE, "r1"), consumeCommand())
+        // It names the asking agent's own hidden page: the app hands over only that one.
+        file.writeText("{\"action\":\"open\",\"mode\":\"visible\",\"hidden\":\"r0\",\"requestId\":\"r1\",\"createdAtMs\":$NOW}")
+        assertEquals(BrowserCommand.Open(null, BrowserMode.VISIBLE, "r1", ownHidden = "r0"), consumeCommand())
 
         file.writeText("{\"action\":\"open\",\"mode\":\"hidden\",\"requestId\":\"r2\",\"createdAtMs\":$NOW}")
         assertNull(consumeCommand())

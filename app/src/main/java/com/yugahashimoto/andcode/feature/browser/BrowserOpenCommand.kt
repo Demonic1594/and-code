@@ -60,11 +60,14 @@ sealed interface BrowserCommand {
     /**
      * Opens [url] in the browser [mode] names: the full-screen Guest Browser, or the hidden one. A
      * visible open without [url] hands the hidden page to the user as it is, as the notice's View does.
+     * A visible one closes or hands over only the hidden page [ownHidden] names: the asking agent's own,
+     * by the request it last answered, never another agent's.
      */
     data class Open(
         val url: String?,
         val mode: BrowserMode = BrowserMode.VISIBLE,
         override val requestId: String = "",
+        val ownHidden: String? = null,
     ) : BrowserCommand
 
     /** Pins [url], a page on this device, inside the conversation as a live preview. */
@@ -77,11 +80,13 @@ sealed interface BrowserCommand {
      * Hands the page the user is already on to them and waits until they hand it back.
      *
      * It never carries a URL: acting on one here would reload the sign-in the user just completed.
-     * The outcome goes to [BROWSER_STATUS_PATH] in [rootfs], the one the asking agent runs in.
+     * The outcome goes to [BROWSER_STATUS_PATH] in [rootfs], the one the asking agent runs in. The
+     * hidden page is brought on screen first only when it is the asking agent's own ([ownHidden]).
      */
     data class Handoff(
         val rootfs: File,
         override val requestId: String = "",
+        val ownHidden: String? = null,
     ) : BrowserCommand
 
     /** Closes the hidden browser. */
@@ -195,14 +200,15 @@ private fun browserCommandOf(
     if (createdAtMs !in (now - MAX_COMMAND_AGE_MILLIS)..(now + MAX_CLOCK_SKEW_MILLIS)) return null
     val url = json.optString("url").takeIf { it.isNotEmpty() }
     val requestId = json.optString("requestId").take(MAX_REQUEST_ID_LENGTH)
+    val ownHidden = json.optString("hidden").take(MAX_REQUEST_ID_LENGTH).takeIf { it.isNotEmpty() }
     // An open or a preview must name a real web page, never a javascript: or file: URL that would let
     // the agent reach past the browser. A preview stays on this device: the inline preview is a live
     // WebView inside the conversation, and an arbitrary public page is never loaded into it. A handoff
     // must not name one at all: it acts on the page the user is already on.
     return when (json.optString("action")) {
-        "open" -> openCommandOf(json, url, requestId)
+        "open" -> openCommandOf(json, url, requestId)?.copy(ownHidden = ownHidden)
         "preview" -> url?.takeIf(::isLoopbackPreviewUrl)?.let { BrowserCommand.Preview(it, requestId) }
-        "handoff" -> BrowserCommand.Handoff(rootfs, requestId).takeIf { url == null }
+        "handoff" -> BrowserCommand.Handoff(rootfs, requestId, ownHidden).takeIf { url == null }
         "close" -> BrowserCommand.Close(requestId)
         else -> null
     }

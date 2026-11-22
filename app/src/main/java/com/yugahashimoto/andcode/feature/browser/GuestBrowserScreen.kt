@@ -208,7 +208,7 @@ internal fun GuestBrowserScreen(
     // The handed-over page is the agent's to name only while this screen shows that very view.
     val viewedTargetId = agentPage?.targetId?.takeIf { recovery.generation == 0 && recovery.showsView }
     val presenceToken = remember { Any() }
-    LaunchedEffect(presence, viewedTargetId) { presence?.shown(presenceToken, viewedTargetId) }
+    LaunchedEffect(presence, viewedTargetId) { presence?.shown(presenceToken, agentPage, viewedTargetId) }
     DisposableEffect(presence) { onDispose { presence?.gone(presenceToken) } }
 
     Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
@@ -477,9 +477,13 @@ internal fun GuestBrowserHandoffBanner(
 
 /** What the Guest Browser tells the hidden browser's owner ([HiddenAgentBrowser]) about itself. */
 internal interface GuestBrowserPresence {
-    /** The screen known by [token] is open, showing the handed-over page [viewedTargetId], or a page of its own (null). */
+    /**
+     * The screen known by [token] is open, showing the handed-over [agentPage] (known to the agent's tools
+     * as [viewedTargetId] while that very view shows it) or a page of its own (both null).
+     */
     fun shown(
         token: Any,
+        agentPage: AgentPageHandoff?,
         viewedTargetId: String?,
     )
 

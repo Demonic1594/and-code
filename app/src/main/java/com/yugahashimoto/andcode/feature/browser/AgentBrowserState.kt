@@ -55,7 +55,10 @@ internal data class HiddenPage(
  * [statusJson] and shows [browsingNotice] while the hidden browser is in use.
  */
 internal data class AgentBrowserState(
-    /** The browser the agent chose last; its tools act on that one only. */
+    /**
+     * The browser an agent chose last, as the status shows it. Each agent's tools follow their own
+     * agent's choice instead (chosen_mode in andcode-browser-mcp.py), and its hidden page by request.
+     */
     val mode: BrowserMode = BrowserMode.VISIBLE,
     val hidden: HiddenPage? = null,
     /** Why the last hidden browser went away; cleared when another opens. */
@@ -64,6 +67,8 @@ internal data class AgentBrowserState(
     val guestBrowserOpen: Boolean = false,
     /** The target of the page the Guest Browser shows when it is one handed over from the hidden browser. */
     val viewedTargetId: String? = null,
+    /** The request the hidden page last answered when the user took it over with View: its agent's page is the visible one now. */
+    val viewedRequestId: String? = null,
     /** The last agent request this state answers, so the tool waiting on it knows its answer has come. */
     val lastRequestId: String? = null,
 ) {
@@ -113,11 +118,29 @@ internal data class AgentBrowserState(
             lastRequestId = requestId ?: hidden?.requestId ?: lastRequestId,
         )
 
-    /** The user tapped View: the page is the Guest Browser's now, on screen, still known by its target. */
+    /**
+     * The user tapped View: the page is the Guest Browser's now, on screen, still known by its target.
+     * Taken before the app had found it, it answers the open it was starting for, which no longer
+     * waits for the page to be found.
+     */
     fun viewed(): AgentBrowserState {
         val page = hidden ?: return this
-        return copy(mode = BrowserMode.VISIBLE, hidden = null, ended = HiddenBrowserEnd.VIEWED, viewedTargetId = page.targetId)
+        return copy(
+            mode = BrowserMode.VISIBLE,
+            hidden = null,
+            ended = HiddenBrowserEnd.VIEWED,
+            viewedTargetId = page.targetId,
+            viewedRequestId = page.requestId,
+            lastRequestId = if (page.ready) lastRequestId else page.requestId,
+        )
     }
+
+    /**
+     * The chat ended with no hidden page open (it closed before, or the user took it with View): the
+     * status shows the visible browser again, as after a chat whose page was still open, and why the
+     * last one ended stays told to the agent that opened it.
+     */
+    fun chatEnded(): AgentBrowserState = if (mode == BrowserMode.HIDDEN && hidden == null) copy(mode = BrowserMode.VISIBLE) else this
 
     /** The agent opened the Guest Browser on the user's screen. */
     fun visibleOpened(requestId: String): AgentBrowserState = copy(mode = BrowserMode.VISIBLE, lastRequestId = requestId)
@@ -173,6 +196,7 @@ internal data class AgentBrowserState(
             put("ended", ended?.id?.let(::JsonPrimitive) ?: JsonNull)
             put("guestBrowserOpen", guestBrowserOpen)
             put("visibleTargetId", viewedTargetId?.let(::JsonPrimitive) ?: JsonNull)
+            put("viewedRequestId", viewedRequestId?.let(::JsonPrimitive) ?: JsonNull)
             put("lastRequestId", lastRequestId?.let(::JsonPrimitive) ?: JsonNull)
             put("updatedAtMs", now)
         }.toString()
