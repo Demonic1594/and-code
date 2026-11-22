@@ -152,6 +152,48 @@ class BrowserMcpHandoffScriptTest {
         assertEquals("True\nTrue", answers)
     }
 
+    /**
+     * The app removes a command just before it writes `awaiting_user` for it. A look that falls
+     * between the two sees an earlier handoff's answer with the command already gone: that alone must
+     * not end this handoff. Each poll's sleep writes the app's next step, so the order is exact.
+     */
+    @Test
+    fun `browser_handoff is not superseded by an earlier answer while the app takes its command`() {
+        val answer =
+            run(
+                """
+                import json, tempfile, time as real_time
+                from pathlib import Path
+                folder = Path(tempfile.mkdtemp())
+                m.COMMAND_FILE = folder / "browser-command.json"
+                m.STATUS_FILE = folder / "browser-status.json"
+                m._find_devtools_socket = lambda: "webview_devtools_remote_1"
+                steps = []
+                class Clock:
+                    def monotonic(self):
+                        return real_time.monotonic()
+                    def time(self):
+                        return real_time.time()
+                    def sleep(self, seconds):
+                        if steps:
+                            steps.pop(0)()
+                m.time = Clock()
+                write_command = m._write_command
+                def taken(command):
+                    write_command(command)
+                    mine = command["requestId"]
+                    m.COMMAND_FILE.unlink()
+                    m.STATUS_FILE.write_text(json.dumps({"state": "agent", "requestId": "earlier"}))
+                    steps.append(lambda: m.STATUS_FILE.write_text(json.dumps({"state": "awaiting_user", "requestId": mine})))
+                    steps.append(lambda: m.STATUS_FILE.write_text(json.dumps({"state": "agent", "requestId": mine})))
+                m._write_command = taken
+                print(m.tool_handoff({"timeout_s": 5}) == m.HANDOFF_BACK)
+                """.trimIndent(),
+            )
+
+        assertEquals("True", answer)
+    }
+
     /** The MCP client gives up at 120 s: the wait for the browser must come out of the tool's own timeout. */
     @Test
     fun `browser_handoff counts the wait for the browser against its timeout`() {

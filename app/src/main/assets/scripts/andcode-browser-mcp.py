@@ -638,20 +638,31 @@ def tool_handoff(args: dict) -> str:
     _write_command({"action": "handoff", "requestId": request_id})
     deadline = started + timeout
     shown = False
+    # Another request's status seen on the last look after this command had left the file.
+    other_before = None
     while time.monotonic() < deadline:
+        # The command file first: a command the app takes between the two reads still counts as
+        # waiting, so an earlier handoff's status read just after is not taken for a newer one.
+        waiting = _command_waiting(request_id)
         status = _read_status() or {}
-        if status.get("requestId") == request_id:
+        answering = status.get("requestId")
+        if answering == request_id:
             shown = True
             if status.get("state") == "agent":
                 return HANDOFF_BACK
             if status.get("state") == "dismissed":
                 return HANDOFF_CANCELLED
-        elif status.get("requestId") and (shown or not _command_waiting(request_id)):
-            # Another request's status once this one has left the command file: the app showed a newer
-            # handoff, or a newer one replaced this command before the app took it. Either way the
-            # user can no longer answer this one. While it still waits there, that status is an
-            # earlier handoff's and is ignored.
+        elif answering and shown:
+            # The app showed this handoff and then a newer one: the user can no longer answer it.
             return HANDOFF_SUPERSEDED
+        other = answering if answering and answering != request_id and not waiting else None
+        # Another request's status after this command left the file: a newer handoff took over, or
+        # the app has just taken this command and is about to write its `awaiting_user` (it removes
+        # the command first). Only the same status on the next look as well means the former. While
+        # the command still waits, such a status is an earlier handoff's and is ignored.
+        if other is not None and other == other_before:
+            return HANDOFF_SUPERSEDED
+        other_before = other
         time.sleep(HANDOFF_POLL_S)
     return HANDOFF_TIMED_OUT
 

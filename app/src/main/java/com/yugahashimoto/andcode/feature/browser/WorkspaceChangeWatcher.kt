@@ -2,7 +2,9 @@ package com.yugahashimoto.andcode.feature.browser
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.file.Files
@@ -11,6 +13,12 @@ private const val DEFAULT_INTERVAL_MILLIS = 1500L
 private const val DEBOUNCE_MILLIS = 500L
 private const val MAX_FILES = 4000
 private const val MAX_DEPTH = 12
+
+/**
+ * Reported for the files the page shows when that is not known: the next watch then reloads the page.
+ * A real fingerprint is a hash and could in theory equal it; that costs one needless reload.
+ */
+internal const val UNKNOWN_FINGERPRINT = Long.MIN_VALUE
 
 private val WEB_EXTENSIONS =
     setOf(
@@ -82,10 +90,14 @@ internal suspend fun watchWorkspaceChanges(
     fingerprint: (File) -> Long = ::workspaceFingerprint,
     onChanged: () -> Unit,
 ) {
-    // The first scan is finished and reported even if the watch stops meanwhile (the app going to the
-    // background straight away): otherwise nothing would record what the page shows, and changes made
-    // while the app is away would not reload it on return.
-    var previous = withContext(NonCancellable + Dispatchers.IO) { fingerprint(rootDir).also(onShown) }
+    // The first scan reports even if the watch stops meanwhile (the app going to the background
+    // straight away). Stopped before it finished, the scan may have read files the agent changed after
+    // the page loaded, so it reports [UNKNOWN_FINGERPRINT] and the next watch reloads the page.
+    val watch = currentCoroutineContext().job
+    var previous =
+        withContext(NonCancellable + Dispatchers.IO) {
+            fingerprint(rootDir).also { scanned -> onShown(if (watch.isActive) scanned else UNKNOWN_FINGERPRINT) }
+        }
     if (shown != null && shown != previous) onChanged()
     while (true) {
         delay(intervalMillis)

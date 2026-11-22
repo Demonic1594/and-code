@@ -104,11 +104,15 @@ class WorkspaceFingerprintTest {
             assertEquals(0, reloads)
         }
 
-    /** The app going to the background during the first scan must not leave the page's files unrecorded. */
+    /**
+     * The app going to the background during the first scan: the agent may change the files after the
+     * page loaded and before the scan reads them, so that scan cannot stand for the page, and the next
+     * watch reloads it.
+     */
     @Test
-    fun `the first scan is recorded even when the watch stops before it finishes`() =
+    fun `a first scan the watch stopped during makes the next watch reload`() =
         runBlocking {
-            val root = temporaryFolder.newFolder()
+            val root = temporaryFolder.newFolder().apply { File(this, "index.html").writeText("a") }
             val scanning = CountDownLatch(1)
             val release = CountDownLatch(1)
             val reported = CompletableDeferred<Long>()
@@ -122,14 +126,19 @@ class WorkspaceFingerprintTest {
                         fingerprint = {
                             scanning.countDown()
                             release.await()
-                            7L
+                            workspaceFingerprint(it)
                         },
                     ) {}
                 }
             scanning.await()
             watch.cancel()
             release.countDown()
+            val shown = withTimeout(5_000) { reported.await() }
+            assertEquals(UNKNOWN_FINGERPRINT, shown)
 
-            assertEquals(7L, withTimeout(5_000) { reported.await() })
+            val reloaded = CompletableDeferred<Unit>()
+            val again = launch { watchWorkspaceChanges(root, shown = shown, intervalMillis = 60_000) { reloaded.complete(Unit) } }
+            withTimeout(5_000) { reloaded.await() }
+            again.cancel()
         }
 }
