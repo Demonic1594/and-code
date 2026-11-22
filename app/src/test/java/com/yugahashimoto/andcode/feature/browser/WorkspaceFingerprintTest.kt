@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.feature.browser
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -10,6 +11,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.util.concurrent.CountDownLatch
 
 class WorkspaceFingerprintTest {
     @get:Rule
@@ -100,5 +102,34 @@ class WorkspaceFingerprintTest {
             watch.cancel()
 
             assertEquals(0, reloads)
+        }
+
+    /** The app going to the background during the first scan must not leave the page's files unrecorded. */
+    @Test
+    fun `the first scan is recorded even when the watch stops before it finishes`() =
+        runBlocking {
+            val root = temporaryFolder.newFolder()
+            val scanning = CountDownLatch(1)
+            val release = CountDownLatch(1)
+            val reported = CompletableDeferred<Long>()
+
+            val watch =
+                launch(Dispatchers.Default) {
+                    watchWorkspaceChanges(
+                        root,
+                        intervalMillis = 60_000,
+                        onShown = { reported.complete(it) },
+                        fingerprint = {
+                            scanning.countDown()
+                            release.await()
+                            7L
+                        },
+                    ) {}
+                }
+            scanning.await()
+            watch.cancel()
+            release.countDown()
+
+            assertEquals(7L, withTimeout(5_000) { reported.await() })
         }
 }

@@ -581,6 +581,14 @@ def _read_status() -> dict | None:
     return status if isinstance(status, dict) else None
 
 
+def _command_waiting(request_id: str) -> bool:
+    """Whether the command file still holds [request_id]: the app has not taken it, and no other request replaced it."""
+    try:
+        return json.loads(COMMAND_FILE.read_text(encoding="utf-8")).get("requestId") == request_id
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
 def _wait_for_socket(timeout: float) -> str | None:
     """The app builds the WebView just after browser_show returns, so give it a moment to appear."""
     deadline = time.monotonic() + timeout
@@ -638,8 +646,11 @@ def tool_handoff(args: dict) -> str:
                 return HANDOFF_BACK
             if status.get("state") == "dismissed":
                 return HANDOFF_CANCELLED
-        elif shown and status.get("requestId"):
-            # The app showed this handoff and then a newer one: the user can no longer answer it.
+        elif status.get("requestId") and (shown or not _command_waiting(request_id)):
+            # Another request's status once this one has left the command file: the app showed a newer
+            # handoff, or a newer one replaced this command before the app took it. Either way the
+            # user can no longer answer this one. While it still waits there, that status is an
+            # earlier handoff's and is ignored.
             return HANDOFF_SUPERSEDED
         time.sleep(HANDOFF_POLL_S)
     return HANDOFF_TIMED_OUT

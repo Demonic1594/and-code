@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.feature.browser
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -78,18 +79,21 @@ internal suspend fun watchWorkspaceChanges(
     shown: Long? = null,
     intervalMillis: Long = DEFAULT_INTERVAL_MILLIS,
     onShown: (Long) -> Unit = {},
+    fingerprint: (File) -> Long = ::workspaceFingerprint,
     onChanged: () -> Unit,
 ) {
-    var previous = withContext(Dispatchers.IO) { workspaceFingerprint(rootDir) }
-    onShown(previous)
+    // The first scan is finished and reported even if the watch stops meanwhile (the app going to the
+    // background straight away): otherwise nothing would record what the page shows, and changes made
+    // while the app is away would not reload it on return.
+    var previous = withContext(NonCancellable + Dispatchers.IO) { fingerprint(rootDir).also(onShown) }
     if (shown != null && shown != previous) onChanged()
     while (true) {
         delay(intervalMillis)
-        val next = withContext(Dispatchers.IO) { workspaceFingerprint(rootDir) }
+        val next = withContext(Dispatchers.IO) { fingerprint(rootDir) }
         if (next == previous) continue
         // Let a burst of writes settle so one agent step causes one reload, not one per file.
         delay(DEBOUNCE_MILLIS)
-        previous = withContext(Dispatchers.IO) { workspaceFingerprint(rootDir) }
+        previous = withContext(Dispatchers.IO) { fingerprint(rootDir) }
         onShown(previous)
         onChanged()
     }

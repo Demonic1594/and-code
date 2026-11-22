@@ -1,5 +1,6 @@
 package com.yugahashimoto.andcode.feature.browser
 
+import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
 import android.view.View
@@ -136,6 +137,20 @@ fun GuestWebContent(
                                 return true
                             }
 
+                            // The last line of defence: a main-frame load that got past both checks above (a
+                            // POST that a page of this device answers with a 307 or 308 to another site) is
+                            // stopped as it starts, and the card goes back to the page it showed.
+                            override fun onPageStarted(
+                                view: WebView?,
+                                url: String?,
+                                favicon: Bitmap?,
+                            ) {
+                                if (view != null && leavesPreview(url)) {
+                                    view.stopLoading()
+                                    if (view.canGoBack()) view.goBack() else view.loadUrl(BLANK_PAGE)
+                                }
+                            }
+
                             override fun onPageFinished(
                                 view: WebView?,
                                 url: String?,
@@ -180,3 +195,8 @@ internal fun normalizeGuestUrl(raw: String): String {
     val candidate = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) trimmed else "http://$trimmed"
     return candidate.takeIf { android.net.Uri.parse(it).scheme in setOf("http", "https") } ?: "http://127.0.0.1"
 }
+
+private const val BLANK_PAGE = "about:blank"
+
+/** Whether loading [url] would put a page other than the preview, or the blank page, in the card. */
+private fun leavesPreview(url: String?): Boolean = url != null && url != BLANK_PAGE && !isPreviewPage(url)

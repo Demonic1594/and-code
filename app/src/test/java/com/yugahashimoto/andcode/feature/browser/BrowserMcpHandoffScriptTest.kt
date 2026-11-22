@@ -116,6 +116,42 @@ class BrowserMcpHandoffScriptTest {
         )
     }
 
+    /**
+     * A newer handoff can take the user's screen before this tool ever reads its own `awaiting_user`:
+     * by replacing this command before the app takes it, or once the app has taken it. Either way the
+     * tool says so at once instead of waiting out its timeout.
+     */
+    @Test
+    fun `browser_handoff is superseded even when its own request was never seen shown`() {
+        val answers =
+            run(
+                """
+                import json, tempfile
+                from pathlib import Path
+                folder = Path(tempfile.mkdtemp())
+                m.COMMAND_FILE = folder / "browser-command.json"
+                m.STATUS_FILE = folder / "browser-status.json"
+                m.HANDOFF_POLL_S = 0.01
+                m._find_devtools_socket = lambda: "webview_devtools_remote_1"
+                write_command = m._write_command
+                def replaced(command):
+                    write_command(command)
+                    write_command({"action": "handoff", "requestId": "other"})
+                    m.STATUS_FILE.write_text(json.dumps({"state": "awaiting_user", "requestId": "other"}))
+                m._write_command = replaced
+                print(m.tool_handoff({"timeout_s": 5}) == m.HANDOFF_SUPERSEDED)
+                def taken(command):
+                    write_command(command)
+                    m.COMMAND_FILE.unlink()
+                    m.STATUS_FILE.write_text(json.dumps({"state": "awaiting_user", "requestId": "newer"}))
+                m._write_command = taken
+                print(m.tool_handoff({"timeout_s": 5}) == m.HANDOFF_SUPERSEDED)
+                """.trimIndent(),
+            )
+
+        assertEquals("True\nTrue", answers)
+    }
+
     /** The MCP client gives up at 120 s: the wait for the browser must come out of the tool's own timeout. */
     @Test
     fun `browser_handoff counts the wait for the browser against its timeout`() {
