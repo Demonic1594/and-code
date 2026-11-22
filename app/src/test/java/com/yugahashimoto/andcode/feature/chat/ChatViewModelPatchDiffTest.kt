@@ -262,7 +262,12 @@ class ChatViewModelPatchDiffTest {
         runTest(dispatcher) {
             val backend = FakeTarget(diffCapable = false)
             val snapshots = FakeSnapshots()
-            val viewModel = ChatViewModel(backend = backend, eventFlow = backend.events, turnSnapshots = snapshots).also { advanceUntilIdle() }
+            val viewModel =
+                ChatViewModel(
+                    backend = backend,
+                    eventFlow = backend.events,
+                    turnSnapshots = snapshots,
+                ).also { advanceUntilIdle() }
             viewModel.selectWorkspace("/workspace/app")
             viewModel.sendMessage("Hello")
             advanceUntilIdle()

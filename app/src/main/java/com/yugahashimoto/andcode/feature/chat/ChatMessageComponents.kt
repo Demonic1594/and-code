@@ -185,6 +185,8 @@ fun TimelineEntryRow(
     onOpenProviderSettings: (() -> Unit)? = null,
     onOpenChanges: (ChatPart.Patch) -> Unit = {},
     onPreviewArtifact: (Artifact.File) -> Unit = {},
+    /** The action row a finished reply's footer carries; see [ReplyActionRow]. */
+    replyActions: @Composable (TimelineEntry.Footer) -> Unit = {},
 ) {
     when (entry) {
         is TimelineEntry.UserMessage -> MessageBubble(entry.message, onImageClick)
@@ -198,7 +200,7 @@ fun TimelineEntryRow(
             )
         is TimelineEntry.Todo -> TodoTimelineCard(entry.todos)
         is TimelineEntry.Changes -> ChangesCard(entry, onReview = { onOpenChanges(entry.patch) }, onPreview = onPreviewArtifact)
-        is TimelineEntry.Footer -> MessageFooter(entry)
+        is TimelineEntry.Footer -> MessageFooter(entry) { replyActions(entry) }
     }
 }
 
@@ -909,7 +911,10 @@ private val clockTimeFormat = SimpleDateFormat("HH:mm", Locale.US)
 private fun formatClockTime(epochMs: Long): String = clockTimeFormat.format(Date(epochMs))
 
 @Composable
-private fun MessageFooter(entry: TimelineEntry.Footer) {
+private fun MessageFooter(
+    entry: TimelineEntry.Footer,
+    actions: @Composable () -> Unit,
+) {
     val minutes = entry.durationMs / 60_000L
     val durationLabel =
         when {
@@ -917,24 +922,28 @@ private fun MessageFooter(entry: TimelineEntry.Footer) {
             minutes < 1L -> stringResource(R.string.chat_response_duration_under_minute)
             else -> stringResource(R.string.chat_response_duration, minutes)
         }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
-    ) {
-        if (durationLabel != null) {
-            Text(
-                text = durationLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        if (entry.completedAt > 0L) {
-            Text(
-                text = formatClockTime(entry.completedAt),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    // The reply's actions start the row; its time stays at the end, as before.
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        actions()
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+        ) {
+            if (durationLabel != null) {
+                Text(
+                    text = durationLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (entry.completedAt > 0L) {
+                Text(
+                    text = formatClockTime(entry.completedAt),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

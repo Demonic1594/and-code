@@ -36,14 +36,20 @@ class ReplyActionsTest {
         costUsd = cost,
     )
 
-    private fun footers(vararg messages: ChatMessage) = groupConversationTimeline(messages.toList()).filterIsInstance<TimelineEntry.Footer>()
+    private fun footers(vararg messages: ChatMessage) =
+        groupConversationTimeline(messages.toList()).filterIsInstance<TimelineEntry.Footer>()
 
     @Test
     fun `a finished reply carries its texts, in order, and the prompt that produced it`() {
         val footer =
             footers(
                 user("u1", "fix the bug"),
-                assistant("a1", ChatPart.Text("t1", "Looking."), ChatPart.Tool(id = "tool1", name = "read", status = ToolStatus.COMPLETED), completedAt = 1_800L),
+                assistant(
+                    "a1",
+                    ChatPart.Text("t1", "Looking."),
+                    ChatPart.Tool(id = "tool1", name = "read", status = ToolStatus.COMPLETED),
+                    completedAt = 1_800L,
+                ),
                 assistant("a2", ChatPart.Text("t2", "Fixed it.")),
             ).single()
 
@@ -79,7 +85,11 @@ class ReplyActionsTest {
 
     @Test
     fun `a turn with no text of its own gets no action row`() {
-        val footer = footers(user("u1", "go"), assistant("a1", ChatPart.Tool(id = "tool1", name = "bash", status = ToolStatus.COMPLETED))).single()
+        val footer =
+            footers(
+                user("u1", "go"),
+                assistant("a1", ChatPart.Tool(id = "tool1", name = "bash", status = ToolStatus.COMPLETED)),
+            ).single()
 
         assertNull(footer.reply)
     }
@@ -145,7 +155,8 @@ class ReplyActionsTest {
             )
         assertEquals("footer:a2", latestReplyFooterId(answered))
 
-        val waiting = groupConversationTimeline(listOf(user("u1", "one"), assistant("a1", ChatPart.Text("t1", "First.")), user("u2", "two")))
+        val waiting =
+            groupConversationTimeline(listOf(user("u1", "one"), assistant("a1", ChatPart.Text("t1", "First.")), user("u2", "two")))
         assertNull(latestReplyFooterId(waiting))
     }
 
@@ -169,7 +180,10 @@ class ReplyActionsTest {
         assertFalse(showsRetry(reply, isLatest = false, isRunning = false, isBusy = false))
         assertFalse(showsRetry(reply, isLatest = true, isRunning = true, isBusy = false))
         assertFalse("a rewind or restore is landing", showsRetry(reply, isLatest = true, isRunning = false, isBusy = true))
-        assertFalse("nothing to send again", showsRetry(reply.copy(promptMessageId = null), isLatest = true, isRunning = false, isBusy = false))
+        assertFalse(
+            "nothing to send again",
+            showsRetry(reply.copy(promptMessageId = null), isLatest = true, isRunning = false, isBusy = false),
+        )
     }
 
     @Test

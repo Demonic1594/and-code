@@ -59,6 +59,79 @@ sealed interface ReplyDetail {
     data class Cost(val usd: Double) : ReplyDetail
 }
 
+/**
+ * Gathers one reply's [ReplyContent] while [groupConversationTimeline] walks the transcript: the
+ * texts, what the runtime reported for each message, and whether the turn edited files or failed.
+ */
+internal class ReplyCollector {
+    private var promptId: String? = null
+    private val texts = mutableListOf<String>()
+    private var changedFiles = false
+    private var endedInError = false
+    private var lastDone = false
+    private var lastStreaming = false
+    private var model: String? = null
+    private var tokens: ReplyTokens? = null
+    private var cost: Double? = null
+
+    /** A user message: the next reply answers it. */
+    fun prompt(messageId: String) {
+        reset()
+        promptId = messageId
+    }
+
+    /** One of the reply's messages, before its parts. */
+    fun message(message: ChatMessage) {
+        lastDone = message.completedAt != null
+        lastStreaming = message.isStreaming
+        message.model?.let { model = it.label() }
+        message.tokens?.let { tokens = (tokens ?: ReplyTokens.ZERO) + it }
+        message.costUsd?.let { cost = (cost ?: 0.0) + it }
+    }
+
+    fun text(text: String) {
+        texts += text
+    }
+
+    fun changedFiles() {
+        changedFiles = true
+    }
+
+    /** The turn showed an error card: its footer trails that, so it carries no action row. */
+    fun error() {
+        endedInError = true
+    }
+
+    /** The reply so far, for its footer, starting afresh for whatever the turn writes after it. */
+    fun take(): ReplyContent? {
+        val reply =
+            if (texts.isEmpty() || endedInError) {
+                null
+            } else {
+                ReplyContent(
+                    texts = texts.toList(),
+                    promptMessageId = promptId,
+                    changedFiles = changedFiles,
+                    finished = lastDone && !lastStreaming,
+                    model = model,
+                    tokens = tokens,
+                    costUsd = cost,
+                )
+            }
+        reset()
+        return reply
+    }
+
+    private fun reset() {
+        texts.clear()
+        changedFiles = false
+        endedInError = false
+        model = null
+        tokens = null
+        cost = null
+    }
+}
+
 /** The model as the Details sheet names it: `provider/model`, or the model alone without a provider. */
 internal fun OpenCodeModelReference.label(): String = if (providerId.isBlank()) modelId else "$providerId/$modelId"
 
@@ -145,7 +218,11 @@ fun speechChunks(
             chunks += paragraph
             continue
         }
-        val pieces = paragraph.split(SENTENCE_END).flatMap { sentence -> if (sentence.length <= maxLength) listOf(sentence) else words(sentence, maxLength) }
+        val pieces =
+            paragraph.split(SENTENCE_END).flatMap {
+                    sentence ->
+                if (sentence.length <= maxLength) listOf(sentence) else words(sentence, maxLength)
+            }
         var current = StringBuilder()
         for (piece in pieces) {
             if (current.isNotEmpty() && current.length + 1 + piece.length > maxLength) {
