@@ -237,6 +237,25 @@ fun speechChunks(
     return chunks
 }
 
+/**
+ * The utterance ids for the [reading]th reading of the reply [key], spoken in [pieces] pieces. The
+ * last is the reading's own id, and the others name it before [SPEECH_PIECE_SEPARATOR]. A new reading
+ * of the same reply gets new ids, so a callback from an earlier one cannot end it.
+ */
+internal fun speechUtteranceIds(
+    key: String,
+    reading: Int,
+    pieces: Int,
+): List<String> {
+    val readingId = "$key@$reading"
+    return List(pieces) { index -> if (index == pieces - 1) readingId else "$readingId$SPEECH_PIECE_SEPARATOR$index" }
+}
+
+/** The reading an utterance id from [speechUtteranceIds] belongs to. */
+internal fun speechReadingOf(utteranceId: String): String = utteranceId.substringBefore(SPEECH_PIECE_SEPARATOR)
+
+private const val SPEECH_PIECE_SEPARATOR = "#piece"
+
 /** [sentence] as words, a word longer than [maxLength] cut into pieces that fit. */
 private fun words(
     sentence: String,

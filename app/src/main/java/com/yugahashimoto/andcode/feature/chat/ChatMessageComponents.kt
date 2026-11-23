@@ -950,19 +950,25 @@ private fun MessageFooter(
             minutes < 1L -> stringResource(R.string.chat_response_duration_under_minute)
             else -> stringResource(R.string.chat_response_duration, minutes)
         }
-    // The reply's actions start the row; its time stays at the end, as before.
+    // The reply's actions start the row; its time stays at the end, as before. The time is measured
+    // first and never wraps: on a narrow screen or at a large font scale, the actions take the
+    // width that is left and scroll within it.
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        actions()
+        Box(modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState())) {
+            actions()
+        }
         Row(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.padding(start = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             if (durationLabel != null) {
                 Text(
                     text = durationLabel,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    softWrap = false,
                 )
             }
             if (entry.completedAt > 0L) {
@@ -970,6 +976,8 @@ private fun MessageFooter(
                     text = formatClockTime(entry.completedAt),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    softWrap = false,
                 )
             }
         }

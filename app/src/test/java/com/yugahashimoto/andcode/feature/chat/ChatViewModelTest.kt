@@ -1553,6 +1553,51 @@ class ChatViewModelTest {
         }
 
     @Test
+    fun `retrying a command's reply runs the command again, not its text as a prompt`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            backend.historyMessages =
+                listOf(
+                    sessionUserMessage("s1", "u1", "/changelog v1.0", created = 1),
+                    sessionAssistantMessage("s1", "a1", "Here is the changelog."),
+                )
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.openSession("s1")
+            advanceUntilIdle()
+
+            viewModel.retryReply("u1", restoreFilesFirst = false)
+            advanceUntilIdle()
+
+            assertEquals(0, backend.sentPrompts.size)
+            assertEquals("changelog", backend.executedCommands.single().command)
+            assertEquals("v1.0", backend.executedCommands.single().arguments)
+        }
+
+    @Test
+    fun `a sent prompt keeps the model and agent it went to, for a retry before the transcript reloads`() =
+        runTest(dispatcher) {
+            val backend = FakeBackend()
+            backend.historyMessages =
+                listOf(
+                    sessionUserMessage("s1", "u1", "Fix the bug", created = 1),
+                    sessionAssistantMessage("s1", "a1", "Fixed.")
+                        .let { it.copy(info = it.info.copy(model = OpenCodeModelReference("openai", "gpt-x"))) },
+                )
+            val viewModel = ChatViewModel(backend)
+            advanceUntilIdle()
+            viewModel.openSession("s1")
+            advanceUntilIdle()
+
+            // As it is on screen right after sending, before any reload of the transcript.
+            viewModel.sendMessage("And the test")
+
+            val sent = viewModel.uiState.value.messages.last { it.isUser && it.text == "And the test" }
+            assertEquals(OpenCodeModelReference("openai", "gpt-x"), sent.model)
+            assertEquals(viewModel.uiState.value.selectedAgentId, sent.agent)
+        }
+
+    @Test
     fun `a retry asked for while the agent is working is not sent`() =
         runTest(dispatcher) {
             val backend = FakeBackend()

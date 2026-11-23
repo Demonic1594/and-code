@@ -283,7 +283,13 @@ internal class ReplySpeaker(
     private val mainHandler = Handler(Looper.getMainLooper())
     private var engine: TextToSpeech? = null
     private var ready = false
-    private var pending: Pair<String, List<String>>? = null
+
+    /** The utterance ids and pieces of a reading waiting for the engine to start. */
+    private var pending: Pair<List<String>, List<String>>? = null
+
+    /** How many readings have started, and the id of the one in progress; see [speechUtteranceIds]. */
+    private var readings = 0
+    private var readingId: String? = null
 
     var speakingKey by mutableStateOf<String?>(null)
         private set
@@ -292,7 +298,7 @@ internal class ReplySpeaker(
         object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) = Unit
 
-            // The last piece of a reply carries the reply's key; the engine calls back off the main thread.
+            // The last piece of a reading carries the reading's id; the engine calls back off the main thread.
             override fun onDone(utteranceId: String?) = finished(utteranceId)
 
             @Deprecated("Deprecated in Java")
@@ -304,14 +310,20 @@ internal class ReplySpeaker(
             ) = failed(utteranceId)
         }
 
+    /** Only the reading in progress ends here: a late callback from an earlier one, of the same reply too, is ignored. */
     private fun finished(utteranceId: String?) {
-        mainHandler.post { if (utteranceId != null && utteranceId == speakingKey) speakingKey = null }
+        mainHandler.post {
+            if (utteranceId != null && utteranceId == readingId) {
+                readingId = null
+                speakingKey = null
+            }
+        }
     }
 
-    /** A piece the engine could not speak ends the reply: the pieces queued after it are dropped too. */
+    /** A piece the engine could not speak ends the reading: the pieces queued after it are dropped too. */
     private fun failed(utteranceId: String?) {
-        val key = utteranceId?.substringBefore(PIECE_SEPARATOR)
-        mainHandler.post { if (key != null && key == speakingKey) stop() }
+        val reading = utteranceId?.let(::speechReadingOf)
+        mainHandler.post { if (reading != null && reading == readingId) stop() }
     }
 
     /** Reads [text] as [key], or stops if [key] is the reply being read. */
@@ -327,14 +339,17 @@ internal class ReplySpeaker(
         val pieces = speechChunks(text, TextToSpeech.getMaxSpeechInputLength())
         if (pieces.isEmpty()) return
         speakingKey = key
+        readings += 1
+        val ids = speechUtteranceIds(key, readings, pieces.size)
+        readingId = ids.last()
         val tts = engine
         when {
             tts == null -> {
-                pending = key to pieces
+                pending = ids to pieces
                 engine = TextToSpeech(appContext) { status -> mainHandler.post { initialized(status) } }
             }
-            ready -> say(tts, key, pieces)
-            else -> pending = key to pieces
+            ready -> say(tts, ids, pieces)
+            else -> pending = ids to pieces
         }
     }
 
@@ -347,7 +362,7 @@ internal class ReplySpeaker(
             return
         }
         tts.setOnUtteranceProgressListener(progress)
-        pending?.let { (key, pieces) -> say(tts, key, pieces) }
+        pending?.let { (ids, pieces) -> say(tts, ids, pieces) }
         pending = null
     }
 
@@ -358,11 +373,11 @@ internal class ReplySpeaker(
 
     private fun say(
         tts: TextToSpeech,
-        key: String,
+        ids: List<String>,
         pieces: List<String>,
     ) {
         pieces.forEachIndexed { index, piece ->
-            val id = if (index == pieces.lastIndex) key else "$key$PIECE_SEPARATOR$index"
+            val id = ids[index]
             val queue = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
             if (tts.speak(piece, queue, null, id) == TextToSpeech.ERROR) {
                 // The pieces already queued would otherwise go on being read.
@@ -375,6 +390,7 @@ internal class ReplySpeaker(
     fun stop() {
         pending = null
         engine?.stop()
+        readingId = null
         speakingKey = null
     }
 
@@ -383,10 +399,6 @@ internal class ReplySpeaker(
         engine?.shutdown()
         engine = null
         ready = false
-    }
-
-    private companion object {
-        const val PIECE_SEPARATOR = "#piece"
     }
 }
 

@@ -242,6 +242,17 @@ class ReplyActionsTest {
     }
 
     @Test
+    fun `each reading of a reply has its own utterance ids, so an earlier reading cannot end a later one`() {
+        val first = speechUtteranceIds("footer:a1", reading = 1, pieces = 3)
+        val second = speechUtteranceIds("footer:a1", reading = 2, pieces = 3)
+
+        assertEquals(3, first.size)
+        assertTrue(first.toSet().intersect(second.toSet()).isEmpty())
+        assertEquals("every piece names the reading it belongs to", setOf(first.last()), first.map(::speechReadingOf).toSet())
+        assertTrue(speechReadingOf(first.first()) != second.last())
+    }
+
+    @Test
     fun `a quote puts every line of the reply behind a marker and leaves a line to type on`() {
         assertEquals("> Fixed it.\n>\n> - one\n> - two\n\n", replyQuote(listOf("Fixed it.", "- one\n- two")))
     }

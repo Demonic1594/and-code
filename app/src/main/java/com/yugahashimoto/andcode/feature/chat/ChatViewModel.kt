@@ -911,7 +911,16 @@ class ChatViewModel(
                 model = prompt.model,
                 agent = prompt.agent,
             )
-        val sendRetry = { send(retry.text, fromComposer = false, held = retry) }
+        // A command goes back through the command path, as it went the first time; it carries no
+        // attachments, and the runtime runs it with the command's own settings either way.
+        val command = matchSlashCommand(prompt.text).takeIf { prompt.attachments.isEmpty() }
+        val sendRetry = {
+            if (command != null) {
+                sendSlashCommand(command.first, command.second, usesComposer = false)
+            } else {
+                send(retry.text, fromComposer = false, held = retry)
+            }
+        }
         when {
             !restoreFilesFirst -> sendRetry()
             restorePoints.canRestoreFiles(promptMessageId) -> restorePoints.restoreFilesTo(promptMessageId, onRestored = sendRetry)
@@ -1069,6 +1078,11 @@ class ChatViewModel(
         // Like the variant, ultracode and the service tier are settings of the picker's model.
         val ultracodeAtSend = pickerModel && modelSelection.ultracodeForPrompt
         val serviceTierAtSend = modelSelection.serviceTierForPrompt().takeIf { pickerModel }
+        // The prompt keeps what it went to, so a retry before the transcript reloads (or from a
+        // runtime that never reports it) sends it there again.
+        val promptModel =
+            OpenCodeModelReference(providerAtSend.orEmpty(), modelAtSend.orEmpty())
+                .takeIf { it.providerId.isNotBlank() && it.modelId.isNotBlank() }
         val pendingPreviewsByFilename =
             pendingAttachments
                 .filter { it.mime.startsWith("image/") }
@@ -1125,6 +1139,8 @@ class ChatViewModel(
                     parts = listOf(ChatPart.Text(id = UUID.randomUUID().toString(), text = outgoingText)),
                     attachments = pendingAttachments,
                     imagePreviews = pendingPreviews,
+                    model = promptModel,
+                    agent = agentAtSend,
                 )
             restorePoints.markOffline(userMessage.id)
             _uiState.update {
@@ -1174,6 +1190,8 @@ class ChatViewModel(
                     }.orEmpty(),
                 attachments = pendingAttachments,
                 imagePreviews = pendingPreviews,
+                model = promptModel,
+                agent = agentAtSend,
             )
         _uiState.update {
             it.copy(

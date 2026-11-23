@@ -285,7 +285,10 @@ internal fun ChatRoute(
             onUndoRewind = chatViewModel::undoRewind,
             canRestoreFiles = chatViewModel::canRestoreFiles,
             onRestoreFiles = chatViewModel::restoreFilesTo,
-            onRetryReply = chatViewModel::retryReply,
+            // A retry sends a message, so it asks for the same unlock as the composer.
+            onRetryReply = { promptId, restoreFilesFirst ->
+                sendGate { chatViewModel.retryReply(promptId, restoreFilesFirst) }
+            },
             onUndoFileRestore = chatViewModel::undoFileRestore,
             onDismissFileRestore = chatViewModel::dismissFileRestore,
             onEditLastMessage = chatViewModel::editLastUserMessage,
