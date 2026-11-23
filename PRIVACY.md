@@ -217,7 +217,9 @@ requested. None of these requests go to a server AndCode operates.
 
 When: when you install or update the agent in question, and the first time you share a dev server
 (for `cloudflared`, which is not updated after that), plus — for OpenCode — when you open
-**Settings → Agents → OpenCode** or tap its update check, and when the app automatically restarts
+**Settings → Agents → OpenCode** (and again each time a runtime install, start, update or rollback
+finishes while that screen is open, unless a check is already running) or tap its update check,
+and when the app automatically restarts
 an out-of-date local runtime (after a crash, a service restore or the watchdog), which can happen
 without you opening the screen and then also updates OpenCode to the release it finds. There is no
 periodic job that polls for releases. See
