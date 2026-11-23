@@ -39,7 +39,7 @@ only when its secret is set and is skipped otherwise:
 
 | Secret | Agent | Notes |
 | --- | --- | --- |
-| `ZAI_API_KEY` | OpenCode | A z.ai GLM Coding Plan key, used through OpenCode's `zai-coding-plan` provider. Pick the model with the run's `zai-model` input (default `glm-4.7`). |
+| `ZAI_API_KEY` | OpenCode | A z.ai GLM Coding Plan key, used through OpenCode's `zai-coding-plan` provider. The run's `zai-model` input picks the model; left empty, or naming one the plan does not offer, the test uses a `-flash` model the plan offers, else the first it offers, and logs which. |
 | `ANTHROPIC_API_KEY` | Claude Code | Optional. An Anthropic API key. |
 | `OPENAI_API_KEY` | Codex | Optional. An OpenAI API key. |
 

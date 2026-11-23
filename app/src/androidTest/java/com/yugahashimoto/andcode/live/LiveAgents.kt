@@ -17,6 +17,7 @@ import com.yugahashimoto.andcode.feature.chat.ChatUiState
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
 import com.yugahashimoto.andcode.runtime.LocalAgent
 import com.yugahashimoto.andcode.runtime.LocalRuntimeStatus
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -47,9 +48,6 @@ internal object LiveAgents {
 
     /** OpenCode's own provider id for the z.ai GLM Coding Plan (models.dev `zai-coding-plan`). */
     const val ZAI_PROVIDER_ID = "zai-coding-plan"
-
-    /** A model every Coding Plan tier includes; the workflow can override it. */
-    const val DEFAULT_ZAI_MODEL = "glm-4.7"
 
     /** Downloads of the sandbox and agents can take a long time on a hosted runner. */
     const val INSTALL_TIMEOUT_MS = 30 * 60_000L
@@ -94,7 +92,8 @@ internal object LiveAgents {
     /**
      * Installs the local runtime through [com.yugahashimoto.andcode.runtime.local.LocalRuntimeManager.installAndStart],
      * the call the setup guide's install button reaches through the runtime service, and waits for
-     * the OpenCode server to be up. Later callers find it installed and only wait for it to run.
+     * the OpenCode server to answer. Later callers find it installed and only wait for it to run,
+     * so every live test can call this first and the tests run in any order.
      */
     fun ensureRuntimeInstalled(): LocalRuntimeStatus.Ready =
         synchronized(installLock) {
@@ -111,12 +110,30 @@ internal object LiveAgents {
                         }
                     }
                 val ready = result.getOrElse { error -> fail("Local runtime install failed: ${error.message}") as Nothing }
+                awaitOpenCodeApi()
                 // The setup guide marks onboarding done once a runtime is usable; the chat screen
                 // is the start destination from then on.
                 app.settings.onboardingCompleted = true
                 skipStarPrompts()
                 ready
             }
+        }
+
+    /**
+     * Waits until OpenCode's API answers. The runtime reports ready once its process is up, which
+     * can be a little before the server accepts connections; a call made in between is refused.
+     */
+    fun awaitOpenCodeApi() =
+        runBlocking {
+            val backend = app.runtimeRegistry.target(LocalAgent.OPEN_CODE.targetId) ?: fail("OpenCode is not registered") as Nothing
+            val deadline = System.currentTimeMillis() + API_READY_TIMEOUT_MS
+            var last: Throwable? = null
+            while (System.currentTimeMillis() < deadline) {
+                val healthy = runCatching { backend.health().healthy }.onFailure { last = it }.getOrDefault(false)
+                if (healthy) return@runBlocking
+                delay(API_POLL_MS)
+            }
+            fail("OpenCode's API did not answer within ${API_READY_TIMEOUT_MS / 1000} s (last: ${last?.javaClass?.simpleName})")
         }
 
     /**
@@ -278,6 +295,10 @@ internal object LiveAgents {
     const val POLL_MS = 250L
 
     private const val UI_IDLE_WAIT_MS = 500L
+
+    private const val API_READY_TIMEOUT_MS = 3 * 60_000L
+
+    private const val API_POLL_MS = 1_000L
 
     private const val ERROR_EXCERPT = 300
 }

@@ -38,11 +38,15 @@ with open("gradle.properties", "a", encoding="utf-8") as properties:
             properties.write(f"{prefix}{argument}={escape(value)}\n")
 PY
 
+args=(
+  -Pandroid.testInstrumentationRunnerArguments.package=com.yugahashimoto.andcode.live
+  -Pandroid.testInstrumentationRunnerArguments.liveAgentTests=true
+)
+# No model means auto: the test picks a -flash model the plan offers, else the first.
+[ -n "${ZAI_MODEL:-}" ] && args+=("-Pandroid.testInstrumentationRunnerArguments.zaiModel=$ZAI_MODEL")
+
 echo "::group::Live agent tests"
-./gradlew :app:connectedGithubDebugAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.package=com.yugahashimoto.andcode.live \
-  -Pandroid.testInstrumentationRunnerArguments.liveAgentTests=true \
-  "-Pandroid.testInstrumentationRunnerArguments.zaiModel=${ZAI_MODEL:-glm-4.7}" || status=1
+./gradlew :app:connectedGithubDebugAndroidTest "${args[@]}" || status=1
 echo "::endgroup::"
 
 results=app/build/outputs/androidTest-results/connected

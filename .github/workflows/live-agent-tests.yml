@@ -28,9 +28,12 @@ on:
         required: true
         default: '34'
       zai-model:
-        description: z.ai Coding Plan model OpenCode uses (an id of OpenCode's zai-coding-plan provider)
-        required: true
-        default: glm-4.7
+        description: >-
+          z.ai Coding Plan model OpenCode uses (an id of OpenCode's zai-coding-plan provider). Empty
+          means auto - a -flash model the plan offers, else the first it offers; an id it does
+          not offer falls back the same way.
+        required: false
+        default: ''
 
 permissions:
   contents: read
