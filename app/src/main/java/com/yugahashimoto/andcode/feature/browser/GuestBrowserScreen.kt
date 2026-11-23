@@ -1,6 +1,9 @@
 package com.yugahashimoto.andcode.feature.browser
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.graphics.Bitmap
 import android.util.Log
@@ -92,36 +95,48 @@ private const val TAG = "GuestBrowser"
  * In-app browser for pages served inside the guest runtime (e.g. http://127.0.0.1:PORT/) and the
  * web at large: an address bar on top, controls at the bottom within thumb reach, and DevTools
  * docked between them on demand.
+ *
+ * With [agentPage] it shows the hidden browser's page (View) instead of a page of its own: the same
+ * WebView, as the agent left it, with no reload. It tells [presence] while it is open, and which
+ * handed-over page it shows, so the agent's tools know what is on the user's screen.
  */
 @Composable
-fun GuestBrowserScreen(
+internal fun GuestBrowserScreen(
     initialUrl: String,
     agentControl: Boolean,
     onAgentControlChange: (Boolean) -> Unit,
     onBack: () -> Unit,
+    agentPage: AgentPageHandoff? = null,
+    presence: GuestBrowserPresence? = null,
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val linkCopied = stringResource(R.string.guest_browser_link_copied)
-    val bridge = remember { DevToolsBridge(DevToolsStore(AndroidDevToolsMessages(context)), DevToolsBridge.loadScript(context)) }
+    // A handed-over page keeps its page agent's bridge: its document already reports to that one.
+    val bridge =
+        remember {
+            agentPage?.bridge ?: DevToolsBridge(DevToolsStore(AndroidDevToolsMessages(context)), DevToolsBridge.loadScript(context))
+        }
     val problems by bridge.store.problems.collectAsState()
 
-    var currentUrl by rememberSaveable { mutableStateOf(initialUrl) }
-    var title by remember { mutableStateOf("") }
+    var currentUrl by rememberSaveable { mutableStateOf(agentPage?.view?.url ?: initialUrl) }
+    var title by remember { mutableStateOf(agentPage?.view?.title.orEmpty()) }
     var progress by remember { mutableIntStateOf(0) }
-    var canGoBack by remember { mutableStateOf(false) }
-    var canGoForward by remember { mutableStateOf(false) }
+    var canGoBack by remember { mutableStateOf(agentPage?.view?.canGoBack() == true) }
+    var canGoForward by remember { mutableStateOf(agentPage?.view?.canGoForward() == true) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var webViewUnavailable by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf<PageLoadError?>(null) }
     // The page's WebView across the deaths of its renderer: gone until Reload builds a fresh one.
+    // A handed-over page is loaded already: it is shown as it is, never loaded again.
     var recovery by remember {
-        mutableStateOf(WebPageRecovery(firstLoad = initialUrl.takeIf { it.isNotBlank() }?.let(::normalizeBrowserUrl).orEmpty()))
+        val first = if (agentPage != null) "" else initialUrl.takeIf { it.isNotBlank() }?.let(::normalizeBrowserUrl).orEmpty()
+        mutableStateOf(WebPageRecovery(firstLoad = first))
     }
     // The start screen gives way to the first page that loads, whoever loads it (the agent may).
-    var pageStarted by remember { mutableStateOf(false) }
+    var pageStarted by remember { mutableStateOf(agentPage != null) }
     var desktopMode by rememberSaveable { mutableStateOf(false) }
 
     AgentDebuggingHold(agentControl)
@@ -137,7 +152,7 @@ fun GuestBrowserScreen(
     var findOpen by rememberSaveable { mutableStateOf(false) }
     var findQuery by rememberSaveable { mutableStateOf("") }
     var findMatch by remember { mutableStateOf(FindMatch()) }
-    var editingAddress by rememberSaveable { mutableStateOf(initialUrl.isBlank()) }
+    var editingAddress by rememberSaveable { mutableStateOf(initialUrl.isBlank() && agentPage == null) }
     var devToolsOpen by rememberSaveable { mutableStateOf(false) }
     var devToolsHeight by remember { mutableStateOf<Dp?>(null) }
     val loading = progress in 1..99
@@ -188,7 +203,13 @@ fun GuestBrowserScreen(
             if (!view.url.isNullOrBlank()) view.reload()
         }
     }
-    DisposableEffect(Unit) { onDispose { bridge.detach() } }
+    // A handed-over page parked for a rotation keeps its bridge; the screen built again takes both back.
+    DisposableEffect(Unit) { onDispose { if (!(agentPage != null && context.isChangingConfigurations())) bridge.detach() } }
+    // The handed-over page is the agent's to name only while this screen shows that very view.
+    val viewedTargetId = agentPage?.targetId?.takeIf { recovery.generation == 0 && recovery.showsView }
+    val presenceToken = remember { Any() }
+    LaunchedEffect(presence, viewedTargetId) { presence?.shown(presenceToken, agentPage, viewedTargetId) }
+    DisposableEffect(presence) { onDispose { presence?.gone(presenceToken) } }
 
     Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -245,8 +266,13 @@ fun GuestBrowserScreen(
                                             // Only starting the system WebView provider can fail for reasons the app
                                             // cannot fix; everything after it runs on a WebView that exists, so a failure
                                             // there is a real bug and must not leave a half-built view behind.
+                                            // The handed-over page, the first time; a view its renderer took down is not one.
+                                            val adopted =
+                                                agentPage
+                                                    ?.takeIf { recovery.generation == 0 && it.view.getTag(R.id.webview_discarded) != true }
+                                                    ?.adoptInto(viewContext)
                                             val created =
-                                                viewOrNull(
+                                                adopted ?: viewOrNull(
                                                     create = {
                                                         // The in-guest agent drives this WebView over CDP (the devtools abstract
                                                         // socket is reachable from the guest, which shares the app's UID), so a
@@ -307,8 +333,9 @@ fun GuestBrowserScreen(
                                                 )
                                                 setFindListener { active, count, _ -> findMatch = FindMatch(active, count) }
                                                 applyViewMode(desktopMode)
-                                                // Before the first load, so the page agent is in place for its first line.
-                                                bridge.attach(this)
+                                                // Before the first load, so the page agent is in place for its first line. A
+                                                // handed-over page has it already, through the same bridge.
+                                                if (!bridge.isAttachedTo(this)) bridge.attach(this)
                                                 webView = this
                                                 // Asked for while the page was gone: the cache is every view's, so this one clears it.
                                                 if (recovery.clearCacheFirst) clearCache(true)
@@ -317,9 +344,16 @@ fun GuestBrowserScreen(
                                             }
                                         },
                                         onRelease = { view ->
-                                            // A fresh view may hold the bridge already; only this one's is let go.
-                                            if (webView == null || webView === view) bridge.detach()
-                                            destroyWebView(view)
+                                            val handedOver = agentPage != null && view === agentPage.view
+                                            if (handedOver && context.isChangingConfigurations()) {
+                                                // Only the window is going (a rotation): the screen built again shows it.
+                                                agentPage?.park()
+                                            } else {
+                                                // A fresh view may hold the bridge already; only this one's is let go.
+                                                if (webView == null || webView === view) bridge.detach()
+                                                destroyWebView(view)
+                                                if (handedOver) agentPage?.let { presence?.released(it) }
+                                            }
                                         },
                                     )
                                 }
@@ -439,6 +473,34 @@ internal fun GuestBrowserHandoffBanner(
             }
         }
     }
+}
+
+/** What the Guest Browser tells the hidden browser's owner ([HiddenAgentBrowser]) about itself. */
+internal interface GuestBrowserPresence {
+    /**
+     * The screen known by [token] is open, showing the handed-over [agentPage] (known to the agent's tools
+     * as [viewedTargetId] while that very view shows it) or a page of its own (both null).
+     */
+    fun shown(
+        token: Any,
+        agentPage: AgentPageHandoff?,
+        viewedTargetId: String?,
+    )
+
+    fun gone(token: Any)
+
+    /** The screen destroyed the handed-over page [handoff]. */
+    fun released(handoff: AgentPageHandoff)
+}
+
+/** Whether the activity behind [this] is being rebuilt for a configuration change (a rotation), rather than closed. */
+private fun Context.isChangingConfigurations(): Boolean {
+    var current: Context? = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current.isChangingConfigurations
+        current = current.baseContext
+    }
+    return false
 }
 
 /** Shown instead of the page when the system WebView cannot start, which the app cannot repair. */
@@ -566,7 +628,10 @@ private fun WebView.configure(
         }
 }
 
-/** What every page the user or the agent browses in the app gets: the Guest Browser's, and the inline preview's. */
+/**
+ * What every page the user or the agent browses in the app gets: the Guest Browser's, the hidden
+ * browser's ([HiddenAgentBrowser]) and the inline preview's.
+ */
 @SuppressLint("SetJavaScriptEnabled")
 internal fun WebView.applyGuestBrowserSettings() {
     // Guest pages (dev servers, dashboards, tool UIs) are interactive web apps that need JS.
@@ -609,11 +674,12 @@ private fun AgentDebuggingHold(agentControl: Boolean) {
 }
 
 /**
- * How many Guest Browsers on screen want the DevTools socket on for the agent, counted so a browser
- * closing while another opens cannot switch it off under the new one. Main thread only (it
- * is driven from composition effects), so a plain counter is enough.
+ * How many browsers want the DevTools socket on for the agent - Guest Browsers on screen, and the
+ * hidden browser while it is open - counted so one closing while another opens cannot switch it off
+ * under the new one. Main thread only (composition effects and [HiddenAgentBrowser] drive it), so a
+ * plain counter is enough.
  */
-private object AgentDebugging {
+internal object AgentDebugging {
     private var holders = 0
 
     fun acquire() {

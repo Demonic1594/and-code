@@ -30,9 +30,9 @@ class BrowserCommandWatcherTest {
         listOf(LocalAgent.OPEN_CODE, LocalAgent.CLAUDE_CODE, LocalAgent.CODEX).forEach { agent ->
             val file = command("environment/rootfs")
 
-            assertEquals("https://www.google.com/", consume("/root/project", agent))
+            assertEquals("https://www.google.com/", consume(agent))
             assertFalse(file.exists())
-            assertNull(consumeCommand("/root/project", agent))
+            assertNull(consumeCommand(agent))
         }
     }
 
@@ -40,7 +40,7 @@ class BrowserCommandWatcherTest {
     fun `the command is consumed whichever local folder is open`() {
         val file = command("environment/rootfs")
 
-        assertEquals("https://www.google.com/", consume("/sdcard/Download/project"))
+        assertEquals("https://www.google.com/", consume())
         assertFalse(file.exists())
     }
 
@@ -49,7 +49,7 @@ class BrowserCommandWatcherTest {
         val file = command("environment/antigravity-rootfs")
         val alpine = command("environment/rootfs", "https://example.com/alpine")
 
-        assertEquals("https://www.google.com/", consume("/root/project", LocalAgent.ANTIGRAVITY))
+        assertEquals("https://www.google.com/", consume(LocalAgent.ANTIGRAVITY))
         assertFalse(file.exists())
         assertTrue(alpine.exists())
     }
@@ -58,7 +58,7 @@ class BrowserCommandWatcherTest {
     fun `Antigravity falls back to the shared rootfs when Debian is absent`() {
         val file = command("environment/rootfs")
 
-        assertEquals("https://www.google.com/", consume("/root/project", LocalAgent.ANTIGRAVITY))
+        assertEquals("https://www.google.com/", consume(LocalAgent.ANTIGRAVITY))
         assertFalse(file.exists())
     }
 
@@ -71,24 +71,22 @@ class BrowserCommandWatcherTest {
         val inRootfs = writeCommand(File(runtimeDirectory, "environment/rootfs/root/project/.and-code"), "https://phishing.example/")
         val inWorkspace = writeCommand(File(runtimeDirectory, "workspace/project/.and-code"), "https://phishing.example/")
 
-        assertNull(consumeCommand("/root/project"))
-        assertNull(consumeCommand("/workspace/project"))
+        assertNull(consumeCommand())
         assertTrue("the user's checkout is left as it is", inRootfs.exists())
         assertTrue(inWorkspace.exists())
     }
 
     @Test
-    fun `remote runtimes and absent workspaces leave local commands untouched`() {
+    fun `a remote runtime leaves local commands untouched`() {
         val file = command("environment/rootfs")
 
-        assertNull(consumeCommand("/workspace/project", agent = null))
-        assertNull(consumeCommand(null))
+        assertNull(consumeCommand(agent = null))
         assertTrue(file.exists())
     }
 
     @Test
     fun `missing command does not open the browser`() {
-        assertNull(consumeCommand("/workspace/project"))
+        assertNull(consumeCommand())
     }
 
     @Test
@@ -96,18 +94,18 @@ class BrowserCommandWatcherTest {
         val file = command("environment/rootfs")
         file.writeText("{\"action\":\"open\",\"url\":")
 
-        assertNull(consumeCommand("/workspace/project"))
+        assertNull(consumeCommand())
         assertTrue(file.exists())
 
         file.writeText("{\"action\":\"open\",\"url\":\"http://127.0.0.1:8080/\",\"createdAtMs\":$NOW}")
-        assertEquals("http://127.0.0.1:8080/", consume("/workspace/project"))
+        assertEquals("http://127.0.0.1:8080/", consume())
         assertFalse(file.exists())
     }
 
     @Test
     fun `unsupported actions and invalid URLs do not open the browser and are dropped`() {
         listOf(
-            "{\"action\":\"close\",\"url\":\"https://example.com/\",\"createdAtMs\":$NOW}",
+            "{\"action\":\"reload\",\"url\":\"https://example.com/\",\"createdAtMs\":$NOW}",
             "{\"action\":\"open\",\"url\":\"javascript:alert(1)\",\"createdAtMs\":$NOW}",
             "{\"action\":\"open\",\"url\":\"file:///root/private\",\"createdAtMs\":$NOW}",
             "{\"action\":\"preview\",\"url\":\"file:///root/private\",\"createdAtMs\":$NOW}",
@@ -115,7 +113,7 @@ class BrowserCommandWatcherTest {
             "{\"action\":\"open\",\"url\":\"\",\"createdAtMs\":$NOW}",
         ).forEach { text ->
             val file = command("environment/rootfs").apply { writeText(text) }
-            assertNull(consumeCommand("/workspace/project"))
+            assertNull(consumeCommand())
             assertFalse(text, file.exists())
         }
     }
@@ -124,7 +122,7 @@ class BrowserCommandWatcherTest {
     fun `a command without the time it was written is not opened`() {
         val file = command("environment/rootfs", createdAtMs = null)
 
-        assertNull(consumeCommand("/workspace/project"))
+        assertNull(consumeCommand())
         assertFalse(file.exists())
     }
 
@@ -133,7 +131,7 @@ class BrowserCommandWatcherTest {
     fun `a command older than a few minutes is dropped unopened`() {
         val file = command("environment/rootfs", createdAtMs = NOW - 5 * 60_000L - 1)
 
-        assertNull(consumeCommand("/workspace/project"))
+        assertNull(consumeCommand())
         assertFalse(file.exists())
     }
 
@@ -141,7 +139,7 @@ class BrowserCommandWatcherTest {
     fun `a command stamped in the future is not opened`() {
         val file = command("environment/rootfs", createdAtMs = NOW + 60_000L + 1)
 
-        assertNull(consumeCommand("/workspace/project"))
+        assertNull(consumeCommand())
         assertFalse(file.exists())
     }
 
@@ -149,7 +147,7 @@ class BrowserCommandWatcherTest {
     fun `a command written a moment ago is opened`() {
         val file = command("environment/rootfs", createdAtMs = NOW - 5 * 60_000L)
 
-        assertEquals("https://www.google.com/", consume("/workspace/project"))
+        assertEquals("https://www.google.com/", consume())
         assertFalse(file.exists())
     }
 
@@ -163,12 +161,12 @@ class BrowserCommandWatcherTest {
         val link = File(File(runtimeDirectory, "environment/rootfs"), BROWSER_COMMAND_PATH).apply { parentFile!!.mkdirs() }
         java.nio.file.Files.createSymbolicLink(link.toPath(), appFile.toPath())
 
-        assertNull(consumeCommand("/workspace/project"))
+        assertNull(consumeCommand())
         assertFalse(java.nio.file.Files.exists(link.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS))
         assertTrue(appFile.exists())
 
         val big = command("environment/rootfs").apply { appendText(" ".repeat(70_000)) }
-        assertNull(consumeCommand("/workspace/project"))
+        assertNull(consumeCommand())
         assertFalse(big.exists())
     }
 
@@ -214,6 +212,8 @@ class BrowserCommandWatcherTest {
         val status = File(rootfs, BROWSER_STATUS_PATH).readText()
         assertTrue(status, status.contains("\"state\":\"$BROWSER_STATUS_AWAITING_USER\""))
         assertTrue(status, status.contains("\"requestId\":\"r1\""))
+        command("environment/rootfs").writeText("{\"action\":\"handoff\",\"hidden\":\"r0\",\"requestId\":\"r2\",\"createdAtMs\":$NOW}")
+        assertEquals(BrowserCommand.Handoff(rootfs, "r2", ownHidden = "r0"), consumeCommand())
     }
 
     /** Taking the banner down without the answer would leave the agent waiting for a tap the user cannot give. */
@@ -263,50 +263,109 @@ class BrowserCommandWatcherTest {
     }
 
     /**
-     * The guest browser is only worth opening for someone looking at the app, so the watcher stays
-     * parked while it is in the background and hands over what arrived the moment it returns.
+     * The commands are only worth reading while the guest can be writing one: the app is on screen or
+     * an agent is working. The loop stays parked otherwise and hands over what arrived the moment it
+     * wakes.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `watcher opens a pending command only while the app is in the foreground`() =
+    fun `watcher reads commands only while it is active`() =
         runTest {
-            val foreground = MutableStateFlow(false)
-            val opened = mutableListOf<BrowserCommand>()
-            var pending: BrowserCommand? = BrowserCommand.Open("https://www.google.com/")
+            val active = MutableStateFlow(false)
+            val handled = mutableListOf<BrowserCommand>()
+            var pending: BrowserCommand? = BrowserCommand.Close("r1")
             val scope = TestScope(StandardTestDispatcher(testScheduler))
             try {
                 scope.launch {
                     watchBrowserCommands(
-                        active = foreground,
+                        active = active,
                         intervalMillis = 1_000L,
                         poll = { pending.also { pending = null } },
-                        onCommand = { opened += it },
+                        onCommand = { handled += it },
                     )
                 }
                 advanceTimeBy(60_000L)
                 runCurrent()
-                assertEquals(emptyList<BrowserCommand>(), opened)
+                assertEquals(emptyList<BrowserCommand>(), handled)
 
-                foreground.value = true
+                active.value = true
                 runCurrent()
 
-                assertEquals(listOf<BrowserCommand>(BrowserCommand.Open("https://www.google.com/")), opened)
+                assertEquals(listOf<BrowserCommand>(BrowserCommand.Close("r1")), handled)
             } finally {
                 scope.cancel()
             }
         }
 
+    @Test
+    fun `a hidden open names its mode, address and request`() {
+        command("environment/rootfs").writeText(
+            "{\"action\":\"open\",\"mode\":\"hidden\",\"url\":\"https://example.com/a\",\"requestId\":\"r7\",\"createdAtMs\":$NOW}",
+        )
+
+        assertEquals(BrowserCommand.Open("https://example.com/a", BrowserMode.HIDDEN, "r7"), consumeCommand())
+    }
+
+    /** A script from before modes wrote no mode and no request: it asked for the browser on screen. */
+    @Test
+    fun `an open without a mode is a visible one`() {
+        command("environment/rootfs")
+
+        assertEquals(BrowserCommand.Open("https://www.google.com/", BrowserMode.VISIBLE, ""), consumeCommand())
+    }
+
+    @Test
+    fun `a visible open without an address hands the hidden page over, and a hidden one needs an address`() {
+        val file = command("environment/rootfs")
+        file.writeText("{\"action\":\"open\",\"mode\":\"visible\",\"requestId\":\"r1\",\"createdAtMs\":$NOW}")
+        assertEquals(BrowserCommand.Open(null, BrowserMode.VISIBLE, "r1"), consumeCommand())
+        // It names the asking agent's own hidden page: the app hands over only that one.
+        file.writeText("{\"action\":\"open\",\"mode\":\"visible\",\"hidden\":\"r0\",\"requestId\":\"r1\",\"createdAtMs\":$NOW}")
+        assertEquals(BrowserCommand.Open(null, BrowserMode.VISIBLE, "r1", ownHidden = "r0"), consumeCommand())
+
+        file.writeText("{\"action\":\"open\",\"mode\":\"hidden\",\"requestId\":\"r2\",\"createdAtMs\":$NOW}")
+        assertNull(consumeCommand())
+        assertFalse("dropped, not retried", file.exists())
+    }
+
+    @Test
+    fun `an unknown mode is dropped rather than guessed`() {
+        val file = command("environment/rootfs")
+        file.writeText("{\"action\":\"open\",\"mode\":\"popup\",\"url\":\"https://example.com/\",\"createdAtMs\":$NOW}")
+
+        assertNull(consumeCommand())
+        assertFalse(file.exists())
+    }
+
+    @Test
+    fun `close is a command of its own and needs no address`() {
+        command("environment/rootfs").writeText("{\"action\":\"close\",\"requestId\":\"r3\",\"createdAtMs\":$NOW}")
+
+        assertEquals(BrowserCommand.Close("r3"), consumeCommand())
+    }
+
+    /** A visible open read while the app is in the background waits in its file for the user to come back. */
+    @Test
+    fun `a command the app cannot act on yet stays for a later read`() {
+        val file = command("environment/rootfs")
+
+        assertNull(consumeCommand(accept = { false }))
+        assertTrue(file.exists())
+        assertEquals(BrowserCommand.Open("https://www.google.com/", BrowserMode.VISIBLE, ""), consumeCommand())
+        assertFalse(file.exists())
+    }
+
+    /** The address of the open command consumed, as the Guest Browser would get it. */
     private fun consume(
-        path: String?,
         agent: LocalAgent? = LocalAgent.CODEX,
         now: Long = NOW,
-    ): String? = (consumeCommand(path, agent, now) as? BrowserCommand.Open)?.url
+    ): String? = (consumeCommand(agent, now) as? BrowserCommand.Open)?.url
 
     private fun consumeCommand(
-        path: String? = "/root/project",
         agent: LocalAgent? = LocalAgent.CODEX,
         now: Long = NOW,
-    ): BrowserCommand? = consumeBrowserCommand(path, agent, runtimeDirectory) { now }
+        accept: (BrowserCommand) -> Boolean = { true },
+    ): BrowserCommand? = consumeBrowserCommand(agent, runtimeDirectory, clock = { now }, accept = accept)
 
     /** A command in the guest home of the rootfs at [rootfs], relative to the runtime directory. */
     private fun command(

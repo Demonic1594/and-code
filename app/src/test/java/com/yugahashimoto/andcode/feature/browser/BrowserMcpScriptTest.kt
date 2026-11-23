@@ -433,7 +433,10 @@ class BrowserMcpScriptTest {
             )
 
         assertEquals("/$BROWSER_COMMAND_PATH\nrequested the app to open http://127.0.0.1:5173/", answer)
-        assertEquals(BrowserCommand.Open("http://127.0.0.1:5173/"), consumeBrowserCommand("/root/project", LocalAgent.CLAUDE_CODE, runtime))
+        assertEquals(
+            BrowserCommand.Open("http://127.0.0.1:5173/", BrowserMode.VISIBLE, ""),
+            consumeBrowserCommand(LocalAgent.CLAUDE_CODE, runtime)?.let { it as? BrowserCommand.Open }?.copy(requestId = ""),
+        )
     }
 
     @Test
@@ -447,9 +450,12 @@ class BrowserMcpScriptTest {
                 def fail():
                     raise AssertionError("no page should be opened")
                 m._session = fail
+                # No hidden page to hand over either, which is what a visible show without an address does.
+                m.read_state = lambda: None
+                refused = (m.NOT_WEB_URL, m.NOTHING_TO_HAND_OVER)
                 for url in ["file:///data/data/x", "content://media/1", "javascript:alert(1)", "data:text/html,hi",
                             "http://", "", None, 5]:
-                    print(m.tool_navigate({"url": url}) == m.NOT_WEB_URL, m.tool_show({"url": url}) == m.NOT_WEB_URL)
+                    print(m.tool_navigate({"url": url}) == m.NOT_WEB_URL, m.tool_show({"url": url}) in refused)
                 print(m.COMMAND_FILE.exists())
                 print(m.tool_show({"url": "http://127.0.0.1:5173/"}))
                 import json

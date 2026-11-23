@@ -1170,6 +1170,8 @@
     <string name="notification_channel_schedules">Execuções agendadas</string>
     <string name="notification_channel_schedule_agent_changes">Agendamentos alterados por agentes</string>
     <string name="notification_channel_schedule_agent_changes_description">Quando um agente adiciona, altera ou exclui um agendamento sem perguntar a você</string>
+    <string name="notification_channel_agent_browsing">Navegação do agente</string>
+    <string name="notification_channel_agent_browsing_description">Enquanto um agente navega por uma página fora da sua vista, no navegador oculto dele</string>
     <string name="notification_schedule_agent_created_title">Um agente adicionou um agendamento: %1$s</string>
     <string name="notification_schedule_agent_changed_title">Um agente alterou um agendamento: %1$s</string>
     <string name="notification_schedule_agent_deleted_title">Um agente excluiu um agendamento: %1$s</string>
@@ -1415,6 +1417,10 @@
     <string name="chat_preview_link">Pré-visualizar</string>
     <string name="chat_preview_unavailable">O WebView deste dispositivo não pôde iniciar, então a pré-visualização não está disponível.</string>
     <string name="chat_preview_minimize">Minimizar a pré-visualização</string>
+    <string name="agent_browsing_notice">O agente está navegando em %1$s</string>
+    <string name="agent_browsing_view">Ver</string>
+    <string name="agent_browsing_close">Fechar</string>
+    <string name="agent_browsing_notification_text">No navegador oculto dele, fora da sua vista. Ver mostra a página como está.</string>
     <string name="setup_step_development_tools">Ferramentas de desenvolvimento</string>
     <string name="setup_development_tools_description">Por padrão, instale apenas o necessário para executar, ou inclua a cadeia completa de desenvolvimento.</string>
     <string name="setup_required_tools_description">Linux, os agentes selecionados, Git e as ferramentas de suporte usadas pelo AndCode. São sempre instalados.</string>

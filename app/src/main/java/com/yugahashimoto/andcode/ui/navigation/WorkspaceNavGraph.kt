@@ -3,6 +3,8 @@ package com.yugahashimoto.andcode.ui.navigation
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
@@ -295,7 +297,28 @@ fun NavGraphBuilder.workspaceNavGraph(
             agentControl = preferences.agentBrowserControl,
             onAgentControlChange = app.preferences::setAgentBrowserControl,
             onBack = { navController.popBackStack() },
+            presence = app.agentBrowser,
         )
+    }
+
+    composable(ROUTE_GUEST_BROWSER_AGENT_PAGE) {
+        val preferences by app.preferences.state.collectAsState()
+        // Built anew for each page View hands over, so a later View shows its page in place of the one on
+        // screen, which goes with the old screen. The same page each time this screen is built (a rotation),
+        // until it is released; gone already (closed, or its renderer died), the browser opens on its start
+        // screen instead.
+        val handovers by app.agentBrowser.handovers.collectAsState()
+        key(handovers) {
+            val handoff = remember { app.agentBrowser.handedOver }
+            GuestBrowserScreen(
+                initialUrl = "",
+                agentControl = preferences.agentBrowserControl,
+                onAgentControlChange = app.preferences::setAgentBrowserControl,
+                onBack = { navController.popBackStack() },
+                agentPage = handoff,
+                presence = app.agentBrowser,
+            )
+        }
     }
 
     composable(CODE_VIEWER_ROUTE_PATTERN) { backStack ->

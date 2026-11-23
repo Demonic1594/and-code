@@ -90,6 +90,8 @@ import com.yugahashimoto.andcode.core.api.OpenCodeProvider
 import com.yugahashimoto.andcode.core.api.PromptAttachment
 import com.yugahashimoto.andcode.core.api.orderThinkingLevels
 import com.yugahashimoto.andcode.data.settings.SavedPrompt
+import com.yugahashimoto.andcode.feature.browser.AgentBrowsingBanner
+import com.yugahashimoto.andcode.feature.browser.LocalAgentBrowsing
 import com.yugahashimoto.andcode.feature.browser.PreviewTarget
 import com.yugahashimoto.andcode.feature.browser.PreviewUiState
 import com.yugahashimoto.andcode.runtime.LocalAgent
@@ -698,6 +700,8 @@ fun ChatHomeScreen(
                     onReturn = onReturnToParentSession,
                 )
             }
+            // An agent browsing out of sight, in the hidden browser: the user can look, or close it.
+            LocalAgentBrowsing.current?.let { AgentBrowsingBanner(it) }
 
             Box(modifier = Modifier.weight(1f)) {
                 when {
