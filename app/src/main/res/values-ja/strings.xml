@@ -1192,6 +1192,8 @@
     <string name="notification_channel_schedules">スケジュール実行</string>
     <string name="notification_channel_schedule_agent_changes">エージェントによるスケジュール変更</string>
     <string name="notification_channel_schedule_agent_changes_description">エージェントが確認なしでスケジュールを追加・変更・削除したとき</string>
+    <string name="notification_channel_agent_browsing">エージェントの閲覧</string>
+    <string name="notification_channel_agent_browsing_description">エージェントが非表示のブラウザでページを閲覧している間</string>
     <string name="notification_schedule_agent_created_title">エージェントがスケジュールを追加しました: %1$s</string>
     <string name="notification_schedule_agent_changed_title">エージェントがスケジュールを変更しました: %1$s</string>
     <string name="notification_schedule_agent_deleted_title">エージェントがスケジュールを削除しました: %1$s</string>
@@ -1397,6 +1399,10 @@
     <string name="chat_preview_link">プレビュー</string>
     <string name="chat_preview_unavailable">このデバイスのWebViewを起動できなかったため、プレビューを利用できません。</string>
     <string name="chat_preview_minimize">プレビューを最小化</string>
+    <string name="agent_browsing_notice">エージェントが %1$s を閲覧中</string>
+    <string name="agent_browsing_view">表示</string>
+    <string name="agent_browsing_close">閉じる</string>
+    <string name="agent_browsing_notification_text">画面に出さない非表示のブラウザで閲覧しています。「表示」でそのままのページを確認できます。</string>
     <string name="setup_step_development_tools">開発ツール</string>
     <string name="setup_development_tools_description">既定では実行に必要なものだけをインストールします。完全な開発ツールチェーンも選択できます。</string>
     <string name="setup_required_tools_description">Linux、選択したエージェント、Git、および AndCode が使用するサポートツールです。これらは常にインストールされます。</string>

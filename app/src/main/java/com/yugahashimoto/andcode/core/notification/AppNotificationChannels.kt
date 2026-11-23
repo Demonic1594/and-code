@@ -56,6 +56,14 @@ object AppNotificationChannels {
             NotificationManager.IMPORTANCE_DEFAULT,
             descriptionRes = R.string.notification_channel_schedule_agent_changes_description,
         )
+    val AGENT_BROWSING =
+        ChannelSpec(
+            "andcode_agent_browsing",
+            R.string.notification_channel_agent_browsing,
+            NotificationManager.IMPORTANCE_LOW,
+            descriptionRes = R.string.notification_channel_agent_browsing_description,
+            showBadge = false,
+        )
     val SCHEDULE_RUNS =
         ChannelSpec("andcode_schedule_runs", R.string.notification_channel_schedules, NotificationManager.IMPORTANCE_LOW)
     val LOCAL_RUNTIME =
@@ -78,6 +86,7 @@ object AppNotificationChannels {
             STATUS,
             LIVE_RUNS,
             SCHEDULE_AGENT_CHANGES,
+            AGENT_BROWSING,
             SCHEDULE_RUNS,
             LOCAL_RUNTIME,
             SUPERVISED_PROCESSES,

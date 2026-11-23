@@ -14,6 +14,9 @@ enum class ShortcutDestination(val id: String) {
     NEW_CHAT("new_chat"),
     WORKSPACES("workspaces"),
     SCHEDULES("schedules"),
+
+    /** Not a launcher shortcut: the hidden browser's notification, whose View shows its page in the Guest Browser. */
+    AGENT_BROWSER("agent_browser"),
     ;
 
     companion object {

@@ -1170,6 +1170,8 @@
     <string name="notification_channel_schedules">Exécutions planifiées</string>
     <string name="notification_channel_schedule_agent_changes">Planifications modifiées par des agents</string>
     <string name="notification_channel_schedule_agent_changes_description">Quand un agent ajoute, modifie ou supprime une planification sans vous demander</string>
+    <string name="notification_channel_agent_browsing">Navigation de l\'agent</string>
+    <string name="notification_channel_agent_browsing_description">Pendant qu\'un agent parcourt une page hors de vue, dans son navigateur masqué</string>
     <string name="notification_schedule_agent_created_title">Un agent a ajouté une planification : %1$s</string>
     <string name="notification_schedule_agent_changed_title">Un agent a modifié une planification : %1$s</string>
     <string name="notification_schedule_agent_deleted_title">Un agent a supprimé une planification : %1$s</string>
@@ -1415,6 +1417,10 @@
     <string name="chat_preview_link">Aperçu</string>
     <string name="chat_preview_unavailable">Le WebView de cet appareil n\'a pas pu démarrer, l\'aperçu est donc indisponible.</string>
     <string name="chat_preview_minimize">Réduire l\'aperçu</string>
+    <string name="agent_browsing_notice">L\'agent navigue sur %1$s</string>
+    <string name="agent_browsing_view">Voir</string>
+    <string name="agent_browsing_close">Fermer</string>
+    <string name="agent_browsing_notification_text">Dans son navigateur masqué, hors de vue. Voir vous montre la page telle quelle.</string>
     <string name="setup_step_development_tools">Outils de développement</string>
     <string name="setup_development_tools_description">Installe uniquement le nécessaire par défaut, ou incluez la chaîne complète d’outils.</string>
     <string name="setup_required_tools_description">Linux, les agents sélectionnés, Git et les outils requis par AndCode. Ils sont toujours installés.</string>

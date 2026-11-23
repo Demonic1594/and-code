@@ -166,6 +166,10 @@
             android:foregroundServiceType="microphone" />
 
         <receiver
+            android:name=".feature.browser.AgentBrowserCloseReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".core.notification.PermissionActionReceiver"
             android:exported="false">
             <intent-filter>

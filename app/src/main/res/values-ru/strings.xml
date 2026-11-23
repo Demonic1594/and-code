@@ -1186,6 +1186,8 @@
     <string name="notification_channel_schedules">Запуски по расписанию</string>
     <string name="notification_channel_schedule_agent_changes">Расписания, изменённые агентами</string>
     <string name="notification_channel_schedule_agent_changes_description">Когда агент добавляет, изменяет или удаляет расписание, не спрашивая вас</string>
+    <string name="notification_channel_agent_browsing">Агент в браузере</string>
+    <string name="notification_channel_agent_browsing_description">Пока агент просматривает страницу в скрытом браузере, не на вашем экране</string>
     <string name="notification_schedule_agent_created_title">Агент добавил расписание: %1$s</string>
     <string name="notification_schedule_agent_changed_title">Агент изменил расписание: %1$s</string>
     <string name="notification_schedule_agent_deleted_title">Агент удалил расписание: %1$s</string>
@@ -1434,6 +1436,10 @@
     <string name="chat_preview_link">Просмотр</string>
     <string name="chat_preview_unavailable">WebView на этом устройстве не удалось запустить, поэтому просмотр недоступен.</string>
     <string name="chat_preview_minimize">Свернуть просмотр</string>
+    <string name="agent_browsing_notice">Агент просматривает %1$s</string>
+    <string name="agent_browsing_view">Показать</string>
+    <string name="agent_browsing_close">Закрыть</string>
+    <string name="agent_browsing_notification_text">В скрытом браузере, не на вашем экране. «Показать» откроет страницу как есть.</string>
     <string name="setup_step_development_tools">Инструменты разработки</string>
     <string name="setup_development_tools_description">По умолчанию устанавливаются только необходимые компоненты. При желании можно добавить полный набор инструментов.</string>
     <string name="setup_required_tools_description">Linux, выбранные агенты, Git и вспомогательные инструменты AndCode. Они устанавливаются всегда.</string>

@@ -65,6 +65,7 @@ class NamedChannelsTest {
                 "opencode_status",
                 "opencode_live_runs",
                 "andcode_schedule_agent_changes",
+                "andcode_agent_browsing",
                 "andcode_schedule_runs",
                 "local_opencode_runtime",
                 "andcode_supervised_processes",

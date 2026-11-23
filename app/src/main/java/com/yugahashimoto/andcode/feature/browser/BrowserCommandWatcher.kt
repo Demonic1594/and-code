@@ -1,66 +1,30 @@
 package com.yugahashimoto.andcode.feature.browser
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
 import com.yugahashimoto.andcode.core.util.pollWhileActive
-import com.yugahashimoto.andcode.runtime.LocalAgent
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.withContext
-import java.io.File
 
 private const val POLL_INTERVAL_MILLIS = 1000L
 
 /**
- * Watches for a browser command written by an in-guest agent ([BROWSER_COMMAND_PATH], e.g.
- * `{"action":"open","url":"http://127.0.0.1:8080/","createdAtMs":1800000000000}`) and hands it to
- * [onCommand]: an `open` fills the Guest Browser, a `preview` pins a page on this device inside the
- * conversation, and a `handoff` asks the user to take over (to sign in, say) and pauses the agent until
- * they hand the browser back. Only a command stamped in the last few minutes counts (see
- * [consumeBrowserCommand]).
+ * Reads the browser commands an in-guest agent writes ([BROWSER_COMMAND_PATH], e.g.
+ * `{"action":"open","mode":"hidden","url":"https://example.com/","requestId":"k3","createdAtMs":1800000000000}`)
+ * and hands each to [onCommand], polling only while [active]: while the app is on screen or an agent
+ * is working, which is when the guest can be writing one. Otherwise the loop stays parked rather than
+ * reading the disk every second for the life of the process.
  *
- * Only polls while [foreground] is `true`: opening a browser nobody is looking at achieves nothing,
- * and a composition outlives the activity being stopped, so without the gate this read the disk
- * every second for as long as the process was alive. A command written while the app was away is
- * carried out as soon as it returns, if that is within those few minutes.
- *
- * [foreground] keys the effect, so it must be a reference that stays the same across recompositions
- * (the app's own `StateFlow` is); a flow built inline would restart the watcher, and its immediate
- * first poll, on every recomposition.
- */
-@Composable
-fun GuestBrowserCommandWatcher(
-    workspacePath: String?,
-    agent: LocalAgent?,
-    runtimeDirectory: File,
-    foreground: Flow<Boolean>,
-    onCommand: (BrowserCommand) -> Unit,
-) {
-    val currentOnCommand by rememberUpdatedState(onCommand)
-    LaunchedEffect(workspacePath, agent, runtimeDirectory, foreground) {
-        if (workspacePath == null || agent == null) return@LaunchedEffect
-        watchBrowserCommands(
-            active = foreground,
-            poll = { withContext(Dispatchers.IO) { consumeBrowserCommand(workspacePath, agent, runtimeDirectory) } },
-            onCommand = { command -> currentOnCommand(command) },
-        )
-    }
-}
-
-/**
- * The watcher's loop, apart from Compose so the gating can be tested with a virtual clock.
+ * An `open` fills the Guest Browser or the hidden one, a `preview` pins a page on this device inside
+ * the conversation, a `handoff` asks the user to take over (to sign in, say) and pauses the agent
+ * until they hand the browser back, and a `close` closes the hidden browser.
  *
  * [poll] suspends while it reads the command file, so a gate that closes in that instant can drop
- * the command it has just consumed. That is a window of milliseconds at the moment the app is leaving
- * the screen, when nobody is left to watch the browser open.
+ * the command it has just consumed. That is a window of milliseconds at the moment the guest stops
+ * running, when nothing is left waiting for an answer.
  */
 internal suspend fun watchBrowserCommands(
     active: Flow<Boolean>,
     poll: suspend () -> BrowserCommand?,
-    onCommand: (BrowserCommand) -> Unit,
+    onCommand: suspend (BrowserCommand) -> Unit,
     intervalMillis: Long = POLL_INTERVAL_MILLIS,
 ) {
-    active.pollWhileActive(intervalMillis) { poll()?.let(onCommand) }
+    active.pollWhileActive(intervalMillis) { poll()?.let { onCommand(it) } }
 }
