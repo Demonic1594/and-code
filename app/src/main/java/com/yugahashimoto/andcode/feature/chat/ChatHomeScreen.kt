@@ -209,6 +209,8 @@ fun ChatHomeScreen(
     /** Whether the files can be put back to before a user message, from a snapshot; see TurnSnapshots. */
     canRestoreFiles: (String) -> Boolean = { false },
     onRestoreFiles: (String) -> Unit = {},
+    /** Sends the latest reply's prompt again, first putting the files back when asked to. */
+    onRetryReply: (promptMessageId: String, restoreFilesFirst: Boolean) -> Unit = { _, _ -> },
     onUndoFileRestore: () -> Unit = {},
     onDismissFileRestore: () -> Unit = {},
     onPermission: (String, PermissionResponse, Boolean) -> Unit,
@@ -306,6 +308,10 @@ fun ChatHomeScreen(
     // A rewound chat shows only what comes before the point it was rewound to.
     val shownMessages = state.visibleMessages
     val timelineEntries = remember(shownMessages) { groupConversationTimeline(shownMessages) }
+    // Retry is offered on this reply only: the latest, with no newer prompt waiting.
+    val latestReplyId = remember(timelineEntries) { latestReplyFooterId(timelineEntries) }
+    var replyDetailsShown by remember { mutableStateOf<List<ReplyDetail>?>(null) }
+    var retryAsking by remember { mutableStateOf<ReplyContent?>(null) }
     // Find in chat: which rows match, and which of them is the current one. A new query starts at
     // the newest match, since the chat itself sits at the bottom.
     var findActive by rememberSaveable { mutableStateOf(false) }
@@ -345,6 +351,12 @@ fun ChatHomeScreen(
     val haptics = rememberHaptics()
     val sendGate = LocalSendGate.current
     val context = androidx.compose.ui.platform.LocalContext.current
+    val replySpeaker =
+        rememberReplySpeaker(onUnavailable = { Toast.makeText(context, R.string.reply_speech_unavailable, Toast.LENGTH_LONG).show() })
+    // A reply being read belongs to the chat it is in.
+    LaunchedEffect(state.sessionId) { replySpeaker.stop() }
+    val codeOmitted = stringResource(R.string.reply_speech_code_omitted)
+    val replyTitle = state.sessionTitle.ifBlank { stringResource(R.string.chat_home_title) }
     val imageSaveLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/*")) { uri ->
             val source =
@@ -787,6 +799,60 @@ fun ChatHomeScreen(
                                         onOpenProviderSettings = onOpenProviderSettings,
                                         onOpenChanges = onOpenPatchDiff,
                                         onPreviewArtifact = onOpenArtifact,
+                                        replyActions = { footer ->
+                                            val reply = footer.reply
+                                            val isLatest = footer.id == latestReplyId
+                                            if (reply != null && showsReplyActions(footer, isLatest, state.isRunning)) {
+                                                val copyText = { text: String ->
+                                                    val copied =
+                                                        copyReplyText(
+                                                            context,
+                                                            text,
+                                                            replyTitle,
+                                                        ) { clipboardManager.setText(AnnotatedString(it)) }
+                                                    haptics.perform(if (copied) HapticEvent.CONFIRM else HapticEvent.REJECT)
+                                                }
+                                                ReplyActionRow(
+                                                    showRetry =
+                                                        showsRetry(
+                                                            reply,
+                                                            isLatest,
+                                                            state.isRunning,
+                                                            isBusy = state.isRewinding || state.isRestoringFiles,
+                                                        ),
+                                                    speaking = replySpeaker.speakingKey == footer.id,
+                                                    onCopy = { copyText(replyPlainText(reply.texts)) },
+                                                    onCopyMarkdown = { copyText(replyMarkdown(reply.texts)) },
+                                                    onRetry = {
+                                                        // Restoring drops the reply's changes, so it is asked, never assumed.
+                                                        reply.promptMessageId?.let { promptId ->
+                                                            if (reply.changedFiles && !canRewind && canRestoreFiles(promptId)) {
+                                                                retryAsking = reply
+                                                            } else {
+                                                                onRetryReply(promptId, false)
+                                                            }
+                                                        }
+                                                    },
+                                                    onToggleSpeech = {
+                                                        replySpeaker.toggle(
+                                                            footer.id,
+                                                            replySpeechText(reply.texts, codeOmitted),
+                                                        )
+                                                    },
+                                                    onShare = { shareReplyText(context, replyPlainText(reply.texts), replyTitle) },
+                                                    onQuote = {
+                                                        inputValue =
+                                                            editedInput(
+                                                                inputValue,
+                                                                replyQuote(reply.texts),
+                                                                joins = true,
+                                                                rewound = false,
+                                                            )
+                                                    },
+                                                    onDetails = { replyDetailsShown = replyDetails(reply, footer.durationMs) },
+                                                )
+                                            }
+                                        },
                                     )
                                 }
                             }
@@ -1250,6 +1316,25 @@ fun ChatHomeScreen(
             dismissButton = {
                 TextButton(onClick = { rewindTarget = null }) { Text(stringResource(R.string.cancel)) }
             },
+        )
+    }
+
+    replyDetailsShown?.let { details ->
+        ReplyDetailsSheet(details = details, onDismiss = { replyDetailsShown = null })
+    }
+
+    retryAsking?.let { reply ->
+        val promptId = reply.promptMessageId
+        RetryRestoreDialog(
+            onRestoreAndRetry = {
+                retryAsking = null
+                promptId?.let { onRetryReply(it, true) }
+            },
+            onRetryAsIs = {
+                retryAsking = null
+                promptId?.let { onRetryReply(it, false) }
+            },
+            onDismiss = { retryAsking = null },
         )
     }
 

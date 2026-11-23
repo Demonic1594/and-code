@@ -33,6 +33,23 @@ class ChatTranscriptReloadTest {
     )
 
     @Test
+    fun `a reloaded prompt keeps the model and agent it was sent with when the runtime does not report them`() {
+        val model = com.yugahashimoto.andcode.core.api.OpenCodeModelReference("anthropic", "claude-a")
+        val sent = user("local-1", "Fix the bug", timestamp = 100).copy(model = model, agent = "build")
+        val reloadedWithout = user("server-1", "Fix the bug", timestamp = 100)
+
+        val merged = mergeReloadedMessages(reloaded = listOf(reloadedWithout), existing = listOf(sent)).single()
+        assertEquals(model, merged.model)
+        assertEquals("build", merged.agent)
+
+        val reported = com.yugahashimoto.andcode.core.api.OpenCodeModelReference("openai", "gpt-x")
+        val reloadedWith = reloadedWithout.copy(model = reported, agent = "plan")
+        val runtimeWins = mergeReloadedMessages(reloaded = listOf(reloadedWith), existing = listOf(sent)).single()
+        assertEquals("what the runtime reports wins", reported, runtimeWins.model)
+        assertEquals("plan", runtimeWins.agent)
+    }
+
+    @Test
     fun `keeps a streamed bubble the transcript does not carry yet, ahead of later messages`() {
         val interrupted =
             assistant("m-aborted", "partial answer", timestamp = 200)

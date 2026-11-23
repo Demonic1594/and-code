@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.yugahashimoto.andcode.core.api.ConnectionQualityMonitor
 import com.yugahashimoto.andcode.core.api.OpenCodeEvent
 import com.yugahashimoto.andcode.core.api.OpenCodeMessage
+import com.yugahashimoto.andcode.core.api.OpenCodeModelReference
 import com.yugahashimoto.andcode.core.api.PromptAttachment
 import com.yugahashimoto.andcode.core.api.PromptRequest
 import com.yugahashimoto.andcode.core.api.RunActivity
@@ -120,6 +121,9 @@ private data class QueuedPrompt(
     val chatGeneration: Long,
     /** False for a review from the diff screen, which must not touch the composer when it goes out. */
     val fromComposer: Boolean = true,
+    /** For a retry, the model and agent its prompt went to; null goes with the picker's. */
+    val model: OpenCodeModelReference? = null,
+    val agent: String? = null,
     /** Names it for the actions on the queue above the composer. */
     val id: String = UUID.randomUUID().toString(),
 )
@@ -882,6 +886,47 @@ class ChatViewModel(
     /** Takes the last [restoreFilesTo] back: the files return to how they were just before it. */
     fun undoFileRestore() = restorePoints.undoFileRestore()
 
+    /**
+     * Sends [promptMessageId], the prompt behind the latest reply, again: to the model and agent it
+     * went to, with its own attachments, leaving the composer alone. The earlier reply stays. With
+     * [restoreFilesFirst], the files are first put back to how they were before that prompt, which
+     * drops the reply's changes once the retry goes out, and nothing is sent if they could not be.
+     */
+    fun retryReply(
+        promptMessageId: String,
+        restoreFilesFirst: Boolean,
+    ) {
+        val state = _uiState.value
+        if (state.isRunning || state.isRewinding || restorePoints.inFlight) return
+        val prompt = state.messages.firstOrNull { it.id == promptMessageId && it.isUser } ?: return
+        val retry =
+            QueuedPrompt(
+                text = prompt.text,
+                // A file copied into the workspace is already a note in the text, not an attachment.
+                attachments = prompt.attachments.filter { it.workspacePath.isNullOrBlank() },
+                imagePreviews = prompt.imagePreviews,
+                sessionId = state.sessionId,
+                chatGeneration = state.chatGeneration,
+                fromComposer = false,
+                model = prompt.model,
+                agent = prompt.agent,
+            )
+        // A command goes back through the command path, as it went the first time; it carries no
+        // attachments, and the runtime runs it with the command's own settings either way.
+        val command = matchSlashCommand(prompt.text).takeIf { prompt.attachments.isEmpty() }
+        val sendRetry = {
+            if (command != null) {
+                sendSlashCommand(command.first, command.second, usesComposer = false)
+            } else {
+                send(retry.text, fromComposer = false, held = retry)
+            }
+        }
+        when {
+            !restoreFilesFirst -> sendRetry()
+            restorePoints.canRestoreFiles(promptMessageId) -> restorePoints.restoreFilesTo(promptMessageId, onRestored = sendRetry)
+        }
+    }
+
     fun dismissFileRestore() = restorePoints.dismissFileRestore()
 
     /**
@@ -1022,11 +1067,22 @@ class ChatViewModel(
         // state after the createSession/summarize suspensions below sent turn 1 with whatever
         // model the user switched to mid-dispatch. Text and attachments were already captured
         // this way; the selection now is too.
-        val providerAtSend = _uiState.value.selectedProviderId
-        val modelAtSend = _uiState.value.selectedModelId
-        val agentAtSend = _uiState.value.selectedAgentId
-        val variantAtSend = _uiState.value.selectedVariant
-        val ultracodeAtSend = modelSelection.ultracodeForPrompt
+        // A retry goes to the model and agent its prompt went to, and a variant belongs to the
+        // picker's model, so it goes only when that is the model the prompt goes to.
+        val heldModel = held?.model?.takeIf { it.providerId.isNotBlank() && it.modelId.isNotBlank() }
+        val providerAtSend = heldModel?.providerId ?: _uiState.value.selectedProviderId
+        val modelAtSend = heldModel?.modelId ?: _uiState.value.selectedModelId
+        val agentAtSend = held?.agent ?: _uiState.value.selectedAgentId
+        val pickerModel = providerAtSend == _uiState.value.selectedProviderId && modelAtSend == _uiState.value.selectedModelId
+        val variantAtSend = _uiState.value.selectedVariant.takeIf { pickerModel }
+        // Like the variant, ultracode and the service tier are settings of the picker's model.
+        val ultracodeAtSend = pickerModel && modelSelection.ultracodeForPrompt
+        val serviceTierAtSend = modelSelection.serviceTierForPrompt().takeIf { pickerModel }
+        // The prompt keeps what it went to, so a retry before the transcript reloads (or from a
+        // runtime that never reports it) sends it there again.
+        val promptModel =
+            OpenCodeModelReference(providerAtSend.orEmpty(), modelAtSend.orEmpty())
+                .takeIf { it.providerId.isNotBlank() && it.modelId.isNotBlank() }
         val pendingPreviewsByFilename =
             pendingAttachments
                 .filter { it.mime.startsWith("image/") }
@@ -1073,6 +1129,8 @@ class ChatViewModel(
                         _uiState.value.sessionId,
                         _uiState.value.chatGeneration,
                         fromComposer,
+                        model = held?.model,
+                        agent = held?.agent,
                     )
             }
             val userMessage =
@@ -1081,6 +1139,8 @@ class ChatViewModel(
                     parts = listOf(ChatPart.Text(id = UUID.randomUUID().toString(), text = outgoingText)),
                     attachments = pendingAttachments,
                     imagePreviews = pendingPreviews,
+                    model = promptModel,
+                    agent = agentAtSend,
                 )
             restorePoints.markOffline(userMessage.id)
             _uiState.update {
@@ -1110,6 +1170,8 @@ class ChatViewModel(
                         _uiState.value.sessionId,
                         _uiState.value.chatGeneration,
                         fromComposer,
+                        model = held?.model,
+                        agent = held?.agent,
                     )
             }
             if (usesComposer) _uiState.update { it.copy(attachments = emptyList(), imagePreviews = emptyList()) }
@@ -1128,6 +1190,8 @@ class ChatViewModel(
                     }.orEmpty(),
                 attachments = pendingAttachments,
                 imagePreviews = pendingPreviews,
+                model = promptModel,
+                agent = agentAtSend,
             )
         _uiState.update {
             it.copy(
@@ -1205,7 +1269,7 @@ class ChatViewModel(
                         agent = agentAtSend,
                         variant = variantAtSend,
                         attachments = modelAttachments,
-                        serviceTier = modelSelection.serviceTierForPrompt(),
+                        serviceTier = serviceTierAtSend,
                         ultracode = ultracodeAtSend,
                     ),
                 )

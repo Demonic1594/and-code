@@ -58,12 +58,15 @@ sealed interface TimelineEntry {
 
     /**
      * Trailing meta row for a finished assistant turn: the clock time the reply landed plus how
-     * long the user waited for it, surfaced LINE-style beneath the answer.
+     * long the user waited for it, surfaced LINE-style beneath the answer. [reply] is what the
+     * reply's action row works with; null for a turn with no text of its own, or one that ended in
+     * an error card.
      */
     data class Footer(
         override val id: String,
         val completedAt: Long,
         val durationMs: Long,
+        val reply: ReplyContent? = null,
     ) : TimelineEntry
 }
 
@@ -128,6 +131,8 @@ fun groupConversationTimeline(messages: List<ChatMessage>): List<TimelineEntry> 
     // Whether the turn's latest message has finished. The turn's own completion time is the max over
     // its messages, and OpenCode completes every step message, so that reads as done after step one.
     var turnLastMessageDone = false
+    // The reply the turn's footer carries for its action row.
+    val reply = ReplyCollector()
 
     fun flush() {
         if (pending.isEmpty()) return
@@ -148,6 +153,7 @@ fun groupConversationTimeline(messages: List<ChatMessage>): List<TimelineEntry> 
                 id = "footer:$lastId",
                 completedAt = completed,
                 durationMs = (completed - start).coerceAtLeast(0L),
+                reply = reply.take(),
             )
         turnStartAt = null
         turnCompletedAt = null
@@ -169,6 +175,7 @@ fun groupConversationTimeline(messages: List<ChatMessage>): List<TimelineEntry> 
             flush()
             flushTurnChanges(interrupted = true)
             flushTurnFooter()
+            reply.prompt(message.id)
             lastUserAt = message.timestamp
             entries += TimelineEntry.UserMessage("user:${message.id}", message)
             return@forEach
@@ -176,6 +183,7 @@ fun groupConversationTimeline(messages: List<ChatMessage>): List<TimelineEntry> 
         if (turnStartAt == null) turnStartAt = message.timestamp
         turnLastId = message.id
         turnLastMessageDone = message.completedAt != null
+        reply.message(message)
         message.completedAt?.let { completed ->
             turnCompletedAt = maxOf(turnCompletedAt ?: 0L, completed)
         }
@@ -202,18 +210,23 @@ fun groupConversationTimeline(messages: List<ChatMessage>): List<TimelineEntry> 
                     // Footer must trail the error card the way it trails a body text entry.
                     entries += TimelineEntry.Error("error:${part.id}", part)
                     flushTurnChanges(interrupted = false)
+                    reply.error()
                     flushTurnFooter()
                 }
                 part !is ChatPart.Text -> {
                     pending += part
+                    // The runtimes with snapshots report an edit as a writing tool naming its files.
+                    if (part is ChatPart.Tool && part.filePaths.isNotEmpty()) reply.changedFiles()
                     if (part is ChatPart.Patch && part.files.isNotEmpty()) {
                         if (turnPatchMessageId == null) turnPatchMessageId = part.messageId
                         turnFiles += part.files
+                        reply.changedFiles()
                     }
                 }
                 part.text.isNotBlank() -> {
                     flush()
                     entries += TimelineEntry.Body("body:${part.id}", message.id, part)
+                    reply.text(part.text)
                 }
                 else -> Unit
             }

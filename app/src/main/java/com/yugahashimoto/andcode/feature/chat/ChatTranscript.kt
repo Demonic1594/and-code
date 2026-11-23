@@ -57,6 +57,13 @@ private fun fresherPart(
 }
 
 /**
+ * This message with the model and agent of [previous], its copy on screen, where the runtime reported
+ * none: a prompt keeps what it was sent to, which a retry sends it to again.
+ */
+private fun ChatMessage.withSendTargetOf(previous: ChatMessage?): ChatMessage =
+    if (previous == null) this else copy(model = model ?: previous.model, agent = agent ?: previous.agent)
+
+/**
  * Rebuilds the timeline from the runtime's persisted transcript, keeping what only this client has.
  *
  * [retainIds] names messages streamed here that the transcript may not carry yet. A turn interrupted
@@ -105,7 +112,7 @@ internal fun mergeReloadedMessages(
                 previous?.imagePreviews.orEmpty().ifEmpty {
                     attachments.mapNotNull { previewsByFilename[it.filename] }
                 }
-            message.copy(attachments = attachments, imagePreviews = previews)
+            message.copy(attachments = attachments, imagePreviews = previews).withSendTargetOf(previous)
         }.toMutableList()
     if (retainIds.isNotEmpty()) {
         val reloadedIds = reloaded.map { it.id }.toSet()
@@ -327,5 +334,9 @@ internal fun toChatMessage(message: OpenCodeMessage): ChatMessage? {
         timestamp = message.info.time.created,
         completedAt = message.info.time.completed,
         isStreaming = false,
+        model = message.info.effectiveModel,
+        agent = message.info.agent,
+        tokens = message.info.tokens,
+        costUsd = message.info.cost,
     )
 }
