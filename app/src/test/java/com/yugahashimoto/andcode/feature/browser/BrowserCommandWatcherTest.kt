@@ -216,6 +216,22 @@ class BrowserCommandWatcherTest {
         assertEquals(BrowserCommand.Handoff(rootfs, "r2", ownHidden = "r0"), consumeCommand())
     }
 
+    /** A tool that finds its handoff's command gone must find its status written: one that cannot be recorded waits. */
+    @Test
+    fun `a handoff whose status cannot be written stays for the next poll`() {
+        val file = command("environment/rootfs")
+        file.writeText("{\"action\":\"handoff\",\"requestId\":\"r1\",\"createdAtMs\":$NOW}")
+        val rootfs = File(runtimeDirectory, "environment/rootfs")
+        // A folder where the status goes: it cannot be written.
+        val blocked = File(rootfs, BROWSER_STATUS_PATH).apply { mkdirs() }
+
+        assertNull(consumeCommand())
+        assertTrue("left for the next poll", file.exists())
+
+        blocked.delete()
+        assertEquals(BrowserCommand.Handoff(rootfs, "r1"), consumeCommand())
+    }
+
     /** Taking the banner down without the answer would leave the agent waiting for a tap the user cannot give. */
     @Test
     fun `the handoff banner stays until the agent can read the answer`() {

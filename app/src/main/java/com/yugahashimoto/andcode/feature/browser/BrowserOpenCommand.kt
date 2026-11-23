@@ -132,7 +132,11 @@ internal fun answerBrowserHandoff(
         if (current != null && current != requestId) true else writeBrowserStatus(rootfs, state, requestId)
     }
 
-/** The handoff the status names now, or null when there is none to read. */
+/**
+ * The handoff the status names now, or null when there is none to read. It is read on the caller's
+ * thread, the banner's tap on the main thread, like the status write there: a guest that swaps a fifo
+ * in at the status path between the check and the open can stall it (see [GuestFiles.readBytes]).
+ */
 private fun statusRequestId(rootfs: File): String? =
     runCatching {
         GuestFiles.readText(rootfs, BROWSER_STATUS_PATH, MAX_COMMAND_BYTES.toLong())?.let { text ->
@@ -220,9 +224,10 @@ internal fun consumeBrowserCommand(
 
 /**
  * Removes [commandFile] and returns [command], or null when it could not be removed. A handoff's
- * `awaiting_user` is recorded first, together with the removal: a tool that finds its command gone
- * then knows its status was written, so another handoff's status it reads afterwards means a newer
- * one took over (see `tool_handoff` in andcode-browser-mcp.py).
+ * `awaiting_user` is recorded first, together with the removal, and a handoff whose status cannot be
+ * written stays for the next poll: a tool that finds its command gone then knows its status was
+ * written, so another handoff's status it reads afterwards means a newer one took over (see
+ * `tool_handoff` in andcode-browser-mcp.py).
  */
 private fun takeCommand(
     command: BrowserCommand?,
@@ -231,7 +236,7 @@ private fun takeCommand(
 ): BrowserCommand? {
     if (command !is BrowserCommand.Handoff) return command.takeIf { commandFile.delete() }
     return synchronized(handoffStatusLock) {
-        writeBrowserStatus(rootfs, BROWSER_STATUS_AWAITING_USER, command.requestId)
+        if (!writeBrowserStatus(rootfs, BROWSER_STATUS_AWAITING_USER, command.requestId)) return@synchronized null
         command.takeIf { commandFile.delete() }
     }
 }
