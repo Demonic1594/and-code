@@ -44,7 +44,10 @@ without following a link the guest planted) and shows **"You have control"** ove
 Browser's page; the agent waits until the user taps **Hand back to agent** (or **Cancel**, which
 writes `dismissed`). Each handoff carries a request ID that the status repeats, so an agent reads
 only the answer to its own request; one that a newer handoff replaced before the user answered is
-told so. If the answer cannot be written, the banner stays so the user can tap again. A handoff
+told so. The app records `awaiting_user` before it removes the command, and a late answer to a
+replaced handoff never overwrites the newer one's status, so the tool can tell a newer handoff from
+one the app is still getting to. If the answer cannot be written, the banner stays so the user can
+tap again. A handoff
 never carries a URL, so it cannot reload the sign-in the user just completed. `browser_type`
 refuses a password field it can see.
 
@@ -60,6 +63,7 @@ web-facing files (html/css/js/…), debounced so one burst of writes causes one 
 generated directories (`node_modules`, `.git`, `build`, `dist`, …) are skipped, and the scan is
 capped. Collapsing or backgrounding cancels the watcher, so a hidden preview does no work; the
 fingerprint of what the page shows is kept, so changes made meanwhile reload it when the app is back.
+A watch that starts again before the last one recorded anything reloads the page too.
 Remote (PC) runtimes are not watched from the phone; their dev server's own hot reload applies.
 
 ## Static serving

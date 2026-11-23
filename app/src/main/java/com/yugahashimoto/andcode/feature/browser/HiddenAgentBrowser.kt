@@ -255,12 +255,16 @@ internal class HiddenAgentBrowser(
                 throw cancelled
             }
         if (page !== created) {
-            // Handed to the user while it was being found: it still opens what the agent asked for. Closed
-            // instead (the user closed it, agent control went off): there is nothing left to answer.
+            // Handed to the user while it was being found: it still opens what the agent asked for, also when
+            // its target never showed (the tools then take the page on screen), unless the user has gone
+            // somewhere from the blank page meanwhile. Closed instead (the user closed it, agent control
+            // went off): there is nothing left to answer.
             val handoff = handedOver?.takeIf { it.view === created.view }
-            if (targetId != null && handoff != null) {
-                handoff.targetId = targetId
-                created.view.loadUrl(url)
+            if (handoff != null) {
+                targetId?.let { handoff.targetId = it }
+                // No address at all: the blank page never committed either, and there is nothing of the user's to keep.
+                val current = created.view.url
+                if (current == null || HiddenPageMarker.isMarker(current)) created.view.loadUrl(url)
             }
             return
         }

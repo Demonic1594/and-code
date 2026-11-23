@@ -42,10 +42,11 @@ object BrowserHandoff {
 
     // Only once the agent can read the answer: a banner taken down without it would leave the agent
     // waiting for a tap the user can no longer give. Tapping again tries the write again. A rootfs
-    // that is gone has no agent left to answer.
+    // that is gone has no agent left to answer, and a handoff a newer one replaced is not answered
+    // over the newer one's status.
     private fun finish(state: String) {
         val session = active ?: return
-        if (writeBrowserStatus(session.rootfs, state, session.requestId) || !session.rootfs.isDirectory) active = null
+        if (answerBrowserHandoff(session.rootfs, state, session.requestId) || !session.rootfs.isDirectory) active = null
     }
 
     class Session internal constructor(

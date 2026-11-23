@@ -216,6 +216,22 @@ class BrowserCommandWatcherTest {
         assertEquals(BrowserCommand.Handoff(rootfs, "r2", ownHidden = "r0"), consumeCommand())
     }
 
+    /** A tool that finds its handoff's command gone must find its status written: one that cannot be recorded waits. */
+    @Test
+    fun `a handoff whose status cannot be written stays for the next poll`() {
+        val file = command("environment/rootfs")
+        file.writeText("{\"action\":\"handoff\",\"requestId\":\"r1\",\"createdAtMs\":$NOW}")
+        val rootfs = File(runtimeDirectory, "environment/rootfs")
+        // A folder where the status goes: it cannot be written.
+        val blocked = File(rootfs, BROWSER_STATUS_PATH).apply { mkdirs() }
+
+        assertNull(consumeCommand())
+        assertTrue("left for the next poll", file.exists())
+
+        blocked.delete()
+        assertEquals(BrowserCommand.Handoff(rootfs, "r1"), consumeCommand())
+    }
+
     /** Taking the banner down without the answer would leave the agent waiting for a tap the user cannot give. */
     @Test
     fun `the handoff banner stays until the agent can read the answer`() {
@@ -236,6 +252,36 @@ class BrowserCommandWatcherTest {
         } finally {
             BrowserHandoff.dismiss()
         }
+    }
+
+    /** A replaced handoff's banner answered late must not overwrite the newer handoff's status, which its tool reads. */
+    @Test
+    fun `an answer to a replaced handoff leaves the newer handoff's status alone`() {
+        val rootfs = File(runtimeDirectory, "environment/rootfs").apply { mkdirs() }
+        BrowserHandoff.begin(rootfs, "old")
+        try {
+            writeBrowserStatus(rootfs, BROWSER_STATUS_AWAITING_USER, "new")
+            BrowserHandoff.handBack()
+
+            assertNull(BrowserHandoff.active)
+            val status = File(rootfs, BROWSER_STATUS_PATH).readText()
+            assertTrue(status, status.contains("\"requestId\":\"new\"") && status.contains(BROWSER_STATUS_AWAITING_USER))
+        } finally {
+            BrowserHandoff.dismiss()
+        }
+    }
+
+    @Test
+    fun `an answer is written while the status names its own handoff, or none`() {
+        val rootfs = File(runtimeDirectory, "environment/rootfs").apply { mkdirs() }
+        val status = File(rootfs, BROWSER_STATUS_PATH)
+
+        assertTrue(answerBrowserHandoff(rootfs, BROWSER_STATUS_AGENT, "r1"))
+        assertTrue(status.readText(), status.readText().contains("\"requestId\":\"r1\""))
+
+        writeBrowserStatus(rootfs, BROWSER_STATUS_AWAITING_USER, "r2")
+        assertTrue(answerBrowserHandoff(rootfs, BROWSER_STATUS_DISMISSED, "r2"))
+        assertTrue(status.readText(), status.readText().contains("\"state\":\"$BROWSER_STATUS_DISMISSED\""))
     }
 
     @Test

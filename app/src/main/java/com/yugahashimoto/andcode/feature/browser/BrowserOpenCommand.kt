@@ -106,13 +106,43 @@ internal fun writeBrowserStatus(
     state: String,
     requestId: String = "",
 ): Boolean =
-    try {
-        GuestFiles.write(rootfs, BROWSER_STATUS_PATH, JSONObject().put("state", state).put("requestId", requestId).toString())
-        true
-    } catch (error: IOException) {
-        Log.w(TAG, "The handoff status could not be written", error)
-        false
+    synchronized(handoffStatusLock) {
+        try {
+            GuestFiles.write(rootfs, BROWSER_STATUS_PATH, JSONObject().put("state", state).put("requestId", requestId).toString())
+            if (state == BROWSER_STATUS_AWAITING_USER) shownHandoffs[rootfs.absolutePath] = requestId
+            true
+        } catch (error: IOException) {
+            Log.w(TAG, "The handoff status could not be written", error)
+            false
+        }
     }
+
+/**
+ * Records the user's answer [state] to the handoff [requestId], unless the app has shown a newer
+ * handoff since: the answer to one that was replaced must not overwrite the newer one's status, which
+ * its own tool is reading. True when the status holds the answer, or a newer handoff's; false when it
+ * could not be written. The app remembers which handoff it showed last rather than reading the status
+ * back: the guest owns that file, and a read on the banner's tap (the main thread) could stall on a
+ * fifo planted there.
+ */
+internal fun answerBrowserHandoff(
+    rootfs: File,
+    state: String,
+    requestId: String,
+): Boolean =
+    synchronized(handoffStatusLock) {
+        val shown = shownHandoffs[rootfs.absolutePath]
+        if (shown != null && shown != requestId) true else writeBrowserStatus(rootfs, state, requestId)
+    }
+
+/**
+ * One writer at a time for the handoff status: the command loop records a new handoff while the user
+ * may be answering the one before.
+ */
+private val handoffStatusLock = Any()
+
+/** The handoff whose `awaiting_user` the app wrote last, by rootfs path; guarded by [handoffStatusLock]. */
+private val shownHandoffs = HashMap<String, String>()
 
 /** The rootfs the active local agent runs in: Antigravity's own Debian one when it has it. */
 internal fun guestRootfs(
@@ -181,13 +211,28 @@ internal fun consumeBrowserCommand(
         if (command != null && !accept(command)) {
             null
         } else {
-            command
-                .takeIf { commandFile.delete() }
-                ?.also { consumed ->
-                    if (consumed is BrowserCommand.Handoff) writeBrowserStatus(rootfs, BROWSER_STATUS_AWAITING_USER, consumed.requestId)
-                }
+            takeCommand(command, commandFile, rootfs)
         }
     }.getOrNull()
+}
+
+/**
+ * Removes [commandFile] and returns [command], or null when it could not be removed. A handoff's
+ * `awaiting_user` is recorded first, together with the removal, and a handoff whose status cannot be
+ * written stays for the next poll: a tool that finds its command gone then knows its status was
+ * written, so another handoff's status it reads afterwards means a newer one took over (see
+ * `tool_handoff` in andcode-browser-mcp.py).
+ */
+private fun takeCommand(
+    command: BrowserCommand?,
+    commandFile: File,
+    rootfs: File,
+): BrowserCommand? {
+    if (command !is BrowserCommand.Handoff) return command.takeIf { commandFile.delete() }
+    return synchronized(handoffStatusLock) {
+        if (!writeBrowserStatus(rootfs, BROWSER_STATUS_AWAITING_USER, command.requestId)) return@synchronized null
+        command.takeIf { commandFile.delete() }
+    }
 }
 
 /** The command [json] holds, if it is a fresh and well-formed one. */
