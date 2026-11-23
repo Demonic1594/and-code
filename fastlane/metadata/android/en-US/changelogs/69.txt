@@ -1,3 +1,4 @@
 - New: AndCode LH is now also published as a release build signed with its own key: smaller and faster than the debug build.
 - Moving to it: uninstall a debug-signed AndCode LH first (its chats and settings go with it); a signed install then updates normally.
 - The debug-signed APK is still published for existing debug installs.
+- Lower memory use: a very large tool output is no longer kept in full in a chat's saved history, which makes out-of-memory crashes less likely; an oversized saved history is trimmed when it loads.

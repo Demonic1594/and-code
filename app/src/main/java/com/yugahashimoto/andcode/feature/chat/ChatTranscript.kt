@@ -135,7 +135,7 @@ internal fun mergeReloadedMessages(
     return merged
 }
 
-private const val MAX_TOOL_OUTPUT_CHARS = 4000
+internal const val MAX_TOOL_OUTPUT_CHARS = 4000
 
 internal fun OpenCodePart.toChatPart(messageId: String): ChatPart? {
     val partId = id ?: return null
