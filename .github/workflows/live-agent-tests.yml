@@ -1,0 +1,113 @@
+name: Live agent tests
+
+# Runs real agents on an emulator against real providers: installs the local runtime from its
+# release assets, then has OpenCode (z.ai GLM Coding Plan), and Claude Code and Codex when their
+# keys are set, create a file in a fresh project, and has OpenCode browse in the hidden browser.
+# The tests live in app/src/androidTest/java/com/yugahashimoto/andcode/live; docs/CI.md says
+# how to set the secrets. Started by hand only: every run spends provider quota.
+#
+# Secrets, and why this job handles them as it does (the repository is public and its artifacts
+# can be downloaded by anyone):
+# - workflow_dispatch only, so forks and pull requests never get the secrets.
+# - Each key is handed to the two steps that need it, through env, and nowhere else. GitHub masks
+#   the value of every secret this file references in the logs; scripts/ci/live-agent-run.sh
+#   passes them on as instrumentation arguments through the run's gradle.properties (restored
+#   afterwards, never uploaded), never in a process's arguments on the runner (only in
+#   `am instrument` on the throwaway emulator), and never echoes them. Keys must be single-line:
+#   GitHub masks a multi-line secret line by line only.
+# - The Gradle cache is read-only here, so nothing this job computed is saved to the Actions cache.
+# - No raw logcat and no screenshots are uploaded. Only the test reports are, after
+#   scripts/ci/scrub-secrets.py has replaced every key (and its URL-encoded form) with [REDACTED]
+#   in every file, and deleted logcat captures, images and binary test-result protobufs; it fails, and the
+#   upload is skipped, if a key is still found anywhere.
+on:
+  workflow_dispatch:
+    inputs:
+      api-level:
+        description: Android API level of the emulator image
+        required: true
+        default: '34'
+      zai-model:
+        description: z.ai Coding Plan model OpenCode uses (an id of OpenCode's zai-coding-plan provider)
+        required: true
+        default: glm-4.7
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-agent-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      # No secrets here: the APKs carry no key. See release.yml for the AND_CODE_ prefix.
+      - name: Build the app and its device tests
+        run: ./gradlew :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest
+        env:
+          GITHUB_CLIENT_ID: ${{ vars.AND_CODE_GITHUB_CLIENT_ID }}
+
+      - name: Live agent tests on the emulator
+        timeout-minutes: 100
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          GITHUB_CLIENT_ID: ${{ vars.AND_CODE_GITHUB_CLIENT_ID }}
+          ZAI_MODEL: ${{ inputs.zai-model }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        with:
+          api-level: ${{ inputs.api-level }}
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash scripts/ci/live-agent-run.sh
+
+      # Copies only the test reports, then scrubs the copy; nothing else is uploaded.
+      - name: Collect and scrub the reports
+        id: scrub
+        if: always()
+        env:
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          mkdir -p live-artifacts
+          [ -d app/build/reports/androidTests ] && cp -r app/build/reports/androidTests live-artifacts/reports
+          [ -d app/build/outputs/androidTest-results ] && cp -r app/build/outputs/androidTest-results live-artifacts/results
+          python3 -I scripts/ci/scrub-secrets.py live-artifacts ZAI_API_KEY ANTHROPIC_API_KEY OPENAI_API_KEY
+
+      - name: Upload the scrubbed reports
+        if: always() && steps.scrub.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-agent-results-api${{ inputs.api-level }}
+          path: live-artifacts/
+          if-no-files-found: warn
+          retention-days: 7
