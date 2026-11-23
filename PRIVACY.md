@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: 2026-11-22_
+_Last updated: 2026-11-23_
 
 This document describes what AndCode stores, what it sends off-device, and to whom. It describes
 the app as implemented in this repository, not aspirational behavior — where something is handled
@@ -63,6 +63,10 @@ Anthropic for Claude Code, OpenAI for Codex, Google for Antigravity, or the mode
 connected inside OpenCode). AndCode does not intercept, log, or relay this traffic through a server it operates.
 Each provider's own privacy policy and terms of service apply to that traffic — see
 [THIRD_PARTY_SERVICES.md](THIRD_PARTY_SERVICES.md).
+
+Pages an agent opens in the Guest Browser, or in its hidden browser (the same WebView traffic, for
+pages only an agent opens, never shown unless you tap **View**), load straight from those sites as
+any page you open would; AndCode does not relay them.
 
 ## 4. MCP servers and voice services you configure
 
