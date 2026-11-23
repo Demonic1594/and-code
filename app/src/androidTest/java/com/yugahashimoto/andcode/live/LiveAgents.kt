@@ -12,6 +12,7 @@ import androidx.test.uiautomator.Until
 import com.yugahashimoto.andcode.AndCodeApplication
 import com.yugahashimoto.andcode.MainActivity
 import com.yugahashimoto.andcode.R
+import com.yugahashimoto.andcode.feature.chat.ChatPart
 import com.yugahashimoto.andcode.feature.chat.ChatUiState
 import com.yugahashimoto.andcode.feature.chat.ChatViewModel
 import com.yugahashimoto.andcode.runtime.LocalAgent
@@ -235,9 +236,21 @@ internal object LiveAgents {
         }
         val done =
             waitForState(viewModel, TURN_TIMEOUT_MS, "the agent did not finish its turn") { state ->
-                !state.isRunning && state.messages.any { !it.isUser && it.text.isNotBlank() && !it.isStreaming }
+                turnSucceeded(state)
             }
         return done.messages.last { !it.isUser && it.text.isNotBlank() }.text
+    }
+
+    /**
+     * Whether the latest turn has ended with a reply and no error, neither the chat's own nor one
+     * the runtime left in the transcript. A turn that recovers before the timeout still counts.
+     */
+    fun turnSucceeded(state: ChatUiState): Boolean {
+        val turn = state.messages.takeLastWhile { !it.isUser }
+        return !state.isRunning &&
+            state.error == null &&
+            turn.none { message -> message.parts.any { it is ChatPart.Error } } &&
+            turn.any { it.text.isNotBlank() && !it.isStreaming }
     }
 
     /** The create-a-file check every agent gets: the file, with exactly that content, and a reply. */

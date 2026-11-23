@@ -144,9 +144,7 @@ class LiveOpenCodeZaiTest {
         }
         // The retried turn must end with a reply of its own, after the second prompt.
         LiveAgents.waitForState(viewModel, LiveAgents.TURN_TIMEOUT_MS, "the retried turn did not end with a reply") { state ->
-            !state.isRunning &&
-                state.error == null &&
-                state.messages.takeLastWhile { !it.isUser }.any { it.text.isNotBlank() && !it.isStreaming }
+            LiveAgents.turnSucceeded(state)
         }
     }
 

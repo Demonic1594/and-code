@@ -31,7 +31,8 @@ providers: it installs the local runtime from its release assets, has each agent
 `hello.txt` in a fresh project, and has OpenCode read https://example.com in the hidden browser
 (the "Agent is browsing" notice shows and the Guest Browser stays closed). The tests are in
 `app/src/androidTest/java/com/yugahashimoto/andcode/live`. A run takes up to two hours, mostly
-the runtime download, and sends one short prompt per agent.
+the runtime download. Each agent gets one short prompt, except OpenCode, which gets three: the
+file prompt, its retry (the reply's Retry action) and the hidden-browser prompt.
 
 **Secrets** (Settings → Secrets and variables → Actions → New repository secret). Each test runs
 only when its secret is set and is skipped otherwise:
