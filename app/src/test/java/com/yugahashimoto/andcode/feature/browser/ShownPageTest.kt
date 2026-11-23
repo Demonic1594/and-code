@@ -90,10 +90,14 @@ class ShownPageTest {
                         reloaded.complete(Unit)
                     }
                 }
-            withTimeout(5_000) { reloaded.await() }
-            release.countDown()
+            try {
+                withTimeout(5_000) { reloaded.await() }
+            } finally {
+                // Also on a timeout: the old scan cannot be cancelled, and the test would wait for it forever.
+                release.countDown()
+                current.cancel()
+            }
             old.join()
-            current.cancel()
 
             assertEquals(workspaceFingerprint(root), page.startRun().shown)
         }

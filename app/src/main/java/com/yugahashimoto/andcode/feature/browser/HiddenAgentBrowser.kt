@@ -262,7 +262,9 @@ internal class HiddenAgentBrowser(
             val handoff = handedOver?.takeIf { it.view === created.view }
             if (handoff != null) {
                 targetId?.let { handoff.targetId = it }
-                if (HiddenPageMarker.isMarker(created.view.url)) created.view.loadUrl(url)
+                // No address at all: the blank page never committed either, and there is nothing of the user's to keep.
+                val current = created.view.url
+                if (current == null || HiddenPageMarker.isMarker(current)) created.view.loadUrl(url)
             }
             return
         }

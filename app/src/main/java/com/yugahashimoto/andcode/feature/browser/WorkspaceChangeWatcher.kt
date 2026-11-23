@@ -8,7 +8,6 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.file.Files
-import java.util.concurrent.atomic.AtomicInteger
 
 private const val DEFAULT_INTERVAL_MILLIS = 1500L
 private const val DEBOUNCE_MILLIS = 500L
@@ -140,21 +139,23 @@ internal fun workspaceFingerprint(rootDir: File): Long {
  * and starting again (the app going to the background and back): one per page.
  */
 internal class ShownPage {
-    private val runs = AtomicInteger()
-
-    @Volatile private var fingerprint: Long? = null
+    private val lock = Any()
+    private var runs = 0
+    private var fingerprint: Long? = null
 
     /**
      * Starts a watch run. The first takes its baseline from its own first scan. A later one with
      * nothing recorded started before an earlier run's first scan reported, so the page may show
      * older files than its scan will read: it compares against [UNKNOWN_FINGERPRINT] and reloads.
      */
-    fun startRun(): WatchRun {
-        val run = runs.incrementAndGet()
-        val shown = if (run == 1) null else fingerprint ?: UNKNOWN_FINGERPRINT
-        // A run that a newer one replaced reports nothing: its scan may finish after the newer run's.
-        return WatchRun(shown) { value -> if (runs.get() == run) fingerprint = value }
-    }
+    fun startRun(): WatchRun =
+        synchronized(lock) {
+            val run = ++runs
+            val shown = if (run == 1) null else fingerprint ?: UNKNOWN_FINGERPRINT
+            // A run that a newer one replaced reports nothing: its scan may finish after the newer run's.
+            // The check and the write are one step, so a report cannot land just after a newer run began.
+            WatchRun(shown) { value -> synchronized(lock) { if (runs == run) fingerprint = value } }
+        }
 }
 
 /** One run of the live-reload watch: what it compares against, and where it reports what the page shows. */

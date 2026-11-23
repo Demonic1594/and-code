@@ -109,6 +109,7 @@ internal fun writeBrowserStatus(
     synchronized(handoffStatusLock) {
         try {
             GuestFiles.write(rootfs, BROWSER_STATUS_PATH, JSONObject().put("state", state).put("requestId", requestId).toString())
+            if (state == BROWSER_STATUS_AWAITING_USER) shownHandoffs[rootfs.absolutePath] = requestId
             true
         } catch (error: IOException) {
             Log.w(TAG, "The handoff status could not be written", error)
@@ -117,10 +118,12 @@ internal fun writeBrowserStatus(
     }
 
 /**
- * Records the user's answer [state] to the handoff [requestId], unless the status already names a
- * newer handoff: the answer to one that was replaced must not overwrite the newer one's, which its
- * own tool is reading. True when the status holds the answer, or a newer handoff's; false when it
- * could not be written.
+ * Records the user's answer [state] to the handoff [requestId], unless the app has shown a newer
+ * handoff since: the answer to one that was replaced must not overwrite the newer one's status, which
+ * its own tool is reading. True when the status holds the answer, or a newer handoff's; false when it
+ * could not be written. The app remembers which handoff it showed last rather than reading the status
+ * back: the guest owns that file, and a read on the banner's tap (the main thread) could stall on a
+ * fifo planted there.
  */
 internal fun answerBrowserHandoff(
     rootfs: File,
@@ -128,27 +131,18 @@ internal fun answerBrowserHandoff(
     requestId: String,
 ): Boolean =
     synchronized(handoffStatusLock) {
-        val current = statusRequestId(rootfs)
-        if (current != null && current != requestId) true else writeBrowserStatus(rootfs, state, requestId)
+        val shown = shownHandoffs[rootfs.absolutePath]
+        if (shown != null && shown != requestId) true else writeBrowserStatus(rootfs, state, requestId)
     }
-
-/**
- * The handoff the status names now, or null when there is none to read. It is read on the caller's
- * thread, the banner's tap on the main thread, like the status write there: a guest that swaps a fifo
- * in at the status path between the check and the open can stall it (see [GuestFiles.readBytes]).
- */
-private fun statusRequestId(rootfs: File): String? =
-    runCatching {
-        GuestFiles.readText(rootfs, BROWSER_STATUS_PATH, MAX_COMMAND_BYTES.toLong())?.let { text ->
-            JSONObject(text).optString("requestId").takeIf { it.isNotEmpty() }
-        }
-    }.getOrNull()
 
 /**
  * One writer at a time for the handoff status: the command loop records a new handoff while the user
  * may be answering the one before.
  */
 private val handoffStatusLock = Any()
+
+/** The handoff whose `awaiting_user` the app wrote last, by rootfs path; guarded by [handoffStatusLock]. */
+private val shownHandoffs = HashMap<String, String>()
 
 /** The rootfs the active local agent runs in: Antigravity's own Debian one when it has it. */
 internal fun guestRootfs(
