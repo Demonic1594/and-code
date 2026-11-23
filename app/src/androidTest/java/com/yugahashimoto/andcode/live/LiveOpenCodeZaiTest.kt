@@ -1,6 +1,7 @@
 package com.yugahashimoto.andcode.live
 
 import android.content.ClipboardManager
+import android.util.Log
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
@@ -44,7 +45,6 @@ class LiveOpenCodeZaiTest {
     @Before
     fun setUp() {
         val key = LiveAgents.requireKey(LiveAgents.ARG_ZAI_KEY)
-        model = LiveAgents.argument(LiveAgents.ARG_ZAI_MODEL) ?: LiveAgents.DEFAULT_ZAI_MODEL
         val app = LiveAgents.app
         app.providerCredentials.setCredential(LiveAgents.ZAI_PROVIDER_ID, key)
         LiveAgents.ensureRuntimeInstalled()
@@ -54,7 +54,8 @@ class LiveOpenCodeZaiTest {
             app.localRuntimeManager.stop()
             app.localRuntimeManager.start().getOrElse { fail("OpenCode did not restart: ${it.message}") }
         }
-        assertModelIsOffered()
+        LiveAgents.awaitOpenCodeApi()
+        model = chooseModel()
         app.preferences.selectModel(LiveAgents.ZAI_PROVIDER_ID, model)
         app.preferences.setAutoAcceptPermissions(true)
     }
@@ -67,21 +68,30 @@ class LiveOpenCodeZaiTest {
         }
     }
 
-    /** Fails with the plan's model list when [model] is not one OpenCode offers for it. */
-    private fun assertModelIsOffered() {
+    /**
+     * The `zaiModel` argument when the plan offers it; otherwise a `-flash` model the plan offers,
+     * else the first it offers, so a run never depends on a model the plan has since dropped.
+     */
+    private fun chooseModel(): String {
         val backend = LiveAgents.app.runtimeRegistry.target(LocalAgent.OPEN_CODE.targetId) ?: fail("OpenCode is not registered") as Nothing
         val catalog = runBlocking { backend.listProviders() }
         assertTrue(
             "OpenCode does not count ${LiveAgents.ZAI_PROVIDER_ID} as connected; the key was not picked up",
             LiveAgents.ZAI_PROVIDER_ID in catalog.connected,
         )
-        val provider =
-            catalog.all.firstOrNull { it.id == LiveAgents.ZAI_PROVIDER_ID }
+        val offered =
+            catalog.all.firstOrNull { it.id == LiveAgents.ZAI_PROVIDER_ID }?.models?.keys?.sorted()
                 ?: fail("OpenCode does not know the ${LiveAgents.ZAI_PROVIDER_ID} provider") as Nothing
-        assertTrue(
-            "$model is not a ${LiveAgents.ZAI_PROVIDER_ID} model; offered: ${provider.models.keys.sorted()}",
-            provider.models.containsKey(model),
-        )
+        assertTrue("${LiveAgents.ZAI_PROVIDER_ID} offers no models", offered.isNotEmpty())
+        val requested = LiveAgents.argument(LiveAgents.ARG_ZAI_MODEL)
+        val chosen = requested?.takeIf { it in offered } ?: offered.firstOrNull { it.endsWith("-flash") } ?: offered.first()
+        // Model ids are not secret; the log says which one the run used and why.
+        if (requested != null && requested != chosen) {
+            Log.w(TAG, "z.ai model $requested is not offered; using $chosen (offered: $offered)")
+        } else {
+            Log.i(TAG, "z.ai model $chosen (requested: ${requested ?: "auto"}; offered: $offered)")
+        }
+        return chosen
     }
 
     /** The chat uses the plan's model only once the app has checked it against OpenCode's catalogue. */
@@ -199,6 +209,7 @@ class LiveOpenCodeZaiTest {
     }
 
     private companion object {
+        const val TAG = "LiveOpenCodeZaiTest"
         const val REPLY_EXCERPT = 200
         const val RETRY_DIALOG_WAIT_MS = 5_000L
         const val BROWSER_PROMPT =
